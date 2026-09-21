@@ -1,0 +1,208 @@
+.find-slot-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 110;
+  padding: 20px;
+  animation: fade-in 0.15s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.find-slot-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  animation: slide-up 0.18s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.find-slot-header {
+  position: relative;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.find-slot-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 28px 0 0;
+  font-size: 17px;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+
+.find-slot-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--surface-hover);
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+.find-slot-close:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.find-slot-body {
+  padding: 18px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.find-slot-row {
+  display: flex;
+  gap: 12px;
+}
+.find-slot-row .find-slot-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.find-slot-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.find-slot-field input,
+.find-slot-field select {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.find-slot-field input:focus,
+.find-slot-field select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.find-slot-error {
+  font-size: 13px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.find-slot-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.find-slot-action-btn {
+  flex: 1;
+  padding: 9px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  transition: background 0.15s;
+}
+.find-slot-action-btn:hover {
+  background: var(--surface-hover);
+}
+.find-slot-action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.find-slot-action-btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+.find-slot-results {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.find-slot-empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.find-slot-results ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.find-slot-result-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.find-slot-result-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.find-slot-result-btn svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.find-slot-result-text {
+  font-size: 13.5px;
+  text-transform: capitalize;
+}
