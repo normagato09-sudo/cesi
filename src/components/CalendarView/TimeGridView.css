@@ -203,3 +203,43 @@
   font-size: 10.5px;
   color: var(--text-secondary);
 }
+
+@media (max-width: 640px) {
+  /* Debe coincidir con el HOUR_HEIGHT móvil de TimeGridView.jsx para que las horas
+     del margen izquierdo sigan alineadas con las celdas de la rejilla. */
+  .time-grid-hour-label {
+    height: 64px;
+    font-size: 11.5px;
+    padding-right: 6px;
+  }
+
+  .time-grid-gutter {
+    padding: 6px 4px;
+  }
+
+  .time-grid-day-header {
+    padding: 8px 2px;
+  }
+
+  .time-grid-day-number {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .time-grid-event-title {
+    font-size: 12.5px;
+  }
+  .time-grid-event-time {
+    font-size: 11px;
+  }
+
+  .time-grid-event-resize-handle {
+    height: 14px;
+  }
+
+  .time-grid-allday-event {
+    padding: 5px 8px;
+    font-size: 12.5px;
+  }
+}

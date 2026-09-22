@@ -84,7 +84,15 @@
 
   .summary-card {
     flex-shrink: 0;
-    min-width: 168px;
-    padding: 8px 12px;
+    min-width: 180px;
+    padding: 10px 14px;
+  }
+
+  .next-meeting-title {
+    font-size: 14.5px;
+  }
+  .next-meeting-time,
+  .summary-stats {
+    font-size: 13px;
   }
 }

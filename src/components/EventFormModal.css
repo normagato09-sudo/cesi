@@ -232,3 +232,80 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+@media (max-width: 640px) {
+  .event-form-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .event-form {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .event-form-header {
+    padding: 18px 20px 14px;
+  }
+  .event-form-header h2 {
+    font-size: 16px;
+  }
+
+  .event-form-close {
+    width: 36px;
+    height: 36px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .event-form-body {
+    padding: 16px 20px;
+    gap: 16px;
+  }
+
+  .event-form-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .event-form-field {
+    font-size: 13px;
+  }
+
+  .event-form-field input,
+  .event-form-field select,
+  .event-form-field textarea {
+    font-size: 16px;
+    padding: 12px 12px;
+  }
+
+  .event-form-type-switch button {
+    padding: 11px 10px;
+    font-size: 14px;
+  }
+
+  .event-form-checkbox {
+    font-size: 15px;
+  }
+  .event-form-checkbox input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .event-form-find-slot-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .event-form-footer {
+    padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .event-form-cancel,
+  .event-form-submit {
+    flex: 1;
+    padding: 13px 16px;
+    font-size: 15px;
+  }
+}

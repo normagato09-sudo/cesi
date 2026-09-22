@@ -144,9 +144,49 @@
 
 @media (max-width: 640px) {
   .calendar-header {
-    padding: 12px 16px;
+    padding: 10px 12px;
+    gap: 10px;
   }
+
+  .calendar-header-left,
+  .calendar-header-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
   .calendar-header-label {
     font-size: 15px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .today-btn {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .header-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .header-actions {
+    flex-basis: 100%;
+    gap: 8px;
+  }
+
+  .header-action-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .view-switch-btn {
+    padding: 9px 10px;
   }
 }

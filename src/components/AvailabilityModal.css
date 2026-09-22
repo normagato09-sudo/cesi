@@ -170,3 +170,68 @@
 .availability-submit:hover {
   background: var(--accent-hover);
 }
+
+@media (max-width: 640px) {
+  .availability-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .availability-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .availability-header {
+    padding: 18px 20px 12px;
+  }
+  .availability-header h2 {
+    font-size: 16px;
+  }
+  .availability-close {
+    width: 36px;
+    height: 36px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .availability-hint {
+    padding: 0 20px 14px;
+  }
+
+  .availability-body {
+    padding: 14px 20px 0;
+    gap: 12px;
+  }
+
+  .availability-row {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .availability-day-toggle {
+    width: 100%;
+    font-size: 14px;
+  }
+  .availability-day-toggle input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .availability-row input[type='time'] {
+    flex: 1;
+    font-size: 16px;
+    padding: 10px;
+  }
+
+  .availability-footer {
+    padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  .availability-cancel,
+  .availability-submit {
+    flex: 1;
+    padding: 13px;
+    font-size: 15px;
+  }
+}

@@ -193,3 +193,51 @@
 .event-modal-action-btn.danger:hover:not(:disabled) {
   background: #fef2f2;
 }
+
+@media (max-width: 640px) {
+  .event-modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .event-modal {
+    max-width: 100%;
+    max-height: 92vh;
+  }
+
+  .event-modal-header {
+    padding: 20px 20px 16px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .event-modal-header h2 {
+    font-size: 18px;
+  }
+
+  .event-modal-close {
+    width: 36px;
+    height: 36px;
+    top: 14px;
+    right: 14px;
+  }
+
+  .event-modal-body {
+    padding: 16px 20px;
+  }
+
+  .event-modal-row {
+    font-size: 15px;
+  }
+
+  .event-modal-footer {
+    padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .event-modal-actions {
+    flex-direction: column;
+  }
+
+  .event-modal-action-btn {
+    padding: 13px;
+    font-size: 15px;
+  }
+}

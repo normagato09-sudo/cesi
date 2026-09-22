@@ -206,3 +206,63 @@
   font-size: 13.5px;
   text-transform: capitalize;
 }
+
+@media (max-width: 640px) {
+  .find-slot-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .find-slot-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .find-slot-header {
+    padding: 18px 20px 14px;
+  }
+  .find-slot-header h2 {
+    font-size: 16px;
+  }
+  .find-slot-close {
+    width: 36px;
+    height: 36px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .find-slot-body {
+    padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    gap: 16px;
+  }
+
+  .find-slot-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .find-slot-field {
+    font-size: 13px;
+  }
+  .find-slot-field input,
+  .find-slot-field select {
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  .find-slot-actions {
+    flex-direction: column;
+  }
+  .find-slot-action-btn {
+    padding: 13px;
+    font-size: 14.5px;
+  }
+
+  .find-slot-result-btn {
+    padding: 13px 14px;
+  }
+  .find-slot-result-text {
+    font-size: 14px;
+  }
+}

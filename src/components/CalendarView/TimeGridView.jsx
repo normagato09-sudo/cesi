@@ -4,9 +4,10 @@ import { Ban } from 'lucide-react'
 import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
+import { dragThresholdFor } from '../../lib/dragThreshold'
+import { useMediaQuery } from '../../lib/useMediaQuery'
 import './TimeGridView.css'
 
-const HOUR_HEIGHT = 56
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SNAP_MINUTES = 15
 const GUTTER_WIDTH = 56
@@ -20,6 +21,8 @@ function snap(minutes) {
 }
 
 export default function TimeGridView({ days, events, onSelectEvent, onSlotClick, onMoveEvent, onResizeEvent }) {
+  const isMobile = useMediaQuery('(max-width: 640px)')
+  const HOUR_HEIGHT = isMobile ? 64 : 56
   const scrollRef = useRef(null)
   const dragDataRef = useRef(null)
   const draggedRef = useRef(false)
@@ -30,7 +33,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     if (scrollRef.current) {
       scrollRef.current.scrollTop = Math.max(0, 7 * HOUR_HEIGHT - 80)
     }
-  }, [])
+  }, [HOUR_HEIGHT])
 
   const displayEvents = dragPreview
     ? events.map((ev) => (ev.id === dragPreview.id ? { ...ev, start: dragPreview.start, end: dragPreview.end } : ev))
@@ -57,13 +60,14 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       kind: 'move',
       event,
       pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      engaged: false,
       startClientX: e.clientX,
       startClientY: e.clientY,
       originalStart: event.start,
       originalDayIndex: dayIndex,
       duration: event.end - event.start,
     }
-    setDragPreview({ id: event.id, start: event.start, end: event.end })
   }
 
   const handleResizeStart = (e, event) => {
@@ -75,16 +79,26 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       kind: 'resize',
       event,
       pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      engaged: false,
+      startClientX: e.clientX,
       startClientY: e.clientY,
       originalStart: event.start,
       originalEnd: event.end,
     }
-    setDragPreview({ id: event.id, start: event.start, end: event.end })
   }
 
   const handlePointerMove = (e) => {
     const drag = dragDataRef.current
     if (!drag || e.pointerId !== drag.pointerId) return
+
+    if (!drag.engaged) {
+      const dist = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY)
+      if (dist < dragThresholdFor(drag.pointerType)) return
+      drag.engaged = true
+      draggedRef.current = true
+    }
+
     const deltaMinutes = snap(((e.clientY - drag.startClientY) / HOUR_HEIGHT) * 60)
 
     if (drag.kind === 'move') {
@@ -98,7 +112,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       const minutesInto = Math.min(24 * 60 - durationMin, Math.max(0, (newStart - dayStart) / 60000))
       newStart = new Date(dayStart.getTime() + minutesInto * 60000)
       const newEnd = new Date(newStart.getTime() + drag.duration)
-      if (newStart.getTime() !== drag.originalStart.getTime()) draggedRef.current = true
       setDragPreview({ id: drag.event.id, start: newStart, end: newEnd })
     } else {
       const dayStart = startOfDay(drag.originalEnd)
@@ -106,7 +119,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       let endMinutes = (drag.originalEnd - dayStart) / 60000 + deltaMinutes
       endMinutes = Math.max(startMinutes + SNAP_MINUTES, Math.min(24 * 60, endMinutes))
       const newEnd = new Date(dayStart.getTime() + endMinutes * 60000)
-      if (newEnd.getTime() !== drag.originalEnd.getTime()) draggedRef.current = true
       setDragPreview({ id: drag.event.id, start: drag.originalStart, end: newEnd })
     }
   }
