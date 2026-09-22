@@ -1,21 +1,26 @@
 import { useRef, useState } from 'react'
 import { format, addDays } from 'date-fns'
-import { Ban } from 'lucide-react'
+import { es } from 'date-fns/locale'
 import { getMonthGridDays, isSameDay, isSameMonth } from '../../lib/dateHelpers'
 import { isEventOnDay } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
+import { dragThresholdFor } from '../../lib/dragThreshold'
+import { useMediaQuery } from '../../lib/useMediaQuery'
+import DayEventsModal from '../DayEventsModal.jsx'
 import './MonthView.css'
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-const MAX_VISIBLE = 3
 
 export default function MonthView({ currentDate, events, onSelectEvent, onSelectDay, onMoveEvent }) {
+  const isMobile = useMediaQuery('(max-width: 640px)')
+  const MAX_VISIBLE_DOTS = isMobile ? 4 : 6
   const days = getMonthGridDays(currentDate)
   const today = new Date()
   const gridRef = useRef(null)
   const dragDataRef = useRef(null)
   const draggedRef = useRef(false)
   const [dragPreview, setDragPreview] = useState(null) // { id, dayIndex }
+  const [dayListDay, setDayListDay] = useState(null)
 
   const dayIndexFromPoint = (clientX, clientY) => {
     if (!gridRef.current) return null
@@ -44,16 +49,30 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false
-    dragDataRef.current = { event: ev, pointerId: e.pointerId, originalDayIndex: dayIndex }
-    setDragPreview({ id: ev.id, dayIndex, originalDayIndex: dayIndex })
+    dragDataRef.current = {
+      event: ev,
+      pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      engaged: false,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      originalDayIndex: dayIndex,
+    }
   }
 
   const handlePointerMove = (e) => {
     const drag = dragDataRef.current
     if (!drag || e.pointerId !== drag.pointerId) return
+
+    if (!drag.engaged) {
+      const dist = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY)
+      if (dist < dragThresholdFor(drag.pointerType)) return
+      drag.engaged = true
+      draggedRef.current = true
+    }
+
     const newIndex = dayIndexFromPoint(e.clientX, e.clientY)
     if (newIndex === null) return
-    if (newIndex !== drag.originalDayIndex) draggedRef.current = true
     setDragPreview({ id: drag.event.id, dayIndex: newIndex, originalDayIndex: drag.originalDayIndex })
   }
 
@@ -68,12 +87,21 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
     }
   }
 
-  const handleEventClick = (ev) => {
+  const handleEventClick = (e, ev) => {
+    e.stopPropagation()
     if (draggedRef.current) {
       draggedRef.current = false
       return
     }
     onSelectEvent(ev)
+  }
+
+  const getDayEvents = (day) =>
+    displayEvents.filter((ev) => isEventOnDay(ev, day)).sort((a, b) => a.start - b.start)
+
+  const handleCellDoubleClick = (day) => {
+    setDayListDay(null)
+    onSelectDay?.(day)
   }
 
   return (
@@ -87,49 +115,79 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
       </div>
       <div className="month-grid" ref={gridRef}>
         {days.map((day, dayIndex) => {
-          const dayEvents = displayEvents
-            .filter((ev) => isEventOnDay(ev, day))
-            .sort((a, b) => a.start - b.start)
+          const dayEvents = getDayEvents(day)
           const isToday = isSameDay(day, today)
           const inMonth = isSameMonth(day, currentDate)
-          const visible = dayEvents.slice(0, MAX_VISIBLE)
+          const hasEvents = dayEvents.length > 0
+          const visible = dayEvents.slice(0, MAX_VISIBLE_DOTS)
           const extra = dayEvents.length - visible.length
 
           return (
             <div
               key={day.toISOString()}
               className={`month-cell ${inMonth ? '' : 'outside'}`}
-              onDoubleClick={() => onSelectDay?.(day)}
+              onDoubleClick={() => handleCellDoubleClick(day)}
             >
-              <div className={`month-cell-date ${isToday ? 'today' : ''}`}>
+              <button
+                type="button"
+                className={`month-cell-date ${isToday ? 'today' : ''} ${hasEvents ? 'clickable' : ''}`}
+                onClick={() => hasEvents && setDayListDay(day)}
+                aria-label={
+                  hasEvents
+                    ? `Ver ${dayEvents.length} reunión(es) del ${format(day, 'd MMMM', { locale: es })}`
+                    : format(day, 'd MMMM', { locale: es })
+                }
+              >
                 {format(day, 'd')}
-              </div>
+              </button>
               <div className="month-cell-events">
-                {visible.map((ev) => (
+                {visible.length > 0 && (
+                  <div className="month-day-dots">
+                    {visible.map((ev) => (
+                      <button
+                        type="button"
+                        key={ev.id}
+                        className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
+                        style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
+                        title={`${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}`}
+                        aria-label={ev.title}
+                        onPointerDown={(e) => handlePointerDown(e, ev, dayIndex)}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={finishDrag}
+                        onPointerCancel={finishDrag}
+                        onClick={(e) => handleEventClick(e, ev)}
+                      >
+                        <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''}`} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {extra > 0 && (
                   <button
                     type="button"
-                    key={ev.id}
-                    className={`month-event ${ev.isUnavailable ? 'unavailable' : ''} ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
-                    style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                    onPointerDown={(e) => handlePointerDown(e, ev, dayIndex)}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={finishDrag}
-                    onPointerCancel={finishDrag}
-                    onClick={() => handleEventClick(ev)}
+                    className="month-day-more"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDayListDay(day)
+                    }}
                   >
-                    {ev.isUnavailable && <Ban size={11} strokeWidth={2} className="month-event-icon" />}
-                    {!ev.allDay && (
-                      <span className="month-event-time">{format(ev.start, 'HH:mm')}</span>
-                    )}
-                    <span className="month-event-title">{ev.title}</span>
+                    +{extra}
                   </button>
-                ))}
-                {extra > 0 && <div className="month-event-more">+{extra} más</div>}
+                )}
               </div>
             </div>
           )
         })}
       </div>
+      <DayEventsModal
+        day={dayListDay}
+        events={dayListDay ? getDayEvents(dayListDay) : []}
+        onClose={() => setDayListDay(null)}
+        onSelectEvent={(ev) => {
+          setDayListDay(null)
+          onSelectEvent(ev)
+        }}
+      />
     </div>
   )
 }
