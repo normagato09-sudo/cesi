@@ -9,7 +9,7 @@ import { expandEvents } from '../lib/recurrence'
 import { findConflict } from '../lib/conflicts'
 import { getWorkingHours, saveWorkingHours as storageSaveWorkingHours } from '../lib/availability'
 
-// Fuente de datos propia de CESI (localStorage), independiente de Google Calendar.
+// Fuente de datos propia de CESI (localStorage).
 export function useLocalCalendar(range) {
   const [rawEvents, setRawEvents] = useState(() => getAllEvents())
   const [workingHours, setWorkingHoursState] = useState(() => getWorkingHours())
