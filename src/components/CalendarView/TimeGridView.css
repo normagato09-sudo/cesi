@@ -101,6 +101,9 @@
 .time-grid-body {
   flex: 1;
   display: flex;
+  /* Las columnas miden las 24 horas completas y no solo la parte visible; si no, su
+     línea divisoria se corta al hacer scroll. */
+  align-items: flex-start;
   overflow-y: auto;
   position: relative;
 }
