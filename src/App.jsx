@@ -11,6 +11,7 @@ import EventFormModal from './components/EventFormModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
 import AvailabilityModal from './components/AvailabilityModal.jsx'
 import ContactsView from './components/ContactsView.jsx'
+import BackupModal from './components/BackupModal.jsx'
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
@@ -46,6 +47,7 @@ export default function App() {
   const [formModal, setFormModal] = useState(null)
   const [findSlotOpen, setFindSlotOpen] = useState(false)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
+  const [backupOpen, setBackupOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -61,10 +63,26 @@ export default function App() {
     [currentDate, view, compactWeek],
   )
 
-  const { rawEvents, events, workingHours, setWorkingHours, checkConflict, addEvent, editEvent, removeEvent } =
-    useLocalCalendar(range)
+  const {
+    rawEvents,
+    events,
+    workingHours,
+    setWorkingHours,
+    checkConflict,
+    addEvent,
+    editEvent,
+    removeEvent,
+    reloadAll: reloadCalendar,
+  } = useLocalCalendar(range)
 
-  const { contacts, addContact, editContact, removeContact } = useContacts()
+  const { contacts, addContact, editContact, removeContact, refresh: reloadContacts } = useContacts()
+
+  const handleBackupRestored = () => {
+    reloadCalendar()
+    reloadContacts()
+    setSelectedEvent(null)
+    setSelectedContactId(null)
+  }
 
   const summary = useMemo(() => computeSummary(rawEvents, workingHours, now), [rawEvents, workingHours, now])
 
@@ -160,7 +178,13 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar summary={summary} now={now} section={section} onSectionChange={setSection} />
+      <Sidebar
+        summary={summary}
+        now={now}
+        section={section}
+        onSectionChange={setSection}
+        onOpenBackup={() => setBackupOpen(true)}
+      />
 
       {section === 'contacts' && (
         <div className="app-main">
@@ -259,6 +283,8 @@ export default function App() {
       {findSlotOpen && (
         <FindSlotModal rawEvents={rawEvents} initialDurationMinutes={60} onPick={handleFindSlotPick} onClose={() => setFindSlotOpen(false)} />
       )}
+
+      {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
 
       {availabilityOpen && (
         <AvailabilityModal

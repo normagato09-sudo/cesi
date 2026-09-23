@@ -66,12 +66,40 @@
   font-weight: 500;
 }
 
+.sidebar-footer {
+  margin-top: auto;
+}
+
+.sidebar-backup-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-backup-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
 @media (max-width: 860px) {
+  /* Fila 1: pestañas + botón de copia (solo icono). Fila 2: resumen. */
   .sidebar {
     width: 100%;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'nav footer'
+      'summary summary';
     align-items: stretch;
-    gap: 10px;
+    gap: 10px 8px;
     padding: 10px 14px;
     border-right: none;
     border-bottom: 1px solid var(--border);
@@ -83,6 +111,7 @@
 
   /* Pestañas compactas arriba */
   .sidebar-nav {
+    grid-area: nav;
     flex-direction: row;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -110,7 +139,24 @@
 
   /* El resumen conserva su fila con scroll horizontal */
   .sidebar .summary-panel {
+    grid-area: summary;
     overflow-x: auto;
+  }
+
+  .sidebar-footer {
+    grid-area: footer;
+    margin-top: 0;
+    display: flex;
+  }
+
+  .sidebar-backup-btn {
+    width: 40px;
+    justify-content: center;
+    padding: 0;
+    color: var(--text-secondary);
+  }
+  .sidebar-backup-btn span {
+    display: none;
   }
 
   /* En Contactos el resumen del calendario no aporta nada y quita espacio en móvil */

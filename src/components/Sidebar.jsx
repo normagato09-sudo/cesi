@@ -1,4 +1,4 @@
-import { CalendarDays, Users } from 'lucide-react'
+import { CalendarDays, DatabaseBackup, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import './Sidebar.css'
 
@@ -7,7 +7,7 @@ const SECTIONS = [
   { id: 'contacts', label: 'Contactos', Icon: Users },
 ]
 
-export default function Sidebar({ summary, now, section, onSectionChange }) {
+export default function Sidebar({ summary, now, section, onSectionChange, onOpenBackup }) {
   return (
     <aside className={`sidebar section-${section}`}>
       <div className="sidebar-brand">
@@ -31,6 +31,19 @@ export default function Sidebar({ summary, now, section, onSectionChange }) {
       </nav>
 
       <SummaryPanel summary={summary} now={now} />
+
+      <div className="sidebar-footer">
+        <button
+          type="button"
+          className="sidebar-backup-btn"
+          onClick={onOpenBackup}
+          aria-label="Copia de seguridad"
+          title="Copia de seguridad"
+        >
+          <DatabaseBackup size={16} strokeWidth={1.75} />
+          <span>Copia de seguridad</span>
+        </button>
+      </div>
     </aside>
   )
 }

@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  STORAGE_KEY as EVENTS_KEY,
   getAllEvents,
   createEvent as storageCreateEvent,
   updateEvent as storageUpdateEvent,
@@ -7,7 +8,11 @@ import {
 } from '../lib/localEvents'
 import { expandEvents } from '../lib/recurrence'
 import { findConflict } from '../lib/conflicts'
-import { getWorkingHours, saveWorkingHours as storageSaveWorkingHours } from '../lib/availability'
+import {
+  STORAGE_KEY as WORKING_HOURS_KEY,
+  getWorkingHours,
+  saveWorkingHours as storageSaveWorkingHours,
+} from '../lib/availability'
 
 // Fuente de datos propia de CESI (localStorage).
 export function useLocalCalendar(range) {
@@ -15,6 +20,22 @@ export function useLocalCalendar(range) {
   const [workingHours, setWorkingHoursState] = useState(() => getWorkingHours())
 
   const refresh = useCallback(() => setRawEvents(getAllEvents()), [])
+
+  // Relee todo desde localStorage (p. ej. tras importar una copia de seguridad).
+  const reloadAll = useCallback(() => {
+    setRawEvents(getAllEvents())
+    setWorkingHoursState(getWorkingHours())
+  }, [])
+
+  // Si la app está abierta en otra pestaña y allí cambian los datos, se actualizan aquí.
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === null || e.key === EVENTS_KEY) setRawEvents(getAllEvents())
+      if (e.key === null || e.key === WORKING_HOURS_KEY) setWorkingHoursState(getWorkingHours())
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   const events = useMemo(() => expandEvents(rawEvents, range.start, range.end), [rawEvents, range])
 
@@ -68,5 +89,6 @@ export function useLocalCalendar(range) {
     editEvent,
     removeEvent,
     refresh,
+    reloadAll,
   }
 }

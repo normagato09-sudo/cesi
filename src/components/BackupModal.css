@@ -1,0 +1,66 @@
+.backup-modal {
+  max-width: 400px;
+}
+
+.backup-hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.backup-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  text-align: left;
+  color: var(--accent-hover);
+  transition: background 0.15s, border-color 0.15s;
+}
+.backup-action:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+}
+.backup-action span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.backup-action strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.backup-action small {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.backup-file-input {
+  display: none;
+}
+
+.backup-ok {
+  font-size: 13px;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+@media (max-width: 640px) {
+  .backup-modal .event-form-body {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  .backup-action {
+    padding: 14px;
+  }
+  .backup-action strong {
+    font-size: 15px;
+  }
+}

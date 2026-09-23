@@ -33,3 +33,5 @@ export function workingHoursForDay(workingHours, dayOfWeek) {
   const entry = workingHours.find((w) => w.day === dayOfWeek)
   return entry && entry.enabled ? { start: entry.start, end: entry.end } : null
 }
+
+export { STORAGE_KEY }
