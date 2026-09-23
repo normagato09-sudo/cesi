@@ -34,6 +34,7 @@ export function createEvent(data) {
     participants: [],
     meetLink: '',
     category: 'Reunión',
+    tags: [],
     isUnavailable: false,
     allDay: false,
     recurrence: null,

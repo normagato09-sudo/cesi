@@ -83,7 +83,14 @@ export default function EventModal({
           {!event.isUnavailable && (
             <div className="event-modal-row">
               <Tag size={16} strokeWidth={1.75} />
-              <span>{event.category}</span>
+              <span className="event-modal-tags">
+                <span>{event.category}</span>
+                {(event.tags || []).map((t) => (
+                  <span key={t} className="event-modal-tag">
+                    {t}
+                  </span>
+                ))}
+              </span>
             </div>
           )}
 

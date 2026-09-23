@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
 import { X, CalendarPlus, Ban, Search } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
+import TagInput from './TagInput.jsx'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { participantFields, participantsOf } from '../lib/contacts'
+import { allTags } from '../lib/tags'
+import { useScheduling } from '../lib/schedulingContext'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -67,6 +70,8 @@ export default function EventFormModal({
   onClose,
   onSubmit,
 }) {
+  const { rawEvents } = useScheduling()
+  const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
   const isEditing = !!initialEvent
   // Solo se duplica si el prefill es un evento existente (no un hueco o un participante preseleccionado).
   const isDuplicating = !isEditing && !!prefill?.id
@@ -87,6 +92,7 @@ export default function EventFormModal({
 
   const [title, setTitle] = useState(!isUnavailable ? seed.title || '' : '')
   const [category, setCategory] = useState(seed.category || CATEGORY_OPTIONS[0])
+  const [tags, setTags] = useState(Array.isArray(seed.tags) ? seed.tags : [])
   const [reason, setReason] = useState(initialReason)
   const [customReason, setCustomReason] = useState(initialCustomReason)
   const [description, setDescription] = useState(seed.description || '')
@@ -206,6 +212,7 @@ export default function EventFormModal({
           )),
       meetLink: isUnavailable ? '' : meetLink.trim(),
       category: isUnavailable ? 'No disponible' : category,
+      tags: isUnavailable ? [] : tags,
       isUnavailable,
       allDay: isUnavailable ? allDay : false,
       start,
@@ -281,6 +288,13 @@ export default function EventFormModal({
                 ))}
               </select>
             </label>
+          )}
+
+          {!isUnavailable && (
+            <div className="event-form-field">
+              <span id="event-form-tags-label">Etiquetas (opcional)</span>
+              <TagInput labelId="event-form-tags-label" value={tags} onChange={setTags} suggestions={tagSuggestions} />
+            </div>
           )}
 
           {isUnavailable && (

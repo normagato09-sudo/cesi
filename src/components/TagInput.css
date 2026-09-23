@@ -1,0 +1,112 @@
+.tag-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-input-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  cursor: text;
+}
+.tag-input-control:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+/* Selector reforzado para ganar a .event-form-field input */
+.tag-input .tag-input-control input,
+.tag-input .tag-input-control input:focus {
+  flex: 1;
+  min-width: 110px;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+.tag-chip svg {
+  color: var(--text-muted);
+}
+.tag-chip button {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.tag-chip button:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.tag-input-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tag-input-suggestions button {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.tag-input-suggestions button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-strong);
+  color: var(--accent-hover);
+}
+
+@media (max-width: 640px) {
+  .tag-input-control {
+    min-height: 46px;
+    padding: 6px 8px;
+  }
+  .tag-input .tag-input-control input {
+    font-size: 16px;
+    padding: 6px 4px;
+  }
+  .tag-chip {
+    font-size: 14px;
+    padding: 4px 4px 4px 10px;
+  }
+  .tag-chip button {
+    width: 24px;
+    height: 24px;
+  }
+  .tag-input-suggestions button {
+    padding: 7px 12px;
+    font-size: 13.5px;
+  }
+}
