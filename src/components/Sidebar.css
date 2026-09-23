@@ -66,6 +66,10 @@
   font-weight: 500;
 }
 
+.sidebar-nav-short {
+  display: none;
+}
+
 .sidebar-footer {
   margin-top: auto;
 }
@@ -159,8 +163,23 @@
     display: none;
   }
 
-  /* En Contactos el resumen del calendario no aporta nada y quita espacio en móvil */
-  .sidebar.section-contacts .summary-panel {
+  /* Tres pestañas: más compactas y con el nombre corto si lo hay ("Hora"). */
+  .sidebar-nav-item {
+    gap: 5px;
+    padding: 8px 4px;
+    font-size: 13px;
+    min-width: 0;
+  }
+  .sidebar-nav-item:has(.sidebar-nav-short) .sidebar-nav-label {
+    display: none;
+  }
+  .sidebar-nav-short {
+    display: inline;
+  }
+
+  /* Fuera del calendario el resumen no aporta nada y quita espacio en móvil */
+  .sidebar.section-contacts .summary-panel,
+  .sidebar.section-converter .summary-panel {
     display: none;
   }
 }

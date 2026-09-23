@@ -1,12 +1,23 @@
 import { useState } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Clock, Users, Video, Tag, Pencil, Trash2, Copy, Ban, Repeat, UserPlus, UserRound } from 'lucide-react'
+import { X, Clock, Users, Video, Tag, Pencil, Trash2, Copy, Ban, Repeat, UserPlus, UserRound, Globe } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
+import { dayShift, formatTimeInZone, localTimeZone, sameClock, zonePlace } from '../lib/timezones'
 import './EventModal.css'
+
+// "18:00 en Ciudad de México" si el contacto está en una zona con otra hora; si no, null.
+function localTimeFor(contact, event) {
+  if (!contact.timeZone || event.allDay) return null
+  const mine = localTimeZone()
+  if (sameClock(event.start, contact.timeZone, mine)) return null
+  const shift = dayShift(event.start, mine, contact.timeZone)
+  const note = shift > 0 ? ' (día siguiente)' : shift < 0 ? ' (día anterior)' : ''
+  return `${formatTimeInZone(event.start, contact.timeZone)} en ${zonePlace(contact.timeZone)}${note}`
+}
 
 function formatRange(event) {
   if (event.allDay) {
@@ -123,6 +134,12 @@ export default function EventModal({
                         <a href={`mailto:${c.email}`} className="event-modal-attendee-email">
                           {c.email}
                         </a>
+                      )}
+                      {localTimeFor(c, event) && (
+                        <span className="event-modal-attendee-zone">
+                          <Globe size={12} strokeWidth={1.75} />
+                          {localTimeFor(c, event)}
+                        </span>
                       )}
                     </span>
                   </li>

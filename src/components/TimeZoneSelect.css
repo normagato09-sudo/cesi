@@ -1,0 +1,155 @@
+.tz-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tz-select-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tz-country {
+  position: relative;
+}
+
+.tz-country-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+  text-align: left;
+}
+.tz-country-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tz-country-button svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.tz-country-button[aria-expanded='true'] {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+.tz-placeholder {
+  color: var(--text-muted);
+}
+
+.tz-country-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.tz-country-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+/* Selector reforzado para ganar a .event-form-field input cuando va dentro de un formulario */
+.tz-country .tz-country-search input,
+.tz-country .tz-country-search input:focus {
+  padding: 2px 0;
+  border: none;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.tz-country-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tz-country-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+}
+.tz-country-option span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.tz-country-option.active {
+  background: var(--surface-hover);
+}
+.tz-country-option[aria-selected='true'] {
+  color: var(--accent-hover);
+  font-weight: 500;
+}
+.tz-country-zones {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.tz-country-empty {
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tz-zone-select {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+@media (max-width: 640px) {
+  .tz-country-button,
+  .tz-zone-select {
+    font-size: 16px;
+    padding: 12px;
+  }
+  .tz-country .tz-country-search input {
+    font-size: 16px;
+    padding: 4px 0;
+  }
+  .tz-country-option {
+    padding: 11px 8px;
+    font-size: 15px;
+  }
+  .tz-country-list {
+    max-height: 45vh;
+  }
+}

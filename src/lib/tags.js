@@ -11,7 +11,7 @@ export function tagKey(tag) {
   return normalizeTag(tag)
     .toLocaleLowerCase('es')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
 }
 
 export function sameTag(a, b) {

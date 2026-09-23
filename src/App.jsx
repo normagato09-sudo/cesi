@@ -12,6 +12,7 @@ import FindSlotModal from './components/FindSlotModal.jsx'
 import AvailabilityModal from './components/AvailabilityModal.jsx'
 import ContactsView from './components/ContactsView.jsx'
 import BackupModal from './components/BackupModal.jsx'
+import ConverterView from './components/ConverterView.jsx'
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
 import { useStoredValue } from './hooks/useStoredValue.js'
@@ -217,6 +218,12 @@ export default function App() {
               onOpenEvent={setSelectedEvent}
               onNewMeetingWithContact={handleNewMeetingWithContact}
             />
+          </div>
+        )}
+
+        {section === 'converter' && (
+          <div className="app-main">
+            <ConverterView />
           </div>
         )}
 

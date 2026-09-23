@@ -1,10 +1,11 @@
-import { CalendarDays, DatabaseBackup, Users } from 'lucide-react'
+import { CalendarDays, DatabaseBackup, Globe, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import './Sidebar.css'
 
 const SECTIONS = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'contacts', label: 'Contactos', Icon: Users },
+  { id: 'converter', label: 'Conversor de hora', shortLabel: 'Hora', Icon: Globe },
 ]
 
 export default function Sidebar({ summary, now, section, onSectionChange, onOpenBackup }) {
@@ -16,7 +17,7 @@ export default function Sidebar({ summary, now, section, onSectionChange, onOpen
       </div>
 
       <nav className="sidebar-nav" aria-label="Secciones">
-        {SECTIONS.map(({ id, label, Icon }) => (
+        {SECTIONS.map(({ id, label, shortLabel, Icon }) => (
           <button
             key={id}
             type="button"
@@ -25,7 +26,12 @@ export default function Sidebar({ summary, now, section, onSectionChange, onOpen
             onClick={() => onSectionChange(id)}
           >
             <Icon size={17} strokeWidth={1.75} />
-            <span>{label}</span>
+            <span className="sidebar-nav-label">{label}</span>
+            {shortLabel && (
+              <span className="sidebar-nav-short" aria-hidden="true">
+                {shortLabel}
+              </span>
+            )}
           </button>
         ))}
       </nav>

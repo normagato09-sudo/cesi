@@ -35,6 +35,8 @@ export function createContact(data) {
     organization: '',
     role: '',
     notes: '',
+    country: '',
+    timeZone: '',
     ...data,
     createdAt: now,
     updatedAt: now,
@@ -69,7 +71,7 @@ function normalize(text) {
     .toString()
     .toLocaleLowerCase('es')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .trim()
 }
 

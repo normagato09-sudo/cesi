@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X, UserPlus, UserPen } from 'lucide-react'
+import TimeZoneSelect from './TimeZoneSelect.jsx'
 import { isEmail } from '../lib/contacts'
+import { zoneValue } from '../lib/timezones'
 import './EventFormModal.css'
 
 export default function ContactFormModal({ initialContact, onClose, onSubmit }) {
@@ -13,6 +15,7 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
   const [organization, setOrganization] = useState(seed.organization || '')
   const [role, setRole] = useState(seed.role || '')
   const [notes, setNotes] = useState(seed.notes || '')
+  const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country))
   const [formError, setFormError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -38,6 +41,8 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
         organization: organization.trim(),
         role: role.trim(),
         notes: notes.trim(),
+        country: zone?.country || '',
+        timeZone: zone?.timeZone || '',
       })
       onClose()
     } catch (err) {
@@ -86,6 +91,16 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
               <span>Cargo (opcional)</span>
               <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Directora comercial" />
             </label>
+          </div>
+
+          <div className="event-form-field">
+            <TimeZoneSelect
+              label="País y zona horaria (opcional)"
+              value={zone}
+              onChange={setZone}
+              allowEmpty
+              emptyLabel="Sin indicar (hora de España)"
+            />
           </div>
 
           <label className="event-form-field">

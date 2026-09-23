@@ -37,7 +37,8 @@ create table if not exists public.events (
 
 -- ---------------------------------------------------------------------------
 -- Contactos (localStorage: cesi_contacts_v1)
--- data: { name, email, phone, organization, role, notes, ... }
+-- data: { name, email, phone, organization, role, notes,
+--         country (ISO 3166-1 alfa-2), timeZone (zona IANA), ... }
 -- ---------------------------------------------------------------------------
 create table if not exists public.contacts (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarPlus,
   ChevronRight,
+  Globe,
   Mail,
   Pencil,
   Phone,
@@ -21,7 +22,15 @@ import ContactAvatar from './ContactAvatar.jsx'
 import { contactMatches, eventIncludesContact } from '../lib/contacts'
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
+import { SPAIN_ZONE, formatOffsetDiff, formatTimeInZone, zoneLabel, zoneOffsetMinutes } from '../lib/timezones'
 import './ContactsView.css'
+
+// "Estados Unidos: Nueva York · ahora 04:32 (−6 h respecto a España)"
+function zoneSummary(timeZone, now) {
+  const diff = zoneOffsetMinutes(now, timeZone) - zoneOffsetMinutes(now, SPAIN_ZONE)
+  const diffText = diff === 0 ? 'misma hora que España' : `${formatOffsetDiff(diff)} respecto a España`
+  return `${zoneLabel(timeZone)} · ahora ${formatTimeInZone(now, timeZone)} (${diffText})`
+}
 
 const MAX_LISTED_MEETINGS = 5
 
@@ -249,6 +258,12 @@ export default function ContactsView({
                 <div>
                   <dt><Briefcase size={15} strokeWidth={1.75} /><span className="sr-only">Cargo</span></dt>
                   <dd>{selected.role}</dd>
+                </div>
+              )}
+              {selected.timeZone && (
+                <div>
+                  <dt><Globe size={15} strokeWidth={1.75} /><span className="sr-only">Zona horaria</span></dt>
+                  <dd>{zoneSummary(selected.timeZone, now)}</dd>
                 </div>
               )}
               {selected.notes && (
