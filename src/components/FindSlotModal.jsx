@@ -3,7 +3,10 @@ import { format, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, CalendarClock, ListChecks } from 'lucide-react'
 import TagInput from './TagInput.jsx'
-import { findFirstSlot, findBestSlot, findMultipleSlots, rulesExceededByDuration } from '../lib/findSlots'
+import ParticipantPicker from './ParticipantPicker.jsx'
+import { explainNoSlots, findFirstSlot, findBestSlot, findMultipleSlots, rulesExceededByDuration } from '../lib/findSlots'
+import { hasAvailability } from '../lib/contactAvailability'
+import { dayShift, formatTimeInZone, localTimeZone, sameClock, zonePlace } from '../lib/timezones'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { describeRule, formatMinutes, ruleTargetLabel, rulesForType } from '../lib/rules'
 import { allTags } from '../lib/tags'
@@ -18,8 +21,27 @@ function ruleSummary(rule) {
   return `${rule.target}: ${describeRule(rule)}`
 }
 
-export default function FindSlotModal({ initialDurationMinutes, initialMeetingType, onPick, onClose }) {
-  const { rawEvents, preferences, workingHours, rules } = useScheduling()
+function firstName(contact) {
+  return contact.name.split(' ')[0] || contact.name
+}
+
+// Hora local de los participantes que están en otra zona: ["10:00 en Ciudad de México", ...]
+function participantLocalTimes(start, people) {
+  const mine = localTimeZone()
+  const seen = new Set()
+  const out = []
+  for (const c of people) {
+    if (!c.timeZone || seen.has(c.timeZone) || sameClock(start, c.timeZone, mine)) continue
+    seen.add(c.timeZone)
+    const shift = dayShift(start, mine, c.timeZone)
+    const note = shift > 0 ? ' (día siguiente)' : shift < 0 ? ' (día anterior)' : ''
+    out.push(`${formatTimeInZone(start, c.timeZone)} en ${zonePlace(c.timeZone)}${note}`)
+  }
+  return out
+}
+
+export default function FindSlotModal({ initialDurationMinutes, initialMeetingType, initialParticipants, onPick, onClose }) {
+  const { rawEvents, preferences, workingHours, rules, contacts, addContact } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
@@ -30,14 +52,21 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
   // Tipo de reunión: activa las reglas de esa categoría y etiquetas.
   const [category, setCategory] = useState(initialMeetingType?.category || '')
   const [tags, setTags] = useState(initialMeetingType?.tags || [])
+  const [participantSelection, setParticipantSelection] = useState(
+    initialParticipants || { participantIds: [], guests: [] },
+  )
+  // Contactos cuya disponibilidad se ignora en esta búsqueda ("Ignorar la disponibilidad de Ana").
+  const [ignoredIds, setIgnoredIds] = useState([])
   const [results, setResults] = useState(null)
   const [searchError, setSearchError] = useState(null)
 
   const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
   const meetingType = category || tags.length ? { category: category || null, tags } : null
   const activeRules = meetingType ? rulesForType(rules, meetingType) : []
+  const people = participantSelection.participantIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean)
+  const constrainedBy = people.filter((c) => hasAvailability(c) && !ignoredIds.includes(c.id))
 
-  const buildParams = () => ({
+  const buildParams = (ignored = ignoredIds) => ({
     durationMinutes,
     fromDate: new Date(`${fromDate}T00:00:00`),
     toDate: new Date(`${toDate}T00:00:00`),
@@ -48,6 +77,7 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
     bufferMinutes: preferences.bufferMinutes,
     rules,
     meetingType,
+    participants: people.filter((c) => !ignored.includes(c.id)),
     now,
   })
 
@@ -64,14 +94,14 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
     return 'No hay huecos libres dentro de tu horario habitual con esos criterios. Prueba con otras fechas o una duración menor.'
   }
 
-  const runSearch = (mode) => {
+  const runSearch = (mode, ignored = ignoredIds) => {
     setSearchError(null)
     if (minTime && maxTime && maxTime <= minTime) {
       setSearchError('La hora máxima debe ser posterior a la mínima.')
       setResults(null)
       return
     }
-    const params = buildParams()
+    const params = buildParams(ignored)
     let found
     if (mode === 'first') {
       const slot = findFirstSlot(params)
@@ -82,7 +112,14 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
     } else {
       found = findMultipleSlots(params, 5)
     }
-    setResults({ mode, slots: found, empty: found.length === 0 ? emptyMessage() : null })
+    const explanation = found.length === 0 ? explainNoSlots(params) : null
+    setResults({ mode, slots: found, empty: found.length === 0 ? emptyMessage() : null, explanation })
+  }
+
+  const ignoreAvailability = (contact) => {
+    const next = [...ignoredIds, contact.id]
+    setIgnoredIds(next)
+    runSearch(results?.mode || 'multiple', next)
   }
 
   return (
@@ -161,6 +198,32 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
             )}
           </fieldset>
 
+          <div className="find-slot-field">
+            <span id="find-slot-participants-label">Participantes (opcional)</span>
+            <ParticipantPicker
+              labelId="find-slot-participants-label"
+              contacts={contacts}
+              participantIds={participantSelection.participantIds}
+              guests={participantSelection.guests}
+              onChange={setParticipantSelection}
+              onCreateContact={addContact}
+            />
+            {constrainedBy.length > 0 && (
+              <p className="find-slot-note">
+                Se tiene en cuenta la disponibilidad de {constrainedBy.map(firstName).join(', ')}.
+              </p>
+            )}
+            {ignoredIds.length > 0 && (
+              <p className="find-slot-note">
+                Ignorando la disponibilidad de{' '}
+                {people.filter((c) => ignoredIds.includes(c.id)).map(firstName).join(', ')}.{' '}
+                <button type="button" className="find-slot-link" onClick={() => setIgnoredIds([])}>
+                  Volver a tenerla en cuenta
+                </button>
+              </p>
+            )}
+          </div>
+
           <p className="find-slot-hint">
             Solo se proponen huecos dentro de tu horario habitual
             {preferences.bufferMinutes > 0 ? `, dejando ${preferences.bufferMinutes} min de margen entre reuniones` : ''}
@@ -185,12 +248,39 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
           {results && (
             <div className="find-slot-results">
               {results.slots.length === 0 ? (
-                <p className="find-slot-empty">{results.empty}</p>
+                results.explanation?.blockers.length > 0 || results.explanation?.combined ? (
+                  <div className="find-slot-blockers">
+                    {results.explanation.blockers.map(({ contact, message }) => (
+                      <div key={contact.id} className="find-slot-blocker">
+                        <p>{message}</p>
+                        <button type="button" className="find-slot-action-btn" onClick={() => ignoreAvailability(contact)}>
+                          Ignorar la disponibilidad de {firstName(contact)}
+                        </button>
+                      </div>
+                    ))}
+                    {results.explanation.combined && (
+                      <div className="find-slot-blocker">
+                        <p>No hay ningún momento en que podáis todos a la vez. Prueba a ignorar la disponibilidad de alguien:</p>
+                        {constrainedBy.map((contact) => (
+                          <button key={contact.id} type="button" className="find-slot-action-btn" onClick={() => ignoreAvailability(contact)}>
+                            Ignorar la disponibilidad de {firstName(contact)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="find-slot-empty">{results.empty}</p>
+                )
               ) : (
                 <ul>
                   {results.slots.map((slot) => (
                     <li key={slot.start.toISOString()}>
-                      <button type="button" className="find-slot-result-btn" onClick={() => onPick(slot, meetingType)}>
+                      <button
+                        type="button"
+                        className="find-slot-result-btn"
+                        onClick={() => onPick(slot, meetingType, participantSelection)}
+                      >
                         <CalendarClock size={15} strokeWidth={1.75} />
                         <span className="find-slot-result-main">
                           <span className="find-slot-result-text">
@@ -198,6 +288,9 @@ export default function FindSlotModal({ initialDurationMinutes, initialMeetingTy
                             {' · '}
                             {format(slot.start, 'HH:mm')}–{format(slot.end, 'HH:mm')}
                           </span>
+                          {participantLocalTimes(slot.start, people).length > 0 && (
+                            <span className="find-slot-result-zone">{participantLocalTimes(slot.start, people).join(' · ')}</span>
+                          )}
                           {slot.rules?.length > 0 && (
                             <span className="find-slot-result-rule">
                               Cumple: {slot.rules.map((r) => `regla de «${r.target}»`).join(', ')}

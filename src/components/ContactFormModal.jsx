@@ -1,9 +1,16 @@
 import { useState } from 'react'
 import { X, UserPlus, UserPen } from 'lucide-react'
 import TimeZoneSelect from './TimeZoneSelect.jsx'
+import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
 import { isEmail } from '../lib/contacts'
-import { zoneValue } from '../lib/timezones'
+import { zonePlace, zoneValue } from '../lib/timezones'
+import { cleanWeek, emptyWeek, normalizeWeek, validateWeek } from '../lib/weeklySchedule'
 import './EventFormModal.css'
+
+// Punto de partida al activar la disponibilidad: lunes a viernes de 09:00 a 18:00.
+function defaultAvailability() {
+  return emptyWeek().map((e) => (e.day >= 1 && e.day <= 5 ? { ...e, enabled: true, slots: [{ start: '09:00', end: '18:00' }] } : e))
+}
 
 export default function ContactFormModal({ initialContact, onClose, onSubmit }) {
   const isEditing = !!initialContact
@@ -16,6 +23,10 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
   const [role, setRole] = useState(seed.role || '')
   const [notes, setNotes] = useState(seed.notes || '')
   const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country))
+  const [hasAvailability, setHasAvailability] = useState(!!seed.availability)
+  const [availability, setAvailability] = useState(() =>
+    seed.availability ? normalizeWeek(seed.availability, defaultAvailability()) : defaultAvailability(),
+  )
   const [formError, setFormError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -31,6 +42,13 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
       setFormError('El email no tiene un formato válido.')
       return
     }
+    if (hasAvailability) {
+      const problem = validateWeek(availability)
+      if (problem) {
+        setFormError(`Disponibilidad: ${problem}`)
+        return
+      }
+    }
 
     setSubmitting(true)
     try {
@@ -43,6 +61,7 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
         notes: notes.trim(),
         country: zone?.country || '',
         timeZone: zone?.timeZone || '',
+        availability: hasAvailability ? cleanWeek(availability) : null,
       })
       onClose()
     } catch (err) {
@@ -54,7 +73,7 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
 
   return (
     <div className="event-form-backdrop" onClick={onClose}>
-      <form className="event-form" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit} noValidate>
+      <form className="event-form contact-form" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit} noValidate>
         <div className="event-form-header">
           <h2>
             {isEditing ? <UserPen size={17} strokeWidth={1.75} /> : <UserPlus size={17} strokeWidth={1.75} />}
@@ -101,6 +120,22 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
               allowEmpty
               emptyLabel="Sin indicar (hora de España)"
             />
+          </div>
+
+          <div className="contact-form-availability">
+            <label className="event-form-checkbox">
+              <input type="checkbox" checked={hasAvailability} onChange={(e) => setHasAvailability(e.target.checked)} />
+              <span>Disponibilidad habitual (opcional)</span>
+            </label>
+            {hasAvailability && (
+              <>
+                <p className="contact-form-hint">
+                  Franjas en las que suele poder reunirse, en {zone?.timeZone ? `hora de ${zonePlace(zone.timeZone)}` : 'hora de España'}.
+                  "Buscar hueco" solo propone horas que le vengan bien.
+                </p>
+                <WeeklyScheduleEditor value={availability} onChange={setAvailability} />
+              </>
+            )}
           </div>
 
           <label className="event-form-field">

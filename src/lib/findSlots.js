@@ -1,9 +1,10 @@
-import { addDays, startOfDay, endOfDay, isSameDay } from 'date-fns'
+import { addDays, startOfDay, endOfDay, isSameDay, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
 import { slotIntervalsOn, timeToMinutes } from './weeklySchedule'
 import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
 import { countOfTypeOnDay, ruleWindowsOn, rulesForType } from './rules'
+import { blockingMessage, commonAvailability, hasAvailability } from './contactAvailability'
 
 const SMALL_GAP_MS = 15 * 60 * 1000
 const ALIGN_MS = 15 * 60 * 1000
@@ -58,6 +59,7 @@ export function findSlots({
   bufferMinutes = 0,
   rules = [],
   meetingType = null,
+  participants = [],
   now = new Date(),
 }) {
   const applicable = meetingType ? rulesForType(rules, meetingType) : []
@@ -92,6 +94,9 @@ export function findSlots({
     const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
     let windows = intersectIntervals(intersectIntervals(slotIntervalsOn(workingHours, day), filter), future)
     for (const rule of applicable) windows = intersectIntervals(windows, ruleWindowsOn(rule, day))
+    // Disponibilidad de los participantes, convertida desde su zona horaria a la mía.
+    const theirs = commonAvailability(participants, day, addDays(day, 1))
+    if (theirs) windows = intersectIntervals(windows, theirs)
 
     let addedToday = 0
     for (const gap of subtractIntervals(windows, busy)) {
@@ -122,4 +127,39 @@ export function findMultipleSlots(params, limit = 5) {
   const candidates = findSlots(params)
   const top = [...candidates].sort((a, b) => b.score - a.score || a.start - b.start).slice(0, limit)
   return top.sort((a, b) => a.start - b.start)
+}
+
+function periodLabel(fromDate, toDate, now) {
+  const from = startOfDay(fromDate)
+  const to = startOfDay(toDate)
+  if (from.getTime() === to.getTime()) return 'ese día'
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfDay(addDays(weekStart, 6))
+  if (from >= startOfDay(weekStart) && to <= weekEnd) return 'esta semana'
+  return 'en esas fechas'
+}
+
+/**
+ * Cuando no hay huecos, averigua qué participante lo impide: aquel sin cuya disponibilidad sí
+ * habría huecos. Devuelve { blockers: [{ contact, message }], combined } donde `combined` indica
+ * que ninguno lo impide por sí solo pero juntos no coinciden nunca.
+ * Si sin participantes tampoco hay huecos, el problema es mi horario o mis reglas: blockers vacío.
+ */
+export function explainNoSlots(params) {
+  const withAvailability = (params.participants || []).filter(hasAvailability)
+  if (withAvailability.length === 0) return { blockers: [], combined: false }
+  if (findSlots({ ...params, participants: [] }).length === 0) return { blockers: [], combined: false }
+
+  const label = periodLabel(params.fromDate, params.toDate, params.now || new Date())
+  const blockers = []
+  for (const contact of withAvailability) {
+    const others = params.participants.filter((p) => p !== contact)
+    if (findSlots({ ...params, participants: others }).length > 0) {
+      blockers.push({
+        contact,
+        message: blockingMessage(contact, startOfDay(params.fromDate), endOfDay(params.toDate), { periodLabel: label }),
+      })
+    }
+  }
+  return { blockers, combined: blockers.length === 0 }
 }

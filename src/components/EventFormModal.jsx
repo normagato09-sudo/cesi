@@ -146,7 +146,8 @@ export default function EventFormModal({
     }
   }
 
-  const handleSlotPicked = (slot) => {
+  const handleSlotPicked = (slot, _meetingType, participants) => {
+    if (participants) setParticipantSelection(participants)
     setDate(toDateInputValue(slot.start))
     setStartTime(toTimeInputValue(slot.start))
     setEndTime(toTimeInputValue(slot.end))
@@ -489,6 +490,7 @@ export default function EventFormModal({
         <FindSlotModal
           initialDurationMinutes={effectiveDurationMinutes}
           initialMeetingType={{ category, tags }}
+          initialParticipants={participantSelection}
           onPick={handleSlotPicked}
           onClose={() => setSlotFinderOpen(false)}
         />

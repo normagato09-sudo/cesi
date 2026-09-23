@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Briefcase,
   Building2,
+  CalendarClock,
   CalendarPlus,
   ChevronRight,
   Globe,
@@ -20,6 +21,7 @@ import {
 import ContactFormModal from './ContactFormModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
 import { contactMatches, eventIncludesContact } from '../lib/contacts'
+import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
 import { SPAIN_ZONE, formatOffsetDiff, formatTimeInZone, zoneLabel, zoneOffsetMinutes } from '../lib/timezones'
@@ -79,6 +81,7 @@ export default function ContactsView({
   onRemoveContact,
   onOpenEvent,
   onNewMeetingWithContact,
+  onFindSlotWithContact,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
@@ -225,6 +228,10 @@ export default function ContactsView({
                 <CalendarPlus size={14} strokeWidth={1.75} />
                 Nueva reunión con este contacto
               </button>
+              <button type="button" className="contact-action-btn wide" onClick={() => onFindSlotWithContact(selected)}>
+                <Search size={14} strokeWidth={1.75} />
+                Buscar hueco con este contacto
+              </button>
               <button type="button" className="contact-action-btn" onClick={() => setFormModal({ contact: selected })}>
                 <Pencil size={14} strokeWidth={1.75} />
                 Editar
@@ -270,6 +277,21 @@ export default function ContactsView({
                 <div className="align-top">
                   <dt><StickyNote size={15} strokeWidth={1.75} /><span className="sr-only">Notas</span></dt>
                   <dd className="contact-notes">{selected.notes}</dd>
+                </div>
+              )}
+              {hasAvailability(selected) && (
+                <div className="align-top">
+                  <dt><CalendarClock size={15} strokeWidth={1.75} /><span className="sr-only">Disponibilidad habitual</span></dt>
+                  <dd>
+                    <span className="contact-availability-title">
+                      Disponibilidad habitual ({availabilityZoneNote(selected)})
+                    </span>
+                    <ul className="contact-availability">
+                      {availabilityLines(selected).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </dd>
                 </div>
               )}
             </dl>

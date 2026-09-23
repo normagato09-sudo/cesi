@@ -51,7 +51,8 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [formModal, setFormModal] = useState(null)
-  const [findSlotOpen, setFindSlotOpen] = useState(false)
+  // null = cerrado; { participants } = abierto, con los participantes iniciales si los hay.
+  const [findSlot, setFindSlot] = useState(null)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
   const [backupOpen, setBackupOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
@@ -177,9 +178,13 @@ export default function App() {
     editEvent(event.seriesId, { start: newStart.toISOString(), end: newEnd.toISOString() })
   }
 
-  const handleFindSlotPick = (slot, meetingType) => {
-    setFindSlotOpen(false)
+  const handleFindSlotPick = (slot, meetingType, participants) => {
+    setFindSlot(null)
     const prefill = { start: slot.start, end: slot.end }
+    if (participants && (participants.participantIds.length || participants.guests.length)) {
+      prefill.participantIds = participants.participantIds
+      prefill.guests = participants.guests
+    }
     if (meetingType?.category) prefill.category = meetingType.category
     if (meetingType?.tags?.length) prefill.tags = meetingType.tags
     setFormModal({ mode: 'meeting', editingEvent: null, prefill })
@@ -245,6 +250,7 @@ export default function App() {
               onRemoveContact={removeContact}
               onOpenEvent={setSelectedEvent}
               onNewMeetingWithContact={handleNewMeetingWithContact}
+              onFindSlotWithContact={(contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })}
             />
           </div>
         )}
@@ -265,7 +271,7 @@ export default function App() {
               onNext={handleNext}
               onToday={handleToday}
               onNewMeeting={handleNewMeeting}
-              onFindSlot={() => setFindSlotOpen(true)}
+              onFindSlot={() => setFindSlot({})}
               onOpenAvailability={() => setAvailabilityOpen(true)}
             />
 
@@ -331,8 +337,13 @@ export default function App() {
           />
         )}
 
-        {findSlotOpen && (
-          <FindSlotModal initialDurationMinutes={60} onPick={handleFindSlotPick} onClose={() => setFindSlotOpen(false)} />
+        {findSlot && (
+          <FindSlotModal
+            initialDurationMinutes={60}
+            initialParticipants={findSlot.participants}
+            onPick={handleFindSlotPick}
+            onClose={() => setFindSlot(null)}
+          />
         )}
 
         {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
