@@ -63,13 +63,28 @@ create table if not exists public.settings (
 );
 
 -- ---------------------------------------------------------------------------
+-- Reglas por tipo de reunión (localStorage: cesi_rules_v1)
+-- data: { enabled, targetType: 'category' | 'tag', target, days: [0..6],
+--         timeOfDay: 'any' | 'morning' | 'afternoon' | 'custom', customStart, customEnd,
+--         maxDurationMinutes, maxPerDay }
+-- ---------------------------------------------------------------------------
+create table if not exists public.rules (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Triggers, índices y RLS de todas las tablas
 -- ---------------------------------------------------------------------------
 do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'settings'] loop
+  foreach t in array array['events', 'contacts', 'settings', 'rules'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format(
       'create trigger %I_touch before update on public.%I for each row execute function public.cesi_touch_updated_at()',

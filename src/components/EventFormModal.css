@@ -309,3 +309,36 @@
     font-size: 15px;
   }
 }
+
+.event-form-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 13px;
+}
+.event-form-warning-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 600;
+}
+.event-form-warning ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.5;
+}
+.event-form-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.event-form-warning-actions button {
+  padding: 7px 12px;
+  font-size: 13px;
+}

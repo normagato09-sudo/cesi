@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Search, CalendarClock } from 'lucide-react'
-import { findFirstSlot, findBestSlot, findMultipleSlots } from '../lib/findSlots'
+import { X, Search, CalendarClock, ListChecks } from 'lucide-react'
+import TagInput from './TagInput.jsx'
+import { findFirstSlot, findBestSlot, findMultipleSlots, rulesExceededByDuration } from '../lib/findSlots'
+import { CATEGORY_OPTIONS } from '../lib/eventStyle'
+import { describeRule, formatMinutes, ruleTargetLabel, rulesForType } from '../lib/rules'
+import { allTags } from '../lib/tags'
 import { useScheduling } from '../lib/schedulingContext'
 import './FindSlotModal.css'
 
@@ -10,8 +14,12 @@ function toDateInputValue(date) {
   return format(date, 'yyyy-MM-dd')
 }
 
-export default function FindSlotModal({ initialDurationMinutes, onPick, onClose }) {
-  const { rawEvents, preferences, workingHours } = useScheduling()
+function ruleSummary(rule) {
+  return `${rule.target}: ${describeRule(rule)}`
+}
+
+export default function FindSlotModal({ initialDurationMinutes, initialMeetingType, onPick, onClose }) {
+  const { rawEvents, preferences, workingHours, rules } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
@@ -19,8 +27,15 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
   // Filtro horario opcional, además del horario habitual.
   const [minTime, setMinTime] = useState('')
   const [maxTime, setMaxTime] = useState('')
+  // Tipo de reunión: activa las reglas de esa categoría y etiquetas.
+  const [category, setCategory] = useState(initialMeetingType?.category || '')
+  const [tags, setTags] = useState(initialMeetingType?.tags || [])
   const [results, setResults] = useState(null)
   const [searchError, setSearchError] = useState(null)
+
+  const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
+  const meetingType = category || tags.length ? { category: category || null, tags } : null
+  const activeRules = meetingType ? rulesForType(rules, meetingType) : []
 
   const buildParams = () => ({
     durationMinutes,
@@ -31,8 +46,23 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
     events: rawEvents,
     workingHours,
     bufferMinutes: preferences.bufferMinutes,
+    rules,
+    meetingType,
     now,
   })
+
+  const emptyMessage = () => {
+    const tooLong = rulesExceededByDuration(activeRules, meetingType, durationMinutes)
+    if (tooLong.length > 0) {
+      return tooLong
+        .map((r) => `Las reuniones ${ruleTargetLabel(r)} duran como máximo ${formatMinutes(r.maxDurationMinutes)}. Reduce la duración.`)
+        .join(' ')
+    }
+    if (activeRules.length > 0) {
+      return 'No hay huecos libres dentro de tu horario que cumplan las reglas de este tipo de reunión. Prueba con otras fechas.'
+    }
+    return 'No hay huecos libres dentro de tu horario habitual con esos criterios. Prueba con otras fechas o una duración menor.'
+  }
 
   const runSearch = (mode) => {
     setSearchError(null)
@@ -52,7 +82,7 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
     } else {
       found = findMultipleSlots(params, 5)
     }
-    setResults({ mode, slots: found })
+    setResults({ mode, slots: found, empty: found.length === 0 ? emptyMessage() : null })
   }
 
   return (
@@ -102,10 +132,40 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
             </label>
           </div>
 
+          <fieldset className="find-slot-type">
+            <legend>Tipo de reunión (opcional)</legend>
+            <label className="find-slot-field">
+              <span>Categoría</span>
+              <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">Sin especificar</option>
+                {CATEGORY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="find-slot-field">
+              <span id="find-slot-tags-label">Etiquetas</span>
+              <TagInput labelId="find-slot-tags-label" value={tags} onChange={setTags} suggestions={tagSuggestions} />
+            </div>
+            {activeRules.length > 0 && (
+              <ul className="find-slot-rules">
+                {activeRules.map((r) => (
+                  <li key={r.id}>
+                    <ListChecks size={13} strokeWidth={1.75} />
+                    Regla: {ruleSummary(r)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </fieldset>
+
           <p className="find-slot-hint">
             Solo se proponen huecos dentro de tu horario habitual
-            {preferences.bufferMinutes > 0 ? `, dejando ${preferences.bufferMinutes} min de margen entre reuniones` : ''}.
-            Puedes cambiarlo en "Horario y preferencias".
+            {preferences.bufferMinutes > 0 ? `, dejando ${preferences.bufferMinutes} min de margen entre reuniones` : ''}
+            {activeRules.length > 0 ? ' y cumpliendo las reglas de este tipo de reunión' : ''}. Puedes cambiarlo en
+            "Horario y preferencias".
           </p>
 
           {searchError && <div className="find-slot-error">{searchError}</div>}
@@ -125,20 +185,24 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
           {results && (
             <div className="find-slot-results">
               {results.slots.length === 0 ? (
-                <p className="find-slot-empty">
-                  No hay huecos libres dentro de tu horario habitual con esos criterios. Prueba con otras fechas o
-                  una duración menor.
-                </p>
+                <p className="find-slot-empty">{results.empty}</p>
               ) : (
                 <ul>
                   {results.slots.map((slot) => (
                     <li key={slot.start.toISOString()}>
-                      <button type="button" className="find-slot-result-btn" onClick={() => onPick(slot)}>
+                      <button type="button" className="find-slot-result-btn" onClick={() => onPick(slot, meetingType)}>
                         <CalendarClock size={15} strokeWidth={1.75} />
-                        <span className="find-slot-result-text">
-                          {format(slot.start, "EEEE d 'de' MMMM", { locale: es })}
-                          {' · '}
-                          {format(slot.start, 'HH:mm')}–{format(slot.end, 'HH:mm')}
+                        <span className="find-slot-result-main">
+                          <span className="find-slot-result-text">
+                            {format(slot.start, "EEEE d 'de' MMMM", { locale: es })}
+                            {' · '}
+                            {format(slot.start, 'HH:mm')}–{format(slot.end, 'HH:mm')}
+                          </span>
+                          {slot.rules?.length > 0 && (
+                            <span className="find-slot-result-rule">
+                              Cumple: {slot.rules.map((r) => `regla de «${r.target}»`).join(', ')}
+                            </span>
+                          )}
                         </span>
                       </button>
                     </li>

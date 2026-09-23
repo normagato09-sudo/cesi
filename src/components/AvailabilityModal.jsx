@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import { X, Clock3 } from 'lucide-react'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
+import RulesEditor from './RulesEditor.jsx'
 import { cleanWeek, validateWeek } from '../lib/weeklySchedule'
 import { BUFFER_OPTIONS } from '../lib/preferences'
+import { allTags } from '../lib/tags'
+import { useScheduling } from '../lib/schedulingContext'
 import './AvailabilityModal.css'
 
 function bufferLabel(minutes) {
   return minutes === 0 ? 'Sin margen' : `${minutes} minutos`
 }
 
-// "Horario y preferencias": horario habitual con varias franjas y margen entre reuniones.
-export default function AvailabilityModal({ workingHours, preferences, onSave, onClose }) {
+// "Horario y preferencias": horario habitual con varias franjas, margen entre reuniones y
+// reglas por tipo de reunión.
+export default function AvailabilityModal({ workingHours, preferences, rules, onSave, onClose }) {
+  const { rawEvents } = useScheduling()
   const [hours, setHours] = useState(workingHours)
   const [bufferMinutes, setBufferMinutes] = useState(preferences.bufferMinutes)
+  const [ruleList, setRuleList] = useState(rules)
   const [error, setError] = useState(null)
 
   const handleSubmit = (e) => {
@@ -22,7 +28,7 @@ export default function AvailabilityModal({ workingHours, preferences, onSave, o
       setError(problem)
       return
     }
-    onSave({ workingHours: cleanWeek(hours), preferences: { ...preferences, bufferMinutes } })
+    onSave({ workingHours: cleanWeek(hours), preferences: { ...preferences, bufferMinutes }, rules: ruleList })
     onClose()
   }
 
@@ -66,6 +72,15 @@ export default function AvailabilityModal({ workingHours, preferences, onSave, o
                 </option>
               ))}
             </select>
+          </section>
+
+          <section className="availability-section">
+            <h3>Reglas por tipo de reunión</h3>
+            <p className="availability-hint">
+              Limita cuándo pueden ser las reuniones de una categoría o etiqueta. "Buscar hueco" las respeta y, si
+              creas o mueves una reunión que no las cumple, te avisa.
+            </p>
+            <RulesEditor rules={ruleList} onChange={setRuleList} tags={allTags(rawEvents)} />
           </section>
 
           {error && <div className="availability-error">{error}</div>}

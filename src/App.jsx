@@ -18,6 +18,8 @@ import { useContacts } from './hooks/useContacts.js'
 import { useStoredValue } from './hooks/useStoredValue.js'
 import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
 import { SchedulingContext } from './lib/schedulingContext.js'
+import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules, rulesStore } from './lib/rules.js'
+import { expandEvents } from './lib/recurrence.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -81,22 +83,36 @@ export default function App() {
 
   const { contacts, addContact, editContact, removeContact, refresh: reloadContacts } = useContacts()
   const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
+  const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
 
   const scheduling = useMemo(
-    () => ({ rawEvents, workingHours, preferences, contacts, addContact }),
-    [rawEvents, workingHours, preferences, contacts, addContact],
+    () => ({ rawEvents, workingHours, preferences, rules, contacts, addContact }),
+    [rawEvents, workingHours, preferences, rules, contacts, addContact],
   )
 
-  const handleSavePreferences = ({ workingHours: newHours, preferences: newPrefs }) => {
+  const handleSavePreferences = ({ workingHours: newHours, preferences: newPrefs, rules: newRules }) => {
     setWorkingHours(newHours)
     savePreferences(newPrefs)
+    rulesStore.replaceAll(newRules)
     reloadPreferences()
+    reloadRules()
+  }
+
+  // Reglas por tipo de reunión que incumpliría `meeting` (no bloquean: solo avisan).
+  const ruleViolationsFor = (meeting, excludeSeriesId) => {
+    const start = new Date(meeting.start)
+    const dayStart = new Date(start)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayEnd.getDate() + 1)
+    return checkMeetingAgainstRules(meeting, rules, expandEvents(rawEvents, dayStart, dayEnd), { excludeSeriesId })
   }
 
   const handleBackupRestored = () => {
     reloadCalendar()
     reloadContacts()
     reloadPreferences()
+    reloadRules()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -153,20 +169,32 @@ export default function App() {
       window.alert('Esta franja ya está ocupada.')
       return
     }
+    const violations = ruleViolationsFor({ ...event, start: newStart, end: newEnd }, event.seriesId)
+    if (violations.length > 0) {
+      const reasons = violations.map((v) => `• ${v.message}`).join('\n')
+      if (!window.confirm(`${reasons}\n\n¿Guardar igualmente?`)) return
+    }
     editEvent(event.seriesId, { start: newStart.toISOString(), end: newEnd.toISOString() })
   }
 
-  const handleFindSlotPick = (slot) => {
+  const handleFindSlotPick = (slot, meetingType) => {
     setFindSlotOpen(false)
-    setFormModal({ mode: 'meeting', editingEvent: null, prefill: { start: slot.start, end: slot.end } })
+    const prefill = { start: slot.start, end: slot.end }
+    if (meetingType?.category) prefill.category = meetingType.category
+    if (meetingType?.tags?.length) prefill.tags = meetingType.tags
+    setFormModal({ mode: 'meeting', editingEvent: null, prefill })
   }
 
-  const handleFormSubmit = async (values) => {
+  const handleFormSubmit = async (values, { ignoreRules = false } = {}) => {
     const { start, end } = values
     const excludeSeriesId = formModal?.editingEvent?.seriesId
     const conflict = checkConflict(start, end, { excludeSeriesId })
     if (conflict) {
       throw new Error('Esta franja ya está ocupada.')
+    }
+    if (!ignoreRules) {
+      const violations = ruleViolationsFor(values, excludeSeriesId)
+      if (violations.length > 0) throw new RuleWarning(violations)
     }
 
     const data = { ...values, start: start.toISOString(), end: end.toISOString() }
@@ -313,6 +341,7 @@ export default function App() {
           <AvailabilityModal
             workingHours={workingHours}
             preferences={preferences}
+            rules={rules}
             onSave={handleSavePreferences}
             onClose={() => setAvailabilityOpen(false)}
           />

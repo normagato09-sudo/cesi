@@ -3,9 +3,13 @@ import { getAllEvents, STORAGE_KEY as EVENTS_KEY } from './localEvents'
 import { getAllContacts, STORAGE_KEY as CONTACTS_KEY } from './contacts'
 import { getWorkingHours, STORAGE_KEY as WORKING_HOURS_KEY } from './availability'
 import { getPreferences, STORAGE_KEY as PREFERENCES_KEY } from './preferences'
+import { getAllRules, STORAGE_KEY as RULES_KEY } from './rules'
 
-// v1: events, contacts, workingHours. v2 añade preferences.
-const BACKUP_VERSION = 2
+// v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules.
+const BACKUP_VERSION = 3
+
+// Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
+const OPTIONAL_LISTS = [{ field: 'rules', key: RULES_KEY, label: 'las reglas' }]
 
 export function buildBackup() {
   return {
@@ -16,6 +20,7 @@ export function buildBackup() {
     contacts: getAllContacts(),
     workingHours: getWorkingHours(),
     preferences: getPreferences(),
+    rules: getAllRules(),
   }
 }
 
@@ -54,6 +59,9 @@ export function parseBackup(text) {
   if (data.preferences !== undefined && (typeof data.preferences !== 'object' || Array.isArray(data.preferences))) {
     throw new Error('La copia tiene unas preferencias no válidas.')
   }
+  for (const { field, label } of OPTIONAL_LISTS) {
+    if (data[field] !== undefined && !Array.isArray(data[field])) throw new Error(`La copia tiene ${label} en un formato no válido.`)
+  }
   return data
 }
 
@@ -82,6 +90,7 @@ export function restoreBackup(data) {
     localStorage.removeItem(WORKING_HOURS_KEY)
   }
   restoreOptional(PREFERENCES_KEY, data.preferences)
+  for (const { field, key } of OPTIONAL_LISTS) restoreOptional(key, data[field])
 }
 
 // Las claves que no existían en versiones antiguas de la copia vuelven a su valor por defecto.

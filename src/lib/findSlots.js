@@ -3,6 +3,7 @@ import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
 import { slotIntervalsOn, timeToMinutes } from './weeklySchedule'
 import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
+import { countOfTypeOnDay, ruleWindowsOn, rulesForType } from './rules'
 
 const SMALL_GAP_MS = 15 * 60 * 1000
 const ALIGN_MS = 15 * 60 * 1000
@@ -32,11 +33,19 @@ function scoreCandidate(slotEnd, gap) {
   return score
 }
 
+// Reglas del tipo de reunión cuya duración máxima es menor que la buscada.
+export function rulesExceededByDuration(rules, meetingType, durationMinutes) {
+  return rulesForType(rules, meetingType).filter((r) => r.maxDurationMinutes && durationMinutes > r.maxDurationMinutes)
+}
+
 /**
  * Busca huecos libres de `durationMinutes` entre fromDate y toDate (incl.).
  * Es estricto: solo propone huecos dentro de las franjas del horario habitual, y además
  * dentro de [minTime, maxTime) si se indican. Cada bloque ocupado se amplía con `bufferMinutes`.
- * Devuelve un candidato por hueco libre, al principio del hueco (alineado a 15 min).
+ * Si se indica `meetingType` ({ category, tags }), se aplican también las reglas activas de ese
+ * tipo: días y franja permitidos, duración máxima y máximo de reuniones por día.
+ * Devuelve un candidato por hueco libre, al principio del hueco (alineado a 15 min), con las
+ * reglas aplicadas en `rules`.
  */
 export function findSlots({
   durationMinutes,
@@ -47,8 +56,13 @@ export function findSlots({
   events,
   workingHours = getWorkingHours(),
   bufferMinutes = 0,
+  rules = [],
+  meetingType = null,
   now = new Date(),
 }) {
+  const applicable = meetingType ? rulesForType(rules, meetingType) : []
+  if (rulesExceededByDuration(applicable, meetingType, durationMinutes).length > 0) return []
+
   const durationMs = durationMinutes * 60 * 1000
   const bufferMs = bufferMinutes * 60 * 1000
   const rangeStart = startOfDay(fromDate)
@@ -67,15 +81,26 @@ export function findSlots({
   for (let day = startOfDay(fromDate); day <= rangeEnd; day = addDays(day, 1)) {
     if (isDayFullyUnavailable(occurrences, day)) continue
 
+    // Cuántas reuniones más de este tipo caben hoy según las reglas con máximo por día.
+    let remainingToday = Infinity
+    for (const rule of applicable) {
+      if (rule.maxPerDay) remainingToday = Math.min(remainingToday, rule.maxPerDay - countOfTypeOnDay(rule, occurrences, day))
+    }
+    if (remainingToday <= 0) continue
+
     const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(maxTime)) }]
     const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
-    const windows = intersectIntervals(intersectIntervals(slotIntervalsOn(workingHours, day), filter), future)
+    let windows = intersectIntervals(intersectIntervals(slotIntervalsOn(workingHours, day), filter), future)
+    for (const rule of applicable) windows = intersectIntervals(windows, ruleWindowsOn(rule, day))
 
+    let addedToday = 0
     for (const gap of subtractIntervals(windows, busy)) {
+      if (addedToday >= remainingToday) break
       const slotStart = alignUp(gap.start)
       const slotEnd = new Date(slotStart.getTime() + durationMs)
       if (slotEnd > gap.end) continue
-      candidates.push({ start: slotStart, end: slotEnd, score: scoreCandidate(slotEnd, gap) })
+      candidates.push({ start: slotStart, end: slotEnd, score: scoreCandidate(slotEnd, gap), rules: applicable })
+      addedToday++
     }
   }
 

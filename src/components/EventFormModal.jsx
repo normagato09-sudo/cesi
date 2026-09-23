@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
-import { X, CalendarPlus, Ban, Search } from 'lucide-react'
+import { X, CalendarPlus, Ban, Search, TriangleAlert } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import TagInput from './TagInput.jsx'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { participantFields, participantsOf } from '../lib/contacts'
 import { allTags } from '../lib/tags'
+import { RuleWarning } from '../lib/rules'
 import { useScheduling } from '../lib/schedulingContext'
 import './EventFormModal.css'
 
@@ -121,6 +122,7 @@ export default function EventFormModal({
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [ruleWarning, setRuleWarning] = useState(null)
 
   const applyDuration = (minutes) => {
     if (Number.isFinite(minutes) && minutes > 0) setEndTime(addMinutesToTime(startTime, minutes))
@@ -220,12 +222,19 @@ export default function EventFormModal({
       recurrence: repeatFreq ? { freq: repeatFreq, until: new Date(`${repeatUntil}T23:59:59`).toISOString() } : null,
     }
 
+    await save(payload)
+  }
+
+  // Si la reunión incumple alguna regla por tipo, se muestra el aviso y se puede guardar igualmente.
+  const save = async (payload, options) => {
     setSubmitting(true)
+    setRuleWarning(null)
     try {
-      await onSubmit(payload)
+      await onSubmit(payload, options)
       onClose()
     } catch (err) {
-      setFormError(err.message || 'No se pudo guardar. Inténtalo de nuevo.')
+      if (err instanceof RuleWarning) setRuleWarning({ violations: err.violations, payload })
+      else setFormError(err.message || 'No se pudo guardar. Inténtalo de nuevo.')
     } finally {
       setSubmitting(false)
     }
@@ -437,6 +446,33 @@ export default function EventFormModal({
           )}
 
           {formError && <div className="event-form-error">{formError}</div>}
+
+          {ruleWarning && (
+            <div className="event-form-warning" role="alert">
+              <p className="event-form-warning-title">
+                <TriangleAlert size={15} strokeWidth={1.75} />
+                Esta reunión no cumple tus reglas
+              </p>
+              <ul>
+                {ruleWarning.violations.map((v, i) => (
+                  <li key={i}>{v.message}</li>
+                ))}
+              </ul>
+              <div className="event-form-warning-actions">
+                <button type="button" className="event-form-cancel" onClick={() => setRuleWarning(null)}>
+                  Revisar
+                </button>
+                <button
+                  type="button"
+                  className="event-form-submit"
+                  onClick={() => save(ruleWarning.payload, { ignoreRules: true })}
+                  disabled={submitting}
+                >
+                  Guardar igualmente
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="event-form-footer">
@@ -452,6 +488,7 @@ export default function EventFormModal({
       {slotFinderOpen && (
         <FindSlotModal
           initialDurationMinutes={effectiveDurationMinutes}
+          initialMeetingType={{ category, tags }}
           onPick={handleSlotPicked}
           onClose={() => setSlotFinderOpen(false)}
         />
