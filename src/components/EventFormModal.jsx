@@ -62,7 +62,6 @@ export default function EventFormModal({
   initialEvent,
   prefill,
   defaultDate,
-  rawEvents,
   contacts,
   onCreateContact,
   onClose,
@@ -438,7 +437,6 @@ export default function EventFormModal({
 
       {slotFinderOpen && (
         <FindSlotModal
-          rawEvents={rawEvents}
           initialDurationMinutes={effectiveDurationMinutes}
           onPick={handleSlotPicked}
           onClose={() => setSlotFinderOpen(false)}

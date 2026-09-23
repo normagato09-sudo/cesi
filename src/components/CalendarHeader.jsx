@@ -76,8 +76,8 @@ export default function CalendarHeader({
           type="button"
           className="header-icon-btn"
           onClick={onOpenAvailability}
-          aria-label="Horario habitual"
-          title="Horario habitual"
+          aria-label="Horario y preferencias"
+          title="Horario y preferencias"
         >
           <Clock3 size={16} strokeWidth={1.75} />
         </button>

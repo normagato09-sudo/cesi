@@ -14,6 +14,9 @@ import ContactsView from './components/ContactsView.jsx'
 import BackupModal from './components/BackupModal.jsx'
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
+import { useStoredValue } from './hooks/useStoredValue.js'
+import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
+import { SchedulingContext } from './lib/schedulingContext.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -76,10 +79,23 @@ export default function App() {
   } = useLocalCalendar(range)
 
   const { contacts, addContact, editContact, removeContact, refresh: reloadContacts } = useContacts()
+  const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
+
+  const scheduling = useMemo(
+    () => ({ rawEvents, workingHours, preferences, contacts, addContact }),
+    [rawEvents, workingHours, preferences, contacts, addContact],
+  )
+
+  const handleSavePreferences = ({ workingHours: newHours, preferences: newPrefs }) => {
+    setWorkingHours(newHours)
+    savePreferences(newPrefs)
+    reloadPreferences()
+  }
 
   const handleBackupRestored = () => {
     reloadCalendar()
     reloadContacts()
+    reloadPreferences()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -177,122 +193,124 @@ export default function App() {
   const handleToday = () => setCurrentDate(new Date())
 
   return (
-    <div className="app">
-      <Sidebar
-        summary={summary}
-        now={now}
-        section={section}
-        onSectionChange={setSection}
-        onOpenBackup={() => setBackupOpen(true)}
-      />
+    <SchedulingContext.Provider value={scheduling}>
+      <div className="app">
+        <Sidebar
+          summary={summary}
+          now={now}
+          section={section}
+          onSectionChange={setSection}
+          onOpenBackup={() => setBackupOpen(true)}
+        />
 
-      {section === 'contacts' && (
-        <div className="app-main">
-          <ContactsView
-            contacts={contacts}
-            rawEvents={rawEvents}
-            now={now}
-            selectedContactId={selectedContactId}
-            onSelectContact={setSelectedContactId}
-            onAddContact={addContact}
-            onEditContact={editContact}
-            onRemoveContact={removeContact}
-            onOpenEvent={setSelectedEvent}
-            onNewMeetingWithContact={handleNewMeetingWithContact}
-          />
-        </div>
-      )}
-
-      {section === 'calendar' && (
-        <div className="app-main">
-          <CalendarHeader
-            label={getHeaderLabel(currentDate, view, compactWeek)}
-            view={view}
-            onViewChange={setView}
-            onPrev={handlePrev}
-            onNext={handleNext}
-            onToday={handleToday}
-            onNewMeeting={handleNewMeeting}
-            onFindSlot={() => setFindSlotOpen(true)}
-            onOpenAvailability={() => setAvailabilityOpen(true)}
-          />
-
-          <div className="app-calendar-body">
-            {view === 'month' && (
-              <MonthView
-                currentDate={currentDate}
-                events={events}
-                onSelectEvent={setSelectedEvent}
-                onMoveEvent={handleMoveOrResize}
-                onSelectDay={(day) => {
-                  setCurrentDate(day)
-                  setView('day')
-                }}
-              />
-            )}
-            {view === 'week' && (
-              <WeekView
-                currentDate={currentDate}
-                compact={compactWeek}
-                events={events}
-                onSelectEvent={setSelectedEvent}
-                onSlotClick={handleSlotClick}
-                onMoveEvent={handleMoveOrResize}
-                onResizeEvent={handleMoveOrResize}
-              />
-            )}
-            {view === 'day' && (
-              <DayView
-                currentDate={currentDate}
-                events={events}
-                onSelectEvent={setSelectedEvent}
-                onSlotClick={handleSlotClick}
-                onMoveEvent={handleMoveOrResize}
-                onResizeEvent={handleMoveOrResize}
-              />
-            )}
+        {section === 'contacts' && (
+          <div className="app-main">
+            <ContactsView
+              contacts={contacts}
+              rawEvents={rawEvents}
+              now={now}
+              selectedContactId={selectedContactId}
+              onSelectContact={setSelectedContactId}
+              onAddContact={addContact}
+              onEditContact={editContact}
+              onRemoveContact={removeContact}
+              onOpenEvent={setSelectedEvent}
+              onNewMeetingWithContact={handleNewMeetingWithContact}
+            />
           </div>
-        </div>
-      )}
+        )}
 
-      <EventModal
-        event={selectedEvent}
-        contacts={contacts}
-        onClose={() => setSelectedEvent(null)}
-        onOpenContact={handleOpenContact}
-        onSaveGuestAsContact={handleSaveGuestAsContact}
-        onEdit={handleEditEvent}
-        onDelete={handleDeleteEvent}
-        onDuplicate={handleDuplicateEvent}
-      />
+        {section === 'calendar' && (
+          <div className="app-main">
+            <CalendarHeader
+              label={getHeaderLabel(currentDate, view, compactWeek)}
+              view={view}
+              onViewChange={setView}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              onToday={handleToday}
+              onNewMeeting={handleNewMeeting}
+              onFindSlot={() => setFindSlotOpen(true)}
+              onOpenAvailability={() => setAvailabilityOpen(true)}
+            />
 
-      {formModal && (
-        <EventFormModal
-          mode={formModal.mode}
-          initialEvent={formModal.editingEvent}
-          prefill={formModal.prefill}
-          defaultDate={currentDate}
-          rawEvents={rawEvents}
+            <div className="app-calendar-body">
+              {view === 'month' && (
+                <MonthView
+                  currentDate={currentDate}
+                  events={events}
+                  onSelectEvent={setSelectedEvent}
+                  onMoveEvent={handleMoveOrResize}
+                  onSelectDay={(day) => {
+                    setCurrentDate(day)
+                    setView('day')
+                  }}
+                />
+              )}
+              {view === 'week' && (
+                <WeekView
+                  currentDate={currentDate}
+                  compact={compactWeek}
+                  events={events}
+                  onSelectEvent={setSelectedEvent}
+                  onSlotClick={handleSlotClick}
+                  onMoveEvent={handleMoveOrResize}
+                  onResizeEvent={handleMoveOrResize}
+                />
+              )}
+              {view === 'day' && (
+                <DayView
+                  currentDate={currentDate}
+                  events={events}
+                  onSelectEvent={setSelectedEvent}
+                  onSlotClick={handleSlotClick}
+                  onMoveEvent={handleMoveOrResize}
+                  onResizeEvent={handleMoveOrResize}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        <EventModal
+          event={selectedEvent}
           contacts={contacts}
-          onCreateContact={addContact}
-          onClose={() => setFormModal(null)}
-          onSubmit={handleFormSubmit}
+          onClose={() => setSelectedEvent(null)}
+          onOpenContact={handleOpenContact}
+          onSaveGuestAsContact={handleSaveGuestAsContact}
+          onEdit={handleEditEvent}
+          onDelete={handleDeleteEvent}
+          onDuplicate={handleDuplicateEvent}
         />
-      )}
 
-      {findSlotOpen && (
-        <FindSlotModal rawEvents={rawEvents} initialDurationMinutes={60} onPick={handleFindSlotPick} onClose={() => setFindSlotOpen(false)} />
-      )}
+        {formModal && (
+          <EventFormModal
+            mode={formModal.mode}
+            initialEvent={formModal.editingEvent}
+            prefill={formModal.prefill}
+            defaultDate={currentDate}
+            contacts={contacts}
+            onCreateContact={addContact}
+            onClose={() => setFormModal(null)}
+            onSubmit={handleFormSubmit}
+          />
+        )}
 
-      {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
+        {findSlotOpen && (
+          <FindSlotModal initialDurationMinutes={60} onPick={handleFindSlotPick} onClose={() => setFindSlotOpen(false)} />
+        )}
 
-      {availabilityOpen && (
-        <AvailabilityModal
-          workingHours={workingHours}
-          onSave={setWorkingHours}
-          onClose={() => setAvailabilityOpen(false)}
-        />
-      )}
-    </div>
+        {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
+
+        {availabilityOpen && (
+          <AvailabilityModal
+            workingHours={workingHours}
+            preferences={preferences}
+            onSave={handleSavePreferences}
+            onClose={() => setAvailabilityOpen(false)}
+          />
+        )}
+      </div>
+    </SchedulingContext.Provider>
   )
 }

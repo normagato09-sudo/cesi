@@ -61,8 +61,18 @@ function scoreCandidate(slotStart, slotEnd, gap, day) {
  * franja horaria [minTime, maxTime) de cada día. No usa IA: la puntuación de "mejor hueco"
  * es una suma de reglas simples (dentro del horario habitual, evita dejar fragmentos < 15 min).
  */
-export function findSlots({ durationMinutes, fromDate, toDate, minTime, maxTime, events, now = new Date() }) {
+export function findSlots({
+  durationMinutes,
+  fromDate,
+  toDate,
+  minTime,
+  maxTime,
+  events,
+  bufferMinutes = 0,
+  now = new Date(),
+}) {
   const durationMs = durationMinutes * 60 * 1000
+  const bufferMs = bufferMinutes * 60 * 1000
   const rangeStart = startOfDay(fromDate)
   const rangeEnd = endOfDay(toDate)
   const occurrences = expandEvents(events, rangeStart, rangeEnd)
@@ -77,10 +87,12 @@ export function findSlots({ durationMinutes, fromDate, toDate, minTime, maxTime,
     if (isSameDay(day, now) && now > windowStart) windowStart = now
     if (windowEnd <= windowStart) continue
 
+    // Cada bloque ocupado se amplía con el margen entre reuniones por delante y por detrás.
     const busyToday = mergeIntervals(
       occurrences
-        .filter((ev) => !(ev.allDay && ev.isUnavailable) && ev.start < windowEnd && ev.end > windowStart)
-        .map((ev) => ({ start: ev.start, end: ev.end })),
+        .filter((ev) => !(ev.allDay && ev.isUnavailable))
+        .map((ev) => ({ start: new Date(ev.start.getTime() - bufferMs), end: new Date(ev.end.getTime() + bufferMs) }))
+        .filter((b) => b.start < windowEnd && b.end > windowStart),
     )
 
     const gaps = freeGapsInWindow(busyToday, windowStart, windowEnd)

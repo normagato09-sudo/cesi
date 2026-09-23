@@ -2,8 +2,10 @@ import { format } from 'date-fns'
 import { getAllEvents, STORAGE_KEY as EVENTS_KEY } from './localEvents'
 import { getAllContacts, STORAGE_KEY as CONTACTS_KEY } from './contacts'
 import { getWorkingHours, STORAGE_KEY as WORKING_HOURS_KEY } from './availability'
+import { getPreferences, STORAGE_KEY as PREFERENCES_KEY } from './preferences'
 
-const BACKUP_VERSION = 1
+// v1: events, contacts, workingHours. v2 añade preferences.
+const BACKUP_VERSION = 2
 
 export function buildBackup() {
   return {
@@ -13,6 +15,7 @@ export function buildBackup() {
     events: getAllEvents(),
     contacts: getAllContacts(),
     workingHours: getWorkingHours(),
+    preferences: getPreferences(),
   }
 }
 
@@ -48,6 +51,9 @@ export function parseBackup(text) {
   if (data.workingHours !== undefined && (!Array.isArray(data.workingHours) || data.workingHours.length !== 7)) {
     throw new Error('La copia tiene un horario habitual no válido.')
   }
+  if (data.preferences !== undefined && (typeof data.preferences !== 'object' || Array.isArray(data.preferences))) {
+    throw new Error('La copia tiene unas preferencias no válidas.')
+  }
   return data
 }
 
@@ -75,4 +81,11 @@ export function restoreBackup(data) {
   } else {
     localStorage.removeItem(WORKING_HOURS_KEY)
   }
+  restoreOptional(PREFERENCES_KEY, data.preferences)
+}
+
+// Las claves que no existían en versiones antiguas de la copia vuelven a su valor por defecto.
+function restoreOptional(key, value) {
+  if (value === undefined || value === null) localStorage.removeItem(key)
+  else localStorage.setItem(key, JSON.stringify(value))
 }

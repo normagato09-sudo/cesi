@@ -3,13 +3,15 @@ import { format, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, CalendarClock } from 'lucide-react'
 import { findFirstSlot, findBestSlot, findMultipleSlots } from '../lib/findSlots'
+import { useScheduling } from '../lib/schedulingContext'
 import './FindSlotModal.css'
 
 function toDateInputValue(date) {
   return format(date, 'yyyy-MM-dd')
 }
 
-export default function FindSlotModal({ rawEvents, initialDurationMinutes, onPick, onClose }) {
+export default function FindSlotModal({ initialDurationMinutes, onPick, onClose }) {
+  const { rawEvents, preferences } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
@@ -26,6 +28,7 @@ export default function FindSlotModal({ rawEvents, initialDurationMinutes, onPic
     minTime,
     maxTime,
     events: rawEvents,
+    bufferMinutes: preferences.bufferMinutes,
     now,
   })
 
