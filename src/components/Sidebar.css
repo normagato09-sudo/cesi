@@ -48,8 +48,16 @@
   gap: 10px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  text-align: left;
   font-size: 14px;
   color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-nav-item:hover:not(.active) {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .sidebar-nav-item.active {
@@ -61,17 +69,52 @@
 @media (max-width: 860px) {
   .sidebar {
     width: 100%;
-    flex-direction: row;
-    align-items: center;
-    gap: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
     padding: 10px 14px;
-    overflow-x: auto;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
 
-  .sidebar-brand,
+  .sidebar-brand {
+    display: none;
+  }
+
+  /* Pestañas compactas arriba */
   .sidebar-nav {
+    flex-direction: row;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .sidebar-nav-item {
+    flex: 1;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    font-weight: 500;
+  }
+  .sidebar-nav-item:hover:not(.active) {
+    background: transparent;
+  }
+  .sidebar-nav-item.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* El resumen conserva su fila con scroll horizontal */
+  .sidebar .summary-panel {
+    overflow-x: auto;
+  }
+
+  /* En Contactos el resumen del calendario no aporta nada y quita espacio en móvil */
+  .sidebar.section-contacts .summary-panel {
     display: none;
   }
 }

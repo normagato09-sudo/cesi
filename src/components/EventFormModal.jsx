@@ -65,7 +65,8 @@ export default function EventFormModal({
   onSubmit,
 }) {
   const isEditing = !!initialEvent
-  const isDuplicating = !isEditing && !!prefill
+  // Solo se duplica si el prefill es un evento existente (no un hueco o un participante preseleccionado).
+  const isDuplicating = !isEditing && !!prefill?.id
   const seed = initialEvent || prefill || {}
 
   const [formType, setFormType] = useState(seed.isUnavailable ? 'unavailable' : mode || 'meeting')

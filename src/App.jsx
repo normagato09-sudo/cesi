@@ -10,7 +10,9 @@ import EventModal from './components/EventModal.jsx'
 import EventFormModal from './components/EventFormModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
 import AvailabilityModal from './components/AvailabilityModal.jsx'
+import ContactsView from './components/ContactsView.jsx'
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
+import { useContacts } from './hooks/useContacts.js'
 import { getVisibleRange } from './lib/dateHelpers.js'
 import { computeSummary } from './lib/summary.js'
 import './App.css'
@@ -22,6 +24,8 @@ function getHeaderLabel(currentDate, view) {
 }
 
 export default function App() {
+  const [section, setSection] = useState('calendar')
+  const [selectedContactId, setSelectedContactId] = useState(null)
   const [view, setView] = useState('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -40,9 +44,14 @@ export default function App() {
   const { rawEvents, events, workingHours, setWorkingHours, checkConflict, addEvent, editEvent, removeEvent } =
     useLocalCalendar(range)
 
+  const { contacts, addContact, editContact, removeContact } = useContacts()
+
   const summary = useMemo(() => computeSummary(rawEvents, workingHours, now), [rawEvents, workingHours, now])
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
+
+  const handleNewMeetingWithContact = (contact) =>
+    setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participants: [contact.name] } })
 
   const handleSlotClick = (day, hour) => {
     const start = new Date(day)
@@ -111,56 +120,75 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar summary={summary} now={now} />
+      <Sidebar summary={summary} now={now} section={section} onSectionChange={setSection} />
 
-      <div className="app-main">
-        <CalendarHeader
-          label={getHeaderLabel(currentDate, view)}
-          view={view}
-          onViewChange={setView}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          onToday={handleToday}
-          onNewMeeting={handleNewMeeting}
-          onFindSlot={() => setFindSlotOpen(true)}
-          onOpenAvailability={() => setAvailabilityOpen(true)}
-        />
-
-        <div className="app-calendar-body">
-          {view === 'month' && (
-            <MonthView
-              currentDate={currentDate}
-              events={events}
-              onSelectEvent={setSelectedEvent}
-              onMoveEvent={handleMoveOrResize}
-              onSelectDay={(day) => {
-                setCurrentDate(day)
-                setView('day')
-              }}
-            />
-          )}
-          {view === 'week' && (
-            <WeekView
-              currentDate={currentDate}
-              events={events}
-              onSelectEvent={setSelectedEvent}
-              onSlotClick={handleSlotClick}
-              onMoveEvent={handleMoveOrResize}
-              onResizeEvent={handleMoveOrResize}
-            />
-          )}
-          {view === 'day' && (
-            <DayView
-              currentDate={currentDate}
-              events={events}
-              onSelectEvent={setSelectedEvent}
-              onSlotClick={handleSlotClick}
-              onMoveEvent={handleMoveOrResize}
-              onResizeEvent={handleMoveOrResize}
-            />
-          )}
+      {section === 'contacts' && (
+        <div className="app-main">
+          <ContactsView
+            contacts={contacts}
+            rawEvents={rawEvents}
+            now={now}
+            selectedContactId={selectedContactId}
+            onSelectContact={setSelectedContactId}
+            onAddContact={addContact}
+            onEditContact={editContact}
+            onRemoveContact={removeContact}
+            onOpenEvent={setSelectedEvent}
+            onNewMeetingWithContact={handleNewMeetingWithContact}
+          />
         </div>
-      </div>
+      )}
+
+      {section === 'calendar' && (
+        <div className="app-main">
+          <CalendarHeader
+            label={getHeaderLabel(currentDate, view)}
+            view={view}
+            onViewChange={setView}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            onToday={handleToday}
+            onNewMeeting={handleNewMeeting}
+            onFindSlot={() => setFindSlotOpen(true)}
+            onOpenAvailability={() => setAvailabilityOpen(true)}
+          />
+
+          <div className="app-calendar-body">
+            {view === 'month' && (
+              <MonthView
+                currentDate={currentDate}
+                events={events}
+                onSelectEvent={setSelectedEvent}
+                onMoveEvent={handleMoveOrResize}
+                onSelectDay={(day) => {
+                  setCurrentDate(day)
+                  setView('day')
+                }}
+              />
+            )}
+            {view === 'week' && (
+              <WeekView
+                currentDate={currentDate}
+                events={events}
+                onSelectEvent={setSelectedEvent}
+                onSlotClick={handleSlotClick}
+                onMoveEvent={handleMoveOrResize}
+                onResizeEvent={handleMoveOrResize}
+              />
+            )}
+            {view === 'day' && (
+              <DayView
+                currentDate={currentDate}
+                events={events}
+                onSelectEvent={setSelectedEvent}
+                onSlotClick={handleSlotClick}
+                onMoveEvent={handleMoveOrResize}
+                onResizeEvent={handleMoveOrResize}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <EventModal
         event={selectedEvent}
