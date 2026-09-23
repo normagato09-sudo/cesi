@@ -106,8 +106,31 @@ export function participantsOf(event, contacts) {
   return { contacts: matched, guests }
 }
 
+// Con participantIds se usa el id; el emparejamiento por nombre/email queda solo para eventos antiguos.
 export function eventIncludesContact(event, contact, contacts) {
+  if (Array.isArray(event.participantIds)) return event.participantIds.includes(contact.id)
   return participantsOf(event, contacts).contacts.some((c) => c.id === contact.id)
+}
+
+export function isEmail(text) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((text || '').trim())
+}
+
+// Datos iniciales de un contacto creado a partir de un texto libre (nombre o email).
+export function contactDataFromText(text) {
+  const value = (text || '').trim()
+  if (isEmail(value)) return { name: value.split('@')[0], email: value }
+  return { name: value }
+}
+
+// Campos de participantes que se guardan en el evento. `participants` es una copia con los
+// nombres de todos para compatibilidad (p. ej. DayEventsModal usa participants.length).
+export function participantFields(selectedContacts, guests) {
+  return {
+    participantIds: selectedContacts.map((c) => c.id),
+    guests: [...guests],
+    participants: [...selectedContacts.map((c) => c.name), ...guests],
+  }
 }
 
 export { STORAGE_KEY }

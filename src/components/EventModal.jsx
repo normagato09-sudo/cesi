@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Clock, Users, Video, Tag, Pencil, Trash2, Copy, Ban, Repeat } from 'lucide-react'
+import { X, Clock, Users, Video, Tag, Pencil, Trash2, Copy, Ban, Repeat, UserPlus, UserRound } from 'lucide-react'
+import ContactAvatar from './ContactAvatar.jsx'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
+import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
 import './EventModal.css'
 
@@ -18,11 +20,23 @@ function formatRange(event) {
   return `${datePart} · ${timePart}`
 }
 
-export default function EventModal({ event, onClose, onEdit, onDelete, onDuplicate }) {
+export default function EventModal({
+  event,
+  contacts,
+  onClose,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onOpenContact,
+  onSaveGuestAsContact,
+}) {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
 
   if (!event) return null
+
+  // Se resuelven en vivo: si se renombra un contacto, aquí aparece ya con el nombre nuevo.
+  const { contacts: people, guests } = participantsOf(event, contacts)
 
   const handleDelete = async () => {
     const confirmMsg = event.isRecurringInstance
@@ -82,14 +96,57 @@ export default function EventModal({ event, onClose, onEdit, onDelete, onDuplica
             </div>
           )}
 
-          {event.participants?.length > 0 && (
+          {people.length > 0 && (
             <div className="event-modal-row align-top">
               <Users size={16} strokeWidth={1.75} />
               <ul className="event-modal-attendees">
-                {event.participants.map((p) => (
-                  <li key={p}>{p}</li>
+                {people.map((c) => (
+                  <li key={c.id} className="event-modal-attendee">
+                    <ContactAvatar name={c.name} size="sm" />
+                    <span className="event-modal-attendee-text">
+                      <button
+                        type="button"
+                        className="event-modal-attendee-name"
+                        onClick={() => onOpenContact(c.id)}
+                        title="Ver ficha del contacto"
+                      >
+                        {c.name}
+                      </button>
+                      {c.email && (
+                        <a href={`mailto:${c.email}`} className="event-modal-attendee-email">
+                          {c.email}
+                        </a>
+                      )}
+                    </span>
+                  </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {guests.length > 0 && (
+            <div className="event-modal-row align-top">
+              <UserRound size={16} strokeWidth={1.75} />
+              <div className="event-modal-guests">
+                <span className="event-modal-guests-label">Invitados sin ficha</span>
+                <ul className="event-modal-attendees">
+                  {guests.map((g) => (
+                    <li key={g} className="event-modal-attendee">
+                      <span className="event-modal-attendee-text">
+                        <span className="event-modal-guest-name">{g}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="event-modal-save-guest"
+                        onClick={() => onSaveGuestAsContact(event, g)}
+                      >
+                        <UserPlus size={13} strokeWidth={1.75} />
+                        Guardar como contacto
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 

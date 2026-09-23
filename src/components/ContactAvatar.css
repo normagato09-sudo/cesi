@@ -1,0 +1,30 @@
+.contact-avatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft-strong);
+  color: var(--accent-hover);
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.contact-avatar.xs {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+.contact-avatar.sm {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+.contact-avatar.lg {
+  width: 56px;
+  height: 56px;
+  font-size: 19px;
+}

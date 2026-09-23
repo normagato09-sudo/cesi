@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
 import { X, CalendarPlus, Ban, Search } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
+import ParticipantPicker from './ParticipantPicker.jsx'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
+import { participantFields, participantsOf } from '../lib/contacts'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -61,6 +63,8 @@ export default function EventFormModal({
   prefill,
   defaultDate,
   rawEvents,
+  contacts,
+  onCreateContact,
   onClose,
   onSubmit,
 }) {
@@ -87,7 +91,10 @@ export default function EventFormModal({
   const [reason, setReason] = useState(initialReason)
   const [customReason, setCustomReason] = useState(initialCustomReason)
   const [description, setDescription] = useState(seed.description || '')
-  const [participants, setParticipants] = useState((seed.participants || []).join(', '))
+  const [participantSelection, setParticipantSelection] = useState(() => {
+    const resolved = participantsOf(seed, contacts)
+    return { participantIds: resolved.contacts.map((c) => c.id), guests: resolved.guests }
+  })
   const [meetLink, setMeetLink] = useState(seed.meetLink || '')
   const [allDay, setAllDay] = useState(!!seed.allDay)
   const [date, setDate] = useState(toDateInputValue(baseStart))
@@ -191,12 +198,13 @@ export default function EventFormModal({
           : `No disponible: ${reason === 'Otro' ? customReason.trim() : reason}`
         : title.trim(),
       description: isUnavailable ? '' : description.trim(),
-      participants: isUnavailable
-        ? []
-        : participants
-            .split(',')
-            .map((p) => p.trim())
-            .filter(Boolean),
+      ...(isUnavailable
+        ? participantFields([], [])
+        : participantFields(
+            // Se ignoran los ids de contactos que ya no existen.
+            participantSelection.participantIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean),
+            participantSelection.guests,
+          )),
       meetLink: isUnavailable ? '' : meetLink.trim(),
       category: isUnavailable ? 'No disponible' : category,
       isUnavailable,
@@ -378,15 +386,17 @@ export default function EventFormModal({
           </div>
 
           {!isUnavailable && (
-            <label className="event-form-field">
-              <span>Participantes (separados por comas)</span>
-              <input
-                type="text"
-                value={participants}
-                onChange={(e) => setParticipants(e.target.value)}
-                placeholder="ana@empresa.com, Pedro"
+            <div className="event-form-field">
+              <span id="event-form-participants-label">Participantes</span>
+              <ParticipantPicker
+                labelId="event-form-participants-label"
+                contacts={contacts}
+                participantIds={participantSelection.participantIds}
+                guests={participantSelection.guests}
+                onChange={setParticipantSelection}
+                onCreateContact={onCreateContact}
               />
-            </label>
+            </div>
           )}
 
           {!isUnavailable && (

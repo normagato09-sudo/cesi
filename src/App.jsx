@@ -15,6 +15,7 @@ import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
 import { getVisibleRange } from './lib/dateHelpers.js'
 import { computeSummary } from './lib/summary.js'
+import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
 import './App.css'
 
 function getHeaderLabel(currentDate, view) {
@@ -51,7 +52,25 @@ export default function App() {
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
 
   const handleNewMeetingWithContact = (contact) =>
-    setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participants: [contact.name] } })
+    setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participantIds: [contact.id], guests: [] } })
+
+  const handleOpenContact = (contactId) => {
+    setSelectedEvent(null)
+    setSelectedContactId(contactId)
+    setSection('contacts')
+  }
+
+  // Convierte un invitado suelto en contacto y lo enlaza por id en la reunión.
+  const handleSaveGuestAsContact = (event, guest) => {
+    const contact = addContact(contactDataFromText(guest))
+    const current = participantsOf(event, contacts)
+    const fields = participantFields(
+      [...current.contacts, contact],
+      current.guests.filter((g) => g !== guest),
+    )
+    editEvent(event.seriesId, fields)
+    setSelectedEvent((ev) => (ev ? { ...ev, ...fields } : ev))
+  }
 
   const handleSlotClick = (day, hour) => {
     const start = new Date(day)
@@ -192,7 +211,10 @@ export default function App() {
 
       <EventModal
         event={selectedEvent}
+        contacts={contacts}
         onClose={() => setSelectedEvent(null)}
+        onOpenContact={handleOpenContact}
+        onSaveGuestAsContact={handleSaveGuestAsContact}
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
         onDuplicate={handleDuplicateEvent}
@@ -205,6 +227,8 @@ export default function App() {
           prefill={formModal.prefill}
           defaultDate={currentDate}
           rawEvents={rawEvents}
+          contacts={contacts}
+          onCreateContact={addContact}
           onClose={() => setFormModal(null)}
           onSubmit={handleFormSubmit}
         />

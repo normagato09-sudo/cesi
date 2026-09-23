@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { X, UserPlus, UserPen } from 'lucide-react'
+import { isEmail } from '../lib/contacts'
 import './EventFormModal.css'
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function ContactFormModal({ initialContact, onClose, onSubmit }) {
   const isEditing = !!initialContact
@@ -25,7 +24,7 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
       setFormError('El nombre es obligatorio.')
       return
     }
-    if (email.trim() && !EMAIL_RE.test(email.trim())) {
+    if (email.trim() && !isEmail(email)) {
       setFormError('El email no tiene un formato válido.')
       return
     }

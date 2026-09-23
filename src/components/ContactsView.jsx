@@ -17,7 +17,8 @@ import {
   Users,
 } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
-import { contactInitials, contactMatches, eventIncludesContact } from '../lib/contacts'
+import ContactAvatar from './ContactAvatar.jsx'
+import { contactMatches, eventIncludesContact } from '../lib/contacts'
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
 import './ContactsView.css'
@@ -30,14 +31,6 @@ function subtitleOf(contact) {
 
 function formatMeetingDate(event) {
   return format(event.start, "EEE d MMM yyyy · HH:mm", { locale: es })
-}
-
-function Avatar({ name, large = false }) {
-  return (
-    <span className={`contact-avatar${large ? ' large' : ''}`} aria-hidden="true">
-      {contactInitials(name)}
-    </span>
-  )
 }
 
 function MeetingList({ title, meetings, emptyText, onOpenEvent }) {
@@ -170,7 +163,7 @@ export default function ContactsView({
             {filtered.map((c) => (
               <li key={c.id} className={`contact-row${c.id === selectedContactId ? ' active' : ''}`}>
                 <button type="button" className="contact-row-main" onClick={() => onSelectContact(c.id)}>
-                  <Avatar name={c.name} />
+                  <ContactAvatar name={c.name} />
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
@@ -211,7 +204,7 @@ export default function ContactsView({
             </button>
 
             <div className="contact-detail-head">
-              <Avatar name={selected.name} large />
+              <ContactAvatar name={selected.name} size="lg" />
               <div>
                 <h2>{selected.name}</h2>
                 {subtitleOf(selected) && <p>{subtitleOf(selected)}</p>}
