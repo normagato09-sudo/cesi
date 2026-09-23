@@ -1,21 +1,21 @@
 import { useState } from 'react'
 import { X, Clock3 } from 'lucide-react'
-import { WEEKDAY_LABELS } from '../lib/availability'
+import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
+import { cleanWeek, validateWeek } from '../lib/weeklySchedule'
 import './AvailabilityModal.css'
-
-const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0] // lunes..domingo, igual que el resto del calendario
 
 export default function AvailabilityModal({ workingHours, onSave, onClose }) {
   const [hours, setHours] = useState(workingHours)
-  const orderedHours = DISPLAY_ORDER.map((day) => hours.find((h) => h.day === day))
-
-  const updateDay = (day, patch) => {
-    setHours((prev) => prev.map((d) => (d.day === day ? { ...d, ...patch } : d)))
-  }
+  const [error, setError] = useState(null)
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSave(hours)
+    const problem = validateWeek(hours)
+    if (problem) {
+      setError(problem)
+      return
+    }
+    onSave(cleanWeek(hours))
     onClose()
   }
 
@@ -33,36 +33,13 @@ export default function AvailabilityModal({ workingHours, onSave, onClose }) {
         </div>
 
         <p className="availability-hint">
-          Se usa como preferencia para "Buscar hueco": no bloquea tu calendario, solo prioriza los huecos dentro
-          de tu horario habitual.
+          Puedes poner varias franjas por día (por ejemplo, 09:00–14:00 y 16:00–19:00). "Buscar hueco" solo
+          propone huecos dentro de estas franjas.
         </p>
 
         <div className="availability-body">
-          {orderedHours.map((entry) => (
-            <div key={entry.day} className="availability-row">
-              <label className="availability-day-toggle">
-                <input
-                  type="checkbox"
-                  checked={entry.enabled}
-                  onChange={(e) => updateDay(entry.day, { enabled: e.target.checked })}
-                />
-                <span>{WEEKDAY_LABELS[entry.day]}</span>
-              </label>
-              <input
-                type="time"
-                value={entry.start}
-                disabled={!entry.enabled}
-                onChange={(e) => updateDay(entry.day, { start: e.target.value })}
-              />
-              <span className="availability-sep">–</span>
-              <input
-                type="time"
-                value={entry.end}
-                disabled={!entry.enabled}
-                onChange={(e) => updateDay(entry.day, { end: e.target.value })}
-              />
-            </div>
-          ))}
+          <WeeklyScheduleEditor value={hours} onChange={setHours} />
+          {error && <div className="availability-error">{error}</div>}
         </div>
 
         <div className="availability-footer">

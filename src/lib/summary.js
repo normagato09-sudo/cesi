@@ -1,9 +1,8 @@
 import { startOfWeek, endOfWeek, startOfDay, endOfDay, addDays } from 'date-fns'
 import { expandEvents } from './recurrence'
-import { workingHoursForDay } from './availability'
+import { slotIntervalsOn } from './weeklySchedule'
 
 const WEEK_OPTS = { weekStartsOn: 1 }
-const DEFAULT_REF = { start: '09:00', end: '18:00' }
 export const WEEKDAY_SHORT_LABELS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
 function clip(aStart, aEnd, bStart, bEnd) {
@@ -12,11 +11,15 @@ function clip(aStart, aEnd, bStart, bEnd) {
   return end > start ? end - start : 0
 }
 
-function combine(day, hhmm) {
-  const [h, m] = hhmm.split(':').map(Number)
-  const d = new Date(day)
-  d.setHours(h, m, 0, 0)
-  return d
+// Si hoy no hay horario habitual, se usa 09:00–18:00 como referencia para las horas libres.
+function referenceIntervals(workingHours, now) {
+  const intervals = slotIntervalsOn(workingHours, now)
+  if (intervals.length > 0) return intervals
+  const start = new Date(now)
+  start.setHours(9, 0, 0, 0)
+  const end = new Date(now)
+  end.setHours(18, 0, 0, 0)
+  return [{ start, end }]
 }
 
 export function computeSummary(events, workingHours, now = new Date()) {
@@ -28,12 +31,13 @@ export function computeSummary(events, workingHours, now = new Date()) {
   const weekOccurrences = expandEvents(events, weekStart, weekEnd)
   const todayOccurrences = weekOccurrences.filter((ev) => ev.start < todayEnd && ev.end > todayStart)
 
-  const todayRef = workingHoursForDay(workingHours, now.getDay()) || DEFAULT_REF
-  const refStart = combine(now, todayRef.start)
-  const refEnd = combine(now, todayRef.end)
-  const refTotalMs = Math.max(0, refEnd - refStart)
+  const refIntervals = referenceIntervals(workingHours, now)
+  const refTotalMs = refIntervals.reduce((sum, r) => sum + (r.end - r.start), 0)
 
-  const occupiedTodayMs = todayOccurrences.reduce((sum, ev) => sum + clip(ev.start, ev.end, refStart, refEnd), 0)
+  const occupiedTodayMs = todayOccurrences.reduce(
+    (sum, ev) => sum + refIntervals.reduce((acc, r) => acc + clip(ev.start, ev.end, r.start, r.end), 0),
+    0,
+  )
   const meetingsToday = todayOccurrences.filter((ev) => !ev.isUnavailable).length
 
   const meetingsThisWeek = weekOccurrences.filter((ev) => !ev.isUnavailable).length

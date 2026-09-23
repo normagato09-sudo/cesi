@@ -1,6 +1,7 @@
 import { addDays, startOfDay, endOfDay, isSameDay } from 'date-fns'
 import { expandEvents } from './recurrence'
-import { getWorkingHours, workingHoursForDay } from './availability'
+import { getWorkingHours } from './availability'
+import { slotIntervalsOn } from './weeklySchedule'
 
 const SMALL_GAP_MS = 15 * 60 * 1000
 
@@ -47,13 +48,8 @@ function freeGapsInWindow(busy, windowStart, windowEnd) {
 }
 
 function scoreCandidate(slotStart, slotEnd, gap, day) {
-  const workingHours = workingHoursForDay(getWorkingHours(), day.getDay())
   let score = 0
-  if (workingHours) {
-    const workStart = combine(day, workingHours.start)
-    const workEnd = combine(day, workingHours.end)
-    if (slotStart >= workStart && slotEnd <= workEnd) score += 3
-  }
+  if (slotIntervalsOn(getWorkingHours(), day).some((w) => slotStart >= w.start && slotEnd <= w.end)) score += 3
   const leftoverAfter = gap.end - slotEnd
   if (leftoverAfter > 0 && leftoverAfter < SMALL_GAP_MS) score -= 2
   if (leftoverAfter === 0) score += 1

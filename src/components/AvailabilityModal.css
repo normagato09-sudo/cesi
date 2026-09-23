@@ -24,7 +24,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
@@ -86,54 +86,20 @@
 }
 
 .availability-body {
-  padding: 0 24px;
+  padding: 4px 24px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
   border-top: 1px solid var(--border);
-  padding-top: 14px;
 }
 
-.availability-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.availability-day-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100px;
-  flex-shrink: 0;
+.availability-error {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-}
-.availability-day-toggle input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-}
-
-.availability-row input[type='time'] {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  padding: 6px 8px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--text);
-}
-.availability-row input[type='time']:disabled {
-  opacity: 0.4;
-  background: var(--bg);
-}
-
-.availability-sep {
-  color: var(--text-muted);
-  font-size: 12px;
+  padding: 8px 10px;
 }
 
 .availability-footer {
@@ -203,26 +169,6 @@
   .availability-body {
     padding: 14px 20px 0;
     gap: 12px;
-  }
-
-  .availability-row {
-    flex-wrap: wrap;
-    gap: 8px 10px;
-  }
-
-  .availability-day-toggle {
-    width: 100%;
-    font-size: 14px;
-  }
-  .availability-day-toggle input {
-    width: 20px;
-    height: 20px;
-  }
-
-  .availability-row input[type='time'] {
-    flex: 1;
-    font-size: 16px;
-    padding: 10px;
   }
 
   .availability-footer {
