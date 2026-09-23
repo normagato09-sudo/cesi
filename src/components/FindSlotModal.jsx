@@ -11,13 +11,14 @@ function toDateInputValue(date) {
 }
 
 export default function FindSlotModal({ initialDurationMinutes, onPick, onClose }) {
-  const { rawEvents, preferences } = useScheduling()
+  const { rawEvents, preferences, workingHours } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
   const [toDate, setToDate] = useState(toDateInputValue(addDays(now, 7)))
-  const [minTime, setMinTime] = useState('09:00')
-  const [maxTime, setMaxTime] = useState('20:00')
+  // Filtro horario opcional, además del horario habitual.
+  const [minTime, setMinTime] = useState('')
+  const [maxTime, setMaxTime] = useState('')
   const [results, setResults] = useState(null)
   const [searchError, setSearchError] = useState(null)
 
@@ -25,16 +26,17 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
     durationMinutes,
     fromDate: new Date(`${fromDate}T00:00:00`),
     toDate: new Date(`${toDate}T00:00:00`),
-    minTime,
-    maxTime,
+    minTime: minTime || '00:00',
+    maxTime: maxTime || '24:00',
     events: rawEvents,
+    workingHours,
     bufferMinutes: preferences.bufferMinutes,
     now,
   })
 
   const runSearch = (mode) => {
     setSearchError(null)
-    if (maxTime <= minTime) {
+    if (minTime && maxTime && maxTime <= minTime) {
       setSearchError('La hora máxima debe ser posterior a la mínima.')
       setResults(null)
       return
@@ -91,14 +93,20 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
 
           <div className="find-slot-row">
             <label className="find-slot-field">
-              <span>Horario mínimo</span>
+              <span>Solo desde (opcional)</span>
               <input type="time" value={minTime} onChange={(e) => setMinTime(e.target.value)} />
             </label>
             <label className="find-slot-field">
-              <span>Horario máximo</span>
+              <span>Hasta (opcional)</span>
               <input type="time" value={maxTime} onChange={(e) => setMaxTime(e.target.value)} />
             </label>
           </div>
+
+          <p className="find-slot-hint">
+            Solo se proponen huecos dentro de tu horario habitual
+            {preferences.bufferMinutes > 0 ? `, dejando ${preferences.bufferMinutes} min de margen entre reuniones` : ''}.
+            Puedes cambiarlo en "Horario y preferencias".
+          </p>
 
           {searchError && <div className="find-slot-error">{searchError}</div>}
 
@@ -117,7 +125,10 @@ export default function FindSlotModal({ initialDurationMinutes, onPick, onClose 
           {results && (
             <div className="find-slot-results">
               {results.slots.length === 0 ? (
-                <p className="find-slot-empty">No he encontrado ningún hueco con esos criterios.</p>
+                <p className="find-slot-empty">
+                  No hay huecos libres dentro de tu horario habitual con esos criterios. Prueba con otras fechas o
+                  una duración menor.
+                </p>
               ) : (
                 <ul>
                   {results.slots.map((slot) => (

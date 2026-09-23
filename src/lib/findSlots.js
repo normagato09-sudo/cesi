@@ -1,14 +1,15 @@
 import { addDays, startOfDay, endOfDay, isSameDay } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
-import { slotIntervalsOn } from './weeklySchedule'
+import { slotIntervalsOn, timeToMinutes } from './weeklySchedule'
+import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
 
 const SMALL_GAP_MS = 15 * 60 * 1000
+const ALIGN_MS = 15 * 60 * 1000
 
-function combine(day, hhmm) {
-  const [h, m] = hhmm.split(':').map(Number)
+function atMinutes(day, minutes) {
   const d = new Date(day)
-  d.setHours(h, m, 0, 0)
+  d.setHours(0, minutes, 0, 0)
   return d
 }
 
@@ -18,38 +19,13 @@ function isDayFullyUnavailable(occurrences, day) {
   )
 }
 
-function mergeIntervals(intervals) {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start)
-  const merged = []
-  for (const interval of sorted) {
-    const last = merged[merged.length - 1]
-    if (last && interval.start <= last.end) {
-      last.end = new Date(Math.max(last.end, interval.end))
-    } else {
-      merged.push({ start: interval.start, end: interval.end })
-    }
-  }
-  return merged
+// Redondea hacia arriba al siguiente cuarto de hora (10:07 → 10:15).
+function alignUp(date) {
+  return new Date(Math.ceil(date.getTime() / ALIGN_MS) * ALIGN_MS)
 }
 
-function freeGapsInWindow(busy, windowStart, windowEnd) {
-  if (windowEnd <= windowStart) return []
-  const gaps = []
-  let cursor = windowStart
-  for (const b of busy) {
-    if (b.end <= cursor) continue
-    if (b.start >= windowEnd) break
-    if (b.start > cursor) gaps.push({ start: cursor, end: new Date(Math.min(b.start, windowEnd)) })
-    cursor = new Date(Math.max(cursor, b.end))
-    if (cursor >= windowEnd) break
-  }
-  if (cursor < windowEnd) gaps.push({ start: cursor, end: windowEnd })
-  return gaps.filter((g) => g.end - g.start > 0)
-}
-
-function scoreCandidate(slotStart, slotEnd, gap, day) {
+function scoreCandidate(slotEnd, gap) {
   let score = 0
-  if (slotIntervalsOn(getWorkingHours(), day).some((w) => slotStart >= w.start && slotEnd <= w.end)) score += 3
   const leftoverAfter = gap.end - slotEnd
   if (leftoverAfter > 0 && leftoverAfter < SMALL_GAP_MS) score -= 2
   if (leftoverAfter === 0) score += 1
@@ -57,17 +33,19 @@ function scoreCandidate(slotStart, slotEnd, gap, day) {
 }
 
 /**
- * Busca huecos libres de `durationMinutes` entre fromDate y toDate (incl.), dentro de la
- * franja horaria [minTime, maxTime) de cada día. No usa IA: la puntuación de "mejor hueco"
- * es una suma de reglas simples (dentro del horario habitual, evita dejar fragmentos < 15 min).
+ * Busca huecos libres de `durationMinutes` entre fromDate y toDate (incl.).
+ * Es estricto: solo propone huecos dentro de las franjas del horario habitual, y además
+ * dentro de [minTime, maxTime) si se indican. Cada bloque ocupado se amplía con `bufferMinutes`.
+ * Devuelve un candidato por hueco libre, al principio del hueco (alineado a 15 min).
  */
 export function findSlots({
   durationMinutes,
   fromDate,
   toDate,
-  minTime,
-  maxTime,
+  minTime = '00:00',
+  maxTime = '24:00',
   events,
+  workingHours = getWorkingHours(),
   bufferMinutes = 0,
   now = new Date(),
 }) {
@@ -75,40 +53,33 @@ export function findSlots({
   const bufferMs = bufferMinutes * 60 * 1000
   const rangeStart = startOfDay(fromDate)
   const rangeEnd = endOfDay(toDate)
-  const occurrences = expandEvents(events, rangeStart, rangeEnd)
+  const occurrences = expandEvents(events, addDays(rangeStart, -1), addDays(rangeEnd, 1))
+
+  // Cada bloque ocupado se amplía con el margen entre reuniones por delante y por detrás.
+  const busy = mergeIntervals(
+    occurrences
+      .filter((ev) => !(ev.allDay && ev.isUnavailable))
+      .map((ev) => ({ start: new Date(ev.start.getTime() - bufferMs), end: new Date(ev.end.getTime() + bufferMs) })),
+  )
 
   const candidates = []
 
   for (let day = startOfDay(fromDate); day <= rangeEnd; day = addDays(day, 1)) {
     if (isDayFullyUnavailable(occurrences, day)) continue
 
-    let windowStart = combine(day, minTime)
-    const windowEnd = combine(day, maxTime)
-    if (isSameDay(day, now) && now > windowStart) windowStart = now
-    if (windowEnd <= windowStart) continue
+    const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(maxTime)) }]
+    const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
+    const windows = intersectIntervals(intersectIntervals(slotIntervalsOn(workingHours, day), filter), future)
 
-    // Cada bloque ocupado se amplía con el margen entre reuniones por delante y por detrás.
-    const busyToday = mergeIntervals(
-      occurrences
-        .filter((ev) => !(ev.allDay && ev.isUnavailable))
-        .map((ev) => ({ start: new Date(ev.start.getTime() - bufferMs), end: new Date(ev.end.getTime() + bufferMs) }))
-        .filter((b) => b.start < windowEnd && b.end > windowStart),
-    )
-
-    const gaps = freeGapsInWindow(busyToday, windowStart, windowEnd)
-    for (const gap of gaps) {
-      if (gap.end - gap.start < durationMs) continue
-      const slotStart = gap.start
+    for (const gap of subtractIntervals(windows, busy)) {
+      const slotStart = alignUp(gap.start)
       const slotEnd = new Date(slotStart.getTime() + durationMs)
-      candidates.push({
-        start: slotStart,
-        end: slotEnd,
-        score: scoreCandidate(slotStart, slotEnd, gap, day),
-      })
+      if (slotEnd > gap.end) continue
+      candidates.push({ start: slotStart, end: slotEnd, score: scoreCandidate(slotEnd, gap) })
     }
   }
 
-  return candidates
+  return candidates.sort((a, b) => a.start - b.start)
 }
 
 export function findFirstSlot(params) {
