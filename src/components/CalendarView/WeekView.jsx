@@ -1,8 +1,8 @@
-import { getWeekDays } from '../../lib/dateHelpers'
+import { getCompactWeekDays, getWeekDays } from '../../lib/dateHelpers'
 import TimeGridView from './TimeGridView.jsx'
 
-export default function WeekView({ currentDate, events, onSelectEvent, onSlotClick, onMoveEvent, onResizeEvent }) {
-  const days = getWeekDays(currentDate)
+export default function WeekView({ currentDate, compact = false, events, onSelectEvent, onSlotClick, onMoveEvent, onResizeEvent }) {
+  const days = compact ? getCompactWeekDays(currentDate) : getWeekDays(currentDate)
   return (
     <TimeGridView
       days={days}

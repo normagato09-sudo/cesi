@@ -151,8 +151,8 @@
   .calendar-header-left,
   .calendar-header-right {
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    min-width: 0;
+    gap: 8px;
   }
 
   .calendar-header-label {
@@ -174,19 +174,35 @@
     height: 40px;
   }
 
+  /* En móvil "Nueva reunión" y "Buscar hueco" quedan solo con icono. */
   .header-actions {
-    flex-basis: 100%;
     gap: 8px;
+    flex-shrink: 0;
   }
 
   .header-action-btn {
-    flex: 1;
+    width: 40px;
+    height: 40px;
+    padding: 0;
     justify-content: center;
-    padding: 10px 8px;
-    font-size: 13px;
+  }
+
+  .header-action-label {
+    display: none;
+  }
+
+  .view-switch {
+    flex: 1;
+    min-width: 0;
   }
 
   .view-switch-btn {
-    padding: 9px 10px;
+    flex: 1;
+    padding: 9px 4px;
+    white-space: nowrap;
+  }
+
+  .calendar-header-right > .header-icon-btn {
+    flex-shrink: 0;
   }
 }

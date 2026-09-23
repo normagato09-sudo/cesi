@@ -1,4 +1,7 @@
 import {
+  addDays,
+  startOfDay,
+  endOfDay,
   startOfMonth,
   endOfMonth,
   startOfWeek,
@@ -23,7 +26,19 @@ export function getWeekDays(date) {
   return eachDayOfInterval({ start, end })
 }
 
-export function getVisibleRange(date, view) {
+// Número de días que muestra la vista Semana en móvil.
+export const COMPACT_WEEK_DAYS = 3
+
+export function getCompactWeekDays(date) {
+  const start = startOfDay(date)
+  return Array.from({ length: COMPACT_WEEK_DAYS }, (_, i) => addDays(start, i))
+}
+
+// compactWeek: en móvil la vista Semana muestra COMPACT_WEEK_DAYS días desde `date`.
+export function getVisibleRange(date, view, { compactWeek = false } = {}) {
+  if (view === 'week' && compactWeek) {
+    return { start: startOfDay(date), end: endOfDay(addDays(date, COMPACT_WEEK_DAYS - 1)) }
+  }
   if (view === 'month') {
     const start = startOfWeek(startOfMonth(date), WEEK_OPTS)
     const end = endOfWeek(endOfMonth(date), WEEK_OPTS)

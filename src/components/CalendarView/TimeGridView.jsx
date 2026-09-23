@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { format, addDays, startOfDay } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Ban } from 'lucide-react'
 import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
@@ -10,7 +11,6 @@ import './TimeGridView.css'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SNAP_MINUTES = 15
-const GUTTER_WIDTH = 56
 
 function minutesFromMidnight(date) {
   return date.getHours() * 60 + date.getMinutes()
@@ -24,6 +24,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   const isMobile = useMediaQuery('(max-width: 640px)')
   const HOUR_HEIGHT = isMobile ? 64 : 56
   const scrollRef = useRef(null)
+  const gutterRef = useRef(null)
   const dragDataRef = useRef(null)
   const draggedRef = useRef(false)
   const [dragPreview, setDragPreview] = useState(null)
@@ -44,10 +45,12 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   )
 
   const dayIndexFromClientX = (clientX) => {
-    if (!scrollRef.current || days.length <= 1) return null
+    if (!scrollRef.current || !gutterRef.current || days.length <= 1) return null
+    // Se mide la columna de horas real (su ancho cambia en móvil) y se excluye la barra de scroll.
     const rect = scrollRef.current.getBoundingClientRect()
-    const colWidth = (rect.width - GUTTER_WIDTH) / days.length
-    const rel = clientX - rect.left - GUTTER_WIDTH
+    const gutterWidth = gutterRef.current.getBoundingClientRect().width
+    const colWidth = (scrollRef.current.clientWidth - gutterWidth) / days.length
+    const rel = clientX - rect.left - gutterWidth
     return Math.min(days.length - 1, Math.max(0, Math.floor(rel / colWidth)))
   }
 
@@ -148,7 +151,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
         <div className="time-grid-gutter" />
         {days.map((day) => (
           <div key={day.toISOString()} className="time-grid-day-header">
-            <span className="time-grid-day-name">{format(day, 'EEE')}</span>
+            <span className="time-grid-day-name">{format(day, 'EEE', { locale: es })}</span>
             <span className={`time-grid-day-number ${isSameDay(day, today) ? 'today' : ''}`}>
               {format(day, 'd')}
             </span>
@@ -181,7 +184,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       )}
 
       <div className="time-grid-body" ref={scrollRef}>
-        <div className="time-grid-gutter-col">
+        <div className="time-grid-gutter-col" ref={gutterRef}>
           {HOURS.map((hour) => (
             <div key={hour} className="time-grid-hour-label">
               {hour === 0 ? '' : `${String(hour).padStart(2, '0')}:00`}

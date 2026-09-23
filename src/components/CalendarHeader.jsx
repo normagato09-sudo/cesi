@@ -37,13 +37,25 @@ export default function CalendarHeader({
 
       <div className="calendar-header-right">
         <div className="header-actions">
-          <button type="button" className="header-action-btn primary" onClick={onNewMeeting}>
+          <button
+            type="button"
+            className="header-action-btn primary"
+            onClick={onNewMeeting}
+            aria-label="Nueva reunión"
+            title="Nueva reunión"
+          >
             <CalendarPlus size={15} strokeWidth={1.75} />
-            Nueva reunión
+            <span className="header-action-label">Nueva reunión</span>
           </button>
-          <button type="button" className="header-action-btn" onClick={onFindSlot}>
+          <button
+            type="button"
+            className="header-action-btn"
+            onClick={onFindSlot}
+            aria-label="Buscar hueco"
+            title="Buscar hueco"
+          >
             <Search size={15} strokeWidth={1.75} />
-            Buscar hueco
+            <span className="header-action-label">Buscar hueco</span>
           </button>
         </div>
 

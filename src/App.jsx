@@ -13,12 +13,25 @@ import AvailabilityModal from './components/AvailabilityModal.jsx'
 import ContactsView from './components/ContactsView.jsx'
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
-import { getVisibleRange } from './lib/dateHelpers.js'
+import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
+import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
 import './App.css'
 
-function getHeaderLabel(currentDate, view) {
+// Rango compacto, p. ej. "23–25 sept 2026", "30 sept – 2 oct 2026" o "30 dic 2026 – 1 ene 2027".
+function formatCompactRange(start, end) {
+  if (start.getFullYear() !== end.getFullYear()) {
+    return `${format(start, 'd MMM yyyy', { locale: es })} – ${format(end, 'd MMM yyyy', { locale: es })}`
+  }
+  if (start.getMonth() !== end.getMonth()) {
+    return `${format(start, 'd MMM', { locale: es })} – ${format(end, 'd MMM yyyy', { locale: es })}`
+  }
+  return `${format(start, 'd')}–${format(end, 'd MMM yyyy', { locale: es })}`
+}
+
+function getHeaderLabel(currentDate, view, compactWeek) {
+  if (view === 'week' && compactWeek) return formatCompactRange(currentDate, addDays(currentDate, COMPACT_WEEK_DAYS - 1))
   if (view === 'day') return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
   if (view === 'week') return format(currentDate, "'Semana del' d 'de' MMMM yyyy", { locale: es })
   return format(currentDate, 'MMMM yyyy', { locale: es })
@@ -40,7 +53,13 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
-  const range = useMemo(() => getVisibleRange(currentDate, view), [currentDate, view])
+  // En móvil la vista Semana muestra solo COMPACT_WEEK_DAYS días a partir de currentDate.
+  const compactWeek = useMediaQuery('(max-width: 640px)')
+
+  const range = useMemo(
+    () => getVisibleRange(currentDate, view, { compactWeek }),
+    [currentDate, view, compactWeek],
+  )
 
   const { rawEvents, events, workingHours, setWorkingHours, checkConflict, addEvent, editEvent, removeEvent } =
     useLocalCalendar(range)
@@ -125,12 +144,14 @@ export default function App() {
 
   const handlePrev = () => {
     if (view === 'month') setCurrentDate((d) => subMonths(d, 1))
+    else if (view === 'week' && compactWeek) setCurrentDate((d) => subDays(d, COMPACT_WEEK_DAYS))
     else if (view === 'week') setCurrentDate((d) => subWeeks(d, 1))
     else setCurrentDate((d) => subDays(d, 1))
   }
 
   const handleNext = () => {
     if (view === 'month') setCurrentDate((d) => addMonths(d, 1))
+    else if (view === 'week' && compactWeek) setCurrentDate((d) => addDays(d, COMPACT_WEEK_DAYS))
     else if (view === 'week') setCurrentDate((d) => addWeeks(d, 1))
     else setCurrentDate((d) => addDays(d, 1))
   }
@@ -161,7 +182,7 @@ export default function App() {
       {section === 'calendar' && (
         <div className="app-main">
           <CalendarHeader
-            label={getHeaderLabel(currentDate, view)}
+            label={getHeaderLabel(currentDate, view, compactWeek)}
             view={view}
             onViewChange={setView}
             onPrev={handlePrev}
@@ -188,6 +209,7 @@ export default function App() {
             {view === 'week' && (
               <WeekView
                 currentDate={currentDate}
+                compact={compactWeek}
                 events={events}
                 onSelectEvent={setSelectedEvent}
                 onSlotClick={handleSlotClick}

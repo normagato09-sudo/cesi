@@ -1,4 +1,5 @@
 .time-grid-view {
+  --gutter-width: 56px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -7,7 +8,7 @@
 
 .time-grid-header {
   display: grid;
-  grid-template-columns: 56px repeat(var(--day-count), 1fr);
+  grid-template-columns: var(--gutter-width) repeat(var(--day-count), 1fr);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
@@ -57,7 +58,7 @@
 
 .time-grid-allday {
   display: grid;
-  grid-template-columns: 56px repeat(var(--day-count), 1fr);
+  grid-template-columns: var(--gutter-width) repeat(var(--day-count), 1fr);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
@@ -105,7 +106,7 @@
 }
 
 .time-grid-gutter-col {
-  width: 56px;
+  width: var(--gutter-width);
   flex-shrink: 0;
 }
 
@@ -205,12 +206,16 @@
 }
 
 @media (max-width: 640px) {
+  .time-grid-view {
+    --gutter-width: 44px;
+  }
+
   /* Debe coincidir con el HOUR_HEIGHT móvil de TimeGridView.jsx para que las horas
      del margen izquierdo sigan alineadas con las celdas de la rejilla. */
   .time-grid-hour-label {
     height: 64px;
-    font-size: 11.5px;
-    padding-right: 6px;
+    font-size: 11px;
+    padding-right: 5px;
   }
 
   .time-grid-gutter {

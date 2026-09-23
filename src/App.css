@@ -17,6 +17,9 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Sin esto, en móvil (.app en columna) la rejilla crece a su altura completa y
+     .app la recorta: la vista Semana/Día no se podía desplazar. */
+  min-height: 0;
   background: var(--bg);
 }
 
