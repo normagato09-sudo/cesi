@@ -8,11 +8,14 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Reuniones y franjas "No disponible"**, con categorías, enlace de videollamada, descripción y repeticiones (diaria, semanal, mensual o anual).
 - **Arrastrar y redimensionar** reuniones en las vistas Semana y Día, también con el dedo.
 - **Detección de solapamientos**: avisa si una franja ya está ocupada.
-- **Buscar hueco**: propone huecos libres dando prioridad a tu horario habitual.
-- **Horario habitual** configurable por día de la semana.
+- **Horario y preferencias**: horario habitual con varias franjas por día, margen entre reuniones y reglas por tipo de reunión (días, mañana/tarde o franja propia, duración máxima y máximo al día para una categoría o etiqueta). Si una reunión incumple una regla, avisa y deja guardarla igualmente.
+- **Buscar hueco**: solo propone huecos dentro de tu horario, con el margen, las reglas del tipo de reunión y la disponibilidad de los participantes. Si no hay huecos, dice qué contacto lo impide.
+- **Proponer varias opciones**: marca de 2 a 5 huecos, se guardan como reuniones provisionales y se genera un mensaje para enviar por WhatsApp, email o copiar. Desde "Propuestas pendientes" confirmas la opción elegida.
+- **Etiquetas** en las reuniones.
 - **Resumen** con la próxima reunión y las horas ocupadas y libres de hoy.
-- **Contactos**: ficha con email, teléfono, organización, cargo y notas, y la lista de próximas reuniones y reuniones anteriores con cada contacto.
-- **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión.
+- **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual y la lista de próximas reuniones y reuniones anteriores con cada contacto.
+- **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
+- **Conversor de hora** entre España y cualquiera de los 195 países (con cada zona horaria de los países que tienen varias), teniendo en cuenta el horario de verano de la fecha elegida.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
 - **Sincronización entre pestañas**: si la app está abierta en varias pestañas del mismo navegador, los cambios se reflejan en todas.
 
@@ -34,6 +37,9 @@ Otros comandos:
 | `npm run build`   | Genera la versión de producción en `dist/`.   |
 | `npm run preview` | Sirve localmente la versión de `dist/`.       |
 | `npm run lint`    | Revisa el código con ESLint.                  |
+| `npm test`        | Ejecuta los tests (Vitest).                   |
+
+La lista de países (`src/lib/countries.js`) se genera a partir de la tz database de IANA con `node scripts/generate-countries.mjs`. Vuelve a ejecutarlo si quieres actualizar las zonas horarias.
 
 ## Despliegue (GitHub → Vercel)
 
@@ -51,9 +57,15 @@ Todo se guarda en el `localStorage` del navegador, **solo en ese dispositivo y e
 
 | Clave                    | Contenido                                        |
 | ------------------------ | ------------------------------------------------ |
-| `cesi_events_v1`         | Reuniones y franjas no disponibles.              |
-| `cesi_contacts_v1`       | Contactos.                                       |
-| `cesi_working_hours_v1`  | Horario habitual de cada día de la semana.       |
+| `cesi_events_v1`         | Reuniones, franjas no disponibles y opciones provisionales de las propuestas. |
+| `cesi_contacts_v1`       | Contactos, con su zona horaria y disponibilidad. |
+| `cesi_working_hours_v1`  | Horario habitual (varias franjas por día).       |
+| `cesi_preferences_v1`    | Preferencias, como el margen entre reuniones.    |
+| `cesi_rules_v1`          | Reglas por tipo de reunión.                      |
+| `cesi_proposals_v1`      | Propuestas pendientes.                           |
+| `cesi_converter_recent_v1` | Últimos países usados en el conversor (solo este dispositivo). |
+
+`supabase/schema.sql` deja preparadas las tablas (con seguridad por filas) para sincronizar estos datos con Supabase en el futuro; la app todavía no está conectada.
 
 Esto significa que:
 
@@ -64,7 +76,7 @@ Esto significa que:
 
 En la barra lateral (en el móvil, el icono junto a las pestañas) pulsa **Copia de seguridad**:
 
-- **Descargar copia** guarda un archivo `cesi-copia-AAAA-MM-DD.json` con las reuniones, los contactos y el horario habitual.
+- **Descargar copia** guarda un archivo `cesi-copia-AAAA-MM-DD.json` con las reuniones, los contactos, el horario, las preferencias, las reglas y las propuestas.
 - **Importar copia** lee uno de esos archivos y, tras pedir confirmación, **sustituye todos los datos actuales** por los del archivo.
 
 Sirve también para pasar los datos de un dispositivo a otro: descarga la copia en uno e impórtala en el otro.
