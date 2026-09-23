@@ -19,6 +19,7 @@ import {
   Check,
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
+import ContactCountryStep from './ContactCountryStep.jsx'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
@@ -66,6 +67,7 @@ export default function EventModal({
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [savingGuest, setSavingGuest] = useState(null) // invitado que se está guardando como contacto
 
   if (!event) return null
 
@@ -200,21 +202,31 @@ export default function EventModal({
               <div className="event-modal-guests">
                 <span className="event-modal-guests-label">Invitados sin ficha</span>
                 <ul className="event-modal-attendees">
-                  {guests.map((g) => (
-                    <li key={g} className="event-modal-attendee">
-                      <span className="event-modal-attendee-text">
-                        <span className="event-modal-guest-name">{g}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className="event-modal-save-guest"
-                        onClick={() => onSaveGuestAsContact(event, g)}
-                      >
-                        <UserPlus size={13} strokeWidth={1.75} />
-                        Guardar como contacto
-                      </button>
-                    </li>
-                  ))}
+                  {guests.map((g) =>
+                    savingGuest === g ? (
+                      <li key={g}>
+                        <ContactCountryStep
+                          name={g}
+                          confirmLabel="Guardar contacto"
+                          onCancel={() => setSavingGuest(null)}
+                          onConfirm={(zone) => {
+                            onSaveGuestAsContact(event, g, zone)
+                            setSavingGuest(null)
+                          }}
+                        />
+                      </li>
+                    ) : (
+                      <li key={g} className="event-modal-attendee">
+                        <span className="event-modal-attendee-text">
+                          <span className="event-modal-guest-name">{g}</span>
+                        </span>
+                        <button type="button" className="event-modal-save-guest" onClick={() => setSavingGuest(g)}>
+                          <UserPlus size={13} strokeWidth={1.75} />
+                          Guardar como contacto
+                        </button>
+                      </li>
+                    ),
+                  )}
                 </ul>
               </div>
             </div>

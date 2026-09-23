@@ -24,7 +24,15 @@ import { contactMatches, eventIncludesContact } from '../lib/contacts'
 import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
-import { SPAIN_ZONE, formatOffsetDiff, formatTimeInZone, zoneLabel, zoneOffsetMinutes } from '../lib/timezones'
+import {
+  SPAIN_ZONE,
+  countryFlag,
+  countryLabel,
+  formatOffsetDiff,
+  formatTimeInZone,
+  zoneLabel,
+  zoneOffsetMinutes,
+} from '../lib/timezones'
 import './ContactsView.css'
 
 // "Estados Unidos: Nueva York · ahora 04:32 (−6 h respecto a España)"
@@ -88,8 +96,14 @@ export default function ContactsView({
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
+  const [onlyUnreviewed, setOnlyUnreviewed] = useState(false)
 
-  const filtered = useMemo(() => contacts.filter((c) => contactMatches(c, query)), [contacts, query])
+  const unreviewedCount = contacts.filter((c) => c.countryUnreviewed).length
+  const showOnlyUnreviewed = onlyUnreviewed && unreviewedCount > 0
+  const filtered = useMemo(
+    () => contacts.filter((c) => contactMatches(c, query) && (!showOnlyUnreviewed || c.countryUnreviewed)),
+    [contacts, query, showOnlyUnreviewed],
+  )
   const selected = contacts.find((c) => c.id === selectedContactId) || null
 
   // Series (eventos originales) en las que participa el contacto seleccionado.
@@ -157,6 +171,18 @@ export default function ContactsView({
               <span>Nuevo contacto</span>
             </button>
           </div>
+          {unreviewedCount > 0 && (
+            <div className="contacts-unreviewed" role="status">
+              <span>
+                {unreviewedCount === 1
+                  ? '1 contacto tiene el país sin revisar (se le asignó España).'
+                  : `${unreviewedCount} contactos tienen el país sin revisar (se les asignó España).`}
+              </span>
+              <button type="button" onClick={() => setOnlyUnreviewed((v) => !v)} aria-pressed={showOnlyUnreviewed}>
+                {showOnlyUnreviewed ? 'Ver todos' : 'Revisarlos'}
+              </button>
+            </div>
+          )}
         </div>
 
         {contacts.length === 0 ? (
@@ -182,6 +208,12 @@ export default function ContactsView({
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
+                    {(c.countryUnreviewed || (c.country && c.country !== 'ES')) && (
+                      <span className="contact-row-country">
+                        {c.country !== 'ES' && countryLabel(c.country)}
+                        {c.countryUnreviewed && <span className="contact-row-unreviewed">País sin revisar</span>}
+                      </span>
+                    )}
                   </span>
                 </button>
                 {(c.email || c.phone) && (
@@ -273,7 +305,15 @@ export default function ContactsView({
               {selected.timeZone && (
                 <div>
                   <dt><Globe size={15} strokeWidth={1.75} /><span className="sr-only">Zona horaria</span></dt>
-                  <dd>{zoneSummary(selected.timeZone, now)}</dd>
+                  <dd>
+                    {selected.country && selected.country !== 'ES' && `${countryFlag(selected.country)} `}
+                    {zoneSummary(selected.timeZone, now)}
+                    {selected.countryUnreviewed && (
+                      <span className="contact-unreviewed-note">
+                        País sin revisar: se asignó España automáticamente. Edita el contacto para confirmarlo.
+                      </span>
+                    )}
+                  </dd>
                 </div>
               )}
               {selected.notes && (

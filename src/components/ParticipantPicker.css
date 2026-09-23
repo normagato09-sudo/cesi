@@ -231,3 +231,14 @@
     max-height: 45vh;
   }
 }
+
+.participant-chip-country {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.participant-picker .contact-country-step {
+  margin-top: 6px;
+}

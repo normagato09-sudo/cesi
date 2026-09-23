@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { X, UserPlus, UserPen } from 'lucide-react'
 import TimeZoneSelect from './TimeZoneSelect.jsx'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
-import { isEmail } from '../lib/contacts'
-import { zonePlace, zoneValue } from '../lib/timezones'
+import { isEmail, validateContactCountry } from '../lib/contacts'
+import { defaultContactZone, zonePlace, zoneValue } from '../lib/timezones'
 import { cleanWeek, emptyWeek, normalizeWeek, validateWeek } from '../lib/weeklySchedule'
 import './EventFormModal.css'
 
@@ -22,7 +22,8 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
   const [organization, setOrganization] = useState(seed.organization || '')
   const [role, setRole] = useState(seed.role || '')
   const [notes, setNotes] = useState(seed.notes || '')
-  const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country))
+  // País obligatorio; los contactos nuevos empiezan con España (península y Baleares).
+  const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country) || defaultContactZone())
   const [hasAvailability, setHasAvailability] = useState(!!seed.availability)
   const [availability, setAvailability] = useState(() =>
     seed.availability ? normalizeWeek(seed.availability, defaultAvailability()) : defaultAvailability(),
@@ -42,6 +43,11 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
       setFormError('El email no tiene un formato válido.')
       return
     }
+    const countryProblem = validateContactCountry(zone || {})
+    if (countryProblem) {
+      setFormError(countryProblem)
+      return
+    }
     if (hasAvailability) {
       const problem = validateWeek(availability)
       if (problem) {
@@ -59,8 +65,10 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
         organization: organization.trim(),
         role: role.trim(),
         notes: notes.trim(),
-        country: zone?.country || '',
-        timeZone: zone?.timeZone || '',
+        country: zone.country,
+        timeZone: zone.timeZone,
+        // Al guardar desde el formulario el país queda revisado.
+        countryUnreviewed: false,
         availability: hasAvailability ? cleanWeek(availability) : null,
       })
       onClose()
@@ -113,13 +121,12 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
           </div>
 
           <div className="event-form-field">
-            <TimeZoneSelect
-              label="País y zona horaria (opcional)"
-              value={zone}
-              onChange={setZone}
-              allowEmpty
-              emptyLabel="Sin indicar (hora de España)"
-            />
+            <TimeZoneSelect label="País" value={zone} onChange={setZone} requireZoneChoice />
+            {seed.countryUnreviewed && (
+              <p className="contact-form-hint warn">
+                País sin revisar: se le asignó España automáticamente. Comprueba que es correcto y guarda.
+              </p>
+            )}
           </div>
 
           <div className="contact-form-availability">

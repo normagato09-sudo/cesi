@@ -363,3 +363,7 @@
   line-height: 1.5;
   color: var(--text-secondary);
 }
+
+.contact-form-hint.warn {
+  color: #92400e;
+}

@@ -484,3 +484,19 @@
     width: 48px;
   }
 }
+
+.find-slot-result-warning {
+  font-size: 12px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.find-slot-picked-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.find-slot-picked-text .find-slot-result-zone,
+.find-slot-picked-text .find-slot-result-warning {
+  text-transform: none;
+}

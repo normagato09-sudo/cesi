@@ -203,8 +203,8 @@ export default function App() {
   }
 
   // Convierte un invitado suelto en contacto y lo enlaza por id en la reunión.
-  const handleSaveGuestAsContact = (event, guest) => {
-    const contact = addContact(contactDataFromText(guest))
+  const handleSaveGuestAsContact = (event, guest, zone) => {
+    const contact = addContact({ ...contactDataFromText(guest), ...zone })
     const current = participantsOf(event, contacts)
     const fields = participantFields(
       [...current.contacts, contact],
@@ -387,6 +387,7 @@ export default function App() {
         )}
 
         <EventModal
+          key={selectedEvent?.id || 'none'}
           event={selectedEvent}
           contacts={contacts}
           onClose={() => setSelectedEvent(null)}

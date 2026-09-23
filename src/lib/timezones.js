@@ -168,3 +168,24 @@ export function zoneValue(timeZone, country) {
   if (!timeZone) return null
   return { country: country || findZone(timeZone)?.country.code || null, timeZone }
 }
+
+// Bandera emoji a partir del código ISO 3166-1 alfa-2 ("MX" → 🇲🇽).
+export function countryFlag(code) {
+  if (!/^[A-Z]{2}$/.test(code || '')) return ''
+  return String.fromCodePoint(...[...code].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65))
+}
+
+export function countryName(code) {
+  return findCountry(code)?.name || ''
+}
+
+// "🇲🇽 México"
+export function countryLabel(code) {
+  const name = countryName(code)
+  return name ? `${countryFlag(code)} ${name}` : ''
+}
+
+// Valor por defecto del selector de país de un contacto: España (península y Baleares).
+export function defaultContactZone() {
+  return { country: 'ES', timeZone: SPAIN_ZONE }
+}

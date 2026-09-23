@@ -1,14 +1,41 @@
+import { SPAIN_ZONE, findCountry } from './timezones'
+
 const STORAGE_KEY = 'cesi_contacts_v1'
+
+// Los contactos antiguos sin país pasan a España (península) y quedan marcados como
+// "País sin revisar" hasta que se guarden desde el formulario.
+export function migrateContacts(list) {
+  let changed = false
+  const out = list.map((c) => {
+    if (c.country && c.timeZone) return c
+    changed = true
+    return { ...c, country: 'ES', timeZone: SPAIN_ZONE, countryUnreviewed: true }
+  })
+  return { contacts: out, changed }
+}
 
 function readAll() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    const { contacts, changed } = migrateContacts(parsed)
+    if (changed) writeAll(contacts)
+    return contacts
   } catch {
     return []
   }
+}
+
+// El país (y su zona horaria) es obligatorio. Devuelve un mensaje de error o null.
+export function validateContactCountry({ country, timeZone }) {
+  const found = country ? findCountry(country) : null
+  if (!found) return 'El país es obligatorio.'
+  if (!timeZone || !found.zones.some((z) => z.id === timeZone)) {
+    return `Elige la ciudad o zona horaria de ${found.name}.`
+  }
+  return null
 }
 
 function writeAll(contacts) {
@@ -25,6 +52,8 @@ export function getAllContacts() {
 }
 
 export function createContact(data) {
+  const problem = validateContactCountry(data)
+  if (problem) throw new Error(problem)
   const contacts = readAll()
   const now = new Date().toISOString()
   const contact = {
@@ -50,7 +79,10 @@ export function updateContact(id, patch) {
   const contacts = readAll()
   const idx = contacts.findIndex((c) => c.id === id)
   if (idx === -1) throw new Error('Contacto no encontrado.')
-  contacts[idx] = { ...contacts[idx], ...patch, id: contacts[idx].id, updatedAt: new Date().toISOString() }
+  const next = { ...contacts[idx], ...patch, id: contacts[idx].id, updatedAt: new Date().toISOString() }
+  const problem = validateContactCountry(next)
+  if (problem) throw new Error(problem)
+  contacts[idx] = next
   writeAll(contacts)
   return contacts[idx]
 }

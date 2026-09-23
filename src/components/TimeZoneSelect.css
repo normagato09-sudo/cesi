@@ -153,3 +153,8 @@
     max-height: 45vh;
   }
 }
+
+.tz-zone-select.missing {
+  border-color: #f59e0b;
+  color: var(--text-muted);
+}

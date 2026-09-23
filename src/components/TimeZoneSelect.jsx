@@ -158,17 +158,26 @@ function CountryCombobox({ labelId, value, onChange, allowEmpty, emptyLabel }) {
  * Selector de país y zona horaria. value = { country, timeZone } (o null si allowEmpty).
  * Si el país tiene varias zonas aparece un segundo desplegable con las ciudades.
  */
-export default function TimeZoneSelect({ label, value, onChange, allowEmpty = false, emptyLabel = 'Sin país' }) {
+export default function TimeZoneSelect({
+  label,
+  value,
+  onChange,
+  allowEmpty = false,
+  emptyLabel = 'Sin país',
+  requireZoneChoice = false,
+}) {
   const labelId = useId()
   const country = value?.country ? findCountry(value.country) : null
 
+  // Con requireZoneChoice, al elegir un país con varias zonas hay que escoger la ciudad a mano.
   const handleCountry = (code) => {
     if (!code) {
       onChange(null)
       return
     }
     const next = findCountry(code)
-    onChange({ country: code, timeZone: next.zones[0].id })
+    const timeZone = requireZoneChoice && next.zones.length > 1 ? '' : next.zones[0].id
+    onChange({ country: code, timeZone })
   }
 
   return (
@@ -187,11 +196,17 @@ export default function TimeZoneSelect({ label, value, onChange, allowEmpty = fa
       />
       {country && country.zones.length > 1 && (
         <select
-          className="tz-zone-select"
+          className={`tz-zone-select${value.timeZone ? '' : ' missing'}`}
           aria-label={`Zona horaria de ${country.name}`}
+          aria-invalid={!value.timeZone}
           value={value.timeZone}
           onChange={(e) => onChange({ country: country.code, timeZone: e.target.value })}
         >
+          {!value.timeZone && (
+            <option value="" disabled>
+              Elige la ciudad o zona horaria
+            </option>
+          )}
           {country.zones.map((z) => (
             <option key={z.id} value={z.id}>
               {country.code === 'ES' ? z.label : z.place}

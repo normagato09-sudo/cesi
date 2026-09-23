@@ -39,7 +39,8 @@ create table if not exists public.events (
 -- ---------------------------------------------------------------------------
 -- Contactos (localStorage: cesi_contacts_v1)
 -- data: { name, email, phone, organization, role, notes,
---         country (ISO 3166-1 alfa-2), timeZone (zona IANA),
+--         country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria),
+--         countryUnreviewed (true si se le asignó España al migrar un contacto antiguo),
 --         availability: horario semanal con varias franjas por día, en su zona horaria, o null }
 -- ---------------------------------------------------------------------------
 create table if not exists public.contacts (

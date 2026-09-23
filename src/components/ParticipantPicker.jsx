@@ -1,7 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, UserPlus, UserRound, X } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
+import ContactCountryStep from './ContactCountryStep.jsx'
 import { contactDataFromText, contactMatches } from '../lib/contacts'
+import { countryLabel, countryName } from '../lib/timezones'
 import './ParticipantPicker.css'
 
 function sameText(a, b) {
@@ -11,6 +13,7 @@ function sameText(a, b) {
 // Combobox multiselección de participantes: contactos (por id) e invitados sueltos (texto).
 export default function ParticipantPicker({ labelId, contacts, participantIds, guests, onChange, onCreateContact }) {
   const [query, setQuery] = useState('')
+  const [pendingCreate, setPendingCreate] = useState(null) // texto del contacto que se va a crear
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const rootRef = useRef(null)
@@ -71,13 +74,21 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
       return
     }
     if (option.type === 'create') {
-      const created = onCreateContact(contactDataFromText(trimmed))
-      emit([...participantIds, created.id], guests)
+      // Antes de crearlo se pide el país en un paso corto, sin cerrar el formulario.
+      setPendingCreate(trimmed)
+      setOpen(false)
     } else if (option.type === 'guest') {
       emit(participantIds, [...guests, trimmed])
     }
     setQuery('')
     setActiveIndex(0)
+  }
+
+  const createPending = (zone) => {
+    const created = onCreateContact({ ...contactDataFromText(pendingCreate), ...zone })
+    emit([...participantIds, created.id], guests)
+    setPendingCreate(null)
+    inputRef.current?.focus()
   }
 
   const removeLastChip = () => {
@@ -130,6 +141,11 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
           <span key={c.id} className="participant-chip">
             <ContactAvatar name={c.name} size="xs" />
             <span className="participant-chip-name">{c.name}</span>
+            {c.country && c.country !== 'ES' && (
+              <span className="participant-chip-country" title={countryName(c.country)}>
+                {countryLabel(c.country)}
+              </span>
+            )}
             <button
               type="button"
               className="participant-chip-remove"
@@ -203,7 +219,16 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
         </button>
       </div>
 
-      {open && (
+      {pendingCreate && (
+        <ContactCountryStep
+          name={pendingCreate}
+          confirmLabel="Crear y añadir"
+          onCancel={() => setPendingCreate(null)}
+          onConfirm={createPending}
+        />
+      )}
+
+      {open && !pendingCreate && (
         <ul className="participant-picker-list" id={listboxId} role="listbox" aria-multiselectable="true" ref={listRef}>
           {contacts.length === 0 && !trimmed && (
             <li className="participant-picker-hint" role="presentation">
