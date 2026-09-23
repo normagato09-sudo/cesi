@@ -34,7 +34,7 @@ export default function BackupModal({ onClose, onRestored }) {
       const ok = window.confirm(
         `Vas a importar una copia con ${plural(data.events.length, 'reunión', 'reuniones')} y ` +
           `${plural(data.contacts.length, 'contacto', 'contactos')}.\n\n` +
-          'Esto SUSTITUYE todos los datos actuales de este dispositivo (reuniones, contactos y horario habitual). ¿Continuar?',
+          'Esto SUSTITUYE todos los datos actuales de este dispositivo (reuniones, contactos, horario, preferencias, reglas y propuestas). ¿Continuar?',
       )
       if (!ok) return
       restoreBackup(data)
