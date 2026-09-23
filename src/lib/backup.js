@@ -4,12 +4,17 @@ import { getAllContacts, STORAGE_KEY as CONTACTS_KEY } from './contacts'
 import { getWorkingHours, STORAGE_KEY as WORKING_HOURS_KEY } from './availability'
 import { getPreferences, STORAGE_KEY as PREFERENCES_KEY } from './preferences'
 import { getAllRules, STORAGE_KEY as RULES_KEY } from './rules'
+import { getAllProposals, STORAGE_KEY as PROPOSALS_KEY } from './proposals'
 
-// v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules.
-const BACKUP_VERSION = 3
+// v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
+// La disponibilidad y la zona horaria de los contactos van dentro de contacts.
+const BACKUP_VERSION = 4
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
-const OPTIONAL_LISTS = [{ field: 'rules', key: RULES_KEY, label: 'las reglas' }]
+const OPTIONAL_LISTS = [
+  { field: 'rules', key: RULES_KEY, label: 'las reglas' },
+  { field: 'proposals', key: PROPOSALS_KEY, label: 'las propuestas' },
+]
 
 export function buildBackup() {
   return {
@@ -21,6 +26,7 @@ export function buildBackup() {
     workingHours: getWorkingHours(),
     preferences: getPreferences(),
     rules: getAllRules(),
+    proposals: getAllProposals(),
   }
 }
 

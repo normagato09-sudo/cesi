@@ -38,9 +38,9 @@ export function computeSummary(events, workingHours, now = new Date()) {
     (sum, ev) => sum + refIntervals.reduce((acc, r) => acc + clip(ev.start, ev.end, r.start, r.end), 0),
     0,
   )
-  const meetingsToday = todayOccurrences.filter((ev) => !ev.isUnavailable).length
+  const meetingsToday = todayOccurrences.filter((ev) => !ev.isUnavailable && !ev.provisional).length
 
-  const meetingsThisWeek = weekOccurrences.filter((ev) => !ev.isUnavailable).length
+  const meetingsThisWeek = weekOccurrences.filter((ev) => !ev.isUnavailable && !ev.provisional).length
   const occupiedByDay = [0, 0, 0, 0, 0, 0, 0] // 0=lunes..6=domingo (offset desde weekStart)
   for (const ev of weekOccurrences) {
     const dayIndex = Math.floor((startOfDay(ev.start) - weekStart) / 86400000)
@@ -54,7 +54,7 @@ export function computeSummary(events, workingHours, now = new Date()) {
     : occupiedByDay.indexOf(Math.max(...occupiedByDay))
 
   const upcoming = expandEvents(events, now, addDays(now, 30))
-    .filter((ev) => !ev.isUnavailable && ev.start >= now)
+    .filter((ev) => !ev.isUnavailable && !ev.provisional && ev.start >= now)
     .sort((a, b) => a.start - b.start)
   const nextMeeting = upcoming[0] || null
 

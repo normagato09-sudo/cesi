@@ -230,7 +230,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                   <button
                     type="button"
                     key={event.id}
-                    className={`time-grid-event ${event.isUnavailable ? 'unavailable' : ''} ${isDragging ? 'dragging' : ''}`}
+                    className={`time-grid-event ${event.isUnavailable ? 'unavailable' : ''} ${event.provisional ? 'provisional' : ''} ${isDragging ? 'dragging' : ''}`}
                     style={{
                       '--event-color': colorForEvent(event),
                       top,
@@ -248,7 +248,10 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                     <span className="time-grid-event-title">
                       {event.isUnavailable && <Ban size={11} strokeWidth={2} />} {event.title}
                     </span>
-                    <span className="time-grid-event-time">{format(event.start, 'HH:mm')}</span>
+                    <span className="time-grid-event-time">
+                      {format(event.start, 'HH:mm')}
+                      {event.provisional && <span className="time-grid-event-provisional"> · Provisional</span>}
+                    </span>
                     {!event.isRecurringInstance && (
                       <div
                         className="time-grid-event-resize-handle"

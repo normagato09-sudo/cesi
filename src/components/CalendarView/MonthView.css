@@ -201,3 +201,10 @@
     padding: 4px 7px;
   }
 }
+
+/* Opción provisional de una propuesta: punto hueco gris con borde discontinuo */
+.month-event-dot-mark.provisional {
+  background: var(--surface);
+  border: 1.5px dashed var(--event-color);
+  box-sizing: border-box;
+}

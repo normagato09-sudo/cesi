@@ -374,3 +374,39 @@
   font-weight: 500;
   color: #92400e;
 }
+
+.event-modal-provisional {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.event-modal-provisional-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--text-muted);
+  background: var(--surface-hover);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.event-modal-proposal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.event-modal-action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.event-modal-action-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.event-modal-actions[hidden] {
+  display: none;
+}

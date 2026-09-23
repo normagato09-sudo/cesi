@@ -41,7 +41,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
             <button
               type="button"
               key={ev.id}
-              className={`day-events-modal-item ${ev.isUnavailable ? 'unavailable' : ''}`}
+              className={`day-events-modal-item ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''}`}
               style={{ '--event-color': colorForEvent(ev) }}
               onClick={() => onSelectEvent(ev)}
             >
@@ -50,6 +50,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
                 <span className="day-events-modal-item-title">
                   {ev.isUnavailable && <Ban size={13} strokeWidth={2} />}
                   {ev.title}
+                  {ev.provisional && <span className="day-events-modal-provisional">Provisional</span>}
                 </span>
                 <span className="day-events-modal-item-meta">
                   <Clock size={12} strokeWidth={1.75} />

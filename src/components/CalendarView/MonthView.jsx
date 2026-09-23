@@ -149,7 +149,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        title={`${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}`}
+                        title={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}`}
                         aria-label={ev.title}
                         onPointerDown={(e) => handlePointerDown(e, ev, dayIndex)}
                         onPointerMove={handlePointerMove}
@@ -157,7 +157,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         onPointerCancel={finishDrag}
                         onClick={(e) => handleEventClick(e, ev)}
                       >
-                        <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''}`} />
+                        <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''}`} />
                       </button>
                     ))}
                   </div>

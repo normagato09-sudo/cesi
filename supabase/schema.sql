@@ -24,7 +24,8 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Reuniones y franjas no disponibles (localStorage: cesi_events_v1)
 -- data: { title, start, end, category, tags, participantIds, guests, participants,
---         meetLink, description, isUnavailable, allDay, recurrence, ... }
+--         meetLink, description, isUnavailable, allDay, recurrence,
+--         provisional, proposalId (opciones de una propuesta), ... }
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -79,13 +80,27 @@ create table if not exists public.rules (
 );
 
 -- ---------------------------------------------------------------------------
+-- Propuestas de varias opciones (localStorage: cesi_proposals_v1)
+-- data: { title, durationMinutes, category, tags, participantIds, guests }
+-- Cada opción es una fila de events con data.provisional = true y data.proposalId = id.
+-- ---------------------------------------------------------------------------
+create table if not exists public.proposals (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Triggers, índices y RLS de todas las tablas
 -- ---------------------------------------------------------------------------
 do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'settings', 'rules'] loop
+  foreach t in array array['events', 'contacts', 'settings', 'rules', 'proposals'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format(
       'create trigger %I_touch before update on public.%I for each row execute function public.cesi_touch_updated_at()',

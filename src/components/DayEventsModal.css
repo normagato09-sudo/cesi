@@ -180,3 +180,19 @@
     padding: 12px;
   }
 }
+
+.day-events-modal-item.provisional {
+  border: 1px dashed var(--border-strong);
+}
+.day-events-modal-item.provisional .day-events-modal-item-title {
+  color: var(--text-secondary);
+}
+.day-events-modal-provisional {
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px dashed var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}

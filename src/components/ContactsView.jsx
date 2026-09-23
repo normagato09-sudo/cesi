@@ -58,7 +58,10 @@ function MeetingList({ title, meetings, emptyText, onOpenEvent }) {
                 <span className="contact-meeting-dot" style={{ background: colorForEvent(ev) }} />
                 <span className="contact-meeting-text">
                   <span className="contact-meeting-title">{ev.title}</span>
-                  <span className="contact-meeting-date">{formatMeetingDate(ev)}</span>
+                  <span className="contact-meeting-date">
+                    {formatMeetingDate(ev)}
+                    {ev.provisional && ' · Provisional'}
+                  </span>
                 </span>
                 <ChevronRight size={16} strokeWidth={1.75} />
               </button>

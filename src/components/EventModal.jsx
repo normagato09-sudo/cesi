@@ -1,12 +1,31 @@
 import { useState } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Clock, Users, Video, Tag, Pencil, Trash2, Copy, Ban, Repeat, UserPlus, UserRound, Globe } from 'lucide-react'
+import {
+  X,
+  Clock,
+  Users,
+  Video,
+  Tag,
+  Pencil,
+  Trash2,
+  Copy,
+  Ban,
+  Repeat,
+  UserPlus,
+  UserRound,
+  Globe,
+  CalendarCheck,
+  Check,
+} from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
 import { dayShift, formatTimeInZone, localTimeZone, sameClock, zonePlace } from '../lib/timezones'
+import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
+import { copyText } from '../lib/clipboard'
+import { useScheduling } from '../lib/schedulingContext'
 import './EventModal.css'
 
 // "18:00 en Ciudad de México" si el contacto está en una zona con otra hora; si no, null.
@@ -40,14 +59,35 @@ export default function EventModal({
   onDuplicate,
   onOpenContact,
   onSaveGuestAsContact,
+  onConfirmOption,
+  onCancelProposal,
 }) {
+  const { rawEvents, proposals } = useScheduling()
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   if (!event) return null
 
   // Se resuelven en vivo: si se renombra un contacto, aquí aparece ya con el nombre nuevo.
   const { contacts: people, guests } = participantsOf(event, contacts)
+
+  // Reunión provisional: opción de una propuesta pendiente.
+  const proposal = isProvisional(event) ? proposals.find((p) => p.id === event.proposalId) : null
+  const options = proposal ? optionsOf(proposal, rawEvents) : []
+  const optionIndex = options.findIndex((o) => o.id === event.seriesId)
+
+  const handleCopyMessage = async () => {
+    if (await copyText(proposalShareData(proposal, options, contacts).text)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleCancelProposal = () => {
+    if (!window.confirm('¿Cancelar la propuesta y borrar todas sus opciones provisionales?')) return
+    onCancelProposal(proposal.id)
+  }
 
   const handleDelete = async () => {
     const confirmMsg = event.isRecurringInstance
@@ -76,6 +116,12 @@ export default function EventModal({
             {event.isUnavailable && <Ban size={16} strokeWidth={1.75} className="event-modal-unavailable-icon" />}
             {event.title}
           </h2>
+          {proposal && (
+            <p className="event-modal-provisional">
+              <span className="event-modal-provisional-badge">Provisional</span>
+              Opción {optionIndex + 1} de {options.length} de una propuesta pendiente
+            </p>
+          )}
           <p className="event-modal-range">
             <Clock size={14} strokeWidth={1.75} />
             {formatRange(event)}
@@ -184,7 +230,26 @@ export default function EventModal({
         <div className="event-modal-footer">
           {deleteError && <div className="event-modal-error">{deleteError}</div>}
 
-          <div className="event-modal-actions">
+          {proposal && (
+            <div className="event-modal-proposal-actions">
+              <button type="button" className="event-modal-action-btn primary" onClick={() => onConfirmOption(event)}>
+                <CalendarCheck size={14} strokeWidth={1.75} />
+                Confirmar esta opción
+              </button>
+              <div className="event-modal-actions">
+                <button type="button" className="event-modal-action-btn" onClick={handleCopyMessage}>
+                  {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={1.75} />}
+                  {copied ? 'Copiado' : 'Copiar el mensaje otra vez'}
+                </button>
+                <button type="button" className="event-modal-action-btn danger" onClick={handleCancelProposal}>
+                  <Trash2 size={14} strokeWidth={1.75} />
+                  Cancelar propuesta
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="event-modal-actions" hidden={!!proposal}>
             <button type="button" className="event-modal-action-btn" onClick={() => onEdit(event)}>
               <Pencil size={14} strokeWidth={1.75} />
               Editar

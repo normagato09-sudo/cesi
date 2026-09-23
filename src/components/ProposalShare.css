@@ -1,0 +1,62 @@
+.proposal-share {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proposal-share-text {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  resize: vertical;
+}
+
+.proposal-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proposal-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+.proposal-share-btn:hover {
+  background: var(--surface-hover);
+}
+.proposal-share-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.proposal-share-btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 640px) {
+  .proposal-share-text {
+    font-size: 15px;
+  }
+  .proposal-share-btn {
+    flex: 1 1 calc(50% - 4px);
+    padding: 12px;
+    font-size: 14px;
+  }
+}

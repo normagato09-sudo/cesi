@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+  overflow-y: auto;
 }
 
 .sidebar-brand {
@@ -101,7 +102,9 @@
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'nav footer'
-      'summary summary';
+      'summary summary'
+      'proposals proposals';
+    overflow: visible;
     align-items: stretch;
     gap: 10px 8px;
     padding: 10px 14px;
@@ -177,9 +180,16 @@
     display: inline;
   }
 
-  /* Fuera del calendario el resumen no aporta nada y quita espacio en móvil */
+  .sidebar .proposals-panel {
+    grid-area: proposals;
+    min-width: 0;
+  }
+
+  /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar.section-contacts .summary-panel,
-  .sidebar.section-converter .summary-panel {
+  .sidebar.section-converter .summary-panel,
+  .sidebar.section-contacts .proposals-panel,
+  .sidebar.section-converter .proposals-panel {
     display: none;
   }
 }

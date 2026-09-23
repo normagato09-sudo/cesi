@@ -1,5 +1,6 @@
 import { CalendarDays, DatabaseBackup, Globe, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
+import ProposalsPanel from './ProposalsPanel.jsx'
 import './Sidebar.css'
 
 const SECTIONS = [
@@ -8,7 +9,7 @@ const SECTIONS = [
   { id: 'converter', label: 'Conversor de hora', shortLabel: 'Hora', Icon: Globe },
 ]
 
-export default function Sidebar({ summary, now, section, onSectionChange, onOpenBackup }) {
+export default function Sidebar({ summary, now, section, onSectionChange, onOpenBackup, proposals = [], onOpenProposal }) {
   return (
     <aside className={`sidebar section-${section}`}>
       <div className="sidebar-brand">
@@ -37,6 +38,8 @@ export default function Sidebar({ summary, now, section, onSectionChange, onOpen
       </nav>
 
       <SummaryPanel summary={summary} now={now} />
+
+      <ProposalsPanel items={proposals} onOpen={onOpenProposal} />
 
       <div className="sidebar-footer">
         <button

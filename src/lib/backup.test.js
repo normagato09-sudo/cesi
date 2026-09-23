@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { buildBackup, parseBackup, restoreBackup } from './backup'
 import { getPreferences, savePreferences } from './preferences'
 import { getAllRules, newRule, rulesStore } from './rules'
+import { getAllProposals, proposalsStore } from './proposals'
+import { createContact, getAllContacts } from './contacts'
 
 beforeEach(() => localStorage.clear())
 
@@ -31,6 +33,17 @@ describe('copia de seguridad', () => {
     restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 2, events: [], contacts: [] })))
     expect(getAllRules()).toEqual([])
     expect(() => parseBackup(JSON.stringify({ app: 'cesi', events: [], contacts: [], rules: 'x' }))).toThrow(/reglas/)
+  })
+
+  it('incluye propuestas y contactos con zona horaria y disponibilidad', () => {
+    proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
+    createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
+    const backup = buildBackup()
+    expect(backup.version).toBe(4)
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getAllProposals()[0].title).toBe('Demo')
+    expect(getAllContacts()[0]).toMatchObject({ timeZone: 'America/Mexico_City', country: 'MX' })
   })
 
   it('rechaza archivos que no son de CESI', () => {

@@ -373,3 +373,114 @@
   font-weight: 500;
   color: #92400e;
 }
+
+.find-slot-body[hidden] {
+  display: none;
+}
+
+.find-slot-results li.selectable {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.find-slot-results li.selectable .find-slot-result-btn {
+  flex: 1;
+  min-width: 0;
+}
+.find-slot-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  cursor: pointer;
+}
+.find-slot-pick input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.find-slot-pick:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.find-slot-propose-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.find-slot-propose-bar .find-slot-action-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+}
+.find-slot-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.find-slot-picked {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13.5px;
+  text-transform: capitalize;
+}
+.find-slot-picked li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.find-slot-picked svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.find-slot-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #166534;
+}
+.find-slot-success svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .find-slot-propose-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .find-slot-propose-bar .find-slot-action-btn {
+    justify-content: center;
+    padding: 12px;
+  }
+  .find-slot-pick {
+    width: 48px;
+  }
+}

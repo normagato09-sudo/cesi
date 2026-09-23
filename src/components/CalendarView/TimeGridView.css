@@ -248,3 +248,16 @@
     font-size: 12.5px;
   }
 }
+
+/* Opción provisional de una propuesta: gris y con borde discontinuo */
+.time-grid-event.provisional {
+  background: repeating-linear-gradient(135deg, #f8fafc, #f8fafc 6px, #f1f5f9 6px, #f1f5f9 12px);
+  border: 1.5px dashed var(--event-color);
+  border-left: 3px dashed var(--event-color);
+}
+.time-grid-event.provisional .time-grid-event-title {
+  color: var(--text-secondary);
+}
+.time-grid-event-provisional {
+  font-weight: 600;
+}

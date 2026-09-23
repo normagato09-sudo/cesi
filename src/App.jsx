@@ -13,6 +13,14 @@ import AvailabilityModal from './components/AvailabilityModal.jsx'
 import ContactsView from './components/ContactsView.jsx'
 import BackupModal from './components/BackupModal.jsx'
 import ConverterView from './components/ConverterView.jsx'
+import ProposalModal from './components/ProposalModal.jsx'
+import {
+  STORAGE_KEY as PROPOSALS_KEY,
+  getAllProposals,
+  isExpired,
+  optionsOf,
+  proposalsStore,
+} from './lib/proposals.js'
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
 import { useStoredValue } from './hooks/useStoredValue.js'
@@ -55,6 +63,7 @@ export default function App() {
   const [findSlot, setFindSlot] = useState(null)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
   const [backupOpen, setBackupOpen] = useState(false)
+  const [proposalModalId, setProposalModalId] = useState(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -85,11 +94,72 @@ export default function App() {
   const { contacts, addContact, editContact, removeContact, refresh: reloadContacts } = useContacts()
   const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
   const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
+  const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
 
   const scheduling = useMemo(
-    () => ({ rawEvents, workingHours, preferences, rules, contacts, addContact }),
-    [rawEvents, workingHours, preferences, rules, contacts, addContact],
+    () => ({ rawEvents, workingHours, preferences, rules, contacts, addContact, proposals }),
+    [rawEvents, workingHours, preferences, rules, contacts, addContact, proposals],
   )
+
+  // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
+  const proposalItems = useMemo(
+    () =>
+      proposals
+        .map((proposal) => {
+          const options = optionsOf(proposal, rawEvents)
+          const { contacts: people, guests } = participantsOf(proposal, contacts)
+          const who = [...people.map((c) => c.name.split(' ')[0]), ...guests].join(', ')
+          return { proposal, options, expired: isExpired(options, now), who }
+        })
+        .sort((a, b) => (a.options[0]?.start || 0) - (b.options[0]?.start || 0)),
+    [proposals, rawEvents, contacts, now],
+  )
+
+  // Crea la propuesta y una reunión provisional por cada opción elegida.
+  const handleCreateProposal = ({ slots, ...data }) => {
+    const proposal = proposalsStore.create(data)
+    const people = data.participantIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean)
+    const options = slots.map((slot) =>
+      addEvent({
+        title: data.title,
+        category: data.category,
+        tags: data.tags,
+        ...participantFields(people, data.guests),
+        description: '',
+        meetLink: '',
+        isUnavailable: false,
+        allDay: false,
+        recurrence: null,
+        start: slot.start.toISOString(),
+        end: slot.end.toISOString(),
+        provisional: true,
+        proposalId: proposal.id,
+      }),
+    )
+    reloadProposals()
+    return { proposal, options }
+  }
+
+  const removeProposal = (proposalId, keepEventId = null) => {
+    for (const ev of rawEvents) {
+      if (ev.proposalId === proposalId && ev.id !== keepEventId) removeEvent(ev.id)
+    }
+    proposalsStore.remove(proposalId)
+    reloadProposals()
+  }
+
+  // La opción elegida pasa a ser una reunión normal y se borran las demás.
+  const handleConfirmOption = (option) => {
+    const id = option.seriesId || option.id
+    editEvent(id, { provisional: false, proposalId: null })
+    removeProposal(option.proposalId, id)
+    setSelectedEvent(null)
+  }
+
+  const handleCancelProposal = (proposalId) => {
+    removeProposal(proposalId)
+    setSelectedEvent(null)
+  }
 
   const handleSavePreferences = ({ workingHours: newHours, preferences: newPrefs, rules: newRules }) => {
     setWorkingHours(newHours)
@@ -114,6 +184,7 @@ export default function App() {
     reloadContacts()
     reloadPreferences()
     reloadRules()
+    reloadProposals()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -235,6 +306,8 @@ export default function App() {
           section={section}
           onSectionChange={setSection}
           onOpenBackup={() => setBackupOpen(true)}
+          proposals={proposalItems}
+          onOpenProposal={setProposalModalId}
         />
 
         {section === 'contacts' && (
@@ -322,6 +395,8 @@ export default function App() {
           onEdit={handleEditEvent}
           onDelete={handleDeleteEvent}
           onDuplicate={handleDuplicateEvent}
+          onConfirmOption={handleConfirmOption}
+          onCancelProposal={handleCancelProposal}
         />
 
         {formModal && (
@@ -342,7 +417,17 @@ export default function App() {
             initialDurationMinutes={60}
             initialParticipants={findSlot.participants}
             onPick={handleFindSlotPick}
+            onCreateProposal={handleCreateProposal}
             onClose={() => setFindSlot(null)}
+          />
+        )}
+
+        {proposalModalId && proposals.some((p) => p.id === proposalModalId) && (
+          <ProposalModal
+            proposal={proposals.find((p) => p.id === proposalModalId)}
+            onConfirmOption={handleConfirmOption}
+            onCancelProposal={handleCancelProposal}
+            onClose={() => setProposalModalId(null)}
           />
         )}
 
