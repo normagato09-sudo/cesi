@@ -15,7 +15,6 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Resumen** con la próxima reunión y las horas ocupadas y libres de hoy.
 - **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual y la lista de próximas reuniones y reuniones anteriores con cada contacto.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
-- **Conversor de hora** entre España y cualquiera de los 195 países (con cada zona horaria de los países que tienen varias), teniendo en cuenta el horario de verano de la fecha elegida.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
 - **Sincronización entre pestañas**: si la app está abierta en varias pestañas del mismo navegador, los cambios se reflejan en todas.
 
@@ -63,7 +62,6 @@ Todo se guarda en el `localStorage` del navegador, **solo en ese dispositivo y e
 | `cesi_preferences_v1`    | Preferencias, como el margen entre reuniones.    |
 | `cesi_rules_v1`          | Reglas por tipo de reunión.                      |
 | `cesi_proposals_v1`      | Propuestas pendientes.                           |
-| `cesi_converter_recent_v1` | Últimos países usados en el conversor (solo este dispositivo). |
 
 `supabase/schema.sql` deja preparadas las tablas (con seguridad por filas) para sincronizar estos datos con Supabase en el futuro; la app todavía no está conectada.
 

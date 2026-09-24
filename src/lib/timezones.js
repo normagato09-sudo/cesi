@@ -138,22 +138,6 @@ export function pad2(n) {
   return String(n).padStart(2, '0')
 }
 
-// Convierte una fecha ('yyyy-MM-dd') y hora ('HH:mm') de reloj de `fromZone` a `toZone`.
-export function convertWallTime({ date, time, fromZone, toZone }) {
-  const [year, month, day] = date.split('-').map(Number)
-  const [hour, minute] = time.split(':').map(Number)
-  const { date: instant, exists } = zonedDateTime({ year, month, day, hour, minute }, fromZone)
-  const to = wallTime(instant, toZone)
-  return {
-    instant,
-    exists,
-    to,
-    time: `${pad2(to.hour)}:${pad2(to.minute)}`,
-    diffMinutes: zoneOffsetMinutes(instant, toZone) - zoneOffsetMinutes(instant, fromZone),
-    dayShift: dayShift(instant, fromZone, toZone),
-  }
-}
-
 // ¿Tienen dos zonas la misma hora en ese instante?
 export function sameClock(date, zoneA, zoneB) {
   return zoneOffsetMinutes(date, zoneA) === zoneOffsetMinutes(date, zoneB)

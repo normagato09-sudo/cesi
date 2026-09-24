@@ -1,47 +1,57 @@
 import { describe, expect, it } from 'vitest'
-import { convertWallTime, formatOffsetDiff, zonePlace, zonedDateTime } from './timezones'
+import {
+  dayShift,
+  formatOffsetDiff,
+  formatTimeInZone,
+  zoneOffsetMinutes,
+  zonePlace,
+  zonedDateTime,
+} from './timezones'
 
 const MADRID = 'Europe/Madrid'
 
-describe('conversor de hora', () => {
+// Instante de una hora de reloj de España ('2026-01-15', '18:00').
+function spain(date, time) {
+  const [year, month, day] = date.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+  return zonedDateTime({ year, month, day, hour, minute }, MADRID).date
+}
+
+// Hora en `zone`, diferencia con España y cambio de día, como se muestran a los participantes.
+function inZone(instant, zone) {
+  return [
+    formatTimeInZone(instant, zone),
+    formatOffsetDiff(zoneOffsetMinutes(instant, zone) - zoneOffsetMinutes(instant, MADRID)),
+    dayShift(instant, MADRID, zone),
+  ]
+}
+
+describe('zonas horarias', () => {
   it('18:00 de España en Ciudad de México, invierno y verano', () => {
-    const winter = convertWallTime({ date: '2026-01-15', time: '18:00', fromZone: MADRID, toZone: 'America/Mexico_City' })
-    expect([winter.time, formatOffsetDiff(winter.diffMinutes), winter.dayShift]).toEqual(['11:00', '−7 h', 0])
-    const summer = convertWallTime({ date: '2026-07-15', time: '18:00', fromZone: MADRID, toZone: 'America/Mexico_City' })
-    expect([summer.time, formatOffsetDiff(summer.diffMinutes), summer.dayShift]).toEqual(['10:00', '−8 h', 0])
+    expect(inZone(spain('2026-01-15', '18:00'), 'America/Mexico_City')).toEqual(['11:00', '−7 h', 0])
+    expect(inZone(spain('2026-07-15', '18:00'), 'America/Mexico_City')).toEqual(['10:00', '−8 h', 0])
   })
 
   it('18:00 de España en Tokio pasa al día siguiente', () => {
-    const winter = convertWallTime({ date: '2026-01-15', time: '18:00', fromZone: MADRID, toZone: 'Asia/Tokyo' })
-    expect([winter.time, formatOffsetDiff(winter.diffMinutes), winter.dayShift, winter.to.day]).toEqual([
-      '02:00',
-      '+8 h',
-      1,
-      16,
-    ])
-    const summer = convertWallTime({ date: '2026-07-15', time: '18:00', fromZone: MADRID, toZone: 'Asia/Tokyo' })
-    expect([summer.time, formatOffsetDiff(summer.diffMinutes), summer.dayShift]).toEqual(['01:00', '+7 h', 1])
+    expect(inZone(spain('2026-01-15', '18:00'), 'Asia/Tokyo')).toEqual(['02:00', '+8 h', 1])
+    expect(inZone(spain('2026-07-15', '18:00'), 'Asia/Tokyo')).toEqual(['01:00', '+7 h', 1])
   })
 
   it('respeta las semanas en que EE. UU. ya ha cambiado de hora y Europa no', () => {
-    const r = convertWallTime({ date: '2026-03-20', time: '18:00', fromZone: MADRID, toZone: 'America/New_York' })
-    expect([r.time, formatOffsetDiff(r.diffMinutes)]).toEqual(['13:00', '−5 h'])
-    const normal = convertWallTime({ date: '2026-04-20', time: '18:00', fromZone: MADRID, toZone: 'America/New_York' })
-    expect(formatOffsetDiff(normal.diffMinutes)).toBe('−6 h')
+    expect(inZone(spain('2026-03-20', '18:00'), 'America/New_York').slice(0, 2)).toEqual(['13:00', '−5 h'])
+    expect(inZone(spain('2026-04-20', '18:00'), 'America/New_York')[1]).toBe('−6 h')
   })
 
   it('maneja diferencias con medias horas y el día anterior', () => {
-    const india = convertWallTime({ date: '2026-01-15', time: '10:00', fromZone: MADRID, toZone: 'Asia/Kolkata' })
-    expect([india.time, formatOffsetDiff(india.diffMinutes)]).toEqual(['14:30', '+4 h 30 min'])
-    const la = convertWallTime({ date: '2026-01-15', time: '02:00', fromZone: MADRID, toZone: 'America/Los_Angeles' })
-    expect([la.time, la.dayShift]).toEqual(['17:00', -1])
+    expect(inZone(spain('2026-01-15', '10:00'), 'Asia/Kolkata').slice(0, 2)).toEqual(['14:30', '+4 h 30 min'])
+    const la = inZone(spain('2026-01-15', '02:00'), 'America/Los_Angeles')
+    expect([la[0], la[2]]).toEqual(['17:00', -1])
   })
 
-  it('convierte de otro país a España y a Canarias', () => {
-    const r = convertWallTime({ date: '2026-07-15', time: '09:00', fromZone: 'America/Mexico_City', toZone: MADRID })
-    expect(r.time).toBe('17:00')
-    const canarias = convertWallTime({ date: '2026-07-15', time: '18:00', fromZone: MADRID, toZone: 'Atlantic/Canary' })
-    expect([canarias.time, formatOffsetDiff(canarias.diffMinutes)]).toEqual(['17:00', '−1 h'])
+  it('pasa de otra zona a España y a Canarias', () => {
+    const mexico = zonedDateTime({ year: 2026, month: 7, day: 15, hour: 9, minute: 0 }, 'America/Mexico_City').date
+    expect(formatTimeInZone(mexico, MADRID)).toBe('17:00')
+    expect(inZone(spain('2026-07-15', '18:00'), 'Atlantic/Canary').slice(0, 2)).toEqual(['17:00', '−1 h'])
   })
 
   it('detecta horas que no existen por el cambio de hora', () => {

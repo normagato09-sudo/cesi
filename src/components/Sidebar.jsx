@@ -1,4 +1,4 @@
-import { CalendarDays, DatabaseBackup, Globe, Users } from 'lucide-react'
+import { CalendarDays, DatabaseBackup, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import './Sidebar.css'
@@ -6,7 +6,6 @@ import './Sidebar.css'
 const SECTIONS = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'contacts', label: 'Contactos', Icon: Users },
-  { id: 'converter', label: 'Conversor de hora', shortLabel: 'Hora', Icon: Globe },
 ]
 
 export default function Sidebar({ summary, now, section, onSectionChange, onOpenBackup, proposals = [], onOpenProposal }) {

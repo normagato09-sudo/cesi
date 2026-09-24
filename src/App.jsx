@@ -12,7 +12,6 @@ import FindSlotModal from './components/FindSlotModal.jsx'
 import AvailabilityModal from './components/AvailabilityModal.jsx'
 import ContactsView from './components/ContactsView.jsx'
 import BackupModal from './components/BackupModal.jsx'
-import ConverterView from './components/ConverterView.jsx'
 import ProposalModal from './components/ProposalModal.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
@@ -325,12 +324,6 @@ export default function App() {
               onNewMeetingWithContact={handleNewMeetingWithContact}
               onFindSlotWithContact={(contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })}
             />
-          </div>
-        )}
-
-        {section === 'converter' && (
-          <div className="app-main">
-            <ConverterView />
           </div>
         )}
 

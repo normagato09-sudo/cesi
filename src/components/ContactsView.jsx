@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
+import { useMinuteClock } from '../hooks/useMinuteClock'
 import { contactMatches, eventIncludesContact } from '../lib/contacts'
 import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
 import { expandEvents } from '../lib/recurrence'
@@ -40,6 +41,12 @@ function zoneSummary(timeZone, now) {
   const diff = zoneOffsetMinutes(now, timeZone) - zoneOffsetMinutes(now, SPAIN_ZONE)
   const diffText = diff === 0 ? 'misma hora que España' : `${formatOffsetDiff(diff)} respecto a España`
   return `${zoneLabel(timeZone)} · ahora ${formatTimeInZone(now, timeZone)} (${diffText})`
+}
+
+// Hora actual del contacto, que cambia en cuanto empieza cada minuto.
+function LiveZoneSummary({ timeZone }) {
+  const now = useMinuteClock()
+  return zoneSummary(timeZone, now)
 }
 
 const MAX_LISTED_MEETINGS = 5
@@ -307,7 +314,7 @@ export default function ContactsView({
                   <dt><Globe size={15} strokeWidth={1.75} /><span className="sr-only">Zona horaria</span></dt>
                   <dd>
                     {selected.country && selected.country !== 'ES' && `${countryFlag(selected.country)} `}
-                    {zoneSummary(selected.timeZone, now)}
+                    <LiveZoneSummary timeZone={selected.timeZone} />
                     {selected.countryUnreviewed && (
                       <span className="contact-unreviewed-note">
                         País sin revisar: se asignó España automáticamente. Edita el contacto para confirmarlo.

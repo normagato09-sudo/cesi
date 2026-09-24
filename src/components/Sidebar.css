@@ -187,9 +187,7 @@
 
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar.section-contacts .summary-panel,
-  .sidebar.section-converter .summary-panel,
-  .sidebar.section-contacts .proposals-panel,
-  .sidebar.section-converter .proposals-panel {
+  .sidebar.section-contacts .proposals-panel {
     display: none;
   }
 }
