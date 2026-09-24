@@ -9,6 +9,7 @@ import { cleanLinks, migrateProfileLinks, normalizeUrl } from './links'
 //   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null,
 //   role, area (el departamento), joinedAt: 'AAAA-MM-DD',
 //   bio: trayectoria (texto libre, con saltos de línea),
+//   quote: frase personal (opcional, hasta QUOTE_MAX_LENGTH caracteres),
 //   links: [{ id, label, url }]  una sola lista de enlaces (redes incluidas),
 // }
 // La foto, el email y el teléfono son los del contacto.
@@ -58,6 +59,7 @@ export function emptyTeamProfile(partial = {}) {
     area: '',
     joinedAt: todayKey(),
     bio: '',
+    quote: '',
     links: [],
     ...partial,
   }
@@ -251,4 +253,27 @@ export function migrateTeamProfile(contact) {
     if (profile !== next.teamProfile) next = { ...next, teamProfile: profile }
   }
   return next
+}
+
+// ---------------------------------------------------------------------------
+// Frase personal
+// ---------------------------------------------------------------------------
+
+export const QUOTE_MAX_LENGTH = 150
+
+// Frase lista para guardar: sin espacios de más ni saltos de línea, y como mucho 150 caracteres.
+export function normalizeQuote(text) {
+  return (text || '').replace(/\s+/g, ' ').trim().slice(0, QUOTE_MAX_LENGTH)
+}
+
+// Error si la frase es demasiado larga, o null.
+export function validateQuote(text) {
+  const length = (text || '').replace(/\s+/g, ' ').trim().length
+  return length > QUOTE_MAX_LENGTH ? `La frase personal tiene ${length} caracteres; el máximo es ${QUOTE_MAX_LENGTH}.` : null
+}
+
+// Entre comillas: «Si tú cambias, todo cambia»
+export function quoteDisplay(text) {
+  const clean = normalizeQuote(text).replace(/^["“«]+|["”»]+$/g, '')
+  return clean ? `«${clean}»` : ''
 }

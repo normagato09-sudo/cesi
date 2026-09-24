@@ -18,7 +18,7 @@ import TeamProfileModal from './TeamProfileModal.jsx'
 import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import LinkList from './LinkList.jsx'
-import { capitalize, filterMembers, isTeamMember, milestonesToBio, seniorityText } from '../lib/team'
+import { capitalize, filterMembers, isTeamMember, milestonesToBio, quoteDisplay, seniorityText } from '../lib/team'
 import { migrateProfileLinks } from '../lib/links'
 import './TeamView.css'
 
@@ -40,6 +40,11 @@ function MemberCard({ contact, now, onOpen }) {
         <ContactAvatar name={contact.name} photo={contact.photo} size="xl" />
         <span className="team-card-name">{contact.name}</span>
         {p.role && <span className="team-card-role">{p.role}</span>}
+        {quoteDisplay(p.quote) && (
+          <span className="team-card-quote" title={quoteDisplay(p.quote)}>
+            {quoteDisplay(p.quote)}
+          </span>
+        )}
         {p.area && <span className="team-card-area">{p.area}</span>}
         {seniority && <span className="team-card-seniority">{capitalize(seniority)}</span>}
       </button>
@@ -63,6 +68,7 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
         <ContactAvatar name={contact.name} photo={contact.photo} size="xl" />
         <div className="team-detail-hero-text">
           <h2>{contact.name}</h2>
+          {quoteDisplay(p.quote) && <p className="team-detail-quote">{quoteDisplay(p.quote)}</p>}
           {roleLine(p) && <p className="team-detail-role">{roleLine(p)}</p>}
           <p className="team-detail-seniority">
             {p.joinedAt && `Desde el ${formatDay(p.joinedAt)}`}

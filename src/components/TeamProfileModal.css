@@ -69,3 +69,17 @@
   resize: vertical;
   line-height: 1.5;
 }
+
+.team-quote-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.team-quote-count {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.team-quote-count.over {
+  color: #b91c1c;
+}

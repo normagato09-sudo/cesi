@@ -297,3 +297,21 @@
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+
+/* Frase personal: en la tarjeta, una línea con "…"; en la ficha, completa */
+.team-card-quote {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-detail-quote {
+  margin: 0;
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}

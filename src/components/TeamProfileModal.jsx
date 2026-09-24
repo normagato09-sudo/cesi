@@ -3,7 +3,7 @@ import { BadgeCheck, Plus, X } from 'lucide-react'
 import ContactEditorFields from './ContactEditorFields.jsx'
 import LinksEditor from './LinksEditor.jsx'
 import { useContactDraft } from '../hooks/useContactDraft'
-import { emptyTeamProfile, milestonesToBio, teamProfileDefaults, todayKey } from '../lib/team'
+import { QUOTE_MAX_LENGTH, emptyTeamProfile, milestonesToBio, normalizeQuote, teamProfileDefaults, todayKey, validateQuote } from '../lib/team'
 import { cleanLinks, migrateProfileLinks, validateUrl } from '../lib/links'
 import { departmentKey } from '../lib/departments'
 import './EventFormModal.css'
@@ -39,6 +39,7 @@ export default function TeamProfileModal({
   const [status, setStatus] = useState(seed.status)
   const [leftAt, setLeftAt] = useState(seed.leftAt || todayKey())
   const [bio, setBio] = useState(seed.bio)
+  const [quote, setQuote] = useState(seed.quote || '')
   const [links, setLinks] = useState(seed.links || [])
   const [error, setError] = useState(null)
   const savedRef = useRef(false)
@@ -75,6 +76,8 @@ export default function TeamProfileModal({
     if (!joinedAt) return setError('Indica la fecha de incorporación.')
     if (status === 'former' && !leftAt) return setError('Indica la fecha de salida.')
     if (status === 'former' && leftAt < joinedAt) return setError('La fecha de salida es anterior a la de incorporación.')
+    const quoteProblem = validateQuote(quote)
+    if (quoteProblem) return setError(quoteProblem)
     for (const link of links) {
       if (!link.url.trim() && !link.label.trim()) continue
       const problem = validateUrl(link.url)
@@ -88,6 +91,7 @@ export default function TeamProfileModal({
       area,
       joinedAt,
       bio: bio.replace(/^\s*\n|\s+$/g, ''),
+      quote: normalizeQuote(quote),
       links: cleanLinks(links),
       // CV de la candidatura, si se incorporó desde Vacantes.
       ...(seed.cv ? { cv: seed.cv } : {}),
@@ -157,6 +161,23 @@ export default function TeamProfileModal({
               )}
             </label>
           </div>
+
+          <label className="event-form-field">
+            <span className="team-quote-label">
+              Frase personal (opcional)
+              <span className={`team-quote-count${quote.length > QUOTE_MAX_LENGTH ? ' over' : ''}`} aria-live="polite">
+                {quote.length}/{QUOTE_MAX_LENGTH}
+              </span>
+            </span>
+            <input
+              type="text"
+              value={quote}
+              maxLength={QUOTE_MAX_LENGTH}
+              onChange={(e) => setQuote(e.target.value)}
+              placeholder="Si tú cambias, todo cambia"
+              aria-label="Frase personal"
+            />
+          </label>
 
           <div className="event-form-row">
             <label className="event-form-field">

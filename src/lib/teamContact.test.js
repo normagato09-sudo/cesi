@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createContact, getAllContacts, updateContact } from './contacts'
-import { filterMembers, mergeTeamContactData, removeFromTeamPatch, teamProfileDefaults } from './team'
+import { QUOTE_MAX_LENGTH, filterMembers, mergeTeamContactData, normalizeQuote, quoteDisplay, removeFromTeamPatch, teamProfileDefaults, validateQuote } from './team'
+import { buildBackup, parseBackup, restoreBackup } from './backup'
 
 const now = new Date(2026, 8, 24, 12, 0)
 
@@ -102,5 +103,31 @@ describe('fusión de datos duplicados (formato antiguo)', () => {
     expect(ana.teamProfile).toEqual({ role: 'x' })
     expect(luis).not.toHaveProperty('teamProfile')
     expect(JSON.parse(localStorage.getItem('cesi_contacts_v1'))[0].teamProfile).toEqual({ role: 'x' })
+  })
+})
+
+describe('frase personal', () => {
+  it('como mucho 150 caracteres, sin espacios de más', () => {
+    const long = 'a'.repeat(151)
+    expect(QUOTE_MAX_LENGTH).toBe(150)
+    expect(validateQuote(long)).toBe('La frase personal tiene 151 caracteres; el máximo es 150.')
+    expect(validateQuote('a'.repeat(150))).toBeNull()
+    expect(normalizeQuote(`  Si tú cambias,\n  todo cambia  `)).toBe('Si tú cambias, todo cambia')
+    expect(normalizeQuote(long)).toHaveLength(150)
+  })
+
+  it('se muestra entre comillas y, sin frase, no se muestra nada', () => {
+    expect(quoteDisplay('Si tú cambias, todo cambia')).toBe('«Si tú cambias, todo cambia»')
+    expect(quoteDisplay('"Ya entre comillas"')).toBe('«Ya entre comillas»')
+    expect(quoteDisplay('   ')).toBe('')
+    expect(quoteDisplay(undefined)).toBe('')
+  })
+
+  it('se guarda en el perfil y va en la copia de seguridad', () => {
+    const c = createContact({ name: 'Ana', country: 'ES', timeZone: 'Europe/Madrid', teamProfile: { ...teamProfileDefaults({}, now), quote: 'Si tú cambias, todo cambia' } })
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getAllContacts().find((x) => x.id === c.id).teamProfile.quote).toBe('Si tú cambias, todo cambia')
   })
 })
