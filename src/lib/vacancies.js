@@ -1,7 +1,7 @@
 import { addMonths, parseISO } from 'date-fns'
 import { createCollection } from './store'
 import { eventHasTag } from './tags'
-import { emptyTeamProfile, newMilestone, sortMilestones, todayKey } from './team'
+import { emptyTeamProfile, joinedLine, todayKey } from './team'
 
 // Vacantes y candidatos.
 //
@@ -122,33 +122,29 @@ export function interviewUpdates(meeting, contacts, now = new Date()) {
     .map((c) => ({ id: c.id, candidacy: withStatus(c.candidacy, 'interview', now) }))
 }
 
-// Perfil de equipo con el que se abre la incorporación: cargo y departamento de la vacante, hoy.
+// Perfil de equipo con el que se abre la incorporación: cargo y departamento de la vacante, hoy,
+// y la trayectoria empieza con "DD/MM/AAAA – Se incorporó como [cargo]" (editable antes de guardar).
 export function incorporationDraft(vacancy, now = new Date()) {
-  return emptyTeamProfile({ role: vacancy?.title || '', area: vacancy?.area || '', joinedAt: todayKey(now) })
-}
-
-export function joinedMilestoneText(role) {
-  return role ? `Se incorporó como ${role}` : 'Se incorporó al equipo'
+  const joinedAt = todayKey(now)
+  const role = vacancy?.title || ''
+  return emptyTeamProfile({ role, area: vacancy?.area || '', joinedAt, bio: joinedLine(joinedAt, role) })
 }
 
 /**
  * Incorporar al equipo a un candidato aceptado.
  * Devuelve:
- *   contactPatch: deja de ser candidato (candidacy null) y pasa a tener teamProfile, cuyo primer
- *                 hito es "Se incorporó como [cargo]" (el CV se conserva en el perfil);
+ *   contactPatch: deja de ser candidato (candidacy null) y pasa a tener teamProfile (el que se
+ *                 guardó en el formulario, con su trayectoria; el CV se conserva en el perfil);
  *   vacancyPatch: la vacante queda cubierta y apunta al contacto incorporado;
  *   remaining:    otros candidatos de la vacante que siguen en proceso (para ofrecer descartarlos).
  */
 export function incorporate({ contact, vacancy, teamProfile, contacts }) {
   const profile = emptyTeamProfile(teamProfile)
-  const text = joinedMilestoneText(profile.role)
-  const others = (profile.milestones || []).filter((m) => m.text !== text)
-  const milestones = sortMilestones([{ ...newMilestone(profile.joinedAt, text) }, ...others])
   const cv = contact.candidacy?.cv || null
   return {
     contactPatch: {
       candidacy: null,
-      teamProfile: { ...profile, status: 'active', leftAt: null, milestones, ...(cv ? { cv } : {}) },
+      teamProfile: { ...profile, status: 'active', leftAt: null, ...(cv ? { cv } : {}) },
     },
     vacancyPatch: {
       status: 'filled',

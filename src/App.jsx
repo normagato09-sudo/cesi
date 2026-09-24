@@ -393,7 +393,7 @@ export default function App() {
   const handleFindInterviewSlot = (contact) =>
     setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, meetingType: INTERVIEW_TYPE })
 
-  // Candidato → miembro del equipo: perfil con su primer hito, vacante cubierta y, si quedan
+  // Candidato → miembro del equipo: perfil (con "Se incorporó como…" en la trayectoria), vacante cubierta y, si quedan
   // otros candidatos, se ofrece descartarlos.
   const handleIncorporate = (contact, vacancy, { contactPatch, teamProfile }) => {
     const result = incorporate({ contact, vacancy, teamProfile, contacts })

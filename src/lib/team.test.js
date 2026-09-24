@@ -7,7 +7,9 @@ import {
   saveTeamAreas,
   calendarSpan,
   seniorityText,
-  sortMilestones,
+  joinedLine,
+  milestonesToBio,
+  migrateTeamProfile,
 } from './team'
 
 const now = new Date(2026, 8, 24, 12, 0) // 24 sept 2026
@@ -61,18 +63,56 @@ describe('antigüedad', () => {
   })
 })
 
-describe('hitos', () => {
-  it('se ordenan como una línea de tiempo y los que no tienen fecha van al final', () => {
-    const list = [
-      { id: 'c', date: '2025-03-01', text: 'Curso de doblaje' },
-      { id: 'x', date: '', text: 'Sin fecha 1' },
-      { id: 'a', date: '2023-09-01', text: 'Se incorporó como profesora' },
-      { id: 'y', date: '', text: 'Sin fecha 2' },
-      { id: 'b', date: '2024-05-10', text: 'Proyecto de radio' },
-      { id: 'b2', date: '2024-05-10', text: 'Mismo día, escrito después' },
-    ]
-    expect(sortMilestones(list).map((m) => m.id)).toEqual(['a', 'b', 'b2', 'c', 'x', 'y'])
-    expect(list[0].id).toBe('c') // no cambia la lista original
+describe('hitos → trayectoria', () => {
+  it('los hitos pasan al final de la trayectoria, ordenados por fecha, y se borran', () => {
+    const profile = {
+      role: 'Moderador',
+      bio: 'Moderador de la comunidad desde el principio.',
+      milestones: [
+        { id: 'c', date: '2026-08-15', text: 'Organizó el primer evento' },
+        { id: 'x', date: '', text: 'Sin fecha' },
+        { id: 'a', date: '2026-07-30', text: 'Se incorporó como moderador' },
+        { id: 'b', date: '2026-08-15', text: 'Mismo día, escrito después' },
+        { id: 'v', date: '2026-09-01', text: '   ' },
+      ],
+    }
+    const migrated = milestonesToBio(profile)
+    expect(migrated).not.toHaveProperty('milestones')
+    expect(migrated.bio).toBe(
+      [
+        'Moderador de la comunidad desde el principio.',
+        '30/07/2026 – Se incorporó como moderador',
+        '15/08/2026 – Organizó el primer evento',
+        '15/08/2026 – Mismo día, escrito después',
+        'Sin fecha',
+      ].join('\n'),
+    )
+    expect(migrated.role).toBe('Moderador')
+    // Ya migrado: no cambia.
+    expect(milestonesToBio(migrated)).toBe(migrated)
+  })
+
+  it('sin trayectoria, la trayectoria son los hitos; sin hitos, solo se borra la lista vacía', () => {
+    expect(milestonesToBio({ bio: '', milestones: [{ id: 'a', date: '2025-01-02', text: 'Curso' }] }).bio).toBe('02/01/2025 – Curso')
+    expect(milestonesToBio({ bio: 'Texto', milestones: [] })).toEqual({ bio: 'Texto' })
+  })
+
+  it('se aplica al leer los contactos junto con las otras migraciones', () => {
+    const contact = {
+      id: 'a',
+      name: 'Ana',
+      email: 'ana@gmail.com',
+      teamProfile: { bio: '', email: 'ana@cesi.es', social: { instagram: 'ana' }, milestones: [{ id: 'm', date: '2026-07-30', text: 'Entró' }] },
+    }
+    const migrated = migrateTeamProfile(contact)
+    expect(migrated.teamProfile).toEqual({ bio: '30/07/2026 – Entró', links: [expect.objectContaining({ url: 'https://instagram.com/ana' })] })
+    expect(migrated.notes).toBe('Otro email: ana@cesi.es')
+    expect(migrateTeamProfile(migrated)).toBe(migrated)
+  })
+
+  it('texto de incorporación', () => {
+    expect(joinedLine('2026-07-30', 'moderador')).toBe('30/07/2026 – Se incorporó como moderador')
+    expect(joinedLine('2026-07-30', '')).toBe('30/07/2026 – Se incorporó al equipo')
   })
 })
 

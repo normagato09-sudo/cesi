@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
-import { BadgeCheck, Plus, Trash2, X } from 'lucide-react'
+import { BadgeCheck, Plus, X } from 'lucide-react'
 import ContactEditorFields from './ContactEditorFields.jsx'
 import LinksEditor from './LinksEditor.jsx'
 import { useContactDraft } from '../hooks/useContactDraft'
-import { emptyTeamProfile, newMilestone, sortMilestones, teamProfileDefaults, todayKey } from '../lib/team'
+import { emptyTeamProfile, milestonesToBio, teamProfileDefaults, todayKey } from '../lib/team'
 import { cleanLinks, migrateProfileLinks, validateUrl } from '../lib/links'
 import { departmentKey } from '../lib/departments'
 import './EventFormModal.css'
@@ -14,7 +14,7 @@ const NEW_AREA = '__new__'
 /**
  * Perfil de equipo de un contacto. Arriba, los datos del contacto (ya rellenados y editables aquí
  * mismo; se guardan en el contacto, una sola vez). Debajo, lo propio del equipo: cargo,
- * departamento, incorporación, estado, trayectoria y enlaces. onSave({ contactPatch, teamProfile }).
+ * departamento, incorporación, estado, trayectoria (texto libre) y enlaces. onSave({ contactPatch, teamProfile }).
  * `initialProfile` permite abrirlo ya rellenado (p. ej. al incorporar a un candidato); si no hay
  * perfil, se parte del cargo del contacto, hoy como incorporación y sus enlaces.
  */
@@ -29,7 +29,7 @@ export default function TeamProfileModal({
   onSave,
   onClose: close,
 }) {
-  const seed = emptyTeamProfile(migrateProfileLinks(initialProfile || contact.teamProfile || teamProfileDefaults(contact)))
+  const seed = emptyTeamProfile(milestonesToBio(migrateProfileLinks(initialProfile || contact.teamProfile || teamProfileDefaults(contact))))
   const draft = useContactDraft(contact, groups)
   const [role, setRole] = useState(seed.role)
   const [area, setArea] = useState(seed.area)
@@ -39,7 +39,6 @@ export default function TeamProfileModal({
   const [status, setStatus] = useState(seed.status)
   const [leftAt, setLeftAt] = useState(seed.leftAt || todayKey())
   const [bio, setBio] = useState(seed.bio)
-  const [milestones, setMilestones] = useState(() => sortMilestones(seed.milestones))
   const [links, setLinks] = useState(seed.links || [])
   const [error, setError] = useState(null)
   const savedRef = useRef(false)
@@ -68,8 +67,6 @@ export default function TeamProfileModal({
     setAddingArea(false)
   }
 
-  const updateMilestone = (id, patch) => setMilestones((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)))
-
   const handleSubmit = (e) => {
     e.preventDefault()
     setError(null)
@@ -90,8 +87,7 @@ export default function TeamProfileModal({
       role: role.trim(),
       area,
       joinedAt,
-      bio: bio.trim(),
-      milestones: sortMilestones(milestones.filter((m) => m.text.trim()).map((m) => ({ ...m, text: m.text.trim() }))),
+      bio: bio.replace(/^\s*\n|\s+$/g, ''),
       links: cleanLinks(links),
       // CV de la candidatura, si se incorporó desde Vacantes.
       ...(seed.cv ? { cv: seed.cv } : {}),
@@ -195,31 +191,14 @@ export default function TeamProfileModal({
 
           <label className="event-form-field">
             <span>Trayectoria</span>
-            <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={4} placeholder="Formación, experiencia, lo que aporta al equipo…" />
+            <textarea
+              className="team-bio-input"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={10}
+              placeholder={'Formación, experiencia, lo que aporta al equipo…\nPuedes apuntar fechas importantes, una por línea: "30/07/2026 – Se incorporó como moderador".'}
+            />
           </label>
-
-          <div className="team-list-editor">
-            <span className="team-list-label">Hitos</span>
-            {milestones.map((m) => (
-              <div key={m.id} className="team-list-row milestone">
-                <input type="date" value={m.date} onChange={(e) => updateMilestone(m.id, { date: e.target.value })} aria-label="Fecha del hito" />
-                <input
-                  type="text"
-                  value={m.text}
-                  onChange={(e) => updateMilestone(m.id, { text: e.target.value })}
-                  placeholder="Curso de locución, proyecto…"
-                  aria-label="Descripción del hito"
-                />
-                <button type="button" onClick={() => setMilestones((list) => list.filter((x) => x.id !== m.id))} aria-label="Quitar hito">
-                  <Trash2 size={14} strokeWidth={1.75} />
-                </button>
-              </div>
-            ))}
-            <button type="button" className="team-add-btn" onClick={() => setMilestones((list) => [...list, newMilestone(todayKey())])}>
-              <Plus size={14} strokeWidth={1.75} />
-              Añadir hito
-            </button>
-          </div>
 
           {error && <div className="event-form-error">{error}</div>}
         </div>

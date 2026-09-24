@@ -1,6 +1,6 @@
 import { addMonths, differenceInCalendarDays, format, parseISO, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { readJSON, writeJSON, makeId } from './store'
+import { readJSON, writeJSON } from './store'
 import { DEFAULT_DEPARTMENTS, addDepartment } from './departments'
 import { cleanLinks, migrateProfileLinks, normalizeUrl } from './links'
 
@@ -8,8 +8,7 @@ import { cleanLinks, migrateProfileLinks, normalizeUrl } from './links'
 // {
 //   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null,
 //   role, area (el departamento), joinedAt: 'AAAA-MM-DD',
-//   bio: texto libre de trayectoria,
-//   milestones: [{ id, date: 'AAAA-MM-DD' | '', text }],
+//   bio: trayectoria (texto libre, con saltos de línea),
 //   links: [{ id, label, url }]  una sola lista de enlaces (redes incluidas),
 // }
 // La foto, el email y el teléfono son los del contacto.
@@ -59,21 +58,34 @@ export function emptyTeamProfile(partial = {}) {
     area: '',
     joinedAt: todayKey(),
     bio: '',
-    milestones: [],
-    social: {},
     links: [],
     ...partial,
   }
 }
 
-export function newMilestone(date = '', text = '') {
-  return { id: makeId('hito'), date, text }
+// "30/07/2026"
+export function formatDayKey(key) {
+  const [y, m, d] = (key || '').split('-')
+  return y && m && d ? `${d}/${m}/${y}` : ''
 }
 
-// Hitos como una línea de tiempo: del más antiguo al más reciente; los que no tienen fecha, al
-// final, en el orden en que se escribieron.
-export function sortMilestones(milestones = []) {
-  return milestones
+// Línea de la trayectoria: "30/07/2026 – Se incorporó como moderador".
+export function joinedLine(dateKey, role) {
+  const text = role ? `Se incorporó como ${role}` : 'Se incorporó al equipo'
+  const day = formatDayKey(dateKey)
+  return day ? `${day} – ${text}` : text
+}
+
+/**
+ * Migración: los hitos (formato antiguo) pasan al final de la trayectoria como líneas de texto
+ * ("30/07/2026 – Se incorporó como moderador"), ordenados por fecha (los que no tienen fecha, al
+ * final, en su orden), y se borran. Devuelve el mismo perfil si no tenía hitos.
+ */
+export function milestonesToBio(profile) {
+  if (!profile || !('milestones' in profile)) return profile
+  const { milestones, ...rest } = profile
+  const lines = (Array.isArray(milestones) ? milestones : [])
+    .filter((m) => m && (m.text || '').trim())
     .map((m, index) => ({ m, index }))
     .sort((a, b) => {
       const da = a.m.date || ''
@@ -82,7 +94,10 @@ export function sortMilestones(milestones = []) {
       if (!da !== !db) return da ? -1 : 1
       return a.index - b.index
     })
-    .map(({ m }) => m)
+    .map(({ m }) => (m.date ? `${formatDayKey(m.date)} – ${m.text.trim()}` : m.text.trim()))
+  if (lines.length === 0) return rest
+  const bio = (rest.bio || '').replace(/\s+$/, '')
+  return { ...rest, bio: [bio, ...lines].filter(Boolean).join('\n') }
 }
 
 function plural(n, one, many) {
@@ -226,13 +241,13 @@ export function removeFromTeamPatch(contact) {
 }
 
 /**
- * Migraciones del perfil de equipo al leer los contactos (también los que llegan de la nube o de
+ * Migraciones del perfil de equipo al leer los contactos (datos del contacto, redes e hitos) (también los que llegan de la nube o de
  * una copia antigua). Devuelve el mismo contacto si no hay nada que cambiar.
  */
 export function migrateTeamProfile(contact) {
   let next = mergeTeamContactData(contact)
   if (next?.teamProfile) {
-    const profile = migrateProfileLinks(next.teamProfile)
+    const profile = milestonesToBio(migrateProfileLinks(next.teamProfile))
     if (profile !== next.teamProfile) next = { ...next, teamProfile: profile }
   }
   return next

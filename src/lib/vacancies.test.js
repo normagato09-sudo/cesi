@@ -58,31 +58,27 @@ describe('estado de los candidatos', () => {
 })
 
 describe('incorporar al equipo', () => {
-  it('el candidato pasa a ser miembro, la vacante queda cubierta y el primer hito es la incorporación', () => {
+  it('el perfil se abre con "DD/MM/AAAA – Se incorporó como [cargo]" al principio de la trayectoria', () => {
+    const draft = incorporationDraft(vacancy, now)
+    expect(draft).toMatchObject({ role: 'Profesora de doblaje', area: 'Doblaje', joinedAt: '2026-09-24' })
+    expect(draft.bio).toBe('24/09/2026 – Se incorporó como Profesora de doblaje')
+    expect(draft).not.toHaveProperty('milestones')
+  })
+
+  it('el candidato pasa a ser miembro con la trayectoria que se guardó, y la vacante queda cubierta', () => {
     const cv = { store: 'cloud', path: 'u/cvs/1.pdf' }
     const ana = candidate('ana', 'accepted', { cv })
     const contacts = [ana, candidate('b', 'interview'), candidate('c', 'new'), candidate('d', 'discarded')]
-    const draft = incorporationDraft(vacancy, now)
-    expect(draft).toMatchObject({ role: 'Profesora de doblaje', area: 'Doblaje', joinedAt: '2026-09-24' })
-
-    const profile = { ...draft, bio: 'Actriz', milestones: [{ id: 'm1', date: '2020-05-01', text: 'Curso de locución' }] }
+    // La línea de incorporación es editable antes de guardar.
+    const bio = '24/09/2026 – Se incorporó como profesora titular\nActriz de doblaje desde 2015.'
+    const profile = { ...incorporationDraft(vacancy, now), bio }
     const result = incorporate({ contact: ana, vacancy, teamProfile: profile, contacts })
 
     expect(result.contactPatch.candidacy).toBeNull()
-    expect(result.contactPatch.teamProfile).toMatchObject({ status: 'active', role: 'Profesora de doblaje', area: 'Doblaje', bio: 'Actriz', cv })
-    expect(result.contactPatch.teamProfile.milestones.map((m) => [m.date, m.text])).toEqual([
-      ['2020-05-01', 'Curso de locución'],
-      ['2026-09-24', 'Se incorporó como Profesora de doblaje'],
-    ])
+    expect(result.contactPatch.teamProfile).toMatchObject({ status: 'active', role: 'Profesora de doblaje', area: 'Doblaje', bio, cv })
+    expect(result.contactPatch.teamProfile).not.toHaveProperty('milestones')
     expect(result.vacancyPatch).toEqual({ status: 'filled', hiredContactIds: ['ana'] })
     expect(result.remaining.map((c) => c.id)).toEqual(['b', 'c'])
-  })
-
-  it('no repite el hito si ya estaba', () => {
-    const ana = candidate('ana', 'accepted')
-    const profile = { ...incorporationDraft(vacancy, now), milestones: [{ id: 'x', date: '2026-09-24', text: 'Se incorporó como Profesora de doblaje' }] }
-    const { contactPatch } = incorporate({ contact: ana, vacancy, teamProfile: profile, contacts: [ana] })
-    expect(contactPatch.teamProfile.milestones).toHaveLength(1)
   })
 })
 

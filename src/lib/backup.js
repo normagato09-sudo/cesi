@@ -19,8 +19,8 @@ import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 // declarada semana a semana). v9 añade projects (las reuniones y propuestas llevan projectId).
 // v10 añade vacancies; los candidatos son contactos con candidacy (su CV, como las fotos, va
 // solo como referencia). v11: en el perfil de equipo las redes pasan a una sola lista de enlaces y
-// los datos del contacto (email, teléfono) se guardan solo en el contacto; las copias anteriores se
-// convierten al leerlas.
+// los datos del contacto (email, teléfono) se guardan solo en el contacto, y los hitos pasan a la
+// trayectoria; las copias anteriores se convierten al leerlas.
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; las
 // notas de las reuniones (notes / notesByDate), dentro de events.
 const BACKUP_VERSION = 11

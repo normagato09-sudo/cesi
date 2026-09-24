@@ -18,7 +18,7 @@ import TeamProfileModal from './TeamProfileModal.jsx'
 import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import LinkList from './LinkList.jsx'
-import { capitalize, filterMembers, isTeamMember, seniorityText, sortMilestones } from '../lib/team'
+import { capitalize, filterMembers, isTeamMember, milestonesToBio, seniorityText } from '../lib/team'
 import { migrateProfileLinks } from '../lib/links'
 import './TeamView.css'
 
@@ -48,9 +48,8 @@ function MemberCard({ contact, now, onOpen }) {
 }
 
 function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdit, onRemove, onOpenEvent, onFindSlot, onNewMeeting, onOpenContact }) {
-  const p = contact.teamProfile
+  const p = milestonesToBio(contact.teamProfile)
   const seniority = seniorityText(p.joinedAt, now, p.status === 'former' ? p.leftAt : null)
-  const milestones = sortMilestones(p.milestones)
   const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)
 
   return (
@@ -102,22 +101,6 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
       <section className="team-section">
         <h3>Trayectoria</h3>
         {p.bio ? <p className="team-bio">{p.bio}</p> : <p className="team-empty">Todavía no has escrito su trayectoria.</p>}
-      </section>
-
-      <section className="team-section">
-        <h3>Hitos</h3>
-        {milestones.length === 0 ? (
-          <p className="team-empty">Sin hitos todavía.</p>
-        ) : (
-          <ol className="team-timeline">
-            {milestones.map((m) => (
-              <li key={m.id}>
-                <span className="team-timeline-date">{m.date ? formatDay(m.date) : 'Sin fecha'}</span>
-                <span className="team-timeline-text">{m.text}</span>
-              </li>
-            ))}
-          </ol>
-        )}
       </section>
 
       <section className="team-section">
