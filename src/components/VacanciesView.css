@@ -1,0 +1,432 @@
+.vacancies-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vacancies-filter {
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+
+.vacancies-body {
+  padding: 20px 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- Aviso de protección de datos ---------- */
+.vacancy-retention {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  background: #fffbeb;
+  color: #92400e;
+}
+.vacancy-retention svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.vacancy-retention p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---------- Lista de vacantes ---------- */
+.vacancy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.vacancy-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-align: left;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.vacancy-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.vacancy-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vacancy-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.vacancy-card-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.vacancy-card-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.vacancy-status {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.vacancy-status.open {
+  background: #dcfce7;
+  color: #166534;
+}
+.vacancy-status.in_progress {
+  background: #fef3c7;
+  color: #92400e;
+}
+.vacancy-status.filled {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.vacancy-hired {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 28px 0;
+  padding: 10px 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-md);
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13.5px;
+}
+.vacancy-hired span {
+  flex: 1;
+}
+.vacancy-hired button {
+  border: none;
+  background: none;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ---------- Vacante ---------- */
+.vacancy-detail {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 28px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.vacancy-detail .contact-back-btn.team-back {
+  display: inline-flex;
+  align-self: flex-start;
+}
+
+.vacancy-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vacancy-detail-title h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+.vacancy-detail-title p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.vacancy-status-select {
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.vacancy-texts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+/* Columnas por estado */
+.vacancy-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.vacancy-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--column-color, var(--border-strong));
+}
+.vacancy-column.new {
+  --column-color: #2563eb;
+}
+.vacancy-column.interview {
+  --column-color: #7c3aed;
+}
+.vacancy-column.accepted {
+  --column-color: #16a34a;
+}
+.vacancy-column.discarded {
+  --column-color: #9aa1ac;
+}
+.vacancy-column h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.vacancy-column-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  text-align: center;
+  letter-spacing: 0;
+}
+.vacancy-column ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vacancy-column-empty,
+.vacancy-erased {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.candidate-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+}
+.candidate-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.candidate-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.candidate-card-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.candidate-card-meta {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.candidate-card-cv {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* ---------- Candidato ---------- */
+.candidate-status {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.candidate-status-btn {
+  padding: 8px 6px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.candidate-status-btn:hover:not(.on) {
+  background: var(--surface-hover);
+}
+.candidate-status-btn.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+.candidate-status-btn.on.new {
+  color: #1d4ed8;
+}
+.candidate-status-btn.on.interview {
+  color: #6d28d9;
+}
+.candidate-status-btn.on.accepted {
+  color: #15803d;
+}
+.candidate-status-btn.on.discarded {
+  color: #6b7280;
+}
+
+.vacancy-discarded-note {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.cv-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+}
+.cv-link:hover {
+  text-decoration: underline;
+}
+.cv-link-error {
+  font-size: 12.5px;
+  color: #b91c1c;
+}
+
+/* ---------- Formularios ---------- */
+.candidate-form-vacancy {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.candidate-cv-switch {
+  align-self: flex-start;
+}
+.candidate-cv-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+.vacancy-new-area {
+  display: flex;
+  gap: 6px;
+}
+.vacancy-new-area input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Contactos: filtro "Candidatos" */
+.contacts-candidates-btn.on {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+@media (max-width: 860px) {
+  /* En móvil, lista agrupada por estado en lugar de columnas. */
+  .vacancy-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .vacancies-body {
+    padding: 12px 12px 32px;
+  }
+  .vacancy-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vacancy-detail {
+    padding: 12px 12px 40px;
+  }
+  .vacancy-detail-head {
+    flex-direction: column;
+  }
+  .vacancy-status-select {
+    width: 100%;
+    font-size: 16px;
+    padding: 10px;
+  }
+  .vacancy-hired {
+    margin: 12px 12px 0;
+  }
+  .candidate-status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .candidate-status-btn {
+    padding: 10px 6px;
+    font-size: 14px;
+  }
+  .vacancies-filter {
+    align-self: stretch;
+  }
+  .vacancies-filter .view-switch-btn {
+    flex: 1;
+  }
+}
+
+.contact-row-team.candidate {
+  color: #6d28d9;
+}

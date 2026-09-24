@@ -91,6 +91,8 @@ export default function TeamProfileModal({
       milestones: sortMilestones(milestones.filter((m) => m.text.trim()).map((m) => ({ ...m, text: m.text.trim() }))),
       social: Object.fromEntries(Object.entries(social).filter(([, v]) => v && v.trim()).map(([k, v]) => [k, v.trim()])),
       links: links.filter((l) => l.url.trim()).map((l) => ({ ...l, label: l.label.trim(), url: l.url.trim() })),
+      // CV de la candidatura, si se incorporó desde Vacantes.
+      ...(seed.cv ? { cv: seed.cv } : {}),
     }
     savedRef.current = true
     if (contact.photo && !sameFile(contact.photo, photo)) deleteFile(contact.photo)
@@ -205,14 +207,14 @@ export default function TeamProfileModal({
               ))}
             </div>
             <div className="team-list-editor">
-              <span className="team-list-label">Otros enlaces</span>
+              <span className="team-list-label">Otras redes y enlaces</span>
               {links.map((l) => (
                 <div key={l.id} className="team-list-row">
                   <input
                     type="text"
                     value={l.label}
                     onChange={(e) => setLinks((list) => list.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))}
-                    placeholder="Nombre (p. ej. Portfolio)"
+                    placeholder="Nombre (p. ej. X, Behance, Portfolio)"
                     aria-label="Nombre del enlace"
                   />
                   <input

@@ -40,7 +40,10 @@ create table if not exists public.events (
 --         photo: referencia de la foto en Storage { store: 'cloud', path } o null,
 --         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt, role, area,
 --           joinedAt, bio, milestones: [{ id, date, text }], social: { instagram, linkedin,
---           tiktok, youtube, web }, links: [{ id, label, url }] } }
+--           tiktok, youtube, web }, links: [{ id, label, url }], cv (si vino de una candidatura) },
+--         candidacy (candidatos de Vacantes): { vacancyId, appliedAt, status: 'new' | 'interview' |
+--           'accepted' | 'discarded', history: [{ status, at }], discardedAt,
+--           cv: { store: 'cloud', path } (PDF en Storage) o { url } o null } }
 -- ---------------------------------------------------------------------------
 create table if not exists public.contacts (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -146,6 +149,23 @@ create table if not exists public.projects (
 );
 
 -- ---------------------------------------------------------------------------
+-- Vacantes (localStorage: cesi_vacancies_v1)
+-- data: { title, area, description, requirements, openedAt: 'AAAA-MM-DD',
+--         status: 'open' | 'in_progress' | 'filled', hiredContactIds: [ids de contactos],
+--         erasedCandidates: [{ discardedAt, erasedAt }] (registro anónimo de candidatos borrados) }
+-- Los candidatos son filas de contacts con data.candidacy.vacancyId = id.
+-- ---------------------------------------------------------------------------
+create table if not exists public.vacancies (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Actualización desde la versión anterior de este archivo
 -- ---------------------------------------------------------------------------
 do $$
@@ -170,7 +190,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
   end loop;
@@ -204,7 +224,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies'] loop
     execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
       'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',

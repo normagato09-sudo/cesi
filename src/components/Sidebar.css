@@ -209,14 +209,13 @@
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar:not(.section-calendar) .summary-panel,
   .sidebar:not(.section-calendar) .proposals-panel,
-  .sidebar:not(.section-calendar) .missing-notes-panel {
+  .sidebar:not(.section-calendar) .missing-notes-panel,
+  .sidebar:not(.section-calendar) .week-notice {
     display: none;
   }
 
   /* Sin esos bloques, la cabecera se queda en una sola fila (sin huecos vacíos). */
   .sidebar:not(.section-calendar) {
-    grid-template-areas:
-      'nav footer'
-      'week week';
+    grid-template-areas: 'nav footer';
   }
 }

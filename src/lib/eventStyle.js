@@ -1,10 +1,11 @@
-export const CATEGORY_OPTIONS = ['Reunión', 'Personal', 'Estudio', 'Cliente', 'Otro']
+export const CATEGORY_OPTIONS = ['Reunión', 'Personal', 'Estudio', 'Cliente', 'Entrevista', 'Otro']
 
 const CATEGORY_COLORS = {
   Reunión: '#2563eb',
   Personal: '#16a34a',
   Estudio: '#f59e0b',
   Cliente: '#db2777',
+  Entrevista: '#7c3aed',
   Otro: '#6b7280',
 }
 

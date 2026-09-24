@@ -21,6 +21,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Proyectos**: cada reunión puede tener un proyecto (con nombre y color, activo o archivado). Se gestionan desde el formulario de reunión o desde el filtro del calendario, se ven como un chip de color en la reunión, se pueden filtrar en el calendario junto con la categoría y la etiqueta, y el resumen semanal reparte las horas por proyecto. Al borrar un proyecto sus reuniones se conservan, sin proyecto.
 - **Fotos de los contactos**: se recortan en cuadrado y se reducen a 512×512 px en WebP antes de guardarlas (JPG, PNG, WebP y HEIC si el navegador lo permite). Con sincronización se guardan en Supabase Storage y se ven también sin conexión una vez cargadas; sin ella, en el propio navegador (IndexedDB). Sin foto se muestran las iniciales.
 - **Equipo**: cualquier contacto se puede marcar como miembro del equipo, con un perfil ampliado (foto, cargo, área de una lista ampliable, fecha de incorporación con la antigüedad calculada, trayectoria, hitos en una línea de tiempo, redes y enlaces, y estado activo o antiguo miembro). La sección Equipo muestra las tarjetas con buscador y filtros por área y estado, y la ficha de cada persona con sus reuniones, notas, disponibilidad y «Buscar hueco con esta persona».
+- **Vacantes y candidatos**: vacantes con título, área, descripción, requisitos, fecha de apertura y estado (abierta, en proceso o cubierta). Los candidatos se apuntan a mano y son contactos (con país, para poder buscar hueco y proponer reuniones) que solo aparecen en Contactos con el filtro «Candidatos». Cada candidato tiene CV (PDF de hasta 5 MB o un enlace), notas y estado (nuevo, entrevista, aceptado o descartado) con la fecha de cada cambio; la vacante los muestra en columnas por estado. «Buscar hueco para entrevista» abre Buscar hueco con la categoría Entrevista, y al crear la reunión el candidato pasa a «entrevista». «Aceptar e incorporar» abre su perfil de equipo ya rellenado, lo pasa al equipo con el hito «Se incorporó como…», marca la vacante como cubierta y ofrece descartar al resto. Pasados 6 meses desde un descarte, Vacantes avisa y permite borrar sus datos personales (contacto, CV y notas), dejando solo un registro anónimo.
 - **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
@@ -75,6 +76,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_team_areas_v1`     | Áreas del equipo (lista ampliable).              |
 | `cesi_weekly_availability_v1` | Disponibilidad declarada de cada semana.    |
 | `cesi_projects_v1`       | Proyectos de las reuniones.                      |
+| `cesi_vacancies_v1`      | Vacantes (los candidatos van en los contactos).  |
 | `cesi_sync_queue_v1`     | Cambios pendientes de enviar a Supabase (solo con sincronización). |
 | `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
 | `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |
@@ -88,7 +90,7 @@ Sin sincronización:
 
 ## Sincronización entre dispositivos (Supabase)
 
-Con Supabase configurado, la app pide iniciar sesión y mantiene los mismos datos en todos tus dispositivos: reuniones (con notas y opciones provisionales), contactos (con país, zona, disponibilidad y grupos), grupos, horario, disponibilidad de cada semana, preferencias, reglas, propuestas y proyectos.
+Con Supabase configurado, la app pide iniciar sesión y mantiene los mismos datos en todos tus dispositivos: reuniones (con notas y opciones provisionales), contactos (con país, zona, disponibilidad y grupos), grupos, horario, disponibilidad de cada semana, preferencias, reglas, propuestas, proyectos y vacantes (con sus candidatos).
 
 - **Local-first**: cada cambio se guarda primero en el dispositivo y después se envía. Sin conexión se queda en una cola que se reintenta al volver la conexión y al volver a la app.
 - Al abrir la app se descargan los cambios, y con Realtime los de otro dispositivo aparecen solos.
@@ -119,7 +121,7 @@ Si quitas las variables, la app vuelve a funcionar solo con los datos de cada di
 
 En la barra lateral (en el móvil, el icono junto a las pestañas) pulsa **Copia de seguridad**:
 
-- **Descargar copia** guarda un archivo `cesi-copia-AAAA-MM-DD.json` con las reuniones (con sus notas), los contactos, los grupos, el horario, la disponibilidad de cada semana, las preferencias, las reglas, las propuestas y los proyectos. Se siguen pudiendo importar las copias de versiones anteriores.
+- **Descargar copia** guarda un archivo `cesi-copia-AAAA-MM-DD.json` con las reuniones (con sus notas), los contactos, los grupos, el horario, la disponibilidad de cada semana, las preferencias, las reglas, las propuestas, los proyectos y las vacantes. Se siguen pudiendo importar las copias de versiones anteriores.
 - **Importar copia** lee uno de esos archivos y, tras pedir confirmación, **sustituye todos los datos actuales** por los del archivo.
 
 Sirve también para pasar los datos de un dispositivo a otro: descarga la copia en uno e impórtala en el otro.

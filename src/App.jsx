@@ -17,6 +17,7 @@ import ReportView from './components/ReportView.jsx'
 import TeamView from './components/TeamView.jsx'
 import WeeklyAvailabilityModal from './components/WeeklyAvailabilityModal.jsx'
 import ProjectsModal from './components/ProjectsModal.jsx'
+import VacanciesView from './components/VacanciesView.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -39,6 +40,18 @@ import { AREAS_KEY, addArea, getTeamAreas, saveTeamAreas } from './lib/team.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { STORAGE_KEY as PROJECTS_KEY, getAllProjects, projectsStore, unlinkProject } from './lib/projects.js'
+import {
+  INTERVIEW_TYPE,
+  STORAGE_KEY as VACANCIES_KEY,
+  candidatesOf,
+  getAllVacancies,
+  incorporate,
+  interviewUpdates,
+  newVacancy,
+  planErasure,
+  vacanciesStore,
+  withStatus,
+} from './lib/vacancies.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -76,13 +89,16 @@ export default function App() {
   const [section, setSection] = useState('calendar')
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedMemberId, setSelectedMemberId] = useState(null)
+  const [selectedVacancyId, setSelectedVacancyId] = useState(null)
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null)
   const [view, setView] = useState('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
   // true si la reunión se abrió para escribir las notas (desde "Sin notas").
   const [notesFocus, setNotesFocus] = useState(false)
   const [formModal, setFormModal] = useState(null)
-  // null = cerrado; { participants } = abierto, con los participantes iniciales si los hay.
+  // null = cerrado; { participants, meetingType } = abierto, con los participantes y el tipo de
+  // reunión iniciales si los hay.
   const [findSlot, setFindSlot] = useState(null)
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
   const [backupOpen, setBackupOpen] = useState(false)
@@ -132,6 +148,7 @@ export default function App() {
   const [teamAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getTeamAreas)
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [projects, reloadProjects] = useStoredValue(PROJECTS_KEY, getAllProjects)
+  const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
   const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
   const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
@@ -204,6 +221,7 @@ export default function App() {
   const handleConfirmOption = (option) => {
     const id = option.seriesId || option.id
     editEvent(id, { provisional: false, proposalId: null })
+    applyInterviewUpdates(option)
     removeProposal(option.proposalId, id)
     setSelectedEvent(null)
   }
@@ -247,6 +265,7 @@ export default function App() {
     reloadTeamAreas()
     reloadWeeklyAvailability()
     reloadProjects()
+    reloadVacancies()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -321,6 +340,75 @@ export default function App() {
     if (calendarFilter.project === id) setCalendarFilter({ ...calendarFilter, project: null })
   }
 
+  // ---------------------------------------------------------------------------
+  // Vacantes y candidatos
+  // ---------------------------------------------------------------------------
+
+  // Al crear (o confirmar) una entrevista, los candidatos en "nuevo" pasan a "entrevista".
+  const applyInterviewUpdates = (meeting) => {
+    for (const { id, candidacy } of interviewUpdates(meeting, contacts)) editContact(id, { candidacy })
+  }
+
+  const handleCreateVacancy = (data) => {
+    const vacancy = vacanciesStore.create(newVacancy(data))
+    reloadVacancies()
+    return vacancy
+  }
+
+  const handleUpdateVacancy = (id, patch) => {
+    vacanciesStore.update(id, patch)
+    reloadVacancies()
+  }
+
+  // Al borrar una vacante se borran también sus candidatos (contacto, CV y notas).
+  const handleDeleteVacancy = (id) => {
+    for (const c of candidatesOf(id, contacts)) removeContact(c.id)
+    vacanciesStore.remove(id)
+    reloadVacancies()
+  }
+
+  const handleCandidateStatus = (contact, status) => editContact(contact.id, { candidacy: withStatus(contact.candidacy, status) })
+
+  const handleFindInterviewSlot = (contact) =>
+    setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, meetingType: INTERVIEW_TYPE })
+
+  // Candidato → miembro del equipo: perfil con su primer hito, vacante cubierta y, si quedan
+  // otros candidatos, se ofrece descartarlos.
+  const handleIncorporate = (contact, vacancy, { contactPatch, teamProfile }) => {
+    const result = incorporate({ contact, vacancy, teamProfile, contacts })
+    editContact(contact.id, { ...contactPatch, ...result.contactPatch })
+    vacanciesStore.update(vacancy.id, result.vacancyPatch)
+    reloadVacancies()
+    const n = result.remaining.length
+    if (n > 0) {
+      const who = result.remaining.map((c) => `• ${c.name}`).join('\n')
+      const question = n === 1 ? 'Queda 1 candidato en esta vacante' : `Quedan ${n} candidatos en esta vacante`
+      if (window.confirm(`${question}:\n${who}\n\n¿Marcarlos como descartados?`)) {
+        for (const c of result.remaining) handleCandidateStatus(c, 'discarded')
+      }
+    }
+  }
+
+  // Protección de datos: borra los datos personales de los candidatos descartados hace más de
+  // 6 meses y deja un registro anónimo en su vacante. Siempre tras la confirmación del usuario.
+  const handleEraseExpired = (candidates) => {
+    const plan = planErasure(candidates, getAllEvents(), vacancies, new Date(), proposals)
+    for (const { id, patch } of plan.eventPatches) editEvent(id, patch)
+    for (const { id, patch } of plan.proposalPatches) proposalsStore.update(id, patch)
+    for (const [id, erasedCandidates] of Object.entries(plan.vacancyPatches)) vacanciesStore.update(id, { erasedCandidates })
+    for (const id of plan.contactIds) removeContact(id)
+    reloadProposals()
+    reloadVacancies()
+  }
+
+  const handleOpenCandidate = (contactId) => {
+    const contact = contacts.find((c) => c.id === contactId)
+    setSelectedEvent(null)
+    setSelectedVacancyId(contact?.candidacy?.vacancyId || null)
+    setSelectedCandidateId(contactId)
+    setSection('vacancies')
+  }
+
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
 
   const handleAddArea = (name) => {
@@ -345,6 +433,10 @@ export default function App() {
     setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participantIds: [contact.id], guests: [] } })
 
   const handleOpenContact = (contactId) => {
+    if (contacts.find((c) => c.id === contactId)?.candidacy) {
+      handleOpenCandidate(contactId)
+      return
+    }
     setSelectedEvent(null)
     setSelectedContactId(contactId)
     setSection('contacts')
@@ -427,6 +519,7 @@ export default function App() {
     } else {
       addEvent(data)
     }
+    applyInterviewUpdates(data)
   }
 
   const handlePrev = () => {
@@ -485,6 +578,36 @@ export default function App() {
               areas={teamAreas}
               onAddArea={handleAddArea}
               onSaveTeamProfile={handleSaveTeamProfile}
+              onOpenTeamMember={handleOpenTeamMember}
+              onOpenCandidate={handleOpenCandidate}
+            />
+          </div>
+        )}
+
+        {section === 'vacancies' && (
+          <div className="app-main">
+            <VacanciesView
+              vacancies={vacancies}
+              contacts={contacts}
+              rawEvents={rawEvents}
+              now={now}
+              areas={teamAreas}
+              onAddArea={handleAddArea}
+              selectedVacancyId={selectedVacancyId}
+              onSelectVacancy={setSelectedVacancyId}
+              selectedCandidateId={selectedCandidateId}
+              onSelectCandidate={setSelectedCandidateId}
+              onCreateVacancy={handleCreateVacancy}
+              onUpdateVacancy={handleUpdateVacancy}
+              onDeleteVacancy={handleDeleteVacancy}
+              onAddCandidate={addContact}
+              onEditCandidate={editContact}
+              onRemoveCandidate={removeContact}
+              onCandidateStatus={handleCandidateStatus}
+              onFindInterviewSlot={handleFindInterviewSlot}
+              onIncorporate={handleIncorporate}
+              onEraseExpired={handleEraseExpired}
+              onOpenEvent={openEvent}
               onOpenTeamMember={handleOpenTeamMember}
             />
           </div>
@@ -618,6 +741,7 @@ export default function App() {
           <FindSlotModal
             initialDurationMinutes={60}
             initialParticipants={findSlot.participants}
+            initialMeetingType={findSlot.meetingType}
             onPick={handleFindSlotPick}
             onCreateProposal={handleCreateProposal}
             onClose={() => setFindSlot(null)}

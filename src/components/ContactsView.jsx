@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, BadgeCheck, CalendarPlus, Mail, Pencil, Phone, Search, Tags, Trash2, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Briefcase, CalendarPlus, Mail, Pencil, Phone, Search, Tags, Trash2, UserPlus, Users } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
 import GroupsModal from './GroupsModal.jsx'
 import TeamProfileModal from './TeamProfileModal.jsx'
@@ -9,6 +9,7 @@ import { contactMatches, contactSeries } from '../lib/contacts'
 import { contactsInGroup } from '../lib/groups'
 import { countryLabel } from '../lib/timezones'
 import { isTeamMember } from '../lib/team'
+import { contactsForList, isCandidate } from '../lib/vacancies'
 import './ContactsView.css'
 
 function subtitleOf(contact) {
@@ -36,6 +37,7 @@ export default function ContactsView({
   onAddArea,
   onSaveTeamProfile,
   onOpenTeamMember,
+  onOpenCandidate,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
@@ -43,6 +45,10 @@ export default function ContactsView({
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [groupFilter, setGroupFilter] = useState(null)
   const [teamProfileFor, setTeamProfileFor] = useState(null)
+  // Los candidatos (Vacantes) solo se ven con el filtro "Candidatos".
+  const [showCandidates, setShowCandidates] = useState(false)
+  const candidateCount = contacts.filter(isCandidate).length
+  const listed = useMemo(() => contactsForList(contacts, showCandidates && candidateCount > 0), [contacts, showCandidates, candidateCount])
 
   const unreviewedCount = contacts.filter((c) => c.countryUnreviewed).length
   const showOnlyUnreviewed = onlyUnreviewed && unreviewedCount > 0
@@ -50,13 +56,13 @@ export default function ContactsView({
   const activeGroup = groups.find((g) => g.id === groupFilter) || null
   const filtered = useMemo(
     () =>
-      contacts.filter(
+      listed.filter(
         (c) =>
           contactMatches(c, query) &&
           (!showOnlyUnreviewed || c.countryUnreviewed) &&
           (!activeGroup || (c.groupIds || []).includes(activeGroup.id)),
       ),
-    [contacts, query, showOnlyUnreviewed, activeGroup],
+    [listed, query, showOnlyUnreviewed, activeGroup],
   )
   const selected = contacts.find((c) => c.id === selectedContactId) || null
 
@@ -134,6 +140,18 @@ export default function ContactsView({
                 {g.name} ({contactsInGroup(g.id, contacts).length})
               </button>
             ))}
+            {candidateCount > 0 && (
+              <button
+                type="button"
+                className={`contacts-groups-btn contacts-candidates-btn${showCandidates ? ' on' : ''}`}
+                onClick={() => setShowCandidates((v) => !v)}
+                aria-pressed={showCandidates}
+                title="Ver solo los candidatos de Vacantes"
+              >
+                <Briefcase size={13} strokeWidth={1.75} />
+                Candidatos ({candidateCount})
+              </button>
+            )}
             <button
               type="button"
               className="contacts-groups-btn"
@@ -185,6 +203,7 @@ export default function ContactsView({
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
+                    {isCandidate(c) && <span className="contact-row-team candidate">Candidato</span>}
                     {isTeamMember(c) && (
                       <span className="contact-row-team">
                         {c.teamProfile.status === 'former' ? 'Antiguo miembro del equipo' : 'Miembro del equipo'}
@@ -255,7 +274,12 @@ export default function ContactsView({
                 <Pencil size={14} strokeWidth={1.75} />
                 Editar
               </button>
-              {isTeamMember(selected) ? (
+              {isCandidate(selected) ? (
+                <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(selected.id)}>
+                  <Briefcase size={14} strokeWidth={1.75} />
+                  Ver candidatura
+                </button>
+              ) : isTeamMember(selected) ? (
                 <button type="button" className="contact-action-btn team" onClick={() => onOpenTeamMember(selected.id)}>
                   <BadgeCheck size={14} strokeWidth={1.75} />
                   Perfil de equipo

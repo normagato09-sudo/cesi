@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import TeamProfileModal from './TeamProfileModal.jsx'
+import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import { SOCIAL_NETWORKS, capitalize, filterMembers, isTeamMember, linkUrl, seniorityText, socialUrl, sortMilestones } from '../lib/team'
 import './TeamView.css'
@@ -151,6 +152,11 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
               </a>
             </li>
           ))}
+          {p.cv && (
+            <li>
+              <CvLink cv={p.cv} />
+            </li>
+          )}
           {!contact.email && !contact.phone && socials.length === 0 && links.length === 0 && (
             <li className="team-empty">Sin datos de contacto.</li>
           )}
