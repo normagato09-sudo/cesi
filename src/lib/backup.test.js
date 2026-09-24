@@ -5,6 +5,7 @@ import { getAllRules, newRule, rulesStore } from './rules'
 import { getAllProposals, proposalsStore } from './proposals'
 import { createContact, getAllContacts } from './contacts'
 import { getAllGroups, groupsStore } from './groups'
+import { DEFAULT_AREAS, getTeamAreas, saveTeamAreas } from './team'
 import { createEvent, getAllEvents } from './localEvents'
 
 beforeEach(() => localStorage.clear())
@@ -41,7 +42,7 @@ describe('copia de seguridad', () => {
     proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
     createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
     const backup = buildBackup()
-    expect(backup.version).toBe(6)
+    expect(backup.version).toBe(7)
     localStorage.clear()
     restoreBackup(parseBackup(JSON.stringify(backup)))
     expect(getAllProposals()[0].title).toBe('Demo')
@@ -65,6 +66,24 @@ describe('copia de seguridad', () => {
     restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 4, events: [], contacts: [], proposals: [] })))
     expect(getAllGroups()).toEqual([])
     expect(() => parseBackup(JSON.stringify({ app: 'cesi', events: [], contacts: [], groups: {} }))).toThrow(/grupos/)
+  })
+
+  it('incluye el perfil de equipo de los contactos y las áreas', () => {
+    saveTeamAreas([...DEFAULT_AREAS, 'Producción'])
+    createContact({
+      name: 'Ana',
+      country: 'ES',
+      timeZone: 'Europe/Madrid',
+      teamProfile: { status: 'active', role: 'Profesora', area: 'Profesorado', joinedAt: '2024-01-10', milestones: [] },
+    })
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getTeamAreas()).toContain('Producción')
+    expect(getAllContacts()[0].teamProfile.role).toBe('Profesora')
+    // Las copias v6 no traen áreas: se usan las de siempre.
+    restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 6, events: [], contacts: [] })))
+    expect(getTeamAreas()).toEqual(DEFAULT_AREAS)
   })
 
   it('rechaza archivos que no son de CESI', () => {

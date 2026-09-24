@@ -18,6 +18,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Resumen semanal** (sección Resumen): número de reuniones, horas en reuniones y horas libres dentro del horario comparadas con la semana anterior, horas por día, reparto por categoría, etiqueta y grupo, contactos con los que más te has reunido y la lista de reuniones con el principio de sus notas. Se puede imprimir o guardar en PDF.
 - **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual, grupos y la lista de próximas reuniones y reuniones anteriores con cada contacto (con el principio de sus notas).
 - **Fotos de los contactos**: se recortan en cuadrado y se reducen a 512×512 px en WebP antes de guardarlas (JPG, PNG, WebP y HEIC si el navegador lo permite). Con sincronización se guardan en Supabase Storage y se ven también sin conexión una vez cargadas; sin ella, en el propio navegador (IndexedDB). Sin foto se muestran las iniciales.
+- **Equipo**: cualquier contacto se puede marcar como miembro del equipo, con un perfil ampliado (foto, cargo, área de una lista ampliable, fecha de incorporación con la antigüedad calculada, trayectoria, hitos en una línea de tiempo, redes y enlaces, y estado activo o antiguo miembro). La sección Equipo muestra las tarjetas con buscador y filtros por área y estado, y la ficha de cada persona con sus reuniones, notas, disponibilidad y «Buscar hueco con esta persona».
 - **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
@@ -69,6 +70,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_rules_v1`          | Reglas por tipo de reunión.                      |
 | `cesi_proposals_v1`      | Propuestas pendientes.                           |
 | `cesi_groups_v1`         | Grupos de contactos.                             |
+| `cesi_team_areas_v1`     | Áreas del equipo (lista ampliable).              |
 | `cesi_sync_queue_v1`     | Cambios pendientes de enviar a Supabase (solo con sincronización). |
 | `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
 | `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |

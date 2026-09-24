@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, DatabaseBackup, Users } from 'lucide-react'
+import { BadgeCheck, BarChart3, CalendarDays, DatabaseBackup, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
@@ -8,6 +8,7 @@ import './Sidebar.css'
 const SECTIONS = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'contacts', label: 'Contactos', Icon: Users },
+  { id: 'team', label: 'Equipo', Icon: BadgeCheck },
   { id: 'report', label: 'Resumen', Icon: BarChart3 },
 ]
 

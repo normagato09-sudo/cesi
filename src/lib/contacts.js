@@ -147,6 +147,11 @@ export function eventIncludesContact(event, contact, contacts) {
   return participantsOf(event, contacts).contacts.some((c) => c.id === contact.id)
 }
 
+// Reuniones (series) en las que participa el contacto; los bloques "No disponible" no cuentan.
+export function contactSeries(contact, rawEvents, contacts) {
+  return rawEvents.filter((ev) => !ev.isUnavailable && eventIncludesContact(ev, contact, contacts))
+}
+
 export function isEmail(text) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((text || '').trim())
 }

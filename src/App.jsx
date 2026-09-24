@@ -14,6 +14,7 @@ import ContactsView from './components/ContactsView.jsx'
 import BackupModal from './components/BackupModal.jsx'
 import ProposalModal from './components/ProposalModal.jsx'
 import ReportView from './components/ReportView.jsx'
+import TeamView from './components/TeamView.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -32,6 +33,7 @@ import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
+import { AREAS_KEY, addArea, getTeamAreas, saveTeamAreas } from './lib/team.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
@@ -61,6 +63,7 @@ function getHeaderLabel(currentDate, view, compactWeek) {
 export default function App() {
   const [section, setSection] = useState('calendar')
   const [selectedContactId, setSelectedContactId] = useState(null)
+  const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [view, setView] = useState('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -111,6 +114,7 @@ export default function App() {
   const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
+  const [teamAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getTeamAreas)
   const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
   const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
@@ -210,6 +214,7 @@ export default function App() {
     reloadRules()
     reloadProposals()
     reloadGroups()
+    reloadTeamAreas()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -248,6 +253,24 @@ export default function App() {
   }
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
+
+  const handleAddArea = (name) => {
+    saveTeamAreas(addArea(teamAreas, name))
+    reloadTeamAreas()
+  }
+
+  // Perfil de equipo: los datos de contacto (foto, email, teléfono) se guardan en el propio contacto.
+  const handleSaveTeamProfile = (contactId, { contactPatch, teamProfile }) => {
+    editContact(contactId, { ...contactPatch, teamProfile })
+  }
+
+  const handleOpenTeamMember = (contactId) => {
+    setSelectedEvent(null)
+    setSelectedMemberId(contactId)
+    setSection('team')
+  }
+
+  const handleFindSlotWithContact = (contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })
 
   const handleNewMeetingWithContact = (contact) =>
     setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participantIds: [contact.id], guests: [] } })
@@ -382,11 +405,36 @@ export default function App() {
               onRemoveContact={removeContact}
               onOpenEvent={openEvent}
               onNewMeetingWithContact={handleNewMeetingWithContact}
-              onFindSlotWithContact={(contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })}
+              onFindSlotWithContact={handleFindSlotWithContact}
               onCreateGroup={handleCreateGroup}
               onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
               onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
               onDeleteGroup={handleDeleteGroup}
+              areas={teamAreas}
+              onAddArea={handleAddArea}
+              onSaveTeamProfile={handleSaveTeamProfile}
+              onOpenTeamMember={handleOpenTeamMember}
+            />
+          </div>
+        )}
+
+        {section === 'team' && (
+          <div className="app-main">
+            <TeamView
+              contacts={contacts}
+              groups={groups}
+              rawEvents={rawEvents}
+              now={now}
+              areas={teamAreas}
+              selectedMemberId={selectedMemberId}
+              onSelectMember={setSelectedMemberId}
+              onSaveProfile={handleSaveTeamProfile}
+              onRemoveFromTeam={(id) => editContact(id, { teamProfile: null })}
+              onAddArea={handleAddArea}
+              onOpenEvent={openEvent}
+              onFindSlot={handleFindSlotWithContact}
+              onNewMeeting={handleNewMeetingWithContact}
+              onOpenContact={handleOpenContact}
             />
           </div>
         )}

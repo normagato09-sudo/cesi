@@ -36,7 +36,11 @@ create table if not exists public.events (
 --         country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria),
 --         countryUnreviewed (true si se le asignó España al migrar un contacto antiguo),
 --         availability: horario semanal con varias franjas por día, en su zona horaria, o null,
---         groupIds: ids de los grupos a los que pertenece (tabla groups) }
+--         groupIds: ids de los grupos a los que pertenece (tabla groups),
+--         photo: referencia de la foto en Storage { store: 'cloud', path } o null,
+--         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt, role, area,
+--           joinedAt, bio, milestones: [{ id, date, text }], social: { instagram, linkedin,
+--           tiktok, youtube, web }, links: [{ id, label, url }] } }
 -- ---------------------------------------------------------------------------
 create table if not exists public.contacts (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -66,6 +70,7 @@ create table if not exists public.groups (
 -- Ajustes de un solo documento por usuario (id = nombre del ajuste)
 --   id = 'working_hours' (cesi_working_hours_v1): horario semanal con varias franjas por día
 --   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes }
+--   id = 'team_areas'    (cesi_team_areas_v1):    lista de áreas del equipo, p. ej. ["Dirección", "Radio"]
 -- ---------------------------------------------------------------------------
 create table if not exists public.settings (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

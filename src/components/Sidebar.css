@@ -168,12 +168,20 @@
     display: none;
   }
 
-  /* Tres pestañas: más compactas y con el nombre corto si lo hay. */
+  /* Varias pestañas: icono encima del nombre para que quepan todas. */
   .sidebar-nav-item {
-    gap: 5px;
-    padding: 8px 4px;
-    font-size: 13px;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 2px 5px;
+    font-size: 11px;
+    line-height: 1.2;
     min-width: 0;
+  }
+  .sidebar-nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .sidebar-nav-item:has(.sidebar-nav-short) .sidebar-nav-label {
     display: none;
@@ -193,18 +201,14 @@
   }
 
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
-  .sidebar.section-contacts .summary-panel,
-  .sidebar.section-contacts .proposals-panel,
-  .sidebar.section-contacts .missing-notes-panel,
-  .sidebar.section-report .summary-panel,
-  .sidebar.section-report .proposals-panel,
-  .sidebar.section-report .missing-notes-panel {
+  .sidebar:not(.section-calendar) .summary-panel,
+  .sidebar:not(.section-calendar) .proposals-panel,
+  .sidebar:not(.section-calendar) .missing-notes-panel {
     display: none;
   }
 
   /* Sin esos bloques, la cabecera se queda en una sola fila (sin huecos vacíos). */
-  .sidebar.section-contacts,
-  .sidebar.section-report {
+  .sidebar:not(.section-calendar) {
     grid-template-areas: 'nav footer';
   }
 }

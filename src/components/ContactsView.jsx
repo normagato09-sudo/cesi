@@ -1,114 +1,18 @@
 import { useMemo, useState } from 'react'
-import { addYears, format } from 'date-fns'
-import { es } from 'date-fns/locale'
-import {
-  ArrowLeft,
-  Briefcase,
-  Building2,
-  CalendarClock,
-  CalendarPlus,
-  ChevronRight,
-  Globe,
-  Mail,
-  Pencil,
-  Phone,
-  Search,
-  StickyNote,
-  Tags,
-  Trash2,
-  UserPlus,
-  Users,
-} from 'lucide-react'
+import { ArrowLeft, BadgeCheck, CalendarPlus, Mail, Pencil, Phone, Search, Tags, Trash2, UserPlus, Users } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
 import GroupsModal from './GroupsModal.jsx'
+import TeamProfileModal from './TeamProfileModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
-import { useMinuteClock } from '../hooks/useMinuteClock'
-import { contactMatches, eventIncludesContact } from '../lib/contacts'
-import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
-import { expandEvents } from '../lib/recurrence'
-import { colorForEvent } from '../lib/eventStyle'
-import { notesOf, notesPreview } from '../lib/notes'
-import { contactsInGroup, groupsOfContact } from '../lib/groups'
-import {
-  SPAIN_ZONE,
-  countryFlag,
-  countryLabel,
-  formatOffsetDiff,
-  formatTimeInZone,
-  zoneLabel,
-  zoneOffsetMinutes,
-} from '../lib/timezones'
+import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
+import { contactMatches, contactSeries } from '../lib/contacts'
+import { contactsInGroup } from '../lib/groups'
+import { countryLabel } from '../lib/timezones'
+import { isTeamMember } from '../lib/team'
 import './ContactsView.css'
-
-// "Estados Unidos: Nueva York · ahora 04:32 (−6 h respecto a España)"
-function zoneSummary(timeZone, now) {
-  const diff = zoneOffsetMinutes(now, timeZone) - zoneOffsetMinutes(now, SPAIN_ZONE)
-  const diffText = diff === 0 ? 'misma hora que España' : `${formatOffsetDiff(diff)} respecto a España`
-  return `${zoneLabel(timeZone)} · ahora ${formatTimeInZone(now, timeZone)} (${diffText})`
-}
-
-// Hora actual del contacto, que cambia en cuanto empieza cada minuto.
-function LiveZoneSummary({ timeZone }) {
-  const now = useMinuteClock()
-  return zoneSummary(timeZone, now)
-}
-
-const MAX_LISTED_MEETINGS = 5
 
 function subtitleOf(contact) {
   return [contact.role, contact.organization].filter(Boolean).join(' · ')
-}
-
-function formatMeetingDate(event) {
-  return format(event.start, "EEE d MMM yyyy · HH:mm", { locale: es })
-}
-
-function GroupChips({ contact, groups }) {
-  const list = groupsOfContact(contact, groups)
-  if (list.length === 0) return null
-  return (
-    <span className="group-chips">
-      {list.map((g) => (
-        <span key={g.id} className="group-chip" style={{ '--group-color': g.color }}>
-          {g.name}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function MeetingList({ title, meetings, emptyText, onOpenEvent, showNotes = false }) {
-  return (
-    <section className="contact-meetings">
-      <h3>{title}</h3>
-      {meetings.length === 0 ? (
-        <p className="contact-meetings-empty">{emptyText}</p>
-      ) : (
-        <ul>
-          {meetings.map((ev) => (
-            <li key={ev.id}>
-              <button type="button" className="contact-meeting" onClick={() => onOpenEvent(ev)}>
-                <span className="contact-meeting-dot" style={{ background: colorForEvent(ev) }} />
-                <span className="contact-meeting-text">
-                  <span className="contact-meeting-title">{ev.title}</span>
-                  <span className="contact-meeting-date">
-                    {formatMeetingDate(ev)}
-                    {ev.provisional && ' · Provisional'}
-                  </span>
-                  {showNotes && !ev.provisional && (
-                    <span className={`contact-meeting-notes${notesOf(ev).trim() ? '' : ' empty'}`}>
-                      {notesPreview(notesOf(ev), 90) || 'Sin notas'}
-                    </span>
-                  )}
-                </span>
-                <ChevronRight size={16} strokeWidth={1.75} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
 }
 
 export default function ContactsView({
@@ -128,12 +32,17 @@ export default function ContactsView({
   onRenameGroup,
   onGroupColor,
   onDeleteGroup,
+  areas = [],
+  onAddArea,
+  onSaveTeamProfile,
+  onOpenTeamMember,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [groupFilter, setGroupFilter] = useState(null)
+  const [teamProfileFor, setTeamProfileFor] = useState(null)
 
   const unreviewedCount = contacts.filter((c) => c.countryUnreviewed).length
   const showOnlyUnreviewed = onlyUnreviewed && unreviewedCount > 0
@@ -151,23 +60,9 @@ export default function ContactsView({
   )
   const selected = contacts.find((c) => c.id === selectedContactId) || null
 
-  // Series (eventos originales) en las que participa el contacto seleccionado.
-  const series = useMemo(
-    () => (selected ? rawEvents.filter((ev) => !ev.isUnavailable && eventIncludesContact(ev, selected, contacts)) : []),
-    [selected, rawEvents, contacts],
-  )
 
-  const { upcoming, past } = useMemo(() => {
-    if (series.length === 0) return { upcoming: [], past: [] }
-    const upcomingList = expandEvents(series, now, addYears(now, 2))
-      .sort((a, b) => a.start - b.start)
-      .slice(0, MAX_LISTED_MEETINGS)
-    const pastList = expandEvents(series, new Date(0), now)
-      .filter((ev) => ev.end <= now)
-      .sort((a, b) => b.start - a.start)
-      .slice(0, MAX_LISTED_MEETINGS)
-    return { upcoming: upcomingList, past: pastList }
-  }, [series, now])
+  // Reuniones (series) en las que aparece el contacto seleccionado, para el aviso al borrarlo.
+  const series = useMemo(() => (selected ? contactSeries(selected, rawEvents, contacts) : []), [selected, rawEvents, contacts])
 
   const handleFormSubmit = async (values) => {
     if (formModal?.contact) {
@@ -290,6 +185,11 @@ export default function ContactsView({
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
+                    {isTeamMember(c) && (
+                      <span className="contact-row-team">
+                        {c.teamProfile.status === 'former' ? 'Antiguo miembro del equipo' : 'Miembro del equipo'}
+                      </span>
+                    )}
                     <GroupChips contact={c} groups={groups} />
                     {(c.countryUnreviewed || (c.country && c.country !== 'ES')) && (
                       <span className="contact-row-country">
@@ -355,87 +255,27 @@ export default function ContactsView({
                 <Pencil size={14} strokeWidth={1.75} />
                 Editar
               </button>
+              {isTeamMember(selected) ? (
+                <button type="button" className="contact-action-btn team" onClick={() => onOpenTeamMember(selected.id)}>
+                  <BadgeCheck size={14} strokeWidth={1.75} />
+                  Perfil de equipo
+                </button>
+              ) : (
+                <button type="button" className="contact-action-btn" onClick={() => setTeamProfileFor(selected)}>
+                  <BadgeCheck size={14} strokeWidth={1.75} />
+                  Marcar como miembro del equipo
+                </button>
+              )}
               <button type="button" className="contact-action-btn danger" onClick={handleDelete}>
                 <Trash2 size={14} strokeWidth={1.75} />
                 Eliminar
               </button>
             </div>
 
-            <dl className="contact-fields">
-              {selected.email && (
-                <div>
-                  <dt><Mail size={15} strokeWidth={1.75} /><span className="sr-only">Email</span></dt>
-                  <dd><a href={`mailto:${selected.email}`}>{selected.email}</a></dd>
-                </div>
-              )}
-              {selected.phone && (
-                <div>
-                  <dt><Phone size={15} strokeWidth={1.75} /><span className="sr-only">Teléfono</span></dt>
-                  <dd><a href={`tel:${selected.phone.replace(/\s+/g, '')}`}>{selected.phone}</a></dd>
-                </div>
-              )}
-              {selected.organization && (
-                <div>
-                  <dt><Building2 size={15} strokeWidth={1.75} /><span className="sr-only">Organización</span></dt>
-                  <dd>{selected.organization}</dd>
-                </div>
-              )}
-              {selected.role && (
-                <div>
-                  <dt><Briefcase size={15} strokeWidth={1.75} /><span className="sr-only">Cargo</span></dt>
-                  <dd>{selected.role}</dd>
-                </div>
-              )}
-              {selected.timeZone && (
-                <div>
-                  <dt><Globe size={15} strokeWidth={1.75} /><span className="sr-only">Zona horaria</span></dt>
-                  <dd>
-                    {selected.country && selected.country !== 'ES' && `${countryFlag(selected.country)} `}
-                    <LiveZoneSummary timeZone={selected.timeZone} />
-                    {selected.countryUnreviewed && (
-                      <span className="contact-unreviewed-note">
-                        País sin revisar: se asignó España automáticamente. Edita el contacto para confirmarlo.
-                      </span>
-                    )}
-                  </dd>
-                </div>
-              )}
-              {selected.notes && (
-                <div className="align-top">
-                  <dt><StickyNote size={15} strokeWidth={1.75} /><span className="sr-only">Notas</span></dt>
-                  <dd className="contact-notes">{selected.notes}</dd>
-                </div>
-              )}
-              {hasAvailability(selected) && (
-                <div className="align-top">
-                  <dt><CalendarClock size={15} strokeWidth={1.75} /><span className="sr-only">Disponibilidad habitual</span></dt>
-                  <dd>
-                    <span className="contact-availability-title">
-                      Disponibilidad habitual ({availabilityZoneNote(selected)})
-                    </span>
-                    <ul className="contact-availability">
-                      {availabilityLines(selected).map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                    </ul>
-                  </dd>
-                </div>
-              )}
-            </dl>
 
-            <MeetingList
-              title="Próximas reuniones"
-              meetings={upcoming}
-              emptyText="No hay reuniones programadas con este contacto."
-              onOpenEvent={onOpenEvent}
-            />
-            <MeetingList
-              title="Reuniones anteriores"
-              meetings={past}
-              emptyText="Todavía no habéis tenido ninguna reunión."
-              onOpenEvent={onOpenEvent}
-              showNotes
-            />
+            <ContactFields contact={selected} />
+
+            <ContactMeetings contact={selected} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />
           </div>
         )}
       </div>
@@ -446,6 +286,21 @@ export default function ContactsView({
           groups={groups}
           onClose={() => setFormModal(null)}
           onSubmit={handleFormSubmit}
+        />
+      )}
+
+      {teamProfileFor && (
+        <TeamProfileModal
+          contact={teamProfileFor}
+          areas={areas}
+          title={`${teamProfileFor.name}: miembro del equipo`}
+          saveLabel="Guardar en el equipo"
+          onAddArea={onAddArea}
+          onSave={(data) => {
+            onSaveTeamProfile(teamProfileFor.id, data)
+            setTeamProfileFor(null)
+          }}
+          onClose={() => setTeamProfileFor(null)}
         />
       )}
 

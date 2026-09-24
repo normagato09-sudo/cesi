@@ -6,7 +6,7 @@
   background: var(--surface);
 }
 
-.contacts-view .sr-only {
+.sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -637,4 +637,18 @@
 }
 .contact-detail-head .group-chips {
   margin-top: 6px;
+}
+
+/* ---------- Equipo ---------- */
+.contact-row-team {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.contact-action-btn.team {
+  color: var(--accent);
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
 }
