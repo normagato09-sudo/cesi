@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { addYears, format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Briefcase, Building2, CalendarClock, ChevronRight, Globe, Mail, Phone, StickyNote } from 'lucide-react'
+import { Briefcase, Building2, CalendarClock, ChevronRight, Globe, Link2, Mail, Phone, StickyNote } from 'lucide-react'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { contactSeries } from '../lib/contacts'
 import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
@@ -9,6 +9,7 @@ import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
 import { notesOf, notesPreview } from '../lib/notes'
 import { groupsOfContact } from '../lib/groups'
+import { linkUrl } from '../lib/team'
 import { SPAIN_ZONE, countryFlag, formatOffsetDiff, formatTimeInZone, zoneLabel, zoneOffsetMinutes } from '../lib/timezones'
 import './ContactsView.css'
 
@@ -121,6 +122,18 @@ export function ContactFields({ contact, skip = [] }) {
                 País sin revisar: se asignó España automáticamente. Edita el contacto para confirmarlo.
               </span>
             )}
+          </dd>
+        </div>
+      )}
+      {(contact.links || []).length > 0 && !skip.includes('links') && (
+        <div className="align-top">
+          <dt><Link2 size={15} strokeWidth={1.75} /><span className="sr-only">Enlaces</span></dt>
+          <dd className="contact-links">
+            {contact.links.map((l) => (
+              <a key={l.id} href={linkUrl(l.url)} target="_blank" rel="noreferrer">
+                {l.label || l.url}
+              </a>
+            ))}
           </dd>
         </div>
       )}

@@ -216,7 +216,7 @@ export default function TeamView({
           onBack={() => onSelectMember(null)}
           onEdit={() => setEditing(true)}
           onRemove={() => {
-            if (window.confirm(`¿Quitar a ${selected.name} del equipo? Se borrará su perfil de equipo; el contacto y sus reuniones se conservan. Si ya no está en el equipo, mejor márcalo como antiguo miembro.`)) {
+            if (window.confirm(`¿Quitar a ${selected.name} del equipo? Se borra su perfil de equipo (cargo, departamento, trayectoria); el contacto con todos sus datos, sus enlaces y sus reuniones se conserva. Si ya no está en el equipo, mejor márcalo como antiguo miembro.`)) {
               onRemoveFromTeam(selected.id)
               onSelectMember(null)
             }
@@ -230,6 +230,7 @@ export default function TeamView({
           <TeamProfileModal
             contact={selected}
             areas={areas}
+            groups={groups}
             onAddArea={onAddArea}
             onSave={(data) => {
               onSaveProfile(selected.id, data)

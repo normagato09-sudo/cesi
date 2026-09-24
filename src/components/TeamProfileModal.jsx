@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react'
 import { BadgeCheck, Link2, Plus, Trash2, X } from 'lucide-react'
-import PhotoField from './PhotoField.jsx'
-import { isEmail } from '../lib/contacts'
-import { deleteFile, sameFile } from '../lib/files/files'
-import { SOCIAL_NETWORKS, emptyTeamProfile, newMilestone, sortMilestones, todayKey } from '../lib/team'
+import ContactEditorFields from './ContactEditorFields.jsx'
+import { useContactDraft } from '../hooks/useContactDraft'
+import { SOCIAL_NETWORKS, emptyTeamProfile, newMilestone, sortMilestones, teamProfileDefaults, todayKey } from '../lib/team'
 import { makeId } from '../lib/store'
 import { departmentKey } from '../lib/departments'
 import './EventFormModal.css'
@@ -12,13 +11,16 @@ import './TeamProfileModal.css'
 const NEW_AREA = '__new__'
 
 /**
- * Perfil de equipo de un contacto: foto, cargo, departamento, incorporación, estado, trayectoria, hitos,
- * email, teléfono, redes y enlaces. onSave({ contactPatch, teamProfile }).
- * `initialProfile` permite abrirlo ya rellenado (p. ej. al incorporar a un candidato).
+ * Perfil de equipo de un contacto. Arriba, los datos del contacto (ya rellenados y editables aquí
+ * mismo; se guardan en el contacto, una sola vez). Debajo, lo propio del equipo: cargo,
+ * departamento, incorporación, estado, trayectoria y enlaces. onSave({ contactPatch, teamProfile }).
+ * `initialProfile` permite abrirlo ya rellenado (p. ej. al incorporar a un candidato); si no hay
+ * perfil, se parte del cargo del contacto, hoy como incorporación y sus enlaces.
  */
 export default function TeamProfileModal({
   contact,
   areas,
+  groups = [],
   initialProfile = null,
   title,
   saveLabel = 'Guardar perfil',
@@ -26,10 +28,8 @@ export default function TeamProfileModal({
   onSave,
   onClose: close,
 }) {
-  const seed = emptyTeamProfile(initialProfile || contact.teamProfile || {})
-  const [photo, setPhoto] = useState(contact.photo || null)
-  const [email, setEmail] = useState(contact.email || '')
-  const [phone, setPhone] = useState(contact.phone || '')
+  const seed = emptyTeamProfile(initialProfile || contact.teamProfile || teamProfileDefaults(contact))
+  const draft = useContactDraft(contact, groups)
   const [role, setRole] = useState(seed.role)
   const [area, setArea] = useState(seed.area)
   const [newArea, setNewArea] = useState('')
@@ -42,17 +42,11 @@ export default function TeamProfileModal({
   const [social, setSocial] = useState(seed.social || {})
   const [links, setLinks] = useState(seed.links || [])
   const [error, setError] = useState(null)
-  const uploadedRef = useRef([])
   const savedRef = useRef(false)
 
   const onClose = () => {
-    if (!savedRef.current) for (const ref of uploadedRef.current) deleteFile(ref)
+    if (!savedRef.current) draft.discardFiles()
     close()
-  }
-
-  const handlePhoto = (ref) => {
-    if (ref) uploadedRef.current.push(ref)
-    setPhoto(ref)
   }
 
   const handleAreaSelect = (value) => {
@@ -79,7 +73,8 @@ export default function TeamProfileModal({
   const handleSubmit = (e) => {
     e.preventDefault()
     setError(null)
-    if (email.trim() && !isEmail(email)) return setError('El email no tiene un formato válido.')
+    const contactProblem = draft.validate()
+    if (contactProblem) return setError(contactProblem)
     if (!joinedAt) return setError('Indica la fecha de incorporación.')
     if (status === 'former' && !leftAt) return setError('Indica la fecha de salida.')
     if (status === 'former' && leftAt < joinedAt) return setError('La fecha de salida es anterior a la de incorporación.')
@@ -98,9 +93,10 @@ export default function TeamProfileModal({
       ...(seed.cv ? { cv: seed.cv } : {}),
     }
     savedRef.current = true
-    if (contact.photo && !sameFile(contact.photo, photo)) deleteFile(contact.photo)
-    for (const ref of uploadedRef.current) if (!sameFile(ref, photo)) deleteFile(ref)
-    onSave({ contactPatch: { photo, email: email.trim(), phone: phone.trim() }, teamProfile })
+    draft.commitFiles()
+    // Los enlaces que el contacto tenía guardados (al salir del equipo) vuelven al perfil.
+    const contactPatch = { ...draft.toContactData(), ...(contact.links ? { links: null } : {}) }
+    onSave({ contactPatch, teamProfile })
   }
 
   const areaOptions = area && !areas.includes(area) ? [...areas, area] : areas
@@ -111,7 +107,7 @@ export default function TeamProfileModal({
         <div className="event-form-header">
           <h2>
             <BadgeCheck size={17} strokeWidth={1.75} />
-            {title || `Perfil de equipo de ${contact.name}`}
+            {title || `Perfil de equipo de ${draft.values.name || contact.name}`}
           </h2>
           <button type="button" className="event-form-close" onClick={onClose} aria-label="Cerrar">
             <X size={18} strokeWidth={1.75} />
@@ -119,8 +115,6 @@ export default function TeamProfileModal({
         </div>
 
         <div className="event-form-body">
-          <PhotoField name={contact.name} value={photo} onChange={handlePhoto} />
-
           <div className="event-form-row">
             <label className="event-form-field">
               <span>Cargo</span>
@@ -185,17 +179,13 @@ export default function TeamProfileModal({
           )}
 
           <fieldset className="team-fieldset">
-            <legend>Contacto</legend>
-            <div className="event-form-row">
-              <label className="event-form-field">
-                <span>Email</span>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ana@cesi.es" />
-              </label>
-              <label className="event-form-field">
-                <span>Teléfono</span>
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+34 600 000 000" />
-              </label>
-            </div>
+            <legend>Datos de contacto</legend>
+            <p className="team-fieldset-hint">Son los datos del contacto: si los cambias aquí, se cambian también en Contactos.</p>
+            <ContactEditorFields draft={draft} skip={['organization', 'role']} />
+          </fieldset>
+
+          <fieldset className="team-fieldset">
+            <legend>Redes y enlaces</legend>
             <div className="team-social-grid">
               {SOCIAL_NETWORKS.map((n) => (
                 <label key={n.key} className="event-form-field">

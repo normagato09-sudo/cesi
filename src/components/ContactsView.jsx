@@ -317,6 +317,7 @@ export default function ContactsView({
         <TeamProfileModal
           contact={teamProfileFor}
           areas={areas}
+          groups={groups}
           title={`${teamProfileFor.name}: miembro del equipo`}
           saveLabel="Guardar en el equipo"
           onAddArea={onAddArea}

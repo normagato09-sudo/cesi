@@ -37,7 +37,7 @@ import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
-import { AREAS_KEY, getStoredTeamAreas, saveTeamAreas } from './lib/team.js'
+import { AREAS_KEY, getStoredTeamAreas, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
@@ -635,6 +635,7 @@ export default function App() {
               rawEvents={rawEvents}
               now={now}
               areas={teamAreas}
+              groups={groups}
               onAddArea={handleAddArea}
               onManageDepartments={() => setDepartmentsOpen(true)}
               selectedVacancyId={selectedVacancyId}
@@ -668,7 +669,7 @@ export default function App() {
               selectedMemberId={selectedMemberId}
               onSelectMember={setSelectedMemberId}
               onSaveProfile={handleSaveTeamProfile}
-              onRemoveFromTeam={(id) => editContact(id, { teamProfile: null })}
+              onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
               onAddArea={handleAddArea}
               onManageDepartments={() => setDepartmentsOpen(true)}
               onOpenEvent={openEvent}

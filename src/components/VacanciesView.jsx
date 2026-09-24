@@ -296,6 +296,7 @@ export default function VacanciesView({
   rawEvents,
   now,
   areas,
+  groups = [],
   onAddArea,
   onManageDepartments,
   selectedVacancyId,
@@ -496,6 +497,7 @@ export default function VacanciesView({
         <TeamProfileModal
           contact={incorporating}
           areas={areas}
+          groups={groups}
           initialProfile={incorporationDraft(candidateVacancy, now)}
           title={`Incorporar a ${incorporating.name} al equipo`}
           saveLabel="Incorporar al equipo"

@@ -1,13 +1,18 @@
 import { SPAIN_ZONE, findCountry } from './timezones'
 import { writeJSON } from './store'
+import { mergeTeamContactData } from './team'
 
 const STORAGE_KEY = 'cesi_contacts_v1'
 
 // Los contactos antiguos sin país pasan a España (península) y quedan marcados como
-// "País sin revisar" hasta que se guarden desde el formulario.
+// "País sin revisar" hasta que se guarden desde el formulario. Los miembros del equipo con
+// datos del contacto guardados en el perfil (formato antiguo) se fusionan con el contacto.
 export function migrateContacts(list) {
   let changed = false
-  const out = list.map((c) => {
+  const out = list.map((original) => {
+    // Datos del contacto guardados por separado en el perfil de equipo pasan al contacto.
+    const c = mergeTeamContactData(original)
+    if (c !== original) changed = true
     if (c.country && c.timeZone) return c
     changed = true
     return { ...c, country: 'ES', timeZone: SPAIN_ZONE, countryUnreviewed: true }

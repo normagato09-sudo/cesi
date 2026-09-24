@@ -176,3 +176,73 @@ export function filterMembers(contacts, { query = '', area = '', status = 'activ
     .filter((c) => memberMatches(c, query))
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }))
 }
+
+// ---------------------------------------------------------------------------
+// Miembro y contacto son la misma ficha
+// ---------------------------------------------------------------------------
+// Nombre, email, teléfono, país y zona, foto, grupos, disponibilidad y notas se guardan solo en
+// el contacto. El perfil de equipo añade lo propio del equipo: cargo, departamento, incorporación,
+// trayectoria, enlaces y estado.
+
+// Perfil con el que se abre "Marcar como miembro del equipo": el cargo del contacto, hoy como
+// fecha de incorporación y los enlaces que ya tuviera el contacto.
+export function teamProfileDefaults(contact, now = new Date()) {
+  return emptyTeamProfile({ role: contact?.role || '', joinedAt: todayKey(now), links: [...(contact?.links || [])] })
+}
+
+const MERGED_FIELDS = [
+  { key: 'email', label: 'Otro email' },
+  { key: 'phone', label: 'Otro teléfono' },
+]
+
+function sameValue(a, b) {
+  return (a || '').trim().toLocaleLowerCase('es') === (b || '').trim().toLocaleLowerCase('es')
+}
+
+/**
+ * Datos guardados por separado en el perfil de equipo (formato antiguo: email, teléfono, foto)
+ * que pasan al contacto sin perder nada: si el contacto no tenía ese dato, se copia; si los dos
+ * lo tienen y son distintos, se conserva el del contacto y el otro se añade a sus notas.
+ * Devuelve el mismo contacto si no hay nada que fusionar.
+ */
+export function mergeTeamContactData(contact) {
+  const profile = contact?.teamProfile
+  if (!profile || !['email', 'phone', 'photo'].some((k) => k in profile)) return contact
+  const next = { ...contact }
+  const { email, phone, photo, ...rest } = profile
+  const extra = []
+  for (const { key, label } of MERGED_FIELDS) {
+    const raw = key === 'email' ? email : phone
+    const value = typeof raw === 'string' ? raw.trim() : ''
+    if (!value) continue
+    if (!(contact[key] || '').trim()) next[key] = value
+    else if (!sameValue(contact[key], value)) extra.push(`${label}: ${value}`)
+  }
+  if (photo && !contact.photo) next.photo = photo
+  const notes = (contact.notes || '').trim()
+  const missing = extra.filter((line) => !notes.includes(line))
+  if (missing.length > 0) next.notes = [notes, ...missing].filter(Boolean).join('\n')
+  next.teamProfile = rest
+  return next
+}
+
+// Enlaces del perfil (y, en el formato antiguo, sus redes) como lista [{ id, label, url }].
+export function profileLinks(profile) {
+  const social = Object.entries(profile?.social || {})
+    .filter(([, value]) => value && String(value).trim())
+    .map(([key, value]) => ({ id: makeId('link'), label: '', url: socialUrl(key, value) }))
+  return [...(profile?.links || []), ...social]
+}
+
+// "Quitar del equipo": el contacto se queda con todos sus datos; los enlaces del perfil pasan al
+// contacto para no perderlos (y vuelven al perfil si se le marca otra vez como miembro).
+export function removeFromTeamPatch(contact) {
+  const seen = new Set()
+  const links = [...(contact.links || []), ...profileLinks(contact.teamProfile)].filter((l) => {
+    const key = linkUrl(l.url).toLowerCase()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  return { teamProfile: null, links }
+}
