@@ -7,6 +7,7 @@ import { STORAGE_KEY as PROPOSALS_KEY } from '../proposals'
 import { STORAGE_KEY as WORKING_HOURS_KEY } from '../availability'
 import { STORAGE_KEY as PREFERENCES_KEY } from '../preferences'
 import { AREAS_KEY } from '../team'
+import { STORAGE_KEY as MIGRATIONS_KEY } from '../migrations'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY } from '../weeklyAvailability'
 import { STORAGE_KEY as PROJECTS_KEY } from '../projects'
 import { STORAGE_KEY as VACANCIES_KEY } from '../vacancies'
@@ -31,6 +32,7 @@ export const SETTINGS = [
   { id: 'working_hours', key: WORKING_HOURS_KEY },
   { id: 'preferences', key: PREFERENCES_KEY },
   { id: 'team_areas', key: AREAS_KEY }, // departamentos del equipo
+  { id: 'migrations', key: MIGRATIONS_KEY }, // migraciones de datos ya hechas
 ]
 
 export const TABLES = [...LIST_COLLECTIONS.map((c) => c.table), SETTINGS_TABLE]

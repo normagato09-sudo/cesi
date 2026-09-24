@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import { resetDepartments } from './departments'
 import { removeKey, writeJSON } from './store'
 import { getAllEvents, STORAGE_KEY as EVENTS_KEY } from './localEvents'
 import { getAllContacts, STORAGE_KEY as CONTACTS_KEY } from './contacts'
@@ -20,10 +21,11 @@ import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 // v10 añade vacancies; los candidatos son contactos con candidacy (su CV, como las fotos, va
 // solo como referencia). v11: en el perfil de equipo las redes pasan a una sola lista de enlaces y
 // los datos del contacto (email, teléfono) se guardan solo en el contacto, y los hitos pasan a la
-// trayectoria; las copias anteriores se convierten al leerlas.
+// trayectoria; las copias anteriores se convierten al leerlas. v12: departamentos nuevos (al importar
+// una copia anterior se reasignan los antiguos, como en la migración de la app).
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; las
 // notas de las reuniones (notes / notesByDate), dentro de events.
-const BACKUP_VERSION = 11
+const BACKUP_VERSION = 12
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -112,7 +114,8 @@ export function readBackupFile(file) {
 }
 
 // Sustituye todos los datos actuales por los de la copia.
-export function restoreBackup(data) {
+export function restoreBackup(input) {
+  const data = migrateBackupData(input)
   writeJSON(EVENTS_KEY, data.events)
   writeJSON(CONTACTS_KEY, data.contacts)
   if (Array.isArray(data.workingHours)) {
@@ -128,4 +131,22 @@ export function restoreBackup(data) {
 function restoreOptional(key, value) {
   if (value === undefined || value === null) removeKey(key)
   else writeJSON(key, value)
+}
+
+// Copias de versiones anteriores: se les aplican las migraciones únicas de datos antes de importarlas.
+export function migrateBackupData(data) {
+  const version = Number(data.version) || 1
+  let out = data
+  if (version < 12 && Array.isArray(out.contacts)) {
+    const vacancies = Array.isArray(out.vacancies) ? out.vacancies : []
+    const plan = resetDepartments(out.contacts, vacancies)
+    const patchOf = (patches, id) => patches.find((p) => p.id === id)?.patch || {}
+    out = {
+      ...out,
+      contacts: out.contacts.map((c) => ({ ...c, ...patchOf(plan.contactPatches, c.id) })),
+      ...(out.vacancies ? { vacancies: vacancies.map((v) => ({ ...v, ...patchOf(plan.vacancyPatches, v.id) })) } : {}),
+      teamAreas: plan.list,
+    }
+  }
+  return out
 }

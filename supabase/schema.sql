@@ -76,6 +76,7 @@ create table if not exists public.groups (
 --   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes }
 --   id = 'team_areas'    (cesi_team_areas_v1):    lista ordenada de departamentos del equipo, p. ej. ["Directivo", "Radio"]
 --                                                 (contacts.data.teamProfile.area y vacancies.data.area guardan el departamento)
+--   id = 'migrations'    (cesi_migrations_v1):    { done: { [migración]: fecha } } migraciones de datos ya hechas
 -- ---------------------------------------------------------------------------
 create table if not exists public.settings (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

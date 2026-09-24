@@ -134,3 +134,38 @@ export function resolveDepartments(stored, contacts = [], vacancies = []) {
   const changed = !valid || list.length !== stored.length || list.some((d, i) => d !== stored[i])
   return { list, changed }
 }
+
+// Departamentos antiguos que pasan a uno de la lista nueva (sin distinguir mayúsculas ni acentos).
+export const DEPARTMENT_RENAMES = {
+  Dirección: 'Directivo',
+  Profesorado: 'Profesores',
+  Redes: 'Marketing',
+  Coordinación: 'Directivo',
+}
+
+/**
+ * Migración única: la lista queda exactamente DEFAULT_DEPARTMENTS, en su orden. Los miembros y
+ * vacantes con un departamento antiguo se reasignan según DEPARTMENT_RENAMES; los que usan otro
+ * departamento que no está en la lista (p. ej. Doblaje) lo conservan y se añade al final.
+ * Devuelve { list, contactPatches, vacancyPatches }.
+ */
+export function resetDepartments(contacts = [], vacancies = []) {
+  const renames = new Map(Object.entries(DEPARTMENT_RENAMES).map(([from, to]) => [departmentKey(from), to]))
+  const inList = (name) => DEFAULT_DEPARTMENTS.find((d) => departmentKey(d) === departmentKey(name))
+  // Nombre final de un departamento usado: el de la lista (con su escritura), el reasignado o el mismo.
+  const target = (name) => (name ? inList(name) || renames.get(departmentKey(name)) || name : name)
+
+  const contactPatches = contacts
+    .filter((c) => c.teamProfile && c.teamProfile.area && target(c.teamProfile.area) !== c.teamProfile.area)
+    .map((c) => ({ id: c.id, patch: { teamProfile: { ...c.teamProfile, area: target(c.teamProfile.area) } } }))
+  const vacancyPatches = vacancies
+    .filter((v) => v.area && target(v.area) !== v.area)
+    .map((v) => ({ id: v.id, patch: { area: target(v.area) } }))
+
+  const list = [...DEFAULT_DEPARTMENTS]
+  const used = [...contacts.map((c) => c.teamProfile?.area), ...vacancies.map((v) => v.area)].map(target)
+  for (const name of used) {
+    if (name && !list.some((d) => departmentKey(d) === departmentKey(name))) list.push(name)
+  }
+  return { list, contactPatches, vacancyPatches }
+}

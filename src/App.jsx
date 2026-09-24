@@ -40,6 +40,7 @@ import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { AREAS_KEY, getStoredTeamAreas, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
+import { runPendingMigrations } from './lib/dataMigrations.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { STORAGE_KEY as PROJECTS_KEY, getAllProjects, projectsStore, unlinkProject } from './lib/projects.js'
@@ -154,6 +155,20 @@ export default function App() {
   const [projects, reloadProjects] = useStoredValue(PROJECTS_KEY, getAllProjects)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
 
+  // Vuelve a leer todos los datos guardados (tras importar una copia o una migración).
+  const reloadAllData = () => {
+    reloadCalendar()
+    reloadContacts()
+    reloadPreferences()
+    reloadRules()
+    reloadProposals()
+    reloadGroups()
+    reloadTeamAreas()
+    reloadWeeklyAvailability()
+    reloadProjects()
+    reloadVacancies()
+  }
+
   // Departamentos (antes "áreas"): la lista guardada, la nueva lista si aún era la de ejemplo, y
   // los que usan miembros o vacantes aunque no estén en la lista.
   const teamAreas = useMemo(() => resolveDepartments(storedAreas, contacts, vacancies).list, [storedAreas, contacts, vacancies])
@@ -164,11 +179,17 @@ export default function App() {
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
   useEffect(() => {
     if (!canSaveDepartments) return
+    // Migraciones únicas de datos (departamentos, categorías → proyectos).
+    if (runPendingMigrations().length > 0) {
+      reloadAllData()
+      return
+    }
     const { list, changed } = resolveDepartments(getStoredTeamAreas(), contacts, vacancies)
     if (changed) {
       saveTeamAreas(list)
       reloadTeamAreas()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadAllData cambia en cada render
   }, [canSaveDepartments, storedAreas, contacts, vacancies, reloadTeamAreas])
   const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
   const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
@@ -277,16 +298,7 @@ export default function App() {
   ]
 
   const handleBackupRestored = () => {
-    reloadCalendar()
-    reloadContacts()
-    reloadPreferences()
-    reloadRules()
-    reloadProposals()
-    reloadGroups()
-    reloadTeamAreas()
-    reloadWeeklyAvailability()
-    reloadProjects()
-    reloadVacancies()
+    reloadAllData()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
