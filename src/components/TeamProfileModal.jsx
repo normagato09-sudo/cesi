@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import { BadgeCheck, Link2, Plus, Trash2, X } from 'lucide-react'
+import { BadgeCheck, Plus, Trash2, X } from 'lucide-react'
 import ContactEditorFields from './ContactEditorFields.jsx'
+import LinksEditor from './LinksEditor.jsx'
 import { useContactDraft } from '../hooks/useContactDraft'
-import { SOCIAL_NETWORKS, emptyTeamProfile, newMilestone, sortMilestones, teamProfileDefaults, todayKey } from '../lib/team'
-import { makeId } from '../lib/store'
+import { emptyTeamProfile, newMilestone, sortMilestones, teamProfileDefaults, todayKey } from '../lib/team'
+import { cleanLinks, migrateProfileLinks, validateUrl } from '../lib/links'
 import { departmentKey } from '../lib/departments'
 import './EventFormModal.css'
 import './TeamProfileModal.css'
@@ -28,7 +29,7 @@ export default function TeamProfileModal({
   onSave,
   onClose: close,
 }) {
-  const seed = emptyTeamProfile(initialProfile || contact.teamProfile || teamProfileDefaults(contact))
+  const seed = emptyTeamProfile(migrateProfileLinks(initialProfile || contact.teamProfile || teamProfileDefaults(contact)))
   const draft = useContactDraft(contact, groups)
   const [role, setRole] = useState(seed.role)
   const [area, setArea] = useState(seed.area)
@@ -39,7 +40,6 @@ export default function TeamProfileModal({
   const [leftAt, setLeftAt] = useState(seed.leftAt || todayKey())
   const [bio, setBio] = useState(seed.bio)
   const [milestones, setMilestones] = useState(() => sortMilestones(seed.milestones))
-  const [social, setSocial] = useState(seed.social || {})
   const [links, setLinks] = useState(seed.links || [])
   const [error, setError] = useState(null)
   const savedRef = useRef(false)
@@ -78,6 +78,11 @@ export default function TeamProfileModal({
     if (!joinedAt) return setError('Indica la fecha de incorporación.')
     if (status === 'former' && !leftAt) return setError('Indica la fecha de salida.')
     if (status === 'former' && leftAt < joinedAt) return setError('La fecha de salida es anterior a la de incorporación.')
+    for (const link of links) {
+      if (!link.url.trim() && !link.label.trim()) continue
+      const problem = validateUrl(link.url)
+      if (problem) return setError(`Enlaces: ${problem}`)
+    }
 
     const teamProfile = {
       status,
@@ -87,8 +92,7 @@ export default function TeamProfileModal({
       joinedAt,
       bio: bio.trim(),
       milestones: sortMilestones(milestones.filter((m) => m.text.trim()).map((m) => ({ ...m, text: m.text.trim() }))),
-      social: Object.fromEntries(Object.entries(social).filter(([, v]) => v && v.trim()).map(([k, v]) => [k, v.trim()])),
-      links: links.filter((l) => l.url.trim()).map((l) => ({ ...l, label: l.label.trim(), url: l.url.trim() })),
+      links: cleanLinks(links),
       // CV de la candidatura, si se incorporó desde Vacantes.
       ...(seed.cv ? { cv: seed.cv } : {}),
     }
@@ -185,48 +189,8 @@ export default function TeamProfileModal({
           </fieldset>
 
           <fieldset className="team-fieldset">
-            <legend>Redes y enlaces</legend>
-            <div className="team-social-grid">
-              {SOCIAL_NETWORKS.map((n) => (
-                <label key={n.key} className="event-form-field">
-                  <span>{n.label}</span>
-                  <input
-                    type="text"
-                    value={social[n.key] || ''}
-                    onChange={(e) => setSocial((s) => ({ ...s, [n.key]: e.target.value }))}
-                    placeholder={n.placeholder}
-                  />
-                </label>
-              ))}
-            </div>
-            <div className="team-list-editor">
-              <span className="team-list-label">Otras redes y enlaces</span>
-              {links.map((l) => (
-                <div key={l.id} className="team-list-row">
-                  <input
-                    type="text"
-                    value={l.label}
-                    onChange={(e) => setLinks((list) => list.map((x) => (x.id === l.id ? { ...x, label: e.target.value } : x)))}
-                    placeholder="Nombre (p. ej. X, Behance, Portfolio)"
-                    aria-label="Nombre del enlace"
-                  />
-                  <input
-                    type="url"
-                    value={l.url}
-                    onChange={(e) => setLinks((list) => list.map((x) => (x.id === l.id ? { ...x, url: e.target.value } : x)))}
-                    placeholder="https://…"
-                    aria-label="Dirección del enlace"
-                  />
-                  <button type="button" onClick={() => setLinks((list) => list.filter((x) => x.id !== l.id))} aria-label="Quitar enlace">
-                    <Trash2 size={14} strokeWidth={1.75} />
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="team-add-btn" onClick={() => setLinks((list) => [...list, { id: makeId('link'), label: '', url: '' }])}>
-                <Link2 size={14} strokeWidth={1.75} />
-                Añadir enlace
-              </button>
-            </div>
+            <legend>Enlaces</legend>
+            <LinksEditor links={links} onChange={setLinks} />
           </fieldset>
 
           <label className="event-form-field">

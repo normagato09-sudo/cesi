@@ -9,7 +9,7 @@ import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
 import { notesOf, notesPreview } from '../lib/notes'
 import { groupsOfContact } from '../lib/groups'
-import { linkUrl } from '../lib/team'
+import LinkList from './LinkList.jsx'
 import { SPAIN_ZONE, countryFlag, formatOffsetDiff, formatTimeInZone, zoneLabel, zoneOffsetMinutes } from '../lib/timezones'
 import './ContactsView.css'
 
@@ -129,11 +129,7 @@ export function ContactFields({ contact, skip = [] }) {
         <div className="align-top">
           <dt><Link2 size={15} strokeWidth={1.75} /><span className="sr-only">Enlaces</span></dt>
           <dd className="contact-links">
-            {contact.links.map((l) => (
-              <a key={l.id} href={linkUrl(l.url)} target="_blank" rel="noreferrer">
-                {l.label || l.url}
-              </a>
-            ))}
+            <LinkList links={contact.links} />
           </dd>
         </div>
       )}

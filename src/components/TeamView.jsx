@@ -4,7 +4,6 @@ import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
   CalendarPlus,
-  ExternalLink,
   Mail,
   Pencil,
   Phone,
@@ -18,7 +17,9 @@ import ContactAvatar from './ContactAvatar.jsx'
 import TeamProfileModal from './TeamProfileModal.jsx'
 import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
-import { SOCIAL_NETWORKS, capitalize, filterMembers, isTeamMember, linkUrl, seniorityText, socialUrl, sortMilestones } from '../lib/team'
+import LinkList from './LinkList.jsx'
+import { capitalize, filterMembers, isTeamMember, seniorityText, sortMilestones } from '../lib/team'
+import { migrateProfileLinks } from '../lib/links'
 import './TeamView.css'
 
 function formatDay(key) {
@@ -50,8 +51,7 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
   const p = contact.teamProfile
   const seniority = seniorityText(p.joinedAt, now, p.status === 'former' ? p.leftAt : null)
   const milestones = sortMilestones(p.milestones)
-  const socials = SOCIAL_NETWORKS.filter((n) => p.social?.[n.key])
-  const links = (p.links || []).filter((l) => l.url)
+  const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)
 
   return (
     <div className="team-detail">
@@ -135,38 +135,25 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
               <a href={`tel:${contact.phone.replace(/\s+/g, '')}`}>{contact.phone}</a>
             </li>
           )}
-          {socials.map((n) => (
-            <li key={n.key}>
-              <ExternalLink size={15} strokeWidth={1.75} />
-              <span className="team-contact-label">{n.label}</span>
-              <a href={socialUrl(n.key, p.social[n.key])} target="_blank" rel="noreferrer">
-                {p.social[n.key]}
-              </a>
-            </li>
-          ))}
-          {links.map((l) => (
-            <li key={l.id}>
-              <ExternalLink size={15} strokeWidth={1.75} />
-              {l.label && <span className="team-contact-label">{l.label}</span>}
-              <a href={linkUrl(l.url)} target="_blank" rel="noreferrer">
-                {l.url}
-              </a>
-            </li>
-          ))}
           {p.cv && (
             <li>
               <CvLink cv={p.cv} />
             </li>
           )}
-          {!contact.email && !contact.phone && socials.length === 0 && links.length === 0 && (
+          {!contact.email && !contact.phone && links.length === 0 && !p.cv && (
             <li className="team-empty">Sin datos de contacto.</li>
           )}
         </ul>
+        {links.length > 0 && (
+          <div className="team-links">
+            <LinkList links={links} />
+          </div>
+        )}
       </section>
 
       <section className="team-section">
         <h3>Datos del contacto</h3>
-        <ContactFields contact={contact} skip={['email', 'phone', 'role']} />
+        <ContactFields contact={contact} skip={['email', 'phone', 'role', 'links']} />
       </section>
 
       <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />

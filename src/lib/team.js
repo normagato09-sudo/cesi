@@ -2,6 +2,7 @@ import { addMonths, differenceInCalendarDays, format, parseISO, startOfDay } fro
 import { es } from 'date-fns/locale'
 import { readJSON, writeJSON, makeId } from './store'
 import { DEFAULT_DEPARTMENTS, addDepartment } from './departments'
+import { cleanLinks, migrateProfileLinks, normalizeUrl } from './links'
 
 // Equipo. Cada miembro es un contacto con `teamProfile` (no se duplican sus datos):
 // {
@@ -9,8 +10,7 @@ import { DEFAULT_DEPARTMENTS, addDepartment } from './departments'
 //   role, area (el departamento), joinedAt: 'AAAA-MM-DD',
 //   bio: texto libre de trayectoria,
 //   milestones: [{ id, date: 'AAAA-MM-DD' | '', text }],
-//   social: { instagram, linkedin, tiktok, youtube, web },
-//   links: [{ id, label, url }],
+//   links: [{ id, label, url }]  una sola lista de enlaces (redes incluidas),
 // }
 // La foto, el email y el teléfono son los del contacto.
 
@@ -36,29 +36,8 @@ export function saveTeamAreas(areas) {
 // Añade un departamento a la lista (sin duplicados, sin distinguir mayúsculas ni acentos).
 export const addArea = addDepartment
 
-export const SOCIAL_NETWORKS = [
-  { key: 'instagram', label: 'Instagram', placeholder: '@usuario', base: 'https://instagram.com/' },
-  { key: 'linkedin', label: 'LinkedIn', placeholder: 'Enlace al perfil', base: 'https://www.linkedin.com/in/' },
-  { key: 'tiktok', label: 'TikTok', placeholder: '@usuario', base: 'https://www.tiktok.com/@' },
-  { key: 'youtube', label: 'YouTube', placeholder: 'Enlace al canal', base: 'https://www.youtube.com/@' },
-  { key: 'web', label: 'Web', placeholder: 'https://…', base: 'https://' },
-]
-
-// Enlace a partir de lo que se escribió ("@ana", "ana", "instagram.com/ana" o una URL completa).
-export function socialUrl(key, value) {
-  const v = (value || '').trim()
-  if (!v) return ''
-  if (/^https?:\/\//i.test(v)) return v
-  if (/^[\w-]+(\.[\w-]+)+(\/|$)/.test(v)) return `https://${v}`
-  const network = SOCIAL_NETWORKS.find((n) => n.key === key)
-  return `${network?.base || 'https://'}${v.replace(/^@/, '')}`
-}
-
-export function linkUrl(value) {
-  const v = (value || '').trim()
-  if (!v) return ''
-  return /^[a-z]+:\/\//i.test(v) || v.startsWith('mailto:') ? v : `https://${v}`
-}
+// Dirección completa de un enlace (añade "https://" si falta).
+export const linkUrl = normalizeUrl
 
 export function isTeamMember(contact) {
   return !!contact?.teamProfile
@@ -239,23 +218,22 @@ export function mergeTeamContactData(contact) {
   return next
 }
 
-// Enlaces del perfil (y, en el formato antiguo, sus redes) como lista [{ id, label, url }].
-export function profileLinks(profile) {
-  const social = Object.entries(profile?.social || {})
-    .filter(([, value]) => value && String(value).trim())
-    .map(([key, value]) => ({ id: makeId('link'), label: '', url: socialUrl(key, value) }))
-  return [...(profile?.links || []), ...social]
-}
-
 // "Quitar del equipo": el contacto se queda con todos sus datos; los enlaces del perfil pasan al
 // contacto para no perderlos (y vuelven al perfil si se le marca otra vez como miembro).
 export function removeFromTeamPatch(contact) {
-  const seen = new Set()
-  const links = [...(contact.links || []), ...profileLinks(contact.teamProfile)].filter((l) => {
-    const key = linkUrl(l.url).toLowerCase()
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-  return { teamProfile: null, links }
+  const profile = migrateProfileLinks(contact.teamProfile)
+  return { teamProfile: null, links: cleanLinks([...(contact.links || []), ...(profile?.links || [])]) }
+}
+
+/**
+ * Migraciones del perfil de equipo al leer los contactos (también los que llegan de la nube o de
+ * una copia antigua). Devuelve el mismo contacto si no hay nada que cambiar.
+ */
+export function migrateTeamProfile(contact) {
+  let next = mergeTeamContactData(contact)
+  if (next?.teamProfile) {
+    const profile = migrateProfileLinks(next.teamProfile)
+    if (profile !== next.teamProfile) next = { ...next, teamProfile: profile }
+  }
+  return next
 }

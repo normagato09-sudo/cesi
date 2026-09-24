@@ -1,6 +1,6 @@
 import { SPAIN_ZONE, findCountry } from './timezones'
 import { writeJSON } from './store'
-import { mergeTeamContactData } from './team'
+import { migrateTeamProfile } from './team'
 
 const STORAGE_KEY = 'cesi_contacts_v1'
 
@@ -10,8 +10,8 @@ const STORAGE_KEY = 'cesi_contacts_v1'
 export function migrateContacts(list) {
   let changed = false
   const out = list.map((original) => {
-    // Datos del contacto guardados por separado en el perfil de equipo pasan al contacto.
-    const c = mergeTeamContactData(original)
+    // Perfil de equipo en formato antiguo: datos del contacto guardados aparte y redes sueltas.
+    const c = migrateTeamProfile(original)
     if (c !== original) changed = true
     if (c.country && c.timeZone) return c
     changed = true

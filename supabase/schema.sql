@@ -39,8 +39,9 @@ create table if not exists public.events (
 --         groupIds: ids de los grupos a los que pertenece (tabla groups),
 --         photo: referencia de la foto en Storage { store: 'cloud', path } o null,
 --         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt, role, area,
---           joinedAt, bio, milestones: [{ id, date, text }], social: { instagram, linkedin,
---           tiktok, youtube, web }, links: [{ id, label, url }], cv (si vino de una candidatura) },
+--           joinedAt, bio, milestones: [{ id, date, text }], links: [{ id, label, url }] (una sola
+--           lista, redes incluidas), cv (si vino de una candidatura) },
+--         links: enlaces que conserva un contacto que salió del equipo,
 --         candidacy (candidatos de Vacantes): { vacancyId, appliedAt, status: 'new' | 'interview' |
 --           'accepted' | 'discarded', history: [{ status, at }], discardedAt,
 --           cv: { store: 'cloud', path } (PDF en Storage) o { url } o null } }

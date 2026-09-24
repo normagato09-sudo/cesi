@@ -7,7 +7,6 @@ import {
   saveTeamAreas,
   calendarSpan,
   seniorityText,
-  socialUrl,
   sortMilestones,
 } from './team'
 
@@ -100,12 +99,5 @@ describe('áreas y búsqueda', () => {
     expect(names({ status: 'former' })).toEqual(['Bea'])
     expect(names({ area: 'Radio' })).toEqual(['Ana'])
     expect(names({ query: 'director' })).toEqual(['Carlos'])
-  })
-
-  it('arma los enlaces de redes a partir de usuarios o direcciones', () => {
-    expect(socialUrl('instagram', '@ana.voz')).toBe('https://instagram.com/ana.voz')
-    expect(socialUrl('tiktok', 'ana')).toBe('https://www.tiktok.com/@ana')
-    expect(socialUrl('web', 'cesi.es')).toBe('https://cesi.es')
-    expect(socialUrl('linkedin', 'https://www.linkedin.com/in/ana')).toBe('https://www.linkedin.com/in/ana')
   })
 })
