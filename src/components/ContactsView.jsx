@@ -286,7 +286,7 @@ export default function ContactsView({
             {filtered.map((c) => (
               <li key={c.id} className={`contact-row${c.id === selectedContactId ? ' active' : ''}`}>
                 <button type="button" className="contact-row-main" onClick={() => onSelectContact(c.id)}>
-                  <ContactAvatar name={c.name} />
+                  <ContactAvatar name={c.name} photo={c.photo} />
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
@@ -334,7 +334,7 @@ export default function ContactsView({
             </button>
 
             <div className="contact-detail-head">
-              <ContactAvatar name={selected.name} size="lg" />
+              <ContactAvatar name={selected.name} photo={selected.photo} size="lg" />
               <div>
                 <h2>{selected.name}</h2>
                 {subtitleOf(selected) && <p>{subtitleOf(selected)}</p>}

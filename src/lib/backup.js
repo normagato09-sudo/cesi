@@ -9,10 +9,11 @@ import { getAllProposals, STORAGE_KEY as PROPOSALS_KEY } from './proposals'
 import { getAllGroups, STORAGE_KEY as GROUPS_KEY } from './groups'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
-// v5 añade groups (y los groupIds de cada contacto).
+// v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
+// su foto (photo); las fotos no van en la copia.
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; las
 // notas de las reuniones (notes / notesByDate), dentro de events.
-const BACKUP_VERSION = 5
+const BACKUP_VERSION = 6
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [

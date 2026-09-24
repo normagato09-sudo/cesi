@@ -41,7 +41,7 @@ describe('copia de seguridad', () => {
     proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
     createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
     const backup = buildBackup()
-    expect(backup.version).toBe(5)
+    expect(backup.version).toBe(6)
     localStorage.clear()
     restoreBackup(parseBackup(JSON.stringify(backup)))
     expect(getAllProposals()[0].title).toBe('Demo')

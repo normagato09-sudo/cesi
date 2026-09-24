@@ -31,6 +31,7 @@ import { expandEvents } from './lib/recurrence.js'
 import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
+import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
@@ -98,7 +99,14 @@ export default function App() {
     reloadAll: reloadCalendar,
   } = useLocalCalendar(range)
 
-  const { contacts, addContact, editContact, removeContact, refresh: reloadContacts } = useContacts()
+  const { contacts, addContact, editContact, removeContact: removeContactOnly, refresh: reloadContacts } = useContacts()
+
+  // Al borrar un contacto se borran también su foto y su CV.
+  const removeContact = (id) => {
+    const contact = contacts.find((c) => c.id === id)
+    removeContactOnly(id)
+    if (contact) deleteContactFiles(contact)
+  }
   const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
   const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)

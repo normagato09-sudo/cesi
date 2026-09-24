@@ -199,3 +199,39 @@ begin
   end loop;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Fotos de contactos y CV de candidatos (Supabase Storage)
+-- ---------------------------------------------------------------------------
+-- Bucket privado "cesi-photos". Cada usuario guarda sus archivos en su carpeta:
+--   {user_id}/photos/{id}.webp   fotos (recortadas a 512×512, WebP)
+--   {user_id}/cvs/{id}.pdf       CV de candidatos (PDF de hasta 5 MB)
+-- En los documentos (contacts.data.photo, contacts.data.candidacy.cv) solo va la ruta.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('cesi-photos', 'cesi-photos', false, 5242880, array['image/webp', 'image/jpeg', 'application/pdf'])
+on conflict (id) do update
+  set public = false,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "cesi-photos: leer los míos" on storage.objects;
+drop policy if exists "cesi-photos: subir los míos" on storage.objects;
+drop policy if exists "cesi-photos: cambiar los míos" on storage.objects;
+drop policy if exists "cesi-photos: borrar los míos" on storage.objects;
+
+create policy "cesi-photos: leer los míos" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'cesi-photos' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+create policy "cesi-photos: subir los míos" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'cesi-photos' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+create policy "cesi-photos: cambiar los míos" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'cesi-photos' and (storage.foldername(name))[1] = (select auth.uid()::text))
+  with check (bucket_id = 'cesi-photos' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+create policy "cesi-photos: borrar los míos" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'cesi-photos' and (storage.foldername(name))[1] = (select auth.uid()::text));

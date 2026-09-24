@@ -151,7 +151,7 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
       <div className="participant-picker-control" onClick={() => inputRef.current?.focus()}>
         {selectedContacts.map((c) => (
           <span key={c.id} className="participant-chip">
-            <ContactAvatar name={c.name} size="xs" />
+            <ContactAvatar name={c.name} photo={c.photo} size="xs" />
             <span className="participant-chip-name">{c.name}</span>
             {c.country && c.country !== 'ES' && (
               <span className="participant-chip-country" title={countryName(c.country)}>
@@ -286,7 +286,7 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
               const secondary = c.email || c.organization
               return (
                 <li key={option.key} {...common} aria-selected={selected}>
-                  <ContactAvatar name={c.name} size="sm" />
+                  <ContactAvatar name={c.name} photo={c.photo} size="sm" />
                   <span className="participant-option-text">
                     <span className="participant-option-name">{c.name}</span>
                     {secondary && <span className="participant-option-sub">{secondary}</span>}

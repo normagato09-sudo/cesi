@@ -196,7 +196,7 @@ export default function ReportView({ rawEvents, workingHours, contacts, groups, 
               <ol className="report-people">
                 {report.topContacts.map((r) => (
                   <li key={r.key}>
-                    <ContactAvatar name={r.label} size="sm" />
+                    <ContactAvatar name={r.label} photo={r.contact?.photo} size="sm" />
                     <span className="report-people-name">{r.label}</span>
                     <span className="report-people-value">
                       {r.count} reunión{r.count === 1 ? '' : 'es'} · {formatHours(r.ms)}

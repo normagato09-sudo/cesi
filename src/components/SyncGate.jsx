@@ -6,6 +6,8 @@ import { SYNC_ENABLED, getSupabase, hasStoredSession } from '../lib/sync/client'
 import { SyncContext } from '../lib/sync/syncContext'
 import { SyncEngine } from '../lib/sync/engine'
 import { createRemote } from '../lib/sync/remote'
+import { configureRemoteFiles } from '../lib/files/files'
+import { promoteDeviceFiles } from '../lib/files/contactFiles'
 
 // Sin credenciales de Supabase la app es exactamente la de siempre (solo este dispositivo).
 export default function SyncGate() {
@@ -46,9 +48,17 @@ function SyncedApp() {
 
   useEffect(() => {
     if (!engine) return
-    engine.start().catch(() => {})
-    return () => engine.stop()
-  }, [engine])
+    // Fotos y CV: se suben al bucket de Storage del usuario.
+    configureRemoteFiles({ client, userId })
+    engine
+      .start()
+      .then(() => promoteDeviceFiles())
+      .catch(() => {})
+    return () => {
+      engine.stop()
+      configureRemoteFiles(null)
+    }
+  }, [engine, client, userId])
 
   const sync = useMemo(
     () =>

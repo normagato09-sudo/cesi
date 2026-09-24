@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { X, UserPlus, UserPen } from 'lucide-react'
 import TimeZoneSelect from './TimeZoneSelect.jsx'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
+import PhotoField from './PhotoField.jsx'
+import { deleteFile, sameFile } from '../lib/files/files'
 import { isEmail, validateContactCountry } from '../lib/contacts'
 import { defaultContactZone, zonePlace, zoneValue } from '../lib/timezones'
 import { cleanWeek, emptyWeek, normalizeWeek, validateWeek } from '../lib/weeklySchedule'
@@ -13,7 +15,7 @@ function defaultAvailability() {
   return emptyWeek().map((e) => (e.day >= 1 && e.day <= 5 ? { ...e, enabled: true, slots: [{ start: '09:00', end: '18:00' }] } : e))
 }
 
-export default function ContactFormModal({ initialContact, groups = [], onClose, onSubmit }) {
+export default function ContactFormModal({ initialContact, groups = [], onClose: close, onSubmit }) {
   const isEditing = !!initialContact
   const seed = initialContact || {}
 
@@ -23,6 +25,10 @@ export default function ContactFormModal({ initialContact, groups = [], onClose,
   const [organization, setOrganization] = useState(seed.organization || '')
   const [role, setRole] = useState(seed.role || '')
   const [notes, setNotes] = useState(seed.notes || '')
+  const [photo, setPhoto] = useState(seed.photo || null)
+  // Fotos subidas en este formulario: si no se guarda, se borran para no dejar archivos sueltos.
+  const uploadedRef = useRef([])
+  const savedRef = useRef(false)
   // Solo grupos que siguen existiendo.
   const [groupIds, setGroupIds] = useState(() => (seed.groupIds || []).filter((id) => groups.some((g) => g.id === id)))
   // País obligatorio; los contactos nuevos empiezan con España (península y Baleares).
@@ -32,6 +38,16 @@ export default function ContactFormModal({ initialContact, groups = [], onClose,
     seed.availability ? normalizeWeek(seed.availability, defaultAvailability()) : defaultAvailability(),
   )
   const [formError, setFormError] = useState(null)
+
+  const onClose = () => {
+    if (!savedRef.current) for (const ref of uploadedRef.current) deleteFile(ref)
+    close()
+  }
+
+  const handlePhoto = (ref) => {
+    if (ref) uploadedRef.current.push(ref)
+    setPhoto(ref)
+  }
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -69,12 +85,17 @@ export default function ContactFormModal({ initialContact, groups = [], onClose,
         role: role.trim(),
         notes: notes.trim(),
         groupIds,
+        photo,
         country: zone.country,
         timeZone: zone.timeZone,
         // Al guardar desde el formulario el país queda revisado.
         countryUnreviewed: false,
         availability: hasAvailability ? cleanWeek(availability) : null,
       })
+      savedRef.current = true
+      // La foto anterior (si se ha cambiado o quitado) y las subidas descartadas ya no se usan.
+      if (seed.photo && !sameFile(seed.photo, photo)) deleteFile(seed.photo)
+      for (const ref of uploadedRef.current) if (!sameFile(ref, photo)) deleteFile(ref)
       onClose()
     } catch (err) {
       setFormError(err.message || 'No se pudo guardar. Inténtalo de nuevo.')
@@ -97,6 +118,8 @@ export default function ContactFormModal({ initialContact, groups = [], onClose,
         </div>
 
         <div className="event-form-body">
+          <PhotoField name={name} value={photo} onChange={handlePhoto} />
+
           <label className="event-form-field">
             <span>Nombre</span>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre y apellidos" autoFocus />

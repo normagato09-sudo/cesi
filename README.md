@@ -17,6 +17,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Resumen** con la próxima reunión y las horas ocupadas y libres de hoy.
 - **Resumen semanal** (sección Resumen): número de reuniones, horas en reuniones y horas libres dentro del horario comparadas con la semana anterior, horas por día, reparto por categoría, etiqueta y grupo, contactos con los que más te has reunido y la lista de reuniones con el principio de sus notas. Se puede imprimir o guardar en PDF.
 - **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual, grupos y la lista de próximas reuniones y reuniones anteriores con cada contacto (con el principio de sus notas).
+- **Fotos de los contactos**: se recortan en cuadrado y se reducen a 512×512 px en WebP antes de guardarlas (JPG, PNG, WebP y HEIC si el navegador lo permite). Con sincronización se guardan en Supabase Storage y se ven también sin conexión una vez cargadas; sin ella, en el propio navegador (IndexedDB). Sin foto se muestran las iniciales.
 - **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
@@ -72,6 +73,8 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
 | `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |
 
+Las fotos (y los CV) no van en `localStorage` sino en IndexedDB (`cesi-files`): sin sincronización es su único sitio; con ella, es la caché de lo que está en Supabase Storage.
+
 Sin sincronización:
 
 - Los datos del móvil y los del ordenador son independientes.
@@ -86,12 +89,12 @@ Con Supabase configurado, la app pide iniciar sesión y mantiene los mismos dato
 - **Conflictos**: si el mismo dato se cambia en dos dispositivos, gana el cambio más reciente. Los borrados también se sincronizan.
 - **Primer inicio de sesión**: si el dispositivo tiene datos y la cuenta está vacía, ofrece "Subir los datos de este dispositivo". Si hay datos en los dos sitios, pregunta si conservar los de la nube, los de este dispositivo o fusionarlos.
 - En la barra lateral se ve el estado ("Sincronizado", "Sincronizando…" o "Sin conexión, se sincronizará luego") y el botón **Cerrar sesión** (en el móvil, en el icono de la nube junto a las pestañas).
-- La copia de seguridad JSON sigue funcionando igual.
+- La copia de seguridad JSON sigue funcionando igual. Las fotos y los CV no van dentro: solo su referencia.
 
 ### Cómo activarla
 
 1. **Crear el proyecto**: entra en [supabase.com](https://supabase.com), pulsa **New project**, ponle un nombre (p. ej. `cesi`), elige una región de Europa, escribe una contraseña para la base de datos y crea el proyecto.
-2. **Crear las tablas**: en el proyecto, abre **SQL Editor → New query**, pega todo el contenido de `supabase/schema.sql` y pulsa **Run**. Crea las tablas con seguridad por filas (cada usuario solo ve sus datos) y activa Realtime. Se puede volver a ejecutar sin perder datos.
+2. **Crear las tablas**: en el proyecto, abre **SQL Editor → New query**, pega todo el contenido de `supabase/schema.sql` y pulsa **Run**. Crea las tablas con seguridad por filas (cada usuario solo ve sus datos), activa Realtime y crea el bucket privado de Storage `cesi-photos` para las fotos y los CV, con políticas para que cada usuario solo pueda leer y escribir en su propia carpeta. Se puede volver a ejecutar sin perder datos.
 3. **Crear tu usuario**: **Authentication → Users → Add user → Create new user**, escribe tu email y una contraseña y marca **Auto Confirm User**.
 4. **Desactivar los registros nuevos** (importante, después de crear tu usuario): **Authentication → Sign In / Providers** (en algunas versiones, **Authentication → Settings**) y desactiva **Allow new users to sign up**. Guarda. Así nadie más puede crearse una cuenta en tu proyecto.
 5. **Copiar las claves**: **Project Settings → API** (o **API Keys**): copia la **Project URL** y la clave **anon public** (o la **publishable key**). Esta clave es pública por diseño (va dentro de la app); los datos los protegen la seguridad por filas y tener los registros desactivados. No uses nunca la clave `service_role` / `secret`.

@@ -172,7 +172,7 @@ export default function EventModal({
               <ul className="event-modal-attendees">
                 {people.map((c) => (
                   <li key={c.id} className="event-modal-attendee">
-                    <ContactAvatar name={c.name} size="sm" />
+                    <ContactAvatar name={c.name} photo={c.photo} size="sm" />
                     <span className="event-modal-attendee-text">
                       <button
                         type="button"

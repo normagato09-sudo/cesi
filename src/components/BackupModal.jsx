@@ -67,6 +67,12 @@ export default function BackupModal({ onClose, onRestored }) {
               ? 'Tus datos se guardan en este dispositivo y se sincronizan con tu cuenta. Al importar una copia también se sustituyen los datos de tu cuenta en todos tus dispositivos.'
               : 'Tus reuniones y contactos se guardan solo en este dispositivo, en este navegador. Descarga una copia de vez en cuando para no perderlos o para pasarlos a otro dispositivo.'}
           </p>
+          <p className="backup-hint backup-files-note">
+            Las fotos y los CV no van dentro de la copia: solo su referencia.{' '}
+            {synced
+              ? 'Siguen guardados en tu cuenta (Supabase Storage) y se vuelven a ver al importar la copia con la misma cuenta.'
+              : 'Están guardados en este navegador; si importas la copia en otro dispositivo, allí se verán las iniciales en lugar de las fotos.'}
+          </p>
 
           <button type="button" className="backup-action" onClick={handleDownload}>
             <Download size={17} strokeWidth={1.75} />
