@@ -103,7 +103,8 @@
     grid-template-areas:
       'nav footer'
       'summary summary'
-      'proposals proposals';
+      'proposals proposals'
+      'notes notes';
     overflow: visible;
     align-items: stretch;
     gap: 10px 8px;
@@ -185,9 +186,15 @@
     min-width: 0;
   }
 
+  .sidebar .missing-notes-panel {
+    grid-area: notes;
+    min-width: 0;
+  }
+
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar.section-contacts .summary-panel,
-  .sidebar.section-contacts .proposals-panel {
+  .sidebar.section-contacts .proposals-panel,
+  .sidebar.section-contacts .missing-notes-panel {
     display: none;
   }
 }

@@ -28,6 +28,8 @@ import { SchedulingContext } from './lib/schedulingContext.js'
 import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules, rulesStore } from './lib/rules.js'
 import { expandEvents } from './lib/recurrence.js'
 import { bufferWarningsFor } from './lib/buffer.js'
+import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
+import { getAllEvents } from './lib/localEvents.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -58,6 +60,8 @@ export default function App() {
   const [view, setView] = useState('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
+  // true si la reunión se abrió para escribir las notas (desde "Sin notas").
+  const [notesFocus, setNotesFocus] = useState(false)
   const [formModal, setFormModal] = useState(null)
   // null = cerrado; { participants } = abierto, con los participantes iniciales si los hay.
   const [findSlot, setFindSlot] = useState(null)
@@ -195,6 +199,20 @@ export default function App() {
     setSelectedContactId(null)
   }
 
+  const missingNotes = useMemo(() => meetingsMissingNotes(rawEvents, now), [rawEvents, now])
+
+  const openEvent = (event, { focusNotes = false } = {}) => {
+    setSelectedEvent(event)
+    setNotesFocus(focusNotes)
+  }
+
+  // Guarda las notas de la ocurrencia: en notesByDate si la reunión se repite, si no en notes.
+  const handleSaveNotes = (occurrence, text) => {
+    const series = getAllEvents().find((ev) => ev.id === occurrence.seriesId)
+    if (!series) return
+    editEvent(series.id, notesPatch(series, occurrence, text))
+  }
+
   const summary = useMemo(() => computeSummary(rawEvents, workingHours, now), [rawEvents, workingHours, now])
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
@@ -314,6 +332,8 @@ export default function App() {
           onOpenBackup={() => setBackupOpen(true)}
           proposals={proposalItems}
           onOpenProposal={setProposalModalId}
+          missingNotes={missingNotes}
+          onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
         />
 
         {section === 'contacts' && (
@@ -327,7 +347,7 @@ export default function App() {
               onAddContact={addContact}
               onEditContact={editContact}
               onRemoveContact={removeContact}
-              onOpenEvent={setSelectedEvent}
+              onOpenEvent={openEvent}
               onNewMeetingWithContact={handleNewMeetingWithContact}
               onFindSlotWithContact={(contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })}
             />
@@ -353,7 +373,7 @@ export default function App() {
                 <MonthView
                   currentDate={currentDate}
                   events={events}
-                  onSelectEvent={setSelectedEvent}
+                  onSelectEvent={openEvent}
                   onMoveEvent={handleMoveOrResize}
                   onSelectDay={(day) => {
                     setCurrentDate(day)
@@ -366,7 +386,7 @@ export default function App() {
                   currentDate={currentDate}
                   compact={compactWeek}
                   events={events}
-                  onSelectEvent={setSelectedEvent}
+                  onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
                   onResizeEvent={handleMoveOrResize}
@@ -376,7 +396,7 @@ export default function App() {
                 <DayView
                   currentDate={currentDate}
                   events={events}
-                  onSelectEvent={setSelectedEvent}
+                  onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
                   onResizeEvent={handleMoveOrResize}
@@ -390,6 +410,9 @@ export default function App() {
           key={selectedEvent?.id || 'none'}
           event={selectedEvent}
           contacts={contacts}
+          now={now}
+          focusNotes={notesFocus}
+          onSaveNotes={handleSaveNotes}
           onClose={() => setSelectedEvent(null)}
           onOpenContact={handleOpenContact}
           onSaveGuestAsContact={handleSaveGuestAsContact}

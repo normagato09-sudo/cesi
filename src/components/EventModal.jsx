@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
+import EventNotes from './EventNotes.jsx'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
@@ -54,6 +55,9 @@ function formatRange(event) {
 export default function EventModal({
   event,
   contacts,
+  now,
+  focusNotes = false,
+  onSaveNotes,
   onClose,
   onEdit,
   onDelete,
@@ -236,6 +240,10 @@ export default function EventModal({
             <div className="event-modal-description">
               <p>{event.description}</p>
             </div>
+          )}
+
+          {!event.isUnavailable && (
+            <EventNotes event={event} now={now} autoFocus={focusNotes} onSave={(text) => onSaveNotes(event, text)} />
           )}
         </div>
 

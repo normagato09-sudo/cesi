@@ -264,3 +264,9 @@
 .time-grid-event-provisional {
   font-weight: 600;
 }
+
+.time-grid-event-notes {
+  margin-left: 4px;
+  vertical-align: -1px;
+  color: var(--text-secondary);
+}

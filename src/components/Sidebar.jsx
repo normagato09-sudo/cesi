@@ -1,6 +1,7 @@
 import { CalendarDays, DatabaseBackup, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
+import MissingNotesPanel from './MissingNotesPanel.jsx'
 import './Sidebar.css'
 
 const SECTIONS = [
@@ -8,7 +9,17 @@ const SECTIONS = [
   { id: 'contacts', label: 'Contactos', Icon: Users },
 ]
 
-export default function Sidebar({ summary, now, section, onSectionChange, onOpenBackup, proposals = [], onOpenProposal }) {
+export default function Sidebar({
+  summary,
+  now,
+  section,
+  onSectionChange,
+  onOpenBackup,
+  proposals = [],
+  onOpenProposal,
+  missingNotes = [],
+  onOpenMissingNotes,
+}) {
   return (
     <aside className={`sidebar section-${section}`}>
       <div className="sidebar-brand">
@@ -39,6 +50,8 @@ export default function Sidebar({ summary, now, section, onSectionChange, onOpen
       <SummaryPanel summary={summary} now={now} />
 
       <ProposalsPanel items={proposals} onOpen={onOpenProposal} />
+
+      <MissingNotesPanel meetings={missingNotes} onOpen={onOpenMissingNotes} />
 
       <div className="sidebar-footer">
         <button

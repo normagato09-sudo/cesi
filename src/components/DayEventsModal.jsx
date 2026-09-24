@@ -1,6 +1,7 @@
 import { format, differenceInMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Clock, Users, Ban, ChevronRight } from 'lucide-react'
+import { X, Clock, Users, Ban, ChevronRight, NotebookPen } from 'lucide-react'
+import { hasNotes } from '../lib/notes'
 import { colorForEvent } from '../lib/eventStyle'
 import './DayEventsModal.css'
 
@@ -51,6 +52,9 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
                   {ev.isUnavailable && <Ban size={13} strokeWidth={2} />}
                   {ev.title}
                   {ev.provisional && <span className="day-events-modal-provisional">Provisional</span>}
+                  {hasNotes(ev) && (
+                    <NotebookPen size={12} strokeWidth={2} className="day-events-modal-notes" aria-label="Tiene notas" />
+                  )}
                 </span>
                 <span className="day-events-modal-item-meta">
                   <Clock size={12} strokeWidth={1.75} />

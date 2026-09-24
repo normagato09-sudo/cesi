@@ -25,7 +25,8 @@ $$;
 -- Reuniones y franjas no disponibles (localStorage: cesi_events_v1)
 -- data: { title, start, end, category, tags, participantIds, guests, participants,
 --         meetLink, description, isUnavailable, allDay, recurrence,
---         provisional, proposalId (opciones de una propuesta), ... }
+--         provisional, proposalId (opciones de una propuesta),
+--         notes (reunión única) o notesByDate { 'AAAA-MM-DD': texto } (reunión que se repite) }
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

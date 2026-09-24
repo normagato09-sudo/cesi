@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { format, addDays, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Ban } from 'lucide-react'
+import { Ban, NotebookPen } from 'lucide-react'
+import { hasNotes } from '../../lib/notes'
 import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
@@ -247,6 +248,9 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                   >
                     <span className="time-grid-event-title">
                       {event.isUnavailable && <Ban size={11} strokeWidth={2} />} {event.title}
+                      {hasNotes(event) && (
+                        <NotebookPen size={10} strokeWidth={2} className="time-grid-event-notes" aria-label="Tiene notas" />
+                      )}
                     </span>
                     <span className="time-grid-event-time">
                       {format(event.start, 'HH:mm')}

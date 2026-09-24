@@ -25,6 +25,7 @@ import { contactMatches, eventIncludesContact } from '../lib/contacts'
 import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
+import { notesOf, notesPreview } from '../lib/notes'
 import {
   SPAIN_ZONE,
   countryFlag,
@@ -59,7 +60,7 @@ function formatMeetingDate(event) {
   return format(event.start, "EEE d MMM yyyy · HH:mm", { locale: es })
 }
 
-function MeetingList({ title, meetings, emptyText, onOpenEvent }) {
+function MeetingList({ title, meetings, emptyText, onOpenEvent, showNotes = false }) {
   return (
     <section className="contact-meetings">
       <h3>{title}</h3>
@@ -77,6 +78,11 @@ function MeetingList({ title, meetings, emptyText, onOpenEvent }) {
                     {formatMeetingDate(ev)}
                     {ev.provisional && ' · Provisional'}
                   </span>
+                  {showNotes && !ev.provisional && (
+                    <span className={`contact-meeting-notes${notesOf(ev).trim() ? '' : ' empty'}`}>
+                      {notesPreview(notesOf(ev), 90) || 'Sin notas'}
+                    </span>
+                  )}
                 </span>
                 <ChevronRight size={16} strokeWidth={1.75} />
               </button>
@@ -357,6 +363,7 @@ export default function ContactsView({
               meetings={past}
               emptyText="Todavía no habéis tenido ninguna reunión."
               onOpenEvent={onOpenEvent}
+              showNotes
             />
           </div>
         )}

@@ -208,3 +208,18 @@
   border: 1.5px dashed var(--event-color);
   box-sizing: border-box;
 }
+
+/* Pequeño icono de notas en la esquina del punto de la reunión. */
+.month-event-dot {
+  position: relative;
+}
+.month-event-dot-notes {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  padding: 1px;
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  box-sizing: content-box;
+}

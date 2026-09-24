@@ -418,6 +418,18 @@
   text-transform: capitalize;
 }
 
+.contact-meeting-notes {
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contact-meeting-notes.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ---------- Móvil: lista y ficha a pantalla completa ---------- */
 
 @media (max-width: 860px) {

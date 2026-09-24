@@ -196,3 +196,8 @@
   font-weight: 600;
   color: var(--text-secondary);
 }
+
+.day-events-modal-notes {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}

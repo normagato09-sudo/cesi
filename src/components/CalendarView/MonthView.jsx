@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { format, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { NotebookPen } from 'lucide-react'
 import { getMonthGridDays, isSameDay, isSameMonth } from '../../lib/dateHelpers'
 import { isEventOnDay } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
+import { hasNotes } from '../../lib/notes'
 import { dragThresholdFor } from '../../lib/dragThreshold'
 import { useMediaQuery } from '../../lib/useMediaQuery'
 import DayEventsModal from '../DayEventsModal.jsx'
@@ -149,7 +151,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        title={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}`}
+                        title={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con notas' : ''}`}
                         aria-label={ev.title}
                         onPointerDown={(e) => handlePointerDown(e, ev, dayIndex)}
                         onPointerMove={handlePointerMove}
@@ -158,6 +160,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         onClick={(e) => handleEventClick(e, ev)}
                       >
                         <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''}`} />
+                        {hasNotes(ev) && <NotebookPen size={8} strokeWidth={2.5} className="month-event-dot-notes" aria-hidden="true" />}
                       </button>
                     ))}
                   </div>
