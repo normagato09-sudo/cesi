@@ -7,6 +7,7 @@ import {
   deleteEvent as storageDeleteEvent,
 } from '../lib/localEvents'
 import { expandEvents } from '../lib/recurrence'
+import { onStoredDataChanged } from '../lib/dataEvents'
 import { findConflict } from '../lib/conflicts'
 import {
   STORAGE_KEY as WORKING_HOURS_KEY,
@@ -27,15 +28,15 @@ export function useLocalCalendar(range) {
     setWorkingHoursState(getWorkingHours())
   }, [])
 
-  // Si la app está abierta en otra pestaña y allí cambian los datos, se actualizan aquí.
-  useEffect(() => {
-    const handleStorage = (e) => {
-      if (e.key === null || e.key === EVENTS_KEY) setRawEvents(getAllEvents())
-      if (e.key === null || e.key === WORKING_HOURS_KEY) setWorkingHoursState(getWorkingHours())
-    }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
-  }, [])
+  // Si cambian los datos en otra pestaña o llegan de otro dispositivo, se actualizan aquí.
+  useEffect(
+    () =>
+      onStoredDataChanged((key) => {
+        if (key === null || key === EVENTS_KEY) setRawEvents(getAllEvents())
+        if (key === null || key === WORKING_HOURS_KEY) setWorkingHoursState(getWorkingHours())
+      }),
+    [],
+  )
 
   const events = useMemo(() => expandEvents(rawEvents, range.start, range.end), [rawEvents, range])
 

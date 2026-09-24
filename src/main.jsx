@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
+import SyncGate from './components/SyncGate.jsx'
 
 // El conversor de hora ya no existe: se borran los últimos países que guardaba.
 try {
@@ -12,6 +12,6 @@ try {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <SyncGate />
   </StrictMode>,
 )

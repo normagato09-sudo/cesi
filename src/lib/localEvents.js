@@ -1,3 +1,5 @@
+import { writeJSON } from './store'
+
 const STORAGE_KEY = 'cesi_events_v1'
 
 function readAll() {
@@ -12,7 +14,7 @@ function readAll() {
 }
 
 function writeAll(events) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events))
+  writeJSON(STORAGE_KEY, events)
 }
 
 function makeId() {

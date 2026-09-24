@@ -1,4 +1,5 @@
 import { normalizeWeek } from './weeklySchedule'
+import { writeJSON } from './store'
 
 const STORAGE_KEY = 'cesi_working_hours_v1'
 
@@ -23,7 +24,7 @@ export function getWorkingHours() {
 }
 
 export function saveWorkingHours(workingHours) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workingHours))
+  writeJSON(STORAGE_KEY, workingHours)
 }
 
 export { STORAGE_KEY }

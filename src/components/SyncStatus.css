@@ -1,0 +1,105 @@
+.sync-status {
+  position: relative;
+}
+
+/* Escritorio: estado, email y botón siempre visibles; el icono-botón solo se usa en móvil. */
+.sync-status-toggle {
+  display: none;
+}
+
+.sync-status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sync-status-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+.sync-status-line svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.status-synced .sync-status-line svg {
+  color: #15803d;
+}
+.status-offline .sync-status-line svg,
+.status-offline .sync-status-toggle {
+  color: #b45309;
+}
+.status-error .sync-status-line svg,
+.status-error .sync-status-toggle {
+  color: #b91c1c;
+}
+
+.sync-status-detail {
+  display: block;
+  color: var(--text-muted);
+}
+
+.sync-status-email {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-status-logout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.sync-status-logout:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+@media (max-width: 860px) {
+  .sync-status-toggle {
+    width: 40px;
+    height: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+  }
+
+  .sync-status-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 60;
+    width: 240px;
+    margin: 0;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+  }
+  .sync-status-panel.open {
+    display: flex;
+  }
+}

@@ -1,25 +1,17 @@
 -- Esquema de Supabase para sincronizar CESI entre dispositivos.
 --
--- Todavía no está conectado: la app guarda los datos en localStorage. Este esquema deja
--- preparada la base de datos para cuando se active la sincronización.
+-- Se ejecuta entero en Supabase → SQL Editor. Se puede volver a ejecutar sin perder datos
+-- (también actualiza una base creada con una versión anterior de este archivo).
 --
--- Cada colección guarda los mismos documentos JSON que la app tiene en localStorage
--- (columna `data`), con el id del documento y el usuario propietario. Las filas borradas
--- se marcan con `deleted_at` para que el borrado también se sincronice.
+-- La app es local-first: guarda todo en localStorage y lo sincroniza con estas tablas.
+-- Cada tabla guarda los mismos documentos JSON que la app tiene en localStorage (columna
+-- `data`), con el id del documento y el usuario propietario.
+--   updated_at         fecha del cambio en el dispositivo que lo hizo. Gana siempre la más
+--                      reciente: el servidor ignora escrituras más antiguas que la guardada.
+--   deleted_at         los borrados son filas marcadas, para que el borrado también se sincronice.
+--   server_updated_at  la pone el servidor en cada cambio; los dispositivos piden "lo que ha
+--                      cambiado desde la última vez" con ella.
 -- Cada usuario solo puede leer y escribir sus propias filas (RLS).
-
--- ---------------------------------------------------------------------------
--- Función común: actualiza updated_at en cada cambio
--- ---------------------------------------------------------------------------
-create or replace function public.cesi_touch_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
 
 -- ---------------------------------------------------------------------------
 -- Reuniones y franjas no disponibles (localStorage: cesi_events_v1)
@@ -34,6 +26,7 @@ create table if not exists public.events (
   data jsonb not null,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
 
@@ -51,6 +44,7 @@ create table if not exists public.contacts (
   data jsonb not null,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
 
@@ -64,20 +58,23 @@ create table if not exists public.groups (
   data jsonb not null,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
 
 -- ---------------------------------------------------------------------------
--- Ajustes de un solo documento por usuario
---   key = 'working_hours' (cesi_working_hours_v1): horario semanal con varias franjas por día
---   key = 'preferences'   (cesi_preferences_v1):   { bufferMinutes }
+-- Ajustes de un solo documento por usuario (id = nombre del ajuste)
+--   id = 'working_hours' (cesi_working_hours_v1): horario semanal con varias franjas por día
+--   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes }
 -- ---------------------------------------------------------------------------
 create table if not exists public.settings (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  key text not null,
+  id text not null,
   data jsonb not null,
   updated_at timestamptz not null default now(),
-  primary key (user_id, key)
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
 );
 
 -- ---------------------------------------------------------------------------
@@ -92,6 +89,7 @@ create table if not exists public.rules (
   data jsonb not null,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
 
@@ -106,23 +104,77 @@ create table if not exists public.proposals (
   data jsonb not null,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
 
 -- ---------------------------------------------------------------------------
--- Triggers, índices y RLS de todas las tablas
+-- Actualización desde la versión anterior de este archivo
 -- ---------------------------------------------------------------------------
+do $$
+begin
+  -- settings tenía la columna `key` en lugar de `id`.
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'settings' and column_name = 'key'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'settings' and column_name = 'id'
+  ) then
+    alter table public.settings rename column key to id;
+  end if;
+end;
+$$;
+
+alter table public.settings add column if not exists deleted_at timestamptz;
+
+-- El trigger antiguo ponía updated_at = now() y rompía "gana el cambio más reciente".
 do $$
 declare
   t text;
 begin
   foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
+    execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
+  end loop;
+end;
+$$;
+
+drop function if exists public.cesi_touch_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Gana el updated_at más reciente
+-- ---------------------------------------------------------------------------
+-- Si llega una escritura más antigua que la guardada (p. ej. de un dispositivo que estuvo sin
+-- conexión), se ignora. En cada cambio aceptado se renueva server_updated_at.
+create or replace function public.cesi_keep_newest()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'UPDATE' and new.updated_at < old.updated_at then
+    return null;
+  end if;
+  new.server_updated_at = clock_timestamp();
+  return new;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Triggers, índices, RLS y Realtime de todas las tablas
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals'] loop
+    execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
-      'create trigger %I_touch before update on public.%I for each row execute function public.cesi_touch_updated_at()',
+      'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',
       t, t
     );
-    execute format('create index if not exists %I_updated_idx on public.%I (user_id, updated_at)', t, t);
+    execute format('drop index if exists public.%I', t || '_updated_idx');
+    execute format('create index if not exists %I on public.%I (user_id, server_updated_at)', t || '_server_updated_idx', t);
 
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "%s: leer las mías" on public.%I', t, t);
@@ -136,6 +188,14 @@ begin
       t, t
     );
     execute format('create policy "%s: borrar las mías" on public.%I for delete using (auth.uid() = user_id)', t, t);
+
+    -- Realtime: los cambios de otro dispositivo llegan solos (respetando RLS).
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception
+      when duplicate_object then null;
+      when undefined_object then null;
+    end;
   end loop;
 end;
 $$;

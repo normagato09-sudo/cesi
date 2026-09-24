@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import { removeKey, writeJSON } from './store'
 import { getAllEvents, STORAGE_KEY as EVENTS_KEY } from './localEvents'
 import { getAllContacts, STORAGE_KEY as CONTACTS_KEY } from './contacts'
 import { getWorkingHours, STORAGE_KEY as WORKING_HOURS_KEY } from './availability'
@@ -93,12 +94,12 @@ export function readBackupFile(file) {
 
 // Sustituye todos los datos actuales por los de la copia.
 export function restoreBackup(data) {
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(data.events))
-  localStorage.setItem(CONTACTS_KEY, JSON.stringify(data.contacts))
+  writeJSON(EVENTS_KEY, data.events)
+  writeJSON(CONTACTS_KEY, data.contacts)
   if (Array.isArray(data.workingHours)) {
-    localStorage.setItem(WORKING_HOURS_KEY, JSON.stringify(data.workingHours))
+    writeJSON(WORKING_HOURS_KEY, data.workingHours)
   } else {
-    localStorage.removeItem(WORKING_HOURS_KEY)
+    removeKey(WORKING_HOURS_KEY)
   }
   restoreOptional(PREFERENCES_KEY, data.preferences)
   for (const { field, key } of OPTIONAL_LISTS) restoreOptional(key, data[field])
@@ -106,6 +107,6 @@ export function restoreBackup(data) {
 
 // Las claves que no existían en versiones antiguas de la copia vuelven a su valor por defecto.
 function restoreOptional(key, value) {
-  if (value === undefined || value === null) localStorage.removeItem(key)
-  else localStorage.setItem(key, JSON.stringify(value))
+  if (value === undefined || value === null) removeKey(key)
+  else writeJSON(key, value)
 }

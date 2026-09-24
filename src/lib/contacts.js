@@ -1,4 +1,5 @@
 import { SPAIN_ZONE, findCountry } from './timezones'
+import { writeJSON } from './store'
 
 const STORAGE_KEY = 'cesi_contacts_v1'
 
@@ -39,7 +40,7 @@ export function validateContactCountry({ country, timeZone }) {
 }
 
 function writeAll(contacts) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts))
+  writeJSON(STORAGE_KEY, contacts)
 }
 
 function makeId() {

@@ -155,6 +155,7 @@
     grid-area: footer;
     margin-top: 0;
     display: flex;
+    gap: 6px;
   }
 
   .sidebar-backup-btn {

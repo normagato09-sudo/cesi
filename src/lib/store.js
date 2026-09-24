@@ -9,8 +9,27 @@ export function readJSON(key, fallback) {
   }
 }
 
-export function writeJSON(key, value) {
+// Avisos de escritura: la sincronización con Supabase se entera así de cada cambio local.
+const writeListeners = new Set()
+
+export function onLocalWrite(listener) {
+  writeListeners.add(listener)
+  return () => writeListeners.delete(listener)
+}
+
+function notifyWrite(key) {
+  for (const listener of writeListeners) listener(key)
+}
+
+// `silent`: escritura que no es un cambio del usuario (p. ej. datos que llegan de la nube).
+export function writeJSON(key, value, { silent = false } = {}) {
   localStorage.setItem(key, JSON.stringify(value))
+  if (!silent) notifyWrite(key)
+}
+
+export function removeKey(key, { silent = false } = {}) {
+  localStorage.removeItem(key)
+  if (!silent) notifyWrite(key)
 }
 
 export function makeId(prefix = 'id') {

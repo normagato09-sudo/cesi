@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { onStoredDataChanged } from '../lib/dataEvents'
 import {
   STORAGE_KEY,
   getAllContacts,
@@ -12,14 +13,14 @@ export function useContacts() {
 
   const refresh = useCallback(() => setContacts(getAllContacts()), [])
 
-  // Sincroniza con otras pestañas donde esté abierta la app.
-  useEffect(() => {
-    const handleStorage = (e) => {
-      if (e.key === null || e.key === STORAGE_KEY) refresh()
-    }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
-  }, [refresh])
+  // Cambios desde otras pestañas o desde otro dispositivo (sincronización).
+  useEffect(
+    () =>
+      onStoredDataChanged((key) => {
+        if (key === null || key === STORAGE_KEY) refresh()
+      }),
+    [refresh],
+  )
 
   const addContact = useCallback(
     (data) => {

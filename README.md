@@ -1,6 +1,6 @@
 # CESI
 
-CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona en el navegador y se puede instalar en el móvil o el ordenador como aplicación (PWA). No necesita servidor ni cuenta: todos los datos se guardan en el propio dispositivo.
+CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona en el navegador y se puede instalar en el móvil o el ordenador como aplicación (PWA). Los datos se guardan en el propio dispositivo y, si se configura Supabase, se sincronizan entre el móvil y el ordenador (ver [Sincronización entre dispositivos](#sincronización-entre-dispositivos-supabase)).
 
 ## Funciones
 
@@ -21,6 +21,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
 - **Sincronización entre pestañas**: si la app está abierta en varias pestañas del mismo navegador, los cambios se reflejan en todas.
+- **Sincronización entre dispositivos** con Supabase (opcional): inicio de sesión con email y contraseña, funciona sin conexión y los cambios de otro dispositivo aparecen solos.
 
 ## Cómo arrancarla
 
@@ -52,11 +53,11 @@ El proyecto está en GitHub y conectado a Vercel:
 2. Vercel detecta el push, ejecuta `npm run build` y publica la carpeta `dist/` automáticamente.
 3. Los pushes a otras ramas generan despliegues de vista previa.
 
-No hace falta configurar variables de entorno.
+Sin variables de entorno la app funciona solo con los datos de cada dispositivo. Para activar la sincronización hay que añadir `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en Vercel (ver abajo).
 
 ## Dónde se guardan los datos
 
-Todo se guarda en el `localStorage` del navegador, **solo en ese dispositivo y en ese navegador**. No se envía nada a ningún servidor.
+Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los datos están **solo en ese dispositivo y en ese navegador** y no se envía nada a ningún servidor. Con Supabase, `localStorage` hace de caché: la app abre al instante y funciona sin conexión, y los cambios se envían a la nube.
 
 | Clave                    | Contenido                                        |
 | ------------------------ | ------------------------------------------------ |
@@ -67,13 +68,43 @@ Todo se guarda en el `localStorage` del navegador, **solo en ese dispositivo y e
 | `cesi_rules_v1`          | Reglas por tipo de reunión.                      |
 | `cesi_proposals_v1`      | Propuestas pendientes.                           |
 | `cesi_groups_v1`         | Grupos de contactos.                             |
+| `cesi_sync_queue_v1`     | Cambios pendientes de enviar a Supabase (solo con sincronización). |
+| `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
+| `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |
 
-`supabase/schema.sql` deja preparadas las tablas (con seguridad por filas) para sincronizar estos datos con Supabase en el futuro; la app todavía no está conectada.
-
-Esto significa que:
+Sin sincronización:
 
 - Los datos del móvil y los del ordenador son independientes.
 - Si borras los datos de navegación del sitio, o usas una ventana privada, los datos se pierden.
+
+## Sincronización entre dispositivos (Supabase)
+
+Con Supabase configurado, la app pide iniciar sesión y mantiene los mismos datos en todos tus dispositivos: reuniones (con notas y opciones provisionales), contactos (con país, zona, disponibilidad y grupos), grupos, horario, preferencias, reglas y propuestas.
+
+- **Local-first**: cada cambio se guarda primero en el dispositivo y después se envía. Sin conexión se queda en una cola que se reintenta al volver la conexión y al volver a la app.
+- Al abrir la app se descargan los cambios, y con Realtime los de otro dispositivo aparecen solos.
+- **Conflictos**: si el mismo dato se cambia en dos dispositivos, gana el cambio más reciente. Los borrados también se sincronizan.
+- **Primer inicio de sesión**: si el dispositivo tiene datos y la cuenta está vacía, ofrece "Subir los datos de este dispositivo". Si hay datos en los dos sitios, pregunta si conservar los de la nube, los de este dispositivo o fusionarlos.
+- En la barra lateral se ve el estado ("Sincronizado", "Sincronizando…" o "Sin conexión, se sincronizará luego") y el botón **Cerrar sesión** (en el móvil, en el icono de la nube junto a las pestañas).
+- La copia de seguridad JSON sigue funcionando igual.
+
+### Cómo activarla
+
+1. **Crear el proyecto**: entra en [supabase.com](https://supabase.com), pulsa **New project**, ponle un nombre (p. ej. `cesi`), elige una región de Europa, escribe una contraseña para la base de datos y crea el proyecto.
+2. **Crear las tablas**: en el proyecto, abre **SQL Editor → New query**, pega todo el contenido de `supabase/schema.sql` y pulsa **Run**. Crea las tablas con seguridad por filas (cada usuario solo ve sus datos) y activa Realtime. Se puede volver a ejecutar sin perder datos.
+3. **Crear tu usuario**: **Authentication → Users → Add user → Create new user**, escribe tu email y una contraseña y marca **Auto Confirm User**.
+4. **Desactivar los registros nuevos** (importante, después de crear tu usuario): **Authentication → Sign In / Providers** (en algunas versiones, **Authentication → Settings**) y desactiva **Allow new users to sign up**. Guarda. Así nadie más puede crearse una cuenta en tu proyecto.
+5. **Copiar las claves**: **Project Settings → API** (o **API Keys**): copia la **Project URL** y la clave **anon public** (o la **publishable key**). Esta clave es pública por diseño (va dentro de la app); los datos los protegen la seguridad por filas y tener los registros desactivados. No uses nunca la clave `service_role` / `secret`.
+6. **En tu ordenador**: copia `.env.example` como `.env.local` y rellena:
+   ```
+   VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJ...
+   ```
+   Reinicia `npm run dev`. `.env.local` no se sube nunca a GitHub (está en `.gitignore`).
+7. **En Vercel**: **Settings → Environment Variables**, añade `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` con los mismos valores (marca Production y Preview) y vuelve a desplegar (**Deployments → ⋯ → Redeploy**): Vite mete las variables al compilar, así que hace falta un despliegue nuevo.
+8. Abre la app, inicia sesión y, la primera vez, pulsa **Subir los datos de este dispositivo** en el dispositivo que ya tenía tus datos. En los demás, inicia sesión y elige qué hacer si también tenían datos.
+
+Si quitas las variables, la app vuelve a funcionar solo con los datos de cada dispositivo.
 
 ## Copia de seguridad
 
@@ -86,4 +117,4 @@ Sirve también para pasar los datos de un dispositivo a otro: descarga la copia 
 
 ## Tecnología
 
-React 19, Vite, date-fns, lucide-react y vite-plugin-pwa.
+React 19, Vite, date-fns, lucide-react, vite-plugin-pwa y @supabase/supabase-js (solo se carga si la sincronización está configurada).

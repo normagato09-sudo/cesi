@@ -1,0 +1,80 @@
+.initial-sync {
+  max-width: 460px;
+}
+
+.initial-sync-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.initial-sync-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.initial-sync-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 14px;
+}
+
+.initial-sync-choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.initial-sync-choice {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-align: left;
+  color: var(--accent);
+  transition: background 0.15s, border-color 0.15s;
+}
+.initial-sync-choice:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.initial-sync-choice:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.initial-sync-choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.initial-sync-choice strong {
+  font-size: 14px;
+  color: var(--text);
+}
+.initial-sync-choice > span > span {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.app-loading {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.initial-sync-backup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

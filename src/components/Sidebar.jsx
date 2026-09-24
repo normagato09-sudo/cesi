@@ -2,6 +2,7 @@ import { BarChart3, CalendarDays, DatabaseBackup, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
+import SyncStatus from './SyncStatus.jsx'
 import './Sidebar.css'
 
 const SECTIONS = [
@@ -55,6 +56,7 @@ export default function Sidebar({
       <MissingNotesPanel meetings={missingNotes} onOpen={onOpenMissingNotes} />
 
       <div className="sidebar-footer">
+        <SyncStatus />
         <button
           type="button"
           className="sidebar-backup-btn"
