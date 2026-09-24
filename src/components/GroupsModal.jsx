@@ -3,7 +3,7 @@ import { Plus, Tags, Trash2, X } from 'lucide-react'
 import { GROUP_COLORS, contactsInGroup, nextGroupColor, normalizeGroupName, validateGroupName } from '../lib/groups'
 import './GroupsModal.css'
 
-function ColorPicker({ value, onChange, label }) {
+export function ColorPicker({ value, onChange, label }) {
   return (
     <div className="group-colors" role="radiogroup" aria-label={label}>
       {GROUP_COLORS.map((color) => (

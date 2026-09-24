@@ -4,6 +4,7 @@ import { X, CalendarPlus, Ban, Search, TriangleAlert } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import TagInput from './TagInput.jsx'
+import ProjectSelect from './ProjectSelect.jsx'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { participantFields, participantsOf } from '../lib/contacts'
 import { allTags } from '../lib/tags'
@@ -80,7 +81,7 @@ export default function EventFormModal({
   onClose,
   onSubmit,
 }) {
-  const { rawEvents } = useScheduling()
+  const { rawEvents, projects, onManageProjects } = useScheduling()
   const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
   const isEditing = !!initialEvent
   // Solo se duplica si el prefill es un evento existente (no un hueco o un participante preseleccionado).
@@ -103,6 +104,7 @@ export default function EventFormModal({
   const [title, setTitle] = useState(!isUnavailable ? seed.title || '' : '')
   const [category, setCategory] = useState(seed.category || CATEGORY_OPTIONS[0])
   const [tags, setTags] = useState(Array.isArray(seed.tags) ? seed.tags : [])
+  const [projectId, setProjectId] = useState(seed.projectId || null)
   const [reason, setReason] = useState(initialReason)
   const [customReason, setCustomReason] = useState(initialCustomReason)
   const [description, setDescription] = useState(seed.description || '')
@@ -225,6 +227,8 @@ export default function EventFormModal({
       meetLink: isUnavailable ? '' : meetLink.trim(),
       category: isUnavailable ? 'No disponible' : category,
       tags: isUnavailable ? [] : tags,
+      // Si el proyecto se ha borrado mientras tanto, la reunión se queda sin proyecto.
+      projectId: isUnavailable || !projects.some((p) => p.id === projectId) ? null : projectId,
       isUnavailable,
       allDay: isUnavailable ? allDay : false,
       start,
@@ -314,6 +318,16 @@ export default function EventFormModal({
               <span id="event-form-tags-label">Etiquetas (opcional)</span>
               <TagInput labelId="event-form-tags-label" value={tags} onChange={setTags} suggestions={tagSuggestions} />
             </div>
+          )}
+
+          {!isUnavailable && (
+            <ProjectSelect
+              id="event-form-project"
+              projects={projects}
+              value={projectId}
+              onChange={setProjectId}
+              onManage={onManageProjects}
+            />
           )}
 
           {isUnavailable && (

@@ -28,6 +28,8 @@ import { dayShift, formatTimeInZone, localTimeZone, sameClock, zonePlace } from 
 import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
 import { copyText } from '../lib/clipboard'
 import { useScheduling } from '../lib/schedulingContext'
+import { projectOf } from '../lib/projects'
+import './ProjectsModal.css'
 import './EventModal.css'
 
 // "18:00 en Ciudad de México" si el contacto está en una zona con otra hora; si no, null.
@@ -67,7 +69,7 @@ export default function EventModal({
   onConfirmOption,
   onCancelProposal,
 }) {
-  const { rawEvents, proposals } = useScheduling()
+  const { rawEvents, proposals, projects = [] } = useScheduling()
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -77,6 +79,7 @@ export default function EventModal({
 
   // Se resuelven en vivo: si se renombra un contacto, aquí aparece ya con el nombre nuevo.
   const { contacts: people, guests } = participantsOf(event, contacts)
+  const project = projectOf(event, projects)
 
   // Reunión provisional: opción de una propuesta pendiente.
   const proposal = isProvisional(event) ? proposals.find((p) => p.id === event.proposalId) : null
@@ -148,6 +151,11 @@ export default function EventModal({
               <Tag size={16} strokeWidth={1.75} />
               <span className="event-modal-tags">
                 <span>{event.category}</span>
+                {project && (
+                  <span className="project-chip" style={{ '--project-color': project.color }} title="Proyecto">
+                    {project.name}
+                  </span>
+                )}
                 {(event.tags || []).map((t) => (
                   <span key={t} className="event-modal-tag">
                     {t}

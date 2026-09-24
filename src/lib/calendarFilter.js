@@ -1,18 +1,22 @@
 import { eventHasTag } from './tags'
+import { NO_PROJECT, NO_PROJECT_LABEL } from './projects'
 
-// Filtro del calendario por categoría y/o etiqueta: { category, tag } (null = cualquiera).
+// Filtro del calendario por categoría, etiqueta y/o proyecto: { category, tag, project }
+// (null = cualquiera; project = NO_PROJECT para las reuniones sin proyecto). Se combinan.
 // Oculta las reuniones que no coinciden; los bloques "No disponible" se siguen viendo.
 
-export const EMPTY_FILTER = { category: null, tag: null }
+export const EMPTY_FILTER = { category: null, tag: null, project: null }
 
 export function isFilterActive(filter) {
-  return !!(filter?.category || filter?.tag)
+  return !!(filter?.category || filter?.tag || filter?.project)
 }
 
 export function eventMatchesFilter(event, filter) {
   if (!isFilterActive(filter) || event.isUnavailable) return true
   if (filter.category && event.category !== filter.category) return false
   if (filter.tag && !eventHasTag(event, filter.tag)) return false
+  if (filter.project === NO_PROJECT && event.projectId) return false
+  if (filter.project && filter.project !== NO_PROJECT && event.projectId !== filter.project) return false
   return true
 }
 
@@ -21,9 +25,15 @@ export function filterEvents(events, filter) {
   return events.filter((ev) => eventMatchesFilter(ev, filter))
 }
 
-// "Cliente · #entrevista"
-export function filterLabel(filter) {
-  return [filter.category, filter.tag && `#${filter.tag}`].filter(Boolean).join(' · ')
+function projectLabel(id, projects) {
+  if (!id) return null
+  if (id === NO_PROJECT) return NO_PROJECT_LABEL
+  return projects.find((p) => p.id === id)?.name || 'Proyecto borrado'
+}
+
+// "Cliente · #entrevista · Curso de doblaje"
+export function filterLabel(filter, projects = []) {
+  return [filter.category, filter.tag && `#${filter.tag}`, projectLabel(filter.project, projects)].filter(Boolean).join(' · ')
 }
 
 // Categorías que se pueden elegir: las de siempre y las que usan las reuniones guardadas.

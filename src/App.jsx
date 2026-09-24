@@ -16,6 +16,7 @@ import ProposalModal from './components/ProposalModal.jsx'
 import ReportView from './components/ReportView.jsx'
 import TeamView from './components/TeamView.jsx'
 import WeeklyAvailabilityModal from './components/WeeklyAvailabilityModal.jsx'
+import ProjectsModal from './components/ProjectsModal.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -37,6 +38,7 @@ import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { AREAS_KEY, addArea, getTeamAreas, saveTeamAreas } from './lib/team.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
+import { STORAGE_KEY as PROJECTS_KEY, getAllProjects, projectsStore, unlinkProject } from './lib/projects.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -87,6 +89,7 @@ export default function App() {
   const [proposalModalId, setProposalModalId] = useState(null)
   // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
   const [weekModalKey, setWeekModalKey] = useState(null)
+  const [projectsOpen, setProjectsOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -128,12 +131,25 @@ export default function App() {
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
   const [teamAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getTeamAreas)
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
+  const [projects, reloadProjects] = useStoredValue(PROJECTS_KEY, getAllProjects)
   const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
   const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
   const scheduling = useMemo(
-    () => ({ rawEvents, workingHours, weeklyAvailability, preferences, rules, contacts, addContact, proposals, groups }),
-    [rawEvents, workingHours, weeklyAvailability, preferences, rules, contacts, addContact, proposals, groups],
+    () => ({
+      rawEvents,
+      workingHours,
+      weeklyAvailability,
+      preferences,
+      rules,
+      contacts,
+      addContact,
+      proposals,
+      groups,
+      projects,
+      onManageProjects: () => setProjectsOpen(true),
+    }),
+    [rawEvents, workingHours, weeklyAvailability, preferences, rules, contacts, addContact, proposals, groups, projects],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -159,6 +175,7 @@ export default function App() {
         title: data.title,
         category: data.category,
         tags: data.tags,
+        projectId: data.projectId || null,
         ...participantFields(people, data.guests),
         description: '',
         meetLink: '',
@@ -229,6 +246,7 @@ export default function App() {
     reloadGroups()
     reloadTeamAreas()
     reloadWeeklyAvailability()
+    reloadProjects()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -280,6 +298,27 @@ export default function App() {
     for (const { id: contactId, groupIds } of contactsWithoutGroup(id, contacts)) editContact(contactId, { groupIds })
     groupsStore.remove(id)
     reloadGroups()
+  }
+
+  const handleCreateProject = (data) => {
+    projectsStore.create(data)
+    reloadProjects()
+  }
+
+  const handleUpdateProject = (id, patch) => {
+    projectsStore.update(id, patch)
+    reloadProjects()
+  }
+
+  // Al borrar un proyecto sus reuniones (y propuestas) se conservan, sin proyecto.
+  const handleDeleteProject = (id) => {
+    const { eventIds, proposalIds } = unlinkProject(id, rawEvents, proposals)
+    for (const eventId of eventIds) editEvent(eventId, { projectId: null })
+    for (const proposalId of proposalIds) proposalsStore.update(proposalId, { projectId: null })
+    projectsStore.remove(id)
+    reloadProjects()
+    reloadProposals()
+    if (calendarFilter.project === id) setCalendarFilter({ ...calendarFilter, project: null })
   }
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
@@ -480,6 +519,7 @@ export default function App() {
               weeklyAvailability={weeklyAvailability}
               contacts={contacts}
               groups={groups}
+              projects={projects}
               now={now}
               onOpenEvent={openEvent}
             />
@@ -502,6 +542,8 @@ export default function App() {
               filter={calendarFilter}
               onFilterChange={setCalendarFilter}
               rawEvents={rawEvents}
+              projects={projects}
+              onManageProjects={() => setProjectsOpen(true)}
             />
 
             <div className="app-calendar-body">
@@ -611,6 +653,17 @@ export default function App() {
             rules={rules}
             onSave={handleSavePreferences}
             onClose={() => setAvailabilityOpen(false)}
+          />
+        )}
+
+        {projectsOpen && (
+          <ProjectsModal
+            projects={projects}
+            rawEvents={rawEvents}
+            onCreate={handleCreateProject}
+            onUpdate={handleUpdateProject}
+            onDelete={handleDeleteProject}
+            onClose={() => setProjectsOpen(false)}
           />
         )}
       </div>

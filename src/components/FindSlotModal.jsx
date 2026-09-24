@@ -5,6 +5,7 @@ import { X, Search, CalendarClock, ListChecks, Send, ArrowLeft, CircleCheck } fr
 import TagInput from './TagInput.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import ProposalShare from './ProposalShare.jsx'
+import ProjectSelect from './ProjectSelect.jsx'
 import { MAX_OPTIONS, MIN_OPTIONS, proposalShareData } from '../lib/proposals'
 import { explainNoSlots, findFirstSlot, findBestSlot, findMultipleSlots, rulesExceededByDuration } from '../lib/findSlots'
 import { hasAvailability, slotLocalNotes } from '../lib/contactAvailability'
@@ -52,7 +53,8 @@ export default function FindSlotModal({
   onCreateProposal,
   onClose,
 }) {
-  const { rawEvents, preferences, workingHours, weeklyAvailability, rules, contacts, addContact } = useScheduling()
+  const { rawEvents, preferences, workingHours, weeklyAvailability, rules, contacts, addContact, projects = [], onManageProjects } =
+    useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
@@ -74,6 +76,7 @@ export default function FindSlotModal({
   const [step, setStep] = useState('search')
   const [picked, setPicked] = useState([])
   const [proposalTitle, setProposalTitle] = useState('')
+  const [proposalProjectId, setProposalProjectId] = useState(null)
   const [proposalError, setProposalError] = useState(null)
   const [created, setCreated] = useState(null)
 
@@ -158,6 +161,7 @@ export default function FindSlotModal({
       durationMinutes,
       category: category || CATEGORY_OPTIONS[0],
       tags,
+      projectId: projects.some((p) => p.id === proposalProjectId) ? proposalProjectId : null,
       participantIds: participantSelection.participantIds,
       guests: participantSelection.guests,
       slots: pickedSlots,
@@ -235,6 +239,14 @@ export default function FindSlotModal({
                 </select>
               </label>
             </div>
+            <ProjectSelect
+              id="find-slot-proposal-project"
+              className="find-slot-field"
+              projects={projects}
+              value={proposalProjectId}
+              onChange={setProposalProjectId}
+              onManage={onManageProjects}
+            />
             <div className="find-slot-field">
               <span id="find-slot-proposal-tags">Etiquetas</span>
               <TagInput labelId="find-slot-proposal-tags" value={tags} onChange={setTags} suggestions={tagSuggestions} />

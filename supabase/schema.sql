@@ -17,7 +17,7 @@
 -- Reuniones y franjas no disponibles (localStorage: cesi_events_v1)
 -- data: { title, start, end, category, tags, participantIds, guests, participants,
 --         meetLink, description, isUnavailable, allDay, recurrence,
---         provisional, proposalId (opciones de una propuesta),
+--         provisional, proposalId (opciones de una propuesta), projectId (tabla projects) o null,
 --         notes (reunión única) o notesByDate { 'AAAA-MM-DD': texto } (reunión que se repite) }
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
@@ -100,7 +100,7 @@ create table if not exists public.rules (
 
 -- ---------------------------------------------------------------------------
 -- Propuestas de varias opciones (localStorage: cesi_proposals_v1)
--- data: { title, durationMinutes, category, tags, participantIds, guests }
+-- data: { title, durationMinutes, category, tags, projectId, participantIds, guests }
 -- Cada opción es una fila de events con data.provisional = true y data.proposalId = id.
 -- ---------------------------------------------------------------------------
 create table if not exists public.proposals (
@@ -121,6 +121,21 @@ create table if not exists public.proposals (
 -- Si una semana está declarada, sustituye al horario habitual esos 7 días.
 -- ---------------------------------------------------------------------------
 create table if not exists public.weekly_availability (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Proyectos de las reuniones (localStorage: cesi_projects_v1)
+-- data: { name, color, status: 'active' | 'archived' }. Cada reunión tiene como mucho uno
+-- (events.data.projectId). Al borrar un proyecto, sus reuniones se quedan sin proyecto.
+-- ---------------------------------------------------------------------------
+create table if not exists public.projects (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   id text not null,
   data jsonb not null,
@@ -155,7 +170,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
   end loop;
@@ -189,7 +204,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects'] loop
     execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
       'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',

@@ -1,0 +1,52 @@
+/* Encima del formulario de reunión, desde el que también se abre. */
+.projects-backdrop {
+  z-index: 110;
+}
+
+.projects-subtitle {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.projects-hint {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.project-archived .group-row-main input {
+  color: var(--text-secondary);
+}
+
+.project-row-archive:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+}
+
+/* Chip de proyecto (ficha de la reunión, formulario y resumen) */
+.project-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px 1px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--project-color) 35%, transparent);
+  background: color-mix(in srgb, var(--project-color) 12%, var(--surface));
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  max-width: 100%;
+}
+.project-chip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--project-color);
+  flex-shrink: 0;
+}

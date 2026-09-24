@@ -5,6 +5,7 @@ import { scheduleIntervalsOn } from './weeklyAvailability'
 import { participantsOf } from './contacts'
 import { isRealMeeting } from './notes'
 import { normalizeTag, tagKey } from './tags'
+import { NO_PROJECT, NO_PROJECT_LABEL, projectOf } from './projects'
 
 // Resumen semanal (sección "Resumen"). Semanas de lunes a domingo.
 // Solo cuentan las reuniones: no los bloques "No disponible" ni las opciones provisionales.
@@ -71,7 +72,7 @@ function weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability) {
 /**
  * Resumen de la semana que empieza en `weekStart` (lunes), comparado con la anterior.
  */
-export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability = [], contacts = [], groups = [] }) {
+export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability = [], contacts = [], groups = [], projects = [] }) {
   const current = weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability)
   const previous = weekTotals(rawEvents, addWeeks(weekStart, -1), workingHours, weeklyAvailability)
   const { meetings, days } = current
@@ -91,6 +92,16 @@ export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weekly
           return true
         })
         .map((t) => ({ key: tagKey(t), label: normalizeTag(t), ms: durationOf(m) }))
+    }),
+  )
+
+  // Por proyecto; las reuniones sin proyecto (o de uno borrado) van en "Sin proyecto".
+  const byProject = tally(
+    meetings.map((m) => {
+      const project = projectOf(m, projects)
+      return project
+        ? { key: project.id, label: project.name, ms: durationOf(m), extra: { color: project.color } }
+        : { key: NO_PROJECT, label: NO_PROJECT_LABEL, ms: durationOf(m), extra: { color: null } }
     }),
   )
 
@@ -124,6 +135,7 @@ export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weekly
     byCategory,
     byTag,
     byGroup,
+    byProject,
     topContacts,
     previous: { count: previous.meetings.length, meetingMs: previous.meetingMs, freeMs: previous.freeMs },
     delta: {

@@ -8,6 +8,7 @@ import { STORAGE_KEY as WORKING_HOURS_KEY } from '../availability'
 import { STORAGE_KEY as PREFERENCES_KEY } from '../preferences'
 import { AREAS_KEY } from '../team'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY } from '../weeklyAvailability'
+import { STORAGE_KEY as PROJECTS_KEY } from '../projects'
 
 // Qué se sincroniza y dónde vive en cada lado.
 // - Listas (kind 'list'): una fila por documento { id, ... } de la lista guardada en `key`.
@@ -19,6 +20,7 @@ export const LIST_COLLECTIONS = [
   { table: 'rules', key: RULES_KEY },
   { table: 'proposals', key: PROPOSALS_KEY },
   { table: 'weekly_availability', key: WEEKLY_AVAILABILITY_KEY },
+  { table: 'projects', key: PROJECTS_KEY },
 ]
 
 export const SETTINGS_TABLE = 'settings'

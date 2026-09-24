@@ -23,6 +23,8 @@ export default function CalendarHeader({
   filter = EMPTY_FILTER,
   onFilterChange,
   rawEvents = [],
+  projects = [],
+  onManageProjects,
 }) {
   return (
     <>
@@ -64,7 +66,13 @@ export default function CalendarHeader({
               <Search size={15} strokeWidth={1.75} />
               <span className="header-action-label">Buscar hueco</span>
             </button>
-            <CalendarFilterButton filter={filter} onChange={onFilterChange} rawEvents={rawEvents} />
+            <CalendarFilterButton
+              filter={filter}
+              onChange={onFilterChange}
+              rawEvents={rawEvents}
+              projects={projects}
+              onManageProjects={onManageProjects}
+            />
           </div>
 
           <div className="view-switch">
@@ -100,7 +108,7 @@ export default function CalendarHeader({
           </button>
         </div>
       </header>
-      <CalendarFilterBar filter={filter} onChange={onFilterChange} />
+      <CalendarFilterBar filter={filter} onChange={onFilterChange} projects={projects} />
     </>
   )
 }

@@ -105,11 +105,11 @@ function Breakdown({ title, rows, total, empty, dotColor }) {
   )
 }
 
-export default function ReportView({ rawEvents, workingHours, weeklyAvailability = [], contacts, groups, now, onOpenEvent }) {
+export default function ReportView({ rawEvents, workingHours, weeklyAvailability = [], contacts, groups, projects = [], now, onOpenEvent }) {
   const [weekStart, setWeekStart] = useState(() => weekStartOf(now))
   const report = useMemo(
-    () => computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability, contacts, groups }),
-    [rawEvents, weekStart, workingHours, weeklyAvailability, contacts, groups],
+    () => computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability, contacts, groups, projects }),
+    [rawEvents, weekStart, workingHours, weeklyAvailability, contacts, groups, projects],
   )
   const isThisWeek = isSameDay(weekStart, weekStartOf(now))
   const maxOf = (rows) => Math.max(0, ...rows.map((r) => r.ms))
@@ -179,6 +179,13 @@ export default function ReportView({ rawEvents, workingHours, weeklyAvailability
             total={maxOf(report.byCategory)}
             empty="Sin reuniones."
             dotColor={(r) => colorForEvent({ category: r.key })}
+          />
+          <Breakdown
+            title="Por proyecto"
+            rows={report.byProject}
+            total={maxOf(report.byProject)}
+            empty="Sin reuniones."
+            dotColor={(r) => r.color || '#9aa1ac'}
           />
           <Breakdown title="Por etiqueta" rows={report.byTag} total={maxOf(report.byTag)} empty="Ninguna reunión con etiquetas." />
           <Breakdown

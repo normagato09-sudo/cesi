@@ -138,3 +138,21 @@
     font-size: 12.5px;
   }
 }
+
+.calendar-filter-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-filter-manage {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.calendar-filter-manage:hover {
+  text-decoration: underline;
+}

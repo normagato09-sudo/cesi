@@ -1,0 +1,27 @@
+.project-select-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-select-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.project-select-manage:hover {
+  text-decoration: underline;
+}
+
+.project-select-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
