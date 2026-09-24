@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { X, DatabaseBackup, Download, Upload } from 'lucide-react'
 import { downloadBackup, readBackupFile, restoreBackup } from '../lib/backup'
+import { useSync } from '../lib/sync/syncContext'
 import './EventFormModal.css'
 import './BackupModal.css'
 
@@ -10,6 +11,7 @@ function plural(n, one, many) {
 
 export default function BackupModal({ onClose, onRestored }) {
   const fileRef = useRef(null)
+  const synced = !!useSync()
   const [status, setStatus] = useState(null)
 
   const handleDownload = () => {
@@ -34,7 +36,8 @@ export default function BackupModal({ onClose, onRestored }) {
       const ok = window.confirm(
         `Vas a importar una copia con ${plural(data.events.length, 'reunión', 'reuniones')} y ` +
           `${plural(data.contacts.length, 'contacto', 'contactos')}.\n\n` +
-          'Esto SUSTITUYE todos los datos actuales de este dispositivo (reuniones, contactos, horario, preferencias, reglas y propuestas). ¿Continuar?',
+          (synced ? 'Esto SUSTITUYE todos los datos actuales de este dispositivo y de tu cuenta (' : 'Esto SUSTITUYE todos los datos actuales de este dispositivo (') +
+          'reuniones con sus notas, contactos, grupos, horario, preferencias, reglas y propuestas). ¿Continuar?',
       )
       if (!ok) return
       restoreBackup(data)
@@ -60,8 +63,9 @@ export default function BackupModal({ onClose, onRestored }) {
 
         <div className="event-form-body">
           <p className="backup-hint">
-            Tus reuniones y contactos se guardan solo en este dispositivo, en este navegador. Descarga una copia de
-            vez en cuando para no perderlos o para pasarlos a otro dispositivo.
+            {synced
+              ? 'Tus datos se guardan en este dispositivo y se sincronizan con tu cuenta. Al importar una copia también se sustituyen los datos de tu cuenta en todos tus dispositivos.'
+              : 'Tus reuniones y contactos se guardan solo en este dispositivo, en este navegador. Descarga una copia de vez en cuando para no perderlos o para pasarlos a otro dispositivo.'}
           </p>
 
           <button type="button" className="backup-action" onClick={handleDownload}>
