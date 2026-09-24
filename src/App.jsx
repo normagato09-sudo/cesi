@@ -27,6 +27,7 @@ import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from 
 import { SchedulingContext } from './lib/schedulingContext.js'
 import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules, rulesStore } from './lib/rules.js'
 import { expandEvents } from './lib/recurrence.js'
+import { bufferWarningsFor } from './lib/buffer.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -178,6 +179,12 @@ export default function App() {
     return checkMeetingAgainstRules(meeting, rules, expandEvents(rawEvents, dayStart, dayEnd), { excludeSeriesId })
   }
 
+  // Avisos que no bloquean: reglas por tipo y margen con la reunión anterior o la siguiente.
+  const warningsFor = (meeting, excludeSeriesId) => [
+    ...ruleViolationsFor(meeting, excludeSeriesId).map((v) => ({ ...v, type: 'rule' })),
+    ...bufferWarningsFor(meeting, rawEvents, preferences.bufferMinutes, { excludeSeriesId }),
+  ]
+
   const handleBackupRestored = () => {
     reloadCalendar()
     reloadContacts()
@@ -240,7 +247,7 @@ export default function App() {
       window.alert('Esta franja ya está ocupada.')
       return
     }
-    const violations = ruleViolationsFor({ ...event, start: newStart, end: newEnd }, event.seriesId)
+    const violations = warningsFor({ ...event, start: newStart, end: newEnd }, event.seriesId)
     if (violations.length > 0) {
       const reasons = violations.map((v) => `• ${v.message}`).join('\n')
       if (!window.confirm(`${reasons}\n\n¿Guardar igualmente?`)) return
@@ -268,7 +275,7 @@ export default function App() {
       throw new Error('Esta franja ya está ocupada.')
     }
     if (!ignoreRules) {
-      const violations = ruleViolationsFor(values, excludeSeriesId)
+      const violations = warningsFor(values, excludeSeriesId)
       if (violations.length > 0) throw new RuleWarning(violations)
     }
 

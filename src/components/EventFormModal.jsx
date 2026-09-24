@@ -61,6 +61,15 @@ function diffMinutes(startTime, endTime) {
   return eh * 60 + em - (sh * 60 + sm)
 }
 
+// Título del aviso según lo que incumple: reglas por tipo, margen entre reuniones o ambos.
+function warningTitle(violations) {
+  const rules = violations.some((v) => v.type !== 'buffer')
+  const buffer = violations.some((v) => v.type === 'buffer')
+  if (rules && buffer) return 'Esta reunión no cumple tus reglas ni el margen entre reuniones'
+  if (buffer) return 'Esta reunión no respeta el margen entre reuniones'
+  return 'Esta reunión no cumple tus reglas'
+}
+
 export default function EventFormModal({
   mode,
   initialEvent,
@@ -226,7 +235,7 @@ export default function EventFormModal({
     await save(payload)
   }
 
-  // Si la reunión incumple alguna regla por tipo, se muestra el aviso y se puede guardar igualmente.
+  // Si la reunión incumple alguna regla por tipo o el margen entre reuniones, se muestra el aviso y se puede guardar igualmente.
   const save = async (payload, options) => {
     setSubmitting(true)
     setRuleWarning(null)
@@ -452,7 +461,7 @@ export default function EventFormModal({
             <div className="event-form-warning" role="alert">
               <p className="event-form-warning-title">
                 <TriangleAlert size={15} strokeWidth={1.75} />
-                Esta reunión no cumple tus reglas
+                {warningTitle(ruleWarning.violations)}
               </p>
               <ul>
                 {ruleWarning.violations.map((v, i) => (
