@@ -5,6 +5,10 @@ import { SyncEngine } from './engine'
 import { loadQueue } from './queue'
 import { createEvent, deleteEvent, getAllEvents, updateEvent } from '../localEvents'
 import { getPreferences, savePreferences } from '../preferences'
+import { declareWeek, getAllWeeklyAvailability, saveWeeklyAvailability } from '../weeklyAvailability'
+import { getAllProjects, projectsStore } from '../projects'
+import { getAllVacancies, newVacancy, vacanciesStore } from '../vacancies'
+import { emptyWeek } from '../weeklySchedule'
 
 const USER = 'user-1'
 const originalStorage = globalThis.localStorage
@@ -174,6 +178,32 @@ describe('sincronización entre dispositivos', () => {
     await pc.sync()
     expect(server.row('events', ev.id).data.title).toBe('Nuevo en el ordenador')
     expect(phone.events()[0].title).toBe('Nuevo en el ordenador')
+  })
+
+  it('sincroniza la disponibilidad semanal, los proyectos y las vacantes (también sin conexión)', async () => {
+    const server = createFakeSupabase()
+    const pc = device(server)
+    const phone = device(server)
+    await pc.start()
+    await phone.start()
+
+    await pc.save(() => saveWeeklyAvailability(declareWeek([], '2026-09-28', emptyWeek())))
+    const project = await pc.save(() => projectsStore.create({ name: 'Curso de radio', color: '#16a34a' }))
+    expect(server.row('weekly_availability', 'wk_2026-09-28').data.weekStart).toBe('2026-09-28')
+    expect(phone.run(() => getAllWeeklyAvailability()).map((w) => w.id)).toEqual(['wk_2026-09-28'])
+    expect(phone.run(() => getAllProjects()).map((p) => p.name)).toEqual(['Curso de radio'])
+
+    phone.setOnline(false)
+    server.setOnline(false)
+    const vacancy = await phone.save(() => vacanciesStore.create(newVacancy({ title: 'Locutor/a' })))
+    await phone.save(() => projectsStore.update(project.id, { status: 'archived' }))
+    expect(phone.status().status).toBe('offline')
+    phone.setOnline(true)
+    server.setOnline(true)
+    await phone.sync()
+    expect(server.row('vacancies', vacancy.id).data.title).toBe('Locutor/a')
+    expect(pc.run(() => getAllVacancies()).map((v) => v.title)).toEqual(['Locutor/a'])
+    expect(pc.run(() => getAllProjects())[0].status).toBe('archived')
   })
 
   it('sincroniza también las preferencias (tabla settings)', async () => {
