@@ -500,3 +500,14 @@
 .find-slot-picked-text .find-slot-result-warning {
   text-transform: none;
 }
+
+/* "Usando tu disponibilidad de la semana del 28 sep" */
+.find-slot-schedule-note {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: #1e40af;
+  font-size: 12.5px;
+  line-height: 1.5;
+}

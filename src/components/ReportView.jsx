@@ -105,11 +105,11 @@ function Breakdown({ title, rows, total, empty, dotColor }) {
   )
 }
 
-export default function ReportView({ rawEvents, workingHours, contacts, groups, now, onOpenEvent }) {
+export default function ReportView({ rawEvents, workingHours, weeklyAvailability = [], contacts, groups, now, onOpenEvent }) {
   const [weekStart, setWeekStart] = useState(() => weekStartOf(now))
   const report = useMemo(
-    () => computeWeeklyReport(rawEvents, { weekStart, workingHours, contacts, groups }),
-    [rawEvents, weekStart, workingHours, contacts, groups],
+    () => computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability, contacts, groups }),
+    [rawEvents, weekStart, workingHours, weeklyAvailability, contacts, groups],
   )
   const isThisWeek = isSameDay(weekStart, weekStartOf(now))
   const maxOf = (rows) => Math.max(0, ...rows.map((r) => r.ms))

@@ -1,7 +1,8 @@
 import { addDays, startOfDay, endOfDay, isSameDay, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
-import { slotIntervalsOn, timeToMinutes } from './weeklySchedule'
+import { timeToMinutes } from './weeklySchedule'
+import { scheduleIntervalsOn } from './weeklyAvailability'
 import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
 import { countOfTypeOnDay, ruleWindowsOn, rulesForType } from './rules'
 import { blockingMessage, commonAvailability, hasAvailability } from './contactAvailability'
@@ -41,7 +42,8 @@ export function rulesExceededByDuration(rules, meetingType, durationMinutes) {
 
 /**
  * Busca huecos libres de `durationMinutes` entre fromDate y toDate (incl.).
- * Es estricto: solo propone huecos dentro de las franjas del horario habitual, y además
+ * Es estricto: solo propone huecos dentro de las franjas del horario de cada día (el de su semana
+ * declarada en `weeklyAvailability` o, si no está declarada, el habitual), y además
  * dentro de [minTime, maxTime) si se indican. Cada bloque ocupado se amplía con `bufferMinutes`.
  * Si se indica `meetingType` ({ category, tags }), se aplican también las reglas activas de ese
  * tipo: días y franja permitidos, duración máxima y máximo de reuniones por día.
@@ -56,6 +58,7 @@ export function findSlots({
   maxTime = '24:00',
   events,
   workingHours = getWorkingHours(),
+  weeklyAvailability = [],
   bufferMinutes = 0,
   rules = [],
   meetingType = null,
@@ -92,7 +95,7 @@ export function findSlots({
 
     const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(maxTime)) }]
     const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
-    let windows = intersectIntervals(intersectIntervals(slotIntervalsOn(workingHours, day), filter), future)
+    let windows = intersectIntervals(intersectIntervals(scheduleIntervalsOn(day, workingHours, weeklyAvailability), filter), future)
     for (const rule of applicable) windows = intersectIntervals(windows, ruleWindowsOn(rule, day))
     // Disponibilidad de los participantes, convertida desde su zona horaria a la mía.
     const theirs = commonAvailability(participants, day, addDays(day, 1))

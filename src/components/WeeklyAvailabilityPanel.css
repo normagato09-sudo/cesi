@@ -1,0 +1,94 @@
+.week-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+}
+
+.week-notice-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #1e3a8a;
+}
+.week-notice-text svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.week-notice-text strong {
+  display: block;
+  font-weight: 600;
+}
+
+.week-notice-range {
+  display: block;
+  font-size: 12px;
+  color: #1d4ed8;
+}
+
+.week-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.week-notice-btn {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #bfdbfe;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  color: #1e40af;
+}
+.week-notice-btn:hover {
+  background: #dbeafe;
+}
+.week-notice-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.week-notice-btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 860px) {
+  /* Compacto: una fila con el texto y los botones. */
+  .week-notice {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+  }
+  .week-notice-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .week-notice-range {
+    display: none;
+  }
+  .week-notice-actions {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  .week-notice-btn {
+    padding: 6px 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .week-notice {
+    flex-wrap: wrap;
+  }
+  .week-notice-text {
+    flex-basis: 100%;
+  }
+}

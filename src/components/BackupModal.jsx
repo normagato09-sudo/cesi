@@ -37,7 +37,7 @@ export default function BackupModal({ onClose, onRestored }) {
         `Vas a importar una copia con ${plural(data.events.length, 'reunión', 'reuniones')} y ` +
           `${plural(data.contacts.length, 'contacto', 'contactos')}.\n\n` +
           (synced ? 'Esto SUSTITUYE todos los datos actuales de este dispositivo y de tu cuenta (' : 'Esto SUSTITUYE todos los datos actuales de este dispositivo (') +
-          'reuniones con sus notas, contactos, grupos, horario, preferencias, reglas y propuestas). ¿Continuar?',
+          'reuniones con sus notas, contactos, grupos, horario, disponibilidad de cada semana, preferencias, reglas y propuestas). ¿Continuar?',
       )
       if (!ok) return
       restoreBackup(data)

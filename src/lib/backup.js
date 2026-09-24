@@ -8,14 +8,16 @@ import { getAllRules, STORAGE_KEY as RULES_KEY } from './rules'
 import { getAllProposals, STORAGE_KEY as PROPOSALS_KEY } from './proposals'
 import { getAllGroups, STORAGE_KEY as GROUPS_KEY } from './groups'
 import { AREAS_KEY, getTeamAreas } from './team'
+import { getAllWeeklyAvailability, STORAGE_KEY as WEEKLY_AVAILABILITY_KEY } from './weeklyAvailability'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
 // v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
 // su foto (photo); las fotos no van en la copia. v7 añade teamAreas (áreas del equipo) y los
-// contactos pueden llevar teamProfile (perfil de equipo).
+// contactos pueden llevar teamProfile (perfil de equipo). v8 añade weeklyAvailability (disponibilidad
+// declarada semana a semana).
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; las
 // notas de las reuniones (notes / notesByDate), dentro de events.
-const BACKUP_VERSION = 7
+const BACKUP_VERSION = 8
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -23,6 +25,7 @@ const OPTIONAL_LISTS = [
   { field: 'proposals', key: PROPOSALS_KEY, label: 'las propuestas' },
   { field: 'groups', key: GROUPS_KEY, label: 'los grupos' },
   { field: 'teamAreas', key: AREAS_KEY, label: 'las áreas del equipo' },
+  { field: 'weeklyAvailability', key: WEEKLY_AVAILABILITY_KEY, label: 'la disponibilidad semanal' },
 ]
 
 export function buildBackup() {
@@ -38,6 +41,7 @@ export function buildBackup() {
     proposals: getAllProposals(),
     groups: getAllGroups(),
     teamAreas: getTeamAreas(),
+    weeklyAvailability: getAllWeeklyAvailability(),
   }
 }
 

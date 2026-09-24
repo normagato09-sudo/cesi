@@ -2,6 +2,7 @@ import { BadgeCheck, BarChart3, CalendarDays, DatabaseBackup, Users } from 'luci
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
+import WeeklyAvailabilityPanel from './WeeklyAvailabilityPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
 import './Sidebar.css'
 
@@ -22,6 +23,9 @@ export default function Sidebar({
   onOpenProposal,
   missingNotes = [],
   onOpenMissingNotes,
+  pendingWeek = null,
+  onDeclareWeek,
+  onDismissWeek,
 }) {
   return (
     <aside className={`sidebar section-${section}`}>
@@ -49,6 +53,8 @@ export default function Sidebar({
           </button>
         ))}
       </nav>
+
+      <WeeklyAvailabilityPanel pending={pendingWeek} onDeclare={onDeclareWeek} onDismiss={onDismissWeek} />
 
       <SummaryPanel summary={summary} now={now} />
 

@@ -114,6 +114,23 @@ create table if not exists public.proposals (
 );
 
 -- ---------------------------------------------------------------------------
+-- Disponibilidad declarada semana a semana (localStorage: cesi_weekly_availability_v1)
+-- id = 'wk_' + lunes de la semana (p. ej. 'wk_2026-09-28'), uno por semana.
+-- data: { weekStart: 'AAAA-MM-DD' (lunes), week: horario semanal con varias franjas por día
+--         o null (se usa el horario habitual), dismissed: true si elegí el horario habitual }
+-- Si una semana está declarada, sustituye al horario habitual esos 7 días.
+-- ---------------------------------------------------------------------------
+create table if not exists public.weekly_availability (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Actualización desde la versión anterior de este archivo
 -- ---------------------------------------------------------------------------
 do $$
@@ -138,7 +155,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
   end loop;
@@ -172,7 +189,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability'] loop
     execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
       'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',

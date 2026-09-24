@@ -1,6 +1,6 @@
 import { startOfWeek, endOfWeek, startOfDay, endOfDay, addDays } from 'date-fns'
 import { expandEvents } from './recurrence'
-import { slotIntervalsOn } from './weeklySchedule'
+import { scheduleIntervalsOn } from './weeklyAvailability'
 
 const WEEK_OPTS = { weekStartsOn: 1 }
 export const WEEKDAY_SHORT_LABELS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
@@ -11,9 +11,10 @@ function clip(aStart, aEnd, bStart, bEnd) {
   return end > start ? end - start : 0
 }
 
-// Si hoy no hay horario habitual, se usa 09:00–18:00 como referencia para las horas libres.
-function referenceIntervals(workingHours, now) {
-  const intervals = slotIntervalsOn(workingHours, now)
+// Horario de hoy: el de su semana declarada o el habitual. Si hoy no hay horario, se usa
+// 09:00–18:00 como referencia para las horas libres.
+function referenceIntervals(workingHours, weeklyAvailability, now) {
+  const intervals = scheduleIntervalsOn(now, workingHours, weeklyAvailability)
   if (intervals.length > 0) return intervals
   const start = new Date(now)
   start.setHours(9, 0, 0, 0)
@@ -22,7 +23,7 @@ function referenceIntervals(workingHours, now) {
   return [{ start, end }]
 }
 
-export function computeSummary(events, workingHours, now = new Date()) {
+export function computeSummary(events, workingHours, now = new Date(), weeklyAvailability = []) {
   const todayStart = startOfDay(now)
   const todayEnd = endOfDay(now)
   const weekStart = startOfWeek(now, WEEK_OPTS)
@@ -31,7 +32,7 @@ export function computeSummary(events, workingHours, now = new Date()) {
   const weekOccurrences = expandEvents(events, weekStart, weekEnd)
   const todayOccurrences = weekOccurrences.filter((ev) => ev.start < todayEnd && ev.end > todayStart)
 
-  const refIntervals = referenceIntervals(workingHours, now)
+  const refIntervals = referenceIntervals(workingHours, weeklyAvailability, now)
   const refTotalMs = refIntervals.reduce((sum, r) => sum + (r.end - r.start), 0)
 
   const occupiedTodayMs = todayOccurrences.reduce(

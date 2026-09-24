@@ -12,6 +12,7 @@ import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { describeRule, formatMinutes, ruleTargetLabel, rulesForType } from '../lib/rules'
 import { allTags } from '../lib/tags'
 import { useScheduling } from '../lib/schedulingContext'
+import { scheduleSourceText } from '../lib/weeklyAvailability'
 import './FindSlotModal.css'
 
 function toDateInputValue(date) {
@@ -51,7 +52,7 @@ export default function FindSlotModal({
   onCreateProposal,
   onClose,
 }) {
-  const { rawEvents, preferences, workingHours, rules, contacts, addContact } = useScheduling()
+  const { rawEvents, preferences, workingHours, weeklyAvailability, rules, contacts, addContact } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
@@ -80,6 +81,11 @@ export default function FindSlotModal({
   const meetingType = category || tags.length ? { category: category || null, tags } : null
   const activeRules = meetingType ? rulesForType(rules, meetingType) : []
   const people = participantSelection.participantIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean)
+  // ¿Alguna semana del rango tiene la disponibilidad declarada?
+  const scheduleNote =
+    fromDate && toDate && toDate >= fromDate
+      ? scheduleSourceText(new Date(`${fromDate}T00:00:00`), new Date(`${toDate}T00:00:00`), weeklyAvailability)
+      : null
   const constrainedBy = people.filter((c) => hasAvailability(c) && !ignoredIds.includes(c.id))
 
   const buildParams = (ignored = ignoredIds) => ({
@@ -90,6 +96,7 @@ export default function FindSlotModal({
     maxTime: maxTime || '24:00',
     events: rawEvents,
     workingHours,
+    weeklyAvailability,
     bufferMinutes: preferences.bufferMinutes,
     rules,
     meetingType,
@@ -107,7 +114,7 @@ export default function FindSlotModal({
     if (activeRules.length > 0) {
       return 'No hay huecos libres dentro de tu horario que cumplan las reglas de este tipo de reunión. Prueba con otras fechas.'
     }
-    return 'No hay huecos libres dentro de tu horario habitual con esos criterios. Prueba con otras fechas o una duración menor.'
+    return 'No hay huecos libres dentro de tu horario con esos criterios. Prueba con otras fechas o una duración menor.'
   }
 
   const runSearch = (mode, ignored = ignoredIds) => {
@@ -349,11 +356,13 @@ export default function FindSlotModal({
             )}
           </div>
 
+          {scheduleNote && <p className="find-slot-schedule-note">{scheduleNote}</p>}
+
           <p className="find-slot-hint">
-            Solo se proponen huecos dentro de tu horario habitual
+            Solo se proponen huecos dentro de tu horario{scheduleNote ? '' : ' habitual'}
             {preferences.bufferMinutes > 0 ? `, dejando ${preferences.bufferMinutes} min de margen entre reuniones` : ''}
             {activeRules.length > 0 ? ' y cumpliendo las reglas de este tipo de reunión' : ''}. Puedes cambiarlo en
-            "Horario y preferencias".
+            "Horario y preferencias" o en "Disponibilidad de la semana".
           </p>
 
           {searchError && <div className="find-slot-error">{searchError}</div>}

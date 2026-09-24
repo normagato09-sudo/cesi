@@ -102,6 +102,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'nav footer'
+      'week week'
       'summary summary'
       'proposals proposals'
       'notes notes';
@@ -200,6 +201,11 @@
     min-width: 0;
   }
 
+  .sidebar .week-notice {
+    grid-area: week;
+    min-width: 0;
+  }
+
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar:not(.section-calendar) .summary-panel,
   .sidebar:not(.section-calendar) .proposals-panel,
@@ -209,6 +215,8 @@
 
   /* Sin esos bloques, la cabecera se queda en una sola fila (sin huecos vacíos). */
   .sidebar:not(.section-calendar) {
-    grid-template-areas: 'nav footer';
+    grid-template-areas:
+      'nav footer'
+      'week week';
   }
 }

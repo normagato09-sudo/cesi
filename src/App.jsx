@@ -15,6 +15,7 @@ import BackupModal from './components/BackupModal.jsx'
 import ProposalModal from './components/ProposalModal.jsx'
 import ReportView from './components/ReportView.jsx'
 import TeamView from './components/TeamView.jsx'
+import WeeklyAvailabilityModal from './components/WeeklyAvailabilityModal.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -39,6 +40,15 @@ import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
+import {
+  STORAGE_KEY as WEEKLY_AVAILABILITY_KEY,
+  declareWeek,
+  getAllWeeklyAvailability,
+  pendingDeclaration,
+  revertToHabitual,
+  saveWeeklyAvailability,
+  weekKeyOf,
+} from './lib/weeklyAvailability.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
 import './App.css'
 
@@ -75,6 +85,8 @@ export default function App() {
   const [availabilityOpen, setAvailabilityOpen] = useState(false)
   const [backupOpen, setBackupOpen] = useState(false)
   const [proposalModalId, setProposalModalId] = useState(null)
+  // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
+  const [weekModalKey, setWeekModalKey] = useState(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -115,12 +127,13 @@ export default function App() {
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
   const [teamAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getTeamAreas)
+  const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
   const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
   const scheduling = useMemo(
-    () => ({ rawEvents, workingHours, preferences, rules, contacts, addContact, proposals, groups }),
-    [rawEvents, workingHours, preferences, rules, contacts, addContact, proposals, groups],
+    () => ({ rawEvents, workingHours, weeklyAvailability, preferences, rules, contacts, addContact, proposals, groups }),
+    [rawEvents, workingHours, weeklyAvailability, preferences, rules, contacts, addContact, proposals, groups],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -215,6 +228,7 @@ export default function App() {
     reloadProposals()
     reloadGroups()
     reloadTeamAreas()
+    reloadWeeklyAvailability()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -233,7 +247,23 @@ export default function App() {
     editEvent(series.id, notesPatch(series, occurrence, text))
   }
 
-  const summary = useMemo(() => computeSummary(rawEvents, workingHours, now), [rawEvents, workingHours, now])
+  const summary = useMemo(
+    () => computeSummary(rawEvents, workingHours, now, weeklyAvailability),
+    [rawEvents, workingHours, now, weeklyAvailability],
+  )
+
+  const pendingWeek = useMemo(() => pendingDeclaration(now, weeklyAvailability), [now, weeklyAvailability])
+
+  const handleDeclareWeek = (key, week) => {
+    saveWeeklyAvailability(declareWeek(getAllWeeklyAvailability(), key, week))
+    reloadWeeklyAvailability()
+  }
+
+  // "Volver al horario habitual" y "Usar mi horario habitual" (descartar el aviso de esa semana).
+  const handleRevertWeek = (key) => {
+    saveWeeklyAvailability(revertToHabitual(getAllWeeklyAvailability(), key))
+    reloadWeeklyAvailability()
+  }
 
   const handleCreateGroup = (data) => {
     groupsStore.create(data)
@@ -389,6 +419,9 @@ export default function App() {
           onOpenProposal={setProposalModalId}
           missingNotes={missingNotes}
           onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
+          pendingWeek={pendingWeek}
+          onDeclareWeek={setWeekModalKey}
+          onDismissWeek={handleRevertWeek}
         />
 
         {section === 'contacts' && (
@@ -444,6 +477,7 @@ export default function App() {
             <ReportView
               rawEvents={rawEvents}
               workingHours={workingHours}
+              weeklyAvailability={weeklyAvailability}
               contacts={contacts}
               groups={groups}
               now={now}
@@ -464,6 +498,7 @@ export default function App() {
               onNewMeeting={handleNewMeeting}
               onFindSlot={() => setFindSlot({})}
               onOpenAvailability={() => setAvailabilityOpen(true)}
+              onOpenWeekAvailability={() => setWeekModalKey(weekKeyOf(currentDate))}
               filter={calendarFilter}
               onFilterChange={setCalendarFilter}
               rawEvents={rawEvents}
@@ -557,6 +592,17 @@ export default function App() {
         )}
 
         {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
+
+        {weekModalKey && (
+          <WeeklyAvailabilityModal
+            initialKey={weekModalKey}
+            workingHours={workingHours}
+            weeks={weeklyAvailability}
+            onSave={handleDeclareWeek}
+            onRevert={handleRevertWeek}
+            onClose={() => setWeekModalKey(null)}
+          />
+        )}
 
         {availabilityOpen && (
           <AvailabilityModal

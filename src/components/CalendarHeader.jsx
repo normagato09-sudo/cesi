@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CalendarPlus, Search, Clock3 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarPlus, Search, Clock3, CalendarRange } from 'lucide-react'
 import { CalendarFilterBar, CalendarFilterButton } from './CalendarFilter.jsx'
 import { EMPTY_FILTER } from '../lib/calendarFilter'
 import './CalendarHeader.css'
@@ -19,6 +19,7 @@ export default function CalendarHeader({
   onNewMeeting,
   onFindSlot,
   onOpenAvailability,
+  onOpenWeekAvailability,
   filter = EMPTY_FILTER,
   onFilterChange,
   rawEvents = [],
@@ -79,6 +80,15 @@ export default function CalendarHeader({
             ))}
           </div>
 
+          <button
+            type="button"
+            className="header-icon-btn"
+            onClick={onOpenWeekAvailability}
+            aria-label="Disponibilidad de la semana"
+            title="Disponibilidad de la semana"
+          >
+            <CalendarRange size={16} strokeWidth={1.75} />
+          </button>
           <button
             type="button"
             className="header-icon-btn"

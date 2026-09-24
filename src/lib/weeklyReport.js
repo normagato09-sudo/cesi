@@ -1,7 +1,7 @@
 import { addDays, addWeeks, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { mergeIntervals, subtractIntervals } from './intervals'
-import { slotIntervalsOn } from './weeklySchedule'
+import { scheduleIntervalsOn } from './weeklyAvailability'
 import { participantsOf } from './contacts'
 import { isRealMeeting } from './notes'
 import { normalizeTag, tagKey } from './tags'
@@ -47,7 +47,7 @@ function tally(entries) {
 }
 
 // Datos básicos de una semana: reuniones, tiempo en reuniones y tiempo libre dentro del horario.
-function weekTotals(rawEvents, weekStart, workingHours) {
+function weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability) {
   const weekEnd = addDays(weekStart, 7)
   const occurrences = expandEvents(rawEvents, weekStart, weekEnd)
   const meetings = occurrences.filter(isRealMeeting).sort((a, b) => a.start - b.start)
@@ -59,10 +59,10 @@ function weekTotals(rawEvents, weekStart, workingHours) {
     return { date, meetings: ofDay.length, ms: meetingTime(ofDay, date, next) }
   })
 
-  // Libre = mi horario menos las reuniones y los bloques "No disponible" (las opciones
-  // provisionales no ocupan: aún no están confirmadas).
+  // Libre = mi horario (el declarado para esa semana o, si no, el habitual) menos las reuniones y
+  // los bloques "No disponible" (las opciones provisionales no ocupan: aún no están confirmadas).
   const busy = occurrences.filter((ev) => !ev.provisional).map((ev) => ({ start: ev.start, end: ev.end }))
-  const windows = days.flatMap((d) => slotIntervalsOn(workingHours, d.date))
+  const windows = days.flatMap((d) => scheduleIntervalsOn(d.date, workingHours, weeklyAvailability))
   const freeMs = totalMs(subtractIntervals(windows, busy))
 
   return { weekStart, weekEnd, meetings, days, meetingMs: meetingTime(meetings, weekStart, weekEnd), freeMs }
@@ -71,9 +71,9 @@ function weekTotals(rawEvents, weekStart, workingHours) {
 /**
  * Resumen de la semana que empieza en `weekStart` (lunes), comparado con la anterior.
  */
-export function computeWeeklyReport(rawEvents, { weekStart, workingHours, contacts = [], groups = [] }) {
-  const current = weekTotals(rawEvents, weekStart, workingHours)
-  const previous = weekTotals(rawEvents, addWeeks(weekStart, -1), workingHours)
+export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability = [], contacts = [], groups = [] }) {
+  const current = weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability)
+  const previous = weekTotals(rawEvents, addWeeks(weekStart, -1), workingHours, weeklyAvailability)
   const { meetings, days } = current
 
   const busiest = days.reduce((best, d, i) => (d.ms > 0 && (best === null || d.ms > days[best].ms) ? i : best), null)
