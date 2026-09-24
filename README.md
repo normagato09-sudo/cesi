@@ -15,6 +15,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Filtro del calendario** por categoría y por etiqueta, con un aviso bien visible mientras está activo.
 - **Notas de cada reunión**, con guardado automático. En las reuniones que se repiten, cada día tiene sus propias notas. El bloque "Sin notas" de la barra lateral recuerda las reuniones de los últimos 7 días que aún no tienen notas.
 - **Resumen** con la próxima reunión y las horas ocupadas y libres de hoy.
+- **Resumen semanal** (sección Resumen): número de reuniones, horas en reuniones y horas libres dentro del horario comparadas con la semana anterior, horas por día, reparto por categoría, etiqueta y grupo, contactos con los que más te has reunido y la lista de reuniones con el principio de sus notas. Se puede imprimir o guardar en PDF.
 - **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual, grupos y la lista de próximas reuniones y reuniones anteriores con cada contacto (con el principio de sus notas).
 - **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.

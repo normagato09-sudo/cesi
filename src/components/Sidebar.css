@@ -167,7 +167,7 @@
     display: none;
   }
 
-  /* Tres pestañas: más compactas y con el nombre corto si lo hay ("Hora"). */
+  /* Tres pestañas: más compactas y con el nombre corto si lo hay. */
   .sidebar-nav-item {
     gap: 5px;
     padding: 8px 4px;
@@ -194,7 +194,16 @@
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar.section-contacts .summary-panel,
   .sidebar.section-contacts .proposals-panel,
-  .sidebar.section-contacts .missing-notes-panel {
+  .sidebar.section-contacts .missing-notes-panel,
+  .sidebar.section-report .summary-panel,
+  .sidebar.section-report .proposals-panel,
+  .sidebar.section-report .missing-notes-panel {
     display: none;
+  }
+
+  /* Sin esos bloques, la cabecera se queda en una sola fila (sin huecos vacíos). */
+  .sidebar.section-contacts,
+  .sidebar.section-report {
+    grid-template-areas: 'nav footer';
   }
 }

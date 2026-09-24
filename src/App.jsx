@@ -13,6 +13,7 @@ import AvailabilityModal from './components/AvailabilityModal.jsx'
 import ContactsView from './components/ContactsView.jsx'
 import BackupModal from './components/BackupModal.jsx'
 import ProposalModal from './components/ProposalModal.jsx'
+import ReportView from './components/ReportView.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -378,6 +379,19 @@ export default function App() {
               onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
               onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
               onDeleteGroup={handleDeleteGroup}
+            />
+          </div>
+        )}
+
+        {section === 'report' && (
+          <div className="app-main">
+            <ReportView
+              rawEvents={rawEvents}
+              workingHours={workingHours}
+              contacts={contacts}
+              groups={groups}
+              now={now}
+              onOpenEvent={openEvent}
             />
           </div>
         )}
