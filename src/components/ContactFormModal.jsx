@@ -6,13 +6,14 @@ import { isEmail, validateContactCountry } from '../lib/contacts'
 import { defaultContactZone, zonePlace, zoneValue } from '../lib/timezones'
 import { cleanWeek, emptyWeek, normalizeWeek, validateWeek } from '../lib/weeklySchedule'
 import './EventFormModal.css'
+import './GroupsModal.css'
 
 // Punto de partida al activar la disponibilidad: lunes a viernes de 09:00 a 18:00.
 function defaultAvailability() {
   return emptyWeek().map((e) => (e.day >= 1 && e.day <= 5 ? { ...e, enabled: true, slots: [{ start: '09:00', end: '18:00' }] } : e))
 }
 
-export default function ContactFormModal({ initialContact, onClose, onSubmit }) {
+export default function ContactFormModal({ initialContact, groups = [], onClose, onSubmit }) {
   const isEditing = !!initialContact
   const seed = initialContact || {}
 
@@ -22,6 +23,8 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
   const [organization, setOrganization] = useState(seed.organization || '')
   const [role, setRole] = useState(seed.role || '')
   const [notes, setNotes] = useState(seed.notes || '')
+  // Solo grupos que siguen existiendo.
+  const [groupIds, setGroupIds] = useState(() => (seed.groupIds || []).filter((id) => groups.some((g) => g.id === id)))
   // País obligatorio; los contactos nuevos empiezan con España (península y Baleares).
   const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country) || defaultContactZone())
   const [hasAvailability, setHasAvailability] = useState(!!seed.availability)
@@ -65,6 +68,7 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
         organization: organization.trim(),
         role: role.trim(),
         notes: notes.trim(),
+        groupIds,
         country: zone.country,
         timeZone: zone.timeZone,
         // Al guardar desde el formulario el país queda revisado.
@@ -126,6 +130,31 @@ export default function ContactFormModal({ initialContact, onClose, onSubmit }) 
               <p className="contact-form-hint warn">
                 País sin revisar: se le asignó España automáticamente. Comprueba que es correcto y guarda.
               </p>
+            )}
+          </div>
+
+          <div className="event-form-field">
+            <span id="contact-form-groups">Grupos (opcional)</span>
+            {groups.length === 0 ? (
+              <p className="contact-form-hint">Crea grupos desde el botón «Grupos» de Contactos para organizar a tus contactos.</p>
+            ) : (
+              <div className="group-chips" role="group" aria-labelledby="contact-form-groups">
+                {groups.map((g) => {
+                  const on = groupIds.includes(g.id)
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className={`group-chip${on ? ' on' : ''}`}
+                      style={{ '--group-color': g.color }}
+                      aria-pressed={on}
+                      onClick={() => setGroupIds((ids) => (on ? ids.filter((id) => id !== g.id) : [...ids, g.id]))}
+                    >
+                      {g.name}
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
 

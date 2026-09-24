@@ -1,0 +1,182 @@
+.groups-modal {
+  max-width: 480px;
+}
+
+.group-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.group-new-row {
+  display: flex;
+  gap: 8px;
+}
+
+.group-new-row input,
+.group-row-main input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--surface);
+}
+.group-new-row input:focus,
+.group-row-main input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft-strong);
+}
+
+.group-new-row .event-form-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.group-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.group-color {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--group-color);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.group-color.on {
+  box-shadow: 0 0 0 2px var(--group-color);
+}
+
+.groups-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.groups-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.group-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.group-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-row-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--group-color);
+  flex-shrink: 0;
+}
+
+.group-row-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.group-row-delete {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.group-row-delete:hover {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.group-row-error {
+  margin: 0;
+  font-size: 12.5px;
+  color: #b91c1c;
+}
+
+/* Chips de grupo (lista de contactos, ficha y formulario) */
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--group-color);
+  background: color-mix(in srgb, var(--group-color) 12%, white);
+  border: 1px solid color-mix(in srgb, var(--group-color) 30%, white);
+  white-space: nowrap;
+}
+
+button.group-chip {
+  cursor: pointer;
+  font-family: inherit;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+button.group-chip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--group-color);
+}
+button.group-chip.on {
+  color: var(--group-color);
+  background: color-mix(in srgb, var(--group-color) 12%, white);
+  border-color: var(--group-color);
+}
+
+.group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+@media (max-width: 640px) {
+  .group-new-row input,
+  .group-row-main input {
+    font-size: 16px;
+  }
+}

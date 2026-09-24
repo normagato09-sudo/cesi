@@ -585,3 +585,56 @@
     font-size: 13.5px;
   }
 }
+
+/* ---------- Grupos ---------- */
+.contacts-groups-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.contacts-groups-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.contacts-group-filter {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.contacts-group-filter .group-chip {
+  flex-shrink: 0;
+}
+
+.contacts-group-filter-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.contacts-group-filter-btn.on {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
+.contact-row-text .group-chips {
+  margin-top: 3px;
+}
+.contact-detail-head .group-chips {
+  margin-top: 6px;
+}

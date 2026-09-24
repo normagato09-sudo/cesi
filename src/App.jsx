@@ -30,6 +30,8 @@ import { expandEvents } from './lib/recurrence.js'
 import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
+import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
+import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -99,10 +101,13 @@ export default function App() {
   const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
   const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
+  const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
+  const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
+  const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
   const scheduling = useMemo(
-    () => ({ rawEvents, workingHours, preferences, rules, contacts, addContact, proposals }),
-    [rawEvents, workingHours, preferences, rules, contacts, addContact, proposals],
+    () => ({ rawEvents, workingHours, preferences, rules, contacts, addContact, proposals, groups }),
+    [rawEvents, workingHours, preferences, rules, contacts, addContact, proposals, groups],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -195,6 +200,7 @@ export default function App() {
     reloadPreferences()
     reloadRules()
     reloadProposals()
+    reloadGroups()
     setSelectedEvent(null)
     setSelectedContactId(null)
   }
@@ -214,6 +220,23 @@ export default function App() {
   }
 
   const summary = useMemo(() => computeSummary(rawEvents, workingHours, now), [rawEvents, workingHours, now])
+
+  const handleCreateGroup = (data) => {
+    groupsStore.create(data)
+    reloadGroups()
+  }
+
+  const handleUpdateGroup = (id, patch) => {
+    groupsStore.update(id, patch)
+    reloadGroups()
+  }
+
+  // Al borrar un grupo sus contactos se conservan: solo se les quita ese grupo.
+  const handleDeleteGroup = (id) => {
+    for (const { id: contactId, groupIds } of contactsWithoutGroup(id, contacts)) editContact(contactId, { groupIds })
+    groupsStore.remove(id)
+    reloadGroups()
+  }
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
 
@@ -340,6 +363,7 @@ export default function App() {
           <div className="app-main">
             <ContactsView
               contacts={contacts}
+              groups={groups}
               rawEvents={rawEvents}
               now={now}
               selectedContactId={selectedContactId}
@@ -350,6 +374,10 @@ export default function App() {
               onOpenEvent={openEvent}
               onNewMeetingWithContact={handleNewMeetingWithContact}
               onFindSlotWithContact={(contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })}
+              onCreateGroup={handleCreateGroup}
+              onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
+              onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
+              onDeleteGroup={handleDeleteGroup}
             />
           </div>
         )}
@@ -366,13 +394,16 @@ export default function App() {
               onNewMeeting={handleNewMeeting}
               onFindSlot={() => setFindSlot({})}
               onOpenAvailability={() => setAvailabilityOpen(true)}
+              filter={calendarFilter}
+              onFilterChange={setCalendarFilter}
+              rawEvents={rawEvents}
             />
 
             <div className="app-calendar-body">
               {view === 'month' && (
                 <MonthView
                   currentDate={currentDate}
-                  events={events}
+                  events={visibleEvents}
                   onSelectEvent={openEvent}
                   onMoveEvent={handleMoveOrResize}
                   onSelectDay={(day) => {
@@ -385,7 +416,7 @@ export default function App() {
                 <WeekView
                   currentDate={currentDate}
                   compact={compactWeek}
-                  events={events}
+                  events={visibleEvents}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
@@ -395,7 +426,7 @@ export default function App() {
               {view === 'day' && (
                 <DayView
                   currentDate={currentDate}
-                  events={events}
+                  events={visibleEvents}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}

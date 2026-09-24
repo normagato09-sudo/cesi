@@ -14,11 +14,13 @@ import {
   Phone,
   Search,
   StickyNote,
+  Tags,
   Trash2,
   UserPlus,
   Users,
 } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
+import GroupsModal from './GroupsModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { contactMatches, eventIncludesContact } from '../lib/contacts'
@@ -26,6 +28,7 @@ import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
 import { notesOf, notesPreview } from '../lib/notes'
+import { contactsInGroup, groupsOfContact } from '../lib/groups'
 import {
   SPAIN_ZONE,
   countryFlag,
@@ -58,6 +61,20 @@ function subtitleOf(contact) {
 
 function formatMeetingDate(event) {
   return format(event.start, "EEE d MMM yyyy · HH:mm", { locale: es })
+}
+
+function GroupChips({ contact, groups }) {
+  const list = groupsOfContact(contact, groups)
+  if (list.length === 0) return null
+  return (
+    <span className="group-chips">
+      {list.map((g) => (
+        <span key={g.id} className="group-chip" style={{ '--group-color': g.color }}>
+          {g.name}
+        </span>
+      ))}
+    </span>
+  )
 }
 
 function MeetingList({ title, meetings, emptyText, onOpenEvent, showNotes = false }) {
@@ -96,6 +113,7 @@ function MeetingList({ title, meetings, emptyText, onOpenEvent, showNotes = fals
 
 export default function ContactsView({
   contacts,
+  groups = [],
   rawEvents,
   now,
   selectedContactId,
@@ -106,16 +124,30 @@ export default function ContactsView({
   onOpenEvent,
   onNewMeetingWithContact,
   onFindSlotWithContact,
+  onCreateGroup,
+  onRenameGroup,
+  onGroupColor,
+  onDeleteGroup,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false)
+  const [groupsOpen, setGroupsOpen] = useState(false)
+  const [groupFilter, setGroupFilter] = useState(null)
 
   const unreviewedCount = contacts.filter((c) => c.countryUnreviewed).length
   const showOnlyUnreviewed = onlyUnreviewed && unreviewedCount > 0
+  // Si se borra el grupo del filtro, se vuelve a ver a todos.
+  const activeGroup = groups.find((g) => g.id === groupFilter) || null
   const filtered = useMemo(
-    () => contacts.filter((c) => contactMatches(c, query) && (!showOnlyUnreviewed || c.countryUnreviewed)),
-    [contacts, query, showOnlyUnreviewed],
+    () =>
+      contacts.filter(
+        (c) =>
+          contactMatches(c, query) &&
+          (!showOnlyUnreviewed || c.countryUnreviewed) &&
+          (!activeGroup || (c.groupIds || []).includes(activeGroup.id)),
+      ),
+    [contacts, query, showOnlyUnreviewed, activeGroup],
   )
   const selected = contacts.find((c) => c.id === selectedContactId) || null
 
@@ -184,6 +216,39 @@ export default function ContactsView({
               <span>Nuevo contacto</span>
             </button>
           </div>
+          <div className="contacts-group-filter" role="group" aria-label="Filtrar por grupo">
+            {groups.length > 0 && (
+              <button
+                type="button"
+                className={`contacts-group-filter-btn${activeGroup ? '' : ' on'}`}
+                onClick={() => setGroupFilter(null)}
+                aria-pressed={!activeGroup}
+              >
+                Todos
+              </button>
+            )}
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className={`group-chip${activeGroup?.id === g.id ? ' on' : ''}`}
+                style={{ '--group-color': g.color }}
+                onClick={() => setGroupFilter(activeGroup?.id === g.id ? null : g.id)}
+                aria-pressed={activeGroup?.id === g.id}
+              >
+                {g.name} ({contactsInGroup(g.id, contacts).length})
+              </button>
+            ))}
+            <button
+              type="button"
+              className="contacts-groups-btn"
+              onClick={() => setGroupsOpen(true)}
+              title="Crear, renombrar o borrar grupos"
+            >
+              <Tags size={13} strokeWidth={1.75} />
+              {groups.length > 0 ? 'Gestionar grupos' : 'Crear grupos'}
+            </button>
+          </div>
           {unreviewedCount > 0 && (
             <div className="contacts-unreviewed" role="status">
               <span>
@@ -210,7 +275,11 @@ export default function ContactsView({
           </div>
         ) : filtered.length === 0 ? (
           <div className="contacts-empty">
-            <p>No hay contactos que coincidan con «{query}».</p>
+            <p>
+              {activeGroup && !query.trim()
+                ? `No hay contactos en el grupo «${activeGroup.name}».`
+                : `No hay contactos que coincidan con «${query}»${activeGroup ? ` en el grupo «${activeGroup.name}»` : ''}.`}
+            </p>
           </div>
         ) : (
           <ul className="contacts-list">
@@ -221,6 +290,7 @@ export default function ContactsView({
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
+                    <GroupChips contact={c} groups={groups} />
                     {(c.countryUnreviewed || (c.country && c.country !== 'ES')) && (
                       <span className="contact-row-country">
                         {c.country !== 'ES' && countryLabel(c.country)}
@@ -268,6 +338,7 @@ export default function ContactsView({
               <div>
                 <h2>{selected.name}</h2>
                 {subtitleOf(selected) && <p>{subtitleOf(selected)}</p>}
+                <GroupChips contact={selected} groups={groups} />
               </div>
             </div>
 
@@ -370,7 +441,24 @@ export default function ContactsView({
       </div>
 
       {formModal && (
-        <ContactFormModal initialContact={formModal.contact} onClose={() => setFormModal(null)} onSubmit={handleFormSubmit} />
+        <ContactFormModal
+          initialContact={formModal.contact}
+          groups={groups}
+          onClose={() => setFormModal(null)}
+          onSubmit={handleFormSubmit}
+        />
+      )}
+
+      {groupsOpen && (
+        <GroupsModal
+          groups={groups}
+          contacts={contacts}
+          onCreate={onCreateGroup}
+          onRename={onRenameGroup}
+          onColor={onGroupColor}
+          onDelete={onDeleteGroup}
+          onClose={() => setGroupsOpen(false)}
+        />
       )}
     </div>
   )

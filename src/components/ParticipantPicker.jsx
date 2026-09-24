@@ -1,9 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, UserPlus, UserRound, X } from 'lucide-react'
+import { Check, ChevronDown, UserPlus, UserRound, Users, X } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
 import { contactDataFromText, contactMatches } from '../lib/contacts'
 import { countryLabel, countryName } from '../lib/timezones'
+import { addGroupToParticipants, groupOptions } from '../lib/groups'
+import { useScheduling } from '../lib/schedulingContext'
 import './ParticipantPicker.css'
 
 function sameText(a, b) {
@@ -12,6 +14,7 @@ function sameText(a, b) {
 
 // Combobox multiselección de participantes: contactos (por id) e invitados sueltos (texto).
 export default function ParticipantPicker({ labelId, contacts, participantIds, guests, onChange, onCreateContact }) {
+  const { groups = [] } = useScheduling()
   const [query, setQuery] = useState('')
   const [pendingCreate, setPendingCreate] = useState(null) // texto del contacto que se va a crear
   const [open, setOpen] = useState(false)
@@ -27,6 +30,13 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
   const trimmed = query.trim()
 
   const options = useMemo(() => {
+    // Los grupos van arriba: añaden de una vez a todos sus contactos.
+    const groupList = groupOptions(groups, contacts, trimmed).map(({ group, members }) => ({
+      type: 'group',
+      key: `group-${group.id}`,
+      group,
+      members,
+    }))
     const list = contacts
       .filter((c) => contactMatches(c, trimmed))
       .map((c) => ({ type: 'contact', key: c.id, contact: c }))
@@ -35,8 +45,8 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
       list.push({ type: 'create', key: '__create' })
       if (!guests.some((g) => sameText(g, trimmed))) list.push({ type: 'guest', key: '__guest' })
     }
-    return list
-  }, [contacts, trimmed, guests])
+    return [...groupList, ...list]
+  }, [groups, contacts, trimmed, guests])
 
   const safeActive = Math.min(activeIndex, Math.max(options.length - 1, 0))
 
@@ -73,7 +83,9 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
       toggleContact(option.contact)
       return
     }
-    if (option.type === 'create') {
+    if (option.type === 'group') {
+      emit(addGroupToParticipants(participantIds, option.group.id, contacts), guests)
+    } else if (option.type === 'create') {
       // Antes de crearlo se pide el país en un paso corto, sin cerrar el formulario.
       setPendingCreate(trimmed)
       setOpen(false)
@@ -250,6 +262,23 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
               onMouseDown: (e) => e.preventDefault(),
               onMouseEnter: () => setActiveIndex(index),
               onClick: () => chooseOption(option),
+            }
+            if (option.type === 'group') {
+              const { group, members } = option
+              const allIn = members.every((c) => participantIds.includes(c.id))
+              return (
+                <li key={option.key} {...common} aria-selected={false} className={`${common.className} group`}>
+                  <span className="participant-option-icon group" style={{ '--group-color': group.color }} aria-hidden="true">
+                    <Users size={15} strokeWidth={1.75} />
+                  </span>
+                  <span className="participant-option-text">
+                    <span className="participant-option-name">{`Añadir grupo «${group.name}» (${members.length})`}</span>
+                    <span className="participant-option-sub">
+                      {allIn ? 'Ya están todos en la reunión' : members.map((c) => c.name.split(' ')[0]).join(', ')}
+                    </span>
+                  </span>
+                </li>
+              )
             }
             if (option.type === 'contact') {
               const c = option.contact

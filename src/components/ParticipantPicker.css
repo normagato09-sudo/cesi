@@ -242,3 +242,13 @@
 .participant-picker .contact-country-step {
   margin-top: 6px;
 }
+
+/* Grupos de contactos, arriba de la lista */
+.participant-option-icon.group {
+  border: none;
+  color: var(--group-color);
+  background: color-mix(in srgb, var(--group-color) 14%, white);
+}
+.participant-option.group + .participant-option:not(.group) {
+  border-top: 1px solid var(--border);
+}

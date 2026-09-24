@@ -42,9 +42,23 @@ create table if not exists public.events (
 -- data: { name, email, phone, organization, role, notes,
 --         country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria),
 --         countryUnreviewed (true si se le asignó España al migrar un contacto antiguo),
---         availability: horario semanal con varias franjas por día, en su zona horaria, o null }
+--         availability: horario semanal con varias franjas por día, en su zona horaria, o null,
+--         groupIds: ids de los grupos a los que pertenece (tabla groups) }
 -- ---------------------------------------------------------------------------
 create table if not exists public.contacts (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Grupos de contactos (localStorage: cesi_groups_v1)
+-- data: { name, color }. Al borrar un grupo se quita de los groupIds de sus contactos.
+-- ---------------------------------------------------------------------------
+create table if not exists public.groups (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   id text not null,
   data jsonb not null,
@@ -102,7 +116,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'settings', 'rules', 'proposals'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format(
       'create trigger %I_touch before update on public.%I for each row execute function public.cesi_touch_updated_at()',

@@ -8,12 +8,15 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Reuniones y franjas "No disponible"**, con categorías, enlace de videollamada, descripción y repeticiones (diaria, semanal, mensual o anual).
 - **Arrastrar y redimensionar** reuniones en las vistas Semana y Día, también con el dedo.
 - **Detección de solapamientos**: avisa si una franja ya está ocupada.
-- **Horario y preferencias**: horario habitual con varias franjas por día, margen entre reuniones y reglas por tipo de reunión (días, mañana/tarde o franja propia, duración máxima y máximo al día para una categoría o etiqueta). Si una reunión incumple una regla, avisa y deja guardarla igualmente.
+- **Horario y preferencias**: horario habitual con varias franjas por día, margen entre reuniones y reglas por tipo de reunión (días, mañana/tarde o franja propia, duración máxima y máximo al día para una categoría o etiqueta). Si una reunión incumple una regla o deja menos margen del configurado con la reunión anterior o la siguiente, avisa con el motivo y deja guardarla igualmente.
 - **Buscar hueco**: solo propone huecos dentro de tu horario, con el margen, las reglas del tipo de reunión y la disponibilidad de los participantes. Si no hay huecos, dice qué contacto lo impide.
 - **Proponer varias opciones**: marca de 2 a 5 huecos, se guardan como reuniones provisionales y se genera un mensaje para enviar por WhatsApp, email o copiar. Desde "Propuestas pendientes" confirmas la opción elegida.
 - **Etiquetas** en las reuniones.
+- **Filtro del calendario** por categoría y por etiqueta, con un aviso bien visible mientras está activo.
+- **Notas de cada reunión**, con guardado automático. En las reuniones que se repiten, cada día tiene sus propias notas. El bloque "Sin notas" de la barra lateral recuerda las reuniones de los últimos 7 días que aún no tienen notas.
 - **Resumen** con la próxima reunión y las horas ocupadas y libres de hoy.
-- **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual y la lista de próximas reuniones y reuniones anteriores con cada contacto.
+- **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual, grupos y la lista de próximas reuniones y reuniones anteriores con cada contacto (con el principio de sus notas).
+- **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
 - **Sincronización entre pestañas**: si la app está abierta en varias pestañas del mismo navegador, los cambios se reflejan en todas.
@@ -62,6 +65,7 @@ Todo se guarda en el `localStorage` del navegador, **solo en ese dispositivo y e
 | `cesi_preferences_v1`    | Preferencias, como el margen entre reuniones.    |
 | `cesi_rules_v1`          | Reglas por tipo de reunión.                      |
 | `cesi_proposals_v1`      | Propuestas pendientes.                           |
+| `cesi_groups_v1`         | Grupos de contactos.                             |
 
 `supabase/schema.sql` deja preparadas las tablas (con seguridad por filas) para sincronizar estos datos con Supabase en el futuro; la app todavía no está conectada.
 
@@ -74,7 +78,7 @@ Esto significa que:
 
 En la barra lateral (en el móvil, el icono junto a las pestañas) pulsa **Copia de seguridad**:
 
-- **Descargar copia** guarda un archivo `cesi-copia-AAAA-MM-DD.json` con las reuniones, los contactos, el horario, las preferencias, las reglas y las propuestas.
+- **Descargar copia** guarda un archivo `cesi-copia-AAAA-MM-DD.json` con las reuniones (con sus notas), los contactos, los grupos, el horario, las preferencias, las reglas y las propuestas. Se siguen pudiendo importar las copias de versiones anteriores.
 - **Importar copia** lee uno de esos archivos y, tras pedir confirmación, **sustituye todos los datos actuales** por los del archivo.
 
 Sirve también para pasar los datos de un dispositivo a otro: descarga la copia en uno e impórtala en el otro.

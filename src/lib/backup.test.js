@@ -4,6 +4,8 @@ import { getPreferences, savePreferences } from './preferences'
 import { getAllRules, newRule, rulesStore } from './rules'
 import { getAllProposals, proposalsStore } from './proposals'
 import { createContact, getAllContacts } from './contacts'
+import { getAllGroups, groupsStore } from './groups'
+import { createEvent, getAllEvents } from './localEvents'
 
 beforeEach(() => localStorage.clear())
 
@@ -39,11 +41,30 @@ describe('copia de seguridad', () => {
     proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
     createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
     const backup = buildBackup()
-    expect(backup.version).toBe(4)
+    expect(backup.version).toBe(5)
     localStorage.clear()
     restoreBackup(parseBackup(JSON.stringify(backup)))
     expect(getAllProposals()[0].title).toBe('Demo')
     expect(getAllContacts()[0]).toMatchObject({ timeZone: 'America/Mexico_City', country: 'MX' })
+  })
+
+  it('incluye los grupos, los grupos de cada contacto y las notas de las reuniones', () => {
+    const group = groupsStore.create({ name: 'Profesores', color: '#2563eb' })
+    createContact({ name: 'Ana', country: 'ES', timeZone: 'Europe/Madrid', groupIds: [group.id] })
+    createEvent({ title: 'Clase', start: '2026-09-01T08:00:00.000Z', end: '2026-09-01T09:00:00.000Z', notes: 'Tema 3' })
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getAllGroups()[0].name).toBe('Profesores')
+    expect(getAllContacts()[0].groupIds).toEqual([group.id])
+    expect(getAllEvents()[0].notes).toBe('Tema 3')
+  })
+
+  it('acepta copias v4 sin grupos (quedan vacíos)', () => {
+    groupsStore.create({ name: 'Equipo', color: '#2563eb' })
+    restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 4, events: [], contacts: [], proposals: [] })))
+    expect(getAllGroups()).toEqual([])
+    expect(() => parseBackup(JSON.stringify({ app: 'cesi', events: [], contacts: [], groups: {} }))).toThrow(/grupos/)
   })
 
   it('rechaza archivos que no son de CESI', () => {
