@@ -14,7 +14,7 @@ import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
 // v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
-// su foto (photo); las fotos no van en la copia. v7 añade teamAreas (áreas del equipo) y los
+// su foto (photo); las fotos no van en la copia. v7 añade teamAreas (departamentos del equipo) y los
 // contactos pueden llevar teamProfile (perfil de equipo). v8 añade weeklyAvailability (disponibilidad
 // declarada semana a semana). v9 añade projects (las reuniones y propuestas llevan projectId).
 // v10 añade vacancies; los candidatos son contactos con candidacy (su CV, como las fotos, va
@@ -28,7 +28,7 @@ const OPTIONAL_LISTS = [
   { field: 'rules', key: RULES_KEY, label: 'las reglas' },
   { field: 'proposals', key: PROPOSALS_KEY, label: 'las propuestas' },
   { field: 'groups', key: GROUPS_KEY, label: 'los grupos' },
-  { field: 'teamAreas', key: AREAS_KEY, label: 'las áreas del equipo' },
+  { field: 'teamAreas', key: AREAS_KEY, label: 'los departamentos' },
   { field: 'weeklyAvailability', key: WEEKLY_AVAILABILITY_KEY, label: 'la disponibilidad semanal' },
   { field: 'projects', key: PROJECTS_KEY, label: 'los proyectos' },
   { field: 'vacancies', key: VACANCIES_KEY, label: 'las vacantes' },

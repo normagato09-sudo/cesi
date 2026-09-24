@@ -1,11 +1,12 @@
 import { differenceInCalendarDays, differenceInMonths, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { readJSON, writeJSON, makeId } from './store'
+import { DEFAULT_DEPARTMENTS, addDepartment } from './departments'
 
 // Equipo. Cada miembro es un contacto con `teamProfile` (no se duplican sus datos):
 // {
 //   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null,
-//   role, area, joinedAt: 'AAAA-MM-DD',
+//   role, area (el departamento), joinedAt: 'AAAA-MM-DD',
 //   bio: texto libre de trayectoria,
 //   milestones: [{ id, date: 'AAAA-MM-DD' | '', text }],
 //   social: { instagram, linkedin, tiktok, youtube, web },
@@ -15,23 +16,25 @@ import { readJSON, writeJSON, makeId } from './store'
 
 export const AREAS_KEY = 'cesi_team_areas_v1'
 
-export const DEFAULT_AREAS = ['Dirección', 'Profesorado', 'Doblaje', 'Radio', 'Redes', 'Coordinación']
+// Departamentos (antes "áreas"): la lógica está en departments.js.
+export const DEFAULT_AREAS = DEFAULT_DEPARTMENTS
 
 export function getTeamAreas() {
   const stored = readJSON(AREAS_KEY, null)
   return Array.isArray(stored) && stored.length > 0 ? stored : DEFAULT_AREAS
 }
 
+// Lista guardada tal cual (null si nunca se ha guardado), para la migración.
+export function getStoredTeamAreas() {
+  return readJSON(AREAS_KEY, null)
+}
+
 export function saveTeamAreas(areas) {
   writeJSON(AREAS_KEY, areas)
 }
 
-// Añade un área a la lista (sin duplicados, sin distinguir mayúsculas).
-export function addArea(areas, name) {
-  const clean = (name || '').replace(/\s+/g, ' ').trim()
-  if (!clean || areas.some((a) => a.toLocaleLowerCase('es') === clean.toLocaleLowerCase('es'))) return areas
-  return [...areas, clean]
-}
+// Añade un departamento a la lista (sin duplicados, sin distinguir mayúsculas ni acentos).
+export const addArea = addDepartment
 
 export const SOCIAL_NETWORKS = [
   { key: 'instagram', label: 'Instagram', placeholder: '@usuario', base: 'https://instagram.com/' },
@@ -151,7 +154,7 @@ export function capitalize(text) {
   return text ? text[0].toLocaleUpperCase('es') + text.slice(1) : text
 }
 
-// Busca en nombre, cargo, área, email y trayectoria.
+// Busca en nombre, cargo, departamento, email y trayectoria.
 export function memberMatches(contact, query) {
   const norm = (t) =>
     (t || '')

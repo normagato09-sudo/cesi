@@ -10,6 +10,7 @@ import {
   Phone,
   Search,
   UserMinus,
+  Building2,
   UserRound,
   UsersRound,
 } from 'lucide-react'
@@ -184,6 +185,7 @@ export default function TeamView({
   onSaveProfile,
   onRemoveFromTeam,
   onAddArea,
+  onManageDepartments,
   onOpenEvent,
   onFindSlot,
   onNewMeeting,
@@ -251,18 +253,22 @@ export default function TeamView({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por nombre, cargo, área..."
+              placeholder="Buscar por nombre, cargo, departamento..."
               aria-label="Buscar en el equipo"
             />
           </label>
-          <select className="team-area-filter" value={area} onChange={(e) => setArea(e.target.value)} aria-label="Filtrar por área">
-            <option value="">Todas las áreas</option>
+          <select className="team-area-filter" value={area} onChange={(e) => setArea(e.target.value)} aria-label="Filtrar por departamento">
+            <option value="">Todos los departamentos</option>
             {areas.map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>
             ))}
           </select>
+          <button type="button" className="departments-btn" onClick={onManageDepartments} title="Añadir, renombrar, ordenar o borrar departamentos">
+            <Building2 size={14} strokeWidth={1.75} />
+            Departamentos
+          </button>
           <div className="view-switch team-status-switch" role="group" aria-label="Estado">
             <button type="button" className={`view-switch-btn ${status === 'active' ? 'active' : ''}`} onClick={() => setStatus('active')}>
               Activos ({counts.active})

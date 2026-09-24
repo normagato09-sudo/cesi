@@ -5,13 +5,14 @@ import { isEmail } from '../lib/contacts'
 import { deleteFile, sameFile } from '../lib/files/files'
 import { SOCIAL_NETWORKS, emptyTeamProfile, newMilestone, sortMilestones, todayKey } from '../lib/team'
 import { makeId } from '../lib/store'
+import { departmentKey } from '../lib/departments'
 import './EventFormModal.css'
 import './TeamProfileModal.css'
 
 const NEW_AREA = '__new__'
 
 /**
- * Perfil de equipo de un contacto: foto, cargo, área, incorporación, estado, trayectoria, hitos,
+ * Perfil de equipo de un contacto: foto, cargo, departamento, incorporación, estado, trayectoria, hitos,
  * email, teléfono, redes y enlaces. onSave({ contactPatch, teamProfile }).
  * `initialProfile` permite abrirlo ya rellenado (p. ej. al incorporar a un candidato).
  */
@@ -65,8 +66,10 @@ export default function TeamProfileModal({
   const confirmNewArea = () => {
     const clean = newArea.replace(/\s+/g, ' ').trim()
     if (!clean) return
-    onAddArea(clean)
-    setArea(clean)
+    // Si ya existe (sin distinguir mayúsculas ni acentos) se elige el existente.
+    const existing = areas.find((d) => departmentKey(d) === departmentKey(clean))
+    if (!existing) onAddArea(clean)
+    setArea(existing || clean)
     setNewArea('')
     setAddingArea(false)
   }
@@ -124,7 +127,7 @@ export default function TeamProfileModal({
               <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Profesora de doblaje" />
             </label>
             <label className="event-form-field">
-              <span>Área</span>
+              <span>Departamento</span>
               {addingArea ? (
                 <span className="team-area-new">
                   <input
@@ -137,10 +140,10 @@ export default function TeamProfileModal({
                         confirmNewArea()
                       }
                     }}
-                    placeholder="Nueva área"
+                    placeholder="Nuevo departamento"
                     autoFocus
                   />
-                  <button type="button" onClick={confirmNewArea} aria-label="Añadir área">
+                  <button type="button" onClick={confirmNewArea} aria-label="Añadir departamento">
                     <Plus size={15} strokeWidth={2} />
                   </button>
                   <button type="button" onClick={() => setAddingArea(false)} aria-label="Cancelar">
@@ -149,13 +152,13 @@ export default function TeamProfileModal({
                 </span>
               ) : (
                 <select value={area} onChange={(e) => handleAreaSelect(e.target.value)}>
-                  <option value="">Sin área</option>
+                  <option value="">Sin departamento</option>
                   {areaOptions.map((a) => (
                     <option key={a} value={a}>
                       {a}
                     </option>
                   ))}
-                  <option value={NEW_AREA}>+ Añadir área…</option>
+                  <option value={NEW_AREA}>+ Añadir departamento…</option>
                 </select>
               )}
             </label>

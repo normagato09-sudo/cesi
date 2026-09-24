@@ -73,7 +73,8 @@ create table if not exists public.groups (
 -- Ajustes de un solo documento por usuario (id = nombre del ajuste)
 --   id = 'working_hours' (cesi_working_hours_v1): horario semanal con varias franjas por día
 --   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes }
---   id = 'team_areas'    (cesi_team_areas_v1):    lista de áreas del equipo, p. ej. ["Dirección", "Radio"]
+--   id = 'team_areas'    (cesi_team_areas_v1):    lista ordenada de departamentos del equipo, p. ej. ["Directivo", "Radio"]
+--                                                 (contacts.data.teamProfile.area y vacancies.data.area guardan el departamento)
 -- ---------------------------------------------------------------------------
 create table if not exists public.settings (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

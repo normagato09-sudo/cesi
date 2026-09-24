@@ -18,6 +18,7 @@ import TeamView from './components/TeamView.jsx'
 import WeeklyAvailabilityModal from './components/WeeklyAvailabilityModal.jsx'
 import ProjectsModal from './components/ProjectsModal.jsx'
 import VacanciesView from './components/VacanciesView.jsx'
+import DepartmentsModal from './components/DepartmentsModal.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -36,7 +37,9 @@ import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
-import { AREAS_KEY, addArea, getTeamAreas, saveTeamAreas } from './lib/team.js'
+import { AREAS_KEY, getStoredTeamAreas, saveTeamAreas } from './lib/team.js'
+import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
+import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
 import { STORAGE_KEY as PROJECTS_KEY, getAllProjects, projectsStore, unlinkProject } from './lib/projects.js'
@@ -106,6 +109,7 @@ export default function App() {
   // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
   const [weekModalKey, setWeekModalKey] = useState(null)
   const [projectsOpen, setProjectsOpen] = useState(false)
+  const [departmentsOpen, setDepartmentsOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -145,10 +149,27 @@ export default function App() {
   const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
-  const [teamAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getTeamAreas)
+  const [storedAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getStoredTeamAreas)
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [projects, reloadProjects] = useStoredValue(PROJECTS_KEY, getAllProjects)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
+
+  // Departamentos (antes "áreas"): la lista guardada, la nueva lista si aún era la de ejemplo, y
+  // los que usan miembros o vacantes aunque no estén en la lista.
+  const teamAreas = useMemo(() => resolveDepartments(storedAreas, contacts, vacancies).list, [storedAreas, contacts, vacancies])
+  // Esa lista se guarda (y se sincroniza) solo cuando ya se ha descargado la nube, para no pisar
+  // con la lista de ejemplo de este dispositivo una lista ya cambiada en otro.
+  const sync = useSync()
+  const syncStatus = useSyncStatus()
+  const canSaveDepartments = !sync || syncStatus.status === 'synced'
+  useEffect(() => {
+    if (!canSaveDepartments) return
+    const { list, changed } = resolveDepartments(getStoredTeamAreas(), contacts, vacancies)
+    if (changed) {
+      saveTeamAreas(list)
+      reloadTeamAreas()
+    }
+  }, [canSaveDepartments, storedAreas, contacts, vacancies, reloadTeamAreas])
   const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
   const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
@@ -412,7 +433,29 @@ export default function App() {
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
 
   const handleAddArea = (name) => {
-    saveTeamAreas(addArea(teamAreas, name))
+    saveTeamAreas(addDepartment(teamAreas, name))
+    reloadTeamAreas()
+  }
+
+  // Renombrar o borrar un departamento cambia también a sus miembros y vacantes.
+  const applyDepartmentChange = (result) => {
+    if (result.error) return result.error
+    for (const { id, patch } of result.contactPatches) editContact(id, patch)
+    for (const { id, patch } of result.vacancyPatches) vacanciesStore.update(id, patch)
+    saveTeamAreas(result.list)
+    reloadTeamAreas()
+    reloadVacancies()
+    return null
+  }
+
+  const handleRenameDepartment = (oldName, newName) =>
+    applyDepartmentChange(renameDepartment(teamAreas, oldName, newName, contacts, vacancies))
+
+  const handleRemoveDepartment = (name, target) =>
+    applyDepartmentChange(removeDepartment(teamAreas, name, target, contacts, vacancies))
+
+  const handleMoveDepartment = (index, delta) => {
+    saveTeamAreas(moveDepartment(teamAreas, index, delta))
     reloadTeamAreas()
   }
 
@@ -593,6 +636,7 @@ export default function App() {
               now={now}
               areas={teamAreas}
               onAddArea={handleAddArea}
+              onManageDepartments={() => setDepartmentsOpen(true)}
               selectedVacancyId={selectedVacancyId}
               onSelectVacancy={setSelectedVacancyId}
               selectedCandidateId={selectedCandidateId}
@@ -626,6 +670,7 @@ export default function App() {
               onSaveProfile={handleSaveTeamProfile}
               onRemoveFromTeam={(id) => editContact(id, { teamProfile: null })}
               onAddArea={handleAddArea}
+              onManageDepartments={() => setDepartmentsOpen(true)}
               onOpenEvent={openEvent}
               onFindSlot={handleFindSlotWithContact}
               onNewMeeting={handleNewMeetingWithContact}
@@ -777,6 +822,19 @@ export default function App() {
             rules={rules}
             onSave={handleSavePreferences}
             onClose={() => setAvailabilityOpen(false)}
+          />
+        )}
+
+        {departmentsOpen && (
+          <DepartmentsModal
+            departments={teamAreas}
+            contacts={contacts}
+            vacancies={vacancies}
+            onAdd={handleAddArea}
+            onRename={handleRenameDepartment}
+            onMove={handleMoveDepartment}
+            onRemove={handleRemoveDepartment}
+            onClose={() => setDepartmentsOpen(false)}
           />
         )}
 

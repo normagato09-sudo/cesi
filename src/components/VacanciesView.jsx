@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Briefcase,
+  Building2,
   FileText,
   Pencil,
   Plus,
@@ -296,6 +297,7 @@ export default function VacanciesView({
   now,
   areas,
   onAddArea,
+  onManageDepartments,
   selectedVacancyId,
   onSelectVacancy,
   selectedCandidateId,
@@ -386,6 +388,7 @@ export default function VacanciesView({
               <span>Nueva vacante</span>
             </button>
           </div>
+          <div className="vacancies-filters">
           <div className="view-switch vacancies-filter" role="group" aria-label="Filtrar por estado">
             <button type="button" className={`view-switch-btn ${statusFilter === '' ? 'active' : ''}`} onClick={() => setStatusFilter('')}>
               Todas ({vacancies.length})
@@ -400,6 +403,11 @@ export default function VacanciesView({
                 {label} ({countByStatus(value)})
               </button>
             ))}
+          </div>
+          <button type="button" className="departments-btn" onClick={onManageDepartments} title="Añadir, renombrar, ordenar o borrar departamentos">
+            <Building2 size={14} strokeWidth={1.75} />
+            Departamentos
+          </button>
           </div>
         </div>
 

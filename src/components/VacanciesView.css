@@ -430,3 +430,10 @@
 .contact-row-team.candidate {
   color: #6d28d9;
 }
+
+.vacancies-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

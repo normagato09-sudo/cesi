@@ -6,7 +6,7 @@ import { emptyTeamProfile, newMilestone, sortMilestones, todayKey } from './team
 // Vacantes y candidatos.
 //
 // Vacante (cesi_vacancies_v1):
-//   { id, title, area, description, requirements, openedAt: 'AAAA-MM-DD',
+//   { id, title, area (el departamento), description, requirements, openedAt: 'AAAA-MM-DD',
 //     status: 'open' | 'in_progress' | 'filled',
 //     hiredContactIds: [ids de los contactos incorporados al equipo],
 //     erasedCandidates: [{ discardedAt, erasedAt }]  registro anónimo de candidatos borrados }
@@ -122,7 +122,7 @@ export function interviewUpdates(meeting, contacts, now = new Date()) {
     .map((c) => ({ id: c.id, candidacy: withStatus(c.candidacy, 'interview', now) }))
 }
 
-// Perfil de equipo con el que se abre la incorporación: cargo y área de la vacante, hoy.
+// Perfil de equipo con el que se abre la incorporación: cargo y departamento de la vacante, hoy.
 export function incorporationDraft(vacancy, now = new Date()) {
   return emptyTeamProfile({ role: vacancy?.title || '', area: vacancy?.area || '', joinedAt: todayKey(now) })
 }

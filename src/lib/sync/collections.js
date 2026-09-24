@@ -30,7 +30,7 @@ export const SETTINGS_TABLE = 'settings'
 export const SETTINGS = [
   { id: 'working_hours', key: WORKING_HOURS_KEY },
   { id: 'preferences', key: PREFERENCES_KEY },
-  { id: 'team_areas', key: AREAS_KEY },
+  { id: 'team_areas', key: AREAS_KEY }, // departamentos del equipo
 ]
 
 export const TABLES = [...LIST_COLLECTIONS.map((c) => c.table), SETTINGS_TABLE]

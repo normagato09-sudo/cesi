@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Briefcase, X } from 'lucide-react'
 import { VACANCY_STATUS, newVacancy } from '../lib/vacancies'
 import { addArea } from '../lib/team'
+import { departmentKey } from '../lib/departments'
 import './EventFormModal.css'
 
 const NEW_AREA = '__new__'
 
-// Crear o editar una vacante: título, área (la lista de Equipo), descripción, requisitos,
+// Crear o editar una vacante: título, departamento (la lista de Equipo), descripción, requisitos,
 // fecha de apertura y estado.
 export default function VacancyFormModal({ initialVacancy = null, areas, onAddArea, onSubmit, onClose }) {
   const seed = initialVacancy || newVacancy()
@@ -25,7 +26,7 @@ export default function VacancyFormModal({ initialVacancy = null, areas, onAddAr
     if (!clean) return
     const next = addArea(areas, clean)
     if (next !== areas) onAddArea(clean)
-    setArea(next.find((a) => a.toLocaleLowerCase('es') === clean.toLocaleLowerCase('es')) || clean)
+    setArea(next.find((a) => departmentKey(a) === departmentKey(clean)) || clean)
     setAddingArea(false)
     setNewAreaName('')
   }
@@ -59,7 +60,7 @@ export default function VacancyFormModal({ initialVacancy = null, areas, onAddAr
 
           <div className="event-form-row">
             <label className="event-form-field">
-              <span>Área</span>
+              <span>Departamento</span>
               {addingArea ? (
                 <span className="vacancy-new-area">
                   <input
@@ -72,8 +73,8 @@ export default function VacancyFormModal({ initialVacancy = null, areas, onAddAr
                         confirmNewArea()
                       }
                     }}
-                    placeholder="Nombre del área"
-                    aria-label="Nombre de la nueva área"
+                    placeholder="Nombre del departamento"
+                    aria-label="Nombre del nuevo departamento"
                     autoFocus
                   />
                   <button type="button" className="event-form-submit" onClick={confirmNewArea}>
@@ -82,14 +83,14 @@ export default function VacancyFormModal({ initialVacancy = null, areas, onAddAr
                 </span>
               ) : (
                 <select value={area} onChange={(e) => (e.target.value === NEW_AREA ? setAddingArea(true) : setArea(e.target.value))}>
-                  <option value="">Sin área</option>
+                  <option value="">Sin departamento</option>
                   {areas.map((a) => (
                     <option key={a} value={a}>
                       {a}
                     </option>
                   ))}
                   {area && !areas.includes(area) && <option value={area}>{area}</option>}
-                  <option value={NEW_AREA}>+ Añadir un área…</option>
+                  <option value={NEW_AREA}>+ Añadir un departamento…</option>
                 </select>
               )}
             </label>

@@ -1,0 +1,99 @@
+.departments-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.department-row .group-row-count {
+  min-width: 70px;
+  text-align: right;
+}
+
+.department-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.department-move:not(:disabled):hover {
+  color: var(--accent);
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+}
+
+.department-reassign {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  background: #fef2f2;
+}
+.department-reassign p {
+  margin: 0;
+  font-size: 13px;
+  color: #991b1b;
+}
+.department-reassign-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.department-reassign-row select {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+.department-reassign-confirm {
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #dc2626;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.department-reassign-confirm:hover {
+  background: #b91c1c;
+}
+
+/* Botón "Departamentos" junto a los filtros de Equipo y Vacantes */
+.departments-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.departments-btn:hover {
+  background: var(--surface-hover);
+}
+
+@media (max-width: 640px) {
+  .department-row .group-row-main {
+    flex-wrap: wrap;
+  }
+  .department-row .group-row-main input {
+    flex-basis: 100%;
+    font-size: 16px;
+  }
+  .department-row .group-row-count {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+  .department-reassign-row select {
+    font-size: 16px;
+  }
+}
