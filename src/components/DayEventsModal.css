@@ -201,3 +201,7 @@
   flex-shrink: 0;
   color: var(--text-secondary);
 }
+
+.day-events-modal-people {
+  margin-top: 3px;
+}

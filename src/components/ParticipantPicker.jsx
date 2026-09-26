@@ -1,9 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, UserPlus, UserRound, Users, X } from 'lucide-react'
+import { Check, ChevronDown, UserPlus, UserRound, Users } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
+import Participant from './Participant.jsx'
 import { contactDataFromText, contactMatches } from '../lib/contacts'
-import { countryLabel, countryName } from '../lib/timezones'
+import { participantEntries, statusCountsText } from '../lib/participants'
 import { addGroupToParticipants, groupOptions } from '../lib/groups'
 import { useScheduling } from '../lib/schedulingContext'
 import './ParticipantPicker.css'
@@ -13,7 +14,9 @@ function sameText(a, b) {
 }
 
 // Combobox multiselección de participantes: contactos (por id) e invitados sueltos (texto).
-export default function ParticipantPicker({ labelId, contacts, participantIds, guests, onChange, onCreateContact }) {
+// Cada elegido se muestra con el componente Participant; con `start`/`end` (la hora de la
+// reunión) dice si puede y su hora local, y se actualiza al cambiar la fecha o la hora.
+export default function ParticipantPicker({ labelId, contacts, participantIds, guests, onChange, onCreateContact, start = null, end = null }) {
   const { groups = [] } = useScheduling()
   const [query, setQuery] = useState('')
   const [pendingCreate, setPendingCreate] = useState(null) // texto del contacto que se va a crear
@@ -146,48 +149,20 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
 
   const activeOption = open ? options[safeActive] : null
 
+  const entries = participantEntries({ participantIds, guests }, contacts, start, end)
+
   return (
     <div className={`participant-picker${open ? ' open' : ''}`} ref={rootRef}>
+      {entries.length > 1 && <p className="participant-counts participant-picker-counts">{statusCountsText(entries)}</p>}
       <div className="participant-picker-control" onClick={() => inputRef.current?.focus()}>
         {selectedContacts.map((c) => (
           <span key={c.id} className="participant-chip">
-            <ContactAvatar name={c.name} photo={c.photo} size="xs" />
-            <span className="participant-chip-name">{c.name}</span>
-            {c.country && c.country !== 'ES' && (
-              <span className="participant-chip-country" title={countryName(c.country)}>
-                {countryLabel(c.country)}
-              </span>
-            )}
-            <button
-              type="button"
-              className="participant-chip-remove"
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleContact(c)
-              }}
-              aria-label={`Quitar a ${c.name}`}
-            >
-              <X size={12} strokeWidth={2} />
-            </button>
+            <Participant contact={c} start={start} end={end} onRemove={() => toggleContact(c)} />
           </span>
         ))}
         {guests.map((g) => (
           <span key={`guest-${g}`} className="participant-chip guest" title="Invitado solo en esta reunión">
-            <span className="participant-chip-guest-icon" aria-hidden="true">
-              <UserRound size={12} strokeWidth={1.75} />
-            </span>
-            <span className="participant-chip-name">{g}</span>
-            <button
-              type="button"
-              className="participant-chip-remove"
-              onClick={(e) => {
-                e.stopPropagation()
-                removeGuest(g)
-              }}
-              aria-label={`Quitar a ${g}`}
-            >
-              <X size={12} strokeWidth={2} />
-            </button>
+            <Participant guest={g} start={start} end={end} onRemove={() => removeGuest(g)} />
           </span>
         ))}
 

@@ -6,9 +6,10 @@ import TagInput from './TagInput.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import ProposalShare from './ProposalShare.jsx'
 import ProjectSelect from './ProjectSelect.jsx'
+import { ParticipantList } from './Participant.jsx'
 import { MAX_OPTIONS, MIN_OPTIONS, proposalShareData } from '../lib/proposals'
 import { explainNoSlots, findFirstSlot, findBestSlot, findMultipleSlots, rulesExceededByDuration } from '../lib/findSlots'
-import { hasAvailability, slotLocalNotes } from '../lib/contactAvailability'
+import { hasAvailability } from '../lib/contactAvailability'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { describeRule, formatMinutes, ruleTargetLabel, rulesForType } from '../lib/rules'
 import { allTags } from '../lib/tags'
@@ -28,16 +29,6 @@ function firstName(contact) {
   return contact.name.split(' ')[0] || contact.name
 }
 
-// Hora local de los participantes de otras zonas y avisos de horas poco razonables para ellos.
-function SlotNotes({ slot, people }) {
-  const { times, warnings } = slotLocalNotes(slot.start, slot.end, people)
-  return (
-    <>
-      {times.length > 0 && <span className="find-slot-result-zone">{times.join(' · ')}</span>}
-      {warnings.length > 0 && <span className="find-slot-result-warning">{warnings.join(' · ')}</span>}
-    </>
-  )
-}
 
 const slotKey = (slot) => slot.start.toISOString()
 
@@ -201,7 +192,7 @@ export default function FindSlotModal({
                   <CalendarClock size={14} strokeWidth={1.75} />
                   <span className="find-slot-picked-text">
                     <span>{slotLabel(slot)}</span>
-                    <SlotNotes slot={slot} people={people} />
+                    <ParticipantList item={participantSelection} contacts={contacts} start={slot.start} end={slot.end} size="compact" />
                   </span>
                 </li>
               ))}
@@ -445,7 +436,13 @@ export default function FindSlotModal({
                             {' · '}
                             {format(slot.start, 'HH:mm')}–{format(slot.end, 'HH:mm')}
                           </span>
-                          <SlotNotes slot={slot} people={people} />
+                          <ParticipantList
+                            item={participantSelection}
+                            contacts={contacts}
+                            start={slot.start}
+                            end={slot.end}
+                            className="find-slot-result-people"
+                          />
                           {slot.rules?.length > 0 && (
                             <span className="find-slot-result-rule">
                               Cumple: {slot.rules.map((r) => `regla de «${r.target}»`).join(', ')}

@@ -1,10 +1,6 @@
 import { WEEKDAY_DISPLAY_ORDER, normalizeWeek, timeToMinutes } from './weeklySchedule'
 import {
   SPAIN_ZONE,
-  dayShift,
-  formatTimeInZone,
-  localTimeZone,
-  sameClock,
   wallTime,
   zonePlace,
   zonedDateTime,
@@ -123,48 +119,4 @@ export function blockingMessage(contact, from, to, { periodLabel }) {
   if (intervals.length === 0) return `${name} no tiene disponibilidad ${periodLabel}.`
   const { can, mine } = describeWindows(intervals, contact)
   return `${name} solo puede ${can} y tú no tienes huecos libres ${mine} ${periodLabel}.`
-}
-
-// ---------------------------------------------------------------------------
-// Hora local de los participantes en un hueco
-// ---------------------------------------------------------------------------
-
-const REASONABLE_START = 8 * 60
-const REASONABLE_END = 20 * 60
-
-function localMinutes(date, tz) {
-  const w = wallTime(date, tz)
-  return { day: Date.UTC(w.year, w.month - 1, w.day), minutes: w.hour * 60 + w.minute, hour: w.hour }
-}
-
-/**
- * Notas de un hueco [start, end) para los participantes:
- *  - times: su hora local si están en una zona con otra hora ("10:00 en Ciudad de México").
- *  - warnings: para quien no tiene disponibilidad apuntada, aviso si el hueco cae fuera de
- *    08:00–20:00 en su hora local ("Para Ana serían las 02:00").
- */
-export function slotLocalNotes(start, end, people, myZone = localTimeZone()) {
-  const times = []
-  const seen = new Set()
-  const warnings = []
-  for (const c of people) {
-    const tz = contactZone(c)
-    if (!seen.has(tz) && !sameClock(start, tz, myZone)) {
-      seen.add(tz)
-      const shift = dayShift(start, myZone, tz)
-      const note = shift > 0 ? ' (día siguiente)' : shift < 0 ? ' (día anterior)' : ''
-      times.push(`${formatTimeInZone(start, tz)} en ${zonePlace(tz)}${note}`)
-    }
-    if (!hasAvailability(c)) {
-      const s = localMinutes(start, tz)
-      const e = localMinutes(end, tz)
-      const outside = s.minutes < REASONABLE_START || e.day !== s.day || e.minutes > REASONABLE_END
-      if (outside) {
-        const name = c.name.split(' ')[0] || c.name
-        const verb = s.hour === 1 ? 'sería la' : 'serían las'
-        warnings.push(`Para ${name} ${verb} ${formatTimeInZone(start, tz)}`)
-      }
-    }
-  }
-  return { times, warnings }
 }

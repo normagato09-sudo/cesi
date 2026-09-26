@@ -8,6 +8,8 @@ import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
 import { dragThresholdFor } from '../../lib/dragThreshold'
 import { useMediaQuery } from '../../lib/useMediaQuery'
+import { useEventPreview } from '../../hooks/useEventPreview'
+import EventPreview from './EventPreview.jsx'
 import './TimeGridView.css'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -29,6 +31,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   const dragDataRef = useRef(null)
   const draggedRef = useRef(false)
   const [dragPreview, setDragPreview] = useState(null)
+  const { preview, bind: bindPreview, hide: hidePreview } = useEventPreview()
   const today = new Date()
 
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   }
 
   const handleMoveStart = (e, event, dayIndex) => {
+    hidePreview()
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false
@@ -74,6 +78,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   }
 
   const handleResizeStart = (e, event) => {
+    hidePreview()
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false
@@ -137,6 +142,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   }
 
   const handleEventClick = (event) => {
+    hidePreview()
     if (draggedRef.current) {
       draggedRef.current = false
       return
@@ -146,6 +152,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
 
   return (
     <div className="time-grid-view" style={{ '--day-count': days.length }}>
+      <EventPreview preview={dragPreview ? null : preview} />
       <div className="time-grid-header">
         <div className="time-grid-gutter" />
         {days.map((day) => (
@@ -171,6 +178,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                     key={ev.id}
                     className={`time-grid-allday-event ${ev.isUnavailable ? 'unavailable' : ''}`}
                     style={{ '--event-color': colorForEvent(ev) }}
+                    {...bindPreview(ev)}
                     onClick={() => onSelectEvent(ev)}
                   >
                     {ev.isUnavailable && <Ban size={11} strokeWidth={2} />}
@@ -238,6 +246,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                       left: `calc(${left}% + 2px)`,
                       touchAction: 'none',
                     }}
+                    {...bindPreview(event)}
                     onPointerDown={(e) => handleMoveStart(e, event, dayIndex)}
                     onPointerMove={handlePointerMove}
                     onPointerUp={finishDrag}

@@ -60,49 +60,21 @@
   transform: rotate(180deg);
 }
 
+/* Cada elegido es un Participant (Participant.css) dentro de un chip. */
 .participant-chip {
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
   max-width: 100%;
-  padding: 2px 3px 2px 3px;
-  border-radius: 999px;
-  border: 1px solid var(--accent-soft-strong);
-  background: var(--accent-soft);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
+  padding: 4px 4px 4px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
 }
 .participant-chip.guest {
-  border: 1px dashed var(--border-strong);
+  border-style: dashed;
   background: var(--surface);
-  padding-left: 6px;
 }
-.participant-chip-guest-icon {
-  display: flex;
-  color: var(--text-muted);
-}
-.participant-chip-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.participant-chip-remove {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-secondary);
-}
-.participant-chip-remove:hover {
-  background: var(--border);
-  color: var(--text);
+.participant-picker-counts {
+  margin-bottom: 6px;
 }
 
 .participant-picker-list {
@@ -213,14 +185,6 @@
     width: 32px;
     height: 32px;
   }
-  .participant-chip {
-    font-size: 14px;
-    padding: 3px 4px;
-  }
-  .participant-chip-remove {
-    width: 24px;
-    height: 24px;
-  }
   .participant-option {
     padding: 10px 8px;
   }
@@ -230,13 +194,6 @@
   .participant-picker-list {
     max-height: 45vh;
   }
-}
-
-.participant-chip-country {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
 }
 
 .participant-picker .contact-country-step {

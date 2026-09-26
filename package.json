@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",
+    "country-flag-emoji-polyfill": "^0.1.10",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.47.0",
     "react": "^19.2.8",

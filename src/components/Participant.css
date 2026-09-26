@@ -1,0 +1,205 @@
+/* Participante de una reunión (Participant.jsx): el mismo aspecto en escritorio y móvil. */
+
+.participant {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--text);
+}
+.participant.compact {
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+}
+
+/* Indicador: icono distinto en cada estado (no solo color). */
+.participant-status {
+  position: relative;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.participant.compact .participant-status {
+  width: 16px;
+  height: 16px;
+}
+.participant-status.can {
+  background: #dcfce7;
+  color: #15803d;
+  box-shadow: inset 0 0 0 1px #86efac;
+}
+.participant-status.cannot {
+  background: #fee2e2;
+  color: #b91c1c;
+  box-shadow: inset 0 0 0 1px #fca5a5;
+}
+.participant-status.unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+  box-shadow: inset 0 0 0 1px #d1d5db;
+}
+.participant-status.any {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-soft-strong);
+}
+.participant-status-q {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.participant-tip {
+  position: fixed;
+  z-index: 300;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: #1f2430;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  transform: translateY(-100%);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+.participant-tip.below {
+  transform: none;
+}
+
+.participant-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Nombre y, al lado, país y hora; si no cabe, país y hora bajan debajo del nombre. */
+.participant-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 0;
+  min-width: 0;
+}
+.participant-name {
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.participant.compact .participant-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+button.participant-name.link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+button.participant-name.link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.participant-place {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.participant-place.muted {
+  color: var(--text-muted);
+}
+
+.participant-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #b45309;
+}
+
+.participant-remove {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.participant-remove:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Lista con el recuento encima. */
+.participant-list-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.participant-counts {
+  display: block;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.participant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.participant-list.compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.participant-list.compact .participant-list-item {
+  min-width: 0;
+  max-width: 100%;
+}
+.participant-list-block.compact {
+  gap: 3px;
+}
+.participant-list-block.compact .participant-counts {
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.participant-list-item {
+  display: flex;
+  min-width: 0;
+}
+
+/* Los iconos del indicador conservan su color aunque el contenedor coloree sus svg. */
+.participant .participant-status svg {
+  color: inherit;
+  flex-shrink: 0;
+}

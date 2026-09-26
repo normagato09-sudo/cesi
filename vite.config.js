@@ -10,7 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       // Notificaciones de los recordatorios (public/push-sw.js).
-      workbox: { importScripts: ['push-sw.js'] },
+      // La fuente de las banderas (woff2) también se guarda para usar la app sin conexión.
+      workbox: { importScripts: ['push-sw.js'], globPatterns: ['**/*.{js,css,html,woff2}'] },
       manifest: {
         name: 'CESI',
         short_name: 'CESI',

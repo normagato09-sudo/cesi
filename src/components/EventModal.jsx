@@ -13,21 +13,18 @@ import {
   Ban,
   Repeat,
   UserPlus,
-  UserRound,
-  Globe,
   CalendarCheck,
   Check,
   Undo2,
   Bell,
   BellOff,
 } from 'lucide-react'
-import ContactAvatar from './ContactAvatar.jsx'
+import { ParticipantList } from './Participant.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
 import EventNotes from './EventNotes.jsx'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
-import { dayShift, formatTimeInZone, localTimeZone, sameClock, zonePlace } from '../lib/timezones'
 import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
 import { copyText } from '../lib/clipboard'
 import { useScheduling } from '../lib/schedulingContext'
@@ -35,16 +32,6 @@ import { projectOf } from '../lib/projects'
 import { NO_REMINDER, reminderMinutesOf } from '../lib/reminders'
 import './ProjectsModal.css'
 import './EventModal.css'
-
-// "18:00 en Ciudad de México" si el contacto está en una zona con otra hora; si no, null.
-function localTimeFor(contact, event) {
-  if (!contact.timeZone || event.allDay) return null
-  const mine = localTimeZone()
-  if (sameClock(event.start, contact.timeZone, mine)) return null
-  const shift = dayShift(event.start, mine, contact.timeZone)
-  const note = shift > 0 ? ' (día siguiente)' : shift < 0 ? ' (día anterior)' : ''
-  return `${formatTimeInZone(event.start, contact.timeZone)} en ${zonePlace(contact.timeZone)}${note}`
-}
 
 function formatRange(event) {
   if (event.allDay) {
@@ -201,73 +188,41 @@ export default function EventModal({
             </div>
           )}
 
-          {people.length > 0 && (
+          {(people.length > 0 || guests.length > 0) && (
             <div className="event-modal-row align-top">
               <Users size={16} strokeWidth={1.75} />
-              <ul className="event-modal-attendees">
-                {people.map((c) => (
-                  <li key={c.id} className="event-modal-attendee">
-                    <ContactAvatar name={c.name} photo={c.photo} size="sm" />
-                    <span className="event-modal-attendee-text">
-                      <button
-                        type="button"
-                        className="event-modal-attendee-name"
-                        onClick={() => onOpenContact(c.id)}
-                        title="Ver ficha del contacto"
-                      >
-                        {c.name}
-                      </button>
-                      {c.email && (
-                        <a href={`mailto:${c.email}`} className="event-modal-attendee-email">
-                          {c.email}
-                        </a>
-                      )}
-                      {localTimeFor(c, event) && (
-                        <span className="event-modal-attendee-zone">
-                          <Globe size={12} strokeWidth={1.75} />
-                          {localTimeFor(c, event)}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {guests.length > 0 && (
-            <div className="event-modal-row align-top">
-              <UserRound size={16} strokeWidth={1.75} />
-              <div className="event-modal-guests">
-                <span className="event-modal-guests-label">Invitados sin ficha</span>
-                <ul className="event-modal-attendees">
-                  {guests.map((g) =>
-                    savingGuest === g ? (
-                      <li key={g}>
-                        <ContactCountryStep
-                          name={g}
-                          confirmLabel="Guardar contacto"
-                          onCancel={() => setSavingGuest(null)}
-                          onConfirm={(zone) => {
-                            onSaveGuestAsContact(event, g, zone)
-                            setSavingGuest(null)
-                          }}
-                        />
-                      </li>
-                    ) : (
-                      <li key={g} className="event-modal-attendee">
-                        <span className="event-modal-attendee-text">
-                          <span className="event-modal-guest-name">{g}</span>
-                        </span>
-                        <button type="button" className="event-modal-save-guest" onClick={() => setSavingGuest(g)}>
-                          <UserPlus size={13} strokeWidth={1.75} />
-                          Guardar como contacto
-                        </button>
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </div>
+              <ParticipantList
+                item={event}
+                contacts={contacts}
+                start={event.allDay ? null : event.start}
+                end={event.allDay ? null : event.end}
+                onOpenContact={onOpenContact}
+                className="event-modal-participants"
+                extra={(entry) =>
+                  entry.contact ? (
+                    entry.contact.email && (
+                      <a href={`mailto:${entry.contact.email}`} className="event-modal-attendee-email">
+                        {entry.contact.email}
+                      </a>
+                    )
+                  ) : savingGuest === entry.guest ? (
+                    <ContactCountryStep
+                      name={entry.guest}
+                      confirmLabel="Guardar contacto"
+                      onCancel={() => setSavingGuest(null)}
+                      onConfirm={(zone) => {
+                        onSaveGuestAsContact(event, entry.guest, zone)
+                        setSavingGuest(null)
+                      }}
+                    />
+                  ) : (
+                    <button type="button" className="event-modal-save-guest" onClick={() => setSavingGuest(entry.guest)}>
+                      <UserPlus size={13} strokeWidth={1.75} />
+                      Guardar como contacto
+                    </button>
+                  )
+                }
+              />
             </div>
           )}
 

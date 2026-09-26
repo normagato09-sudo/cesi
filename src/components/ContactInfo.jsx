@@ -10,6 +10,7 @@ import { colorForEvent } from '../lib/eventStyle'
 import { notesOf, notesPreview } from '../lib/notes'
 import { groupsOfContact } from '../lib/groups'
 import LinkList from './LinkList.jsx'
+import { ParticipantList } from './Participant.jsx'
 import { SPAIN_ZONE, countryFlag, formatOffsetDiff, formatTimeInZone, zoneLabel, zoneOffsetMinutes } from '../lib/timezones'
 import './ContactsView.css'
 
@@ -48,7 +49,7 @@ export function GroupChips({ contact, groups }) {
   )
 }
 
-function MeetingList({ title, meetings, emptyText, onOpenEvent, showNotes = false }) {
+function MeetingList({ title, meetings, contacts, emptyText, onOpenEvent, showNotes = false }) {
   return (
     <section className="contact-meetings">
       <h3>{title}</h3>
@@ -66,6 +67,7 @@ function MeetingList({ title, meetings, emptyText, onOpenEvent, showNotes = fals
                     {formatMeetingDate(ev)}
                     {ev.provisional && ' · Provisional'}
                   </span>
+                  <ParticipantList item={ev} contacts={contacts} start={ev.start} end={ev.end} size="compact" />
                   {showNotes && !ev.provisional && (
                     <span className={`contact-meeting-notes${notesOf(ev).trim() ? '' : ' empty'}`}>
                       {notesPreview(notesOf(ev), 90) || 'Sin notas'}
@@ -178,12 +180,14 @@ export function ContactMeetings({ contact, contacts, rawEvents, now, onOpenEvent
       <MeetingList
         title="Próximas reuniones"
         meetings={upcoming}
+        contacts={contacts}
         emptyText="No hay reuniones programadas con este contacto."
         onOpenEvent={onOpenEvent}
       />
       <MeetingList
         title="Reuniones anteriores"
         meetings={past}
+        contacts={contacts}
         emptyText="Todavía no habéis tenido ninguna reunión."
         onOpenEvent={onOpenEvent}
         showNotes

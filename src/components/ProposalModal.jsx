@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Send, CalendarCheck, Trash2, CalendarClock } from 'lucide-react'
 import ProposalShare from './ProposalShare.jsx'
-import { participantsOf } from '../lib/contacts'
+import { ParticipantList } from './Participant.jsx'
 import { formatDurationLong, isExpired, optionsOf, proposalShareData } from '../lib/proposals'
 import { useScheduling } from '../lib/schedulingContext'
 import './EventFormModal.css'
@@ -18,8 +18,6 @@ export default function ProposalModal({ proposal, onConfirmOption, onCancelPropo
   const options = optionsOf(proposal, rawEvents)
   const expired = isExpired(options)
   const now = new Date()
-  const { contacts: people, guests } = participantsOf(proposal, contacts)
-  const who = [...people.map((c) => c.name), ...guests].join(', ')
 
   const handleCancel = () => {
     const question = expired ? '¿Borrar esta propuesta caducada?' : '¿Cancelar la propuesta y borrar todas sus opciones provisionales?'
@@ -44,7 +42,6 @@ export default function ProposalModal({ proposal, onConfirmOption, onCancelPropo
         <div className="event-form-body">
           <p className="proposal-meta">
             {formatDurationLong(proposal.durationMinutes)}
-            {who && ` · con ${who}`}
             {expired && <span className="proposal-badge expired">Caducada</span>}
           </p>
 
@@ -63,6 +60,8 @@ export default function ProposalModal({ proposal, onConfirmOption, onCancelPropo
                         {past && ' (ya ha pasado)'}
                       </span>
                     </span>
+                    {/* Quién puede en esta opción. */}
+                    <ParticipantList item={proposal} contacts={contacts} start={option.start} end={option.end} size="compact" />
                     {!past && (
                       <button
                         type="button"

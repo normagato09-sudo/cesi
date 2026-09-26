@@ -9,11 +9,14 @@ import { hasNotes } from '../../lib/notes'
 import { dragThresholdFor } from '../../lib/dragThreshold'
 import { useMediaQuery } from '../../lib/useMediaQuery'
 import DayEventsModal from '../DayEventsModal.jsx'
+import EventPreview from './EventPreview.jsx'
+import { useEventPreview } from '../../hooks/useEventPreview'
 import './MonthView.css'
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 export default function MonthView({ currentDate, events, onSelectEvent, onSelectDay, onMoveEvent }) {
+  const { preview, bind: bindPreview, hide: hidePreview } = useEventPreview()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const MAX_VISIBLE_DOTS = isMobile ? 4 : 6
   const days = getMonthGridDays(currentDate)
@@ -89,6 +92,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
   }
 
   const handleEventClick = (e, ev) => {
+    hidePreview()
     e.stopPropagation()
     if (draggedRef.current) {
       draggedRef.current = false
@@ -150,9 +154,12 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        title={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con notas' : ''}`}
-                        aria-label={ev.title}
-                        onPointerDown={(e) => handlePointerDown(e, ev, dayIndex)}
+                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con notas' : ''}`}
+                        {...bindPreview(ev)}
+                        onPointerDown={(e) => {
+                          hidePreview()
+                          handlePointerDown(e, ev, dayIndex)
+                        }}
                         onPointerMove={handlePointerMove}
                         onPointerUp={finishDrag}
                         onPointerCancel={finishDrag}
@@ -181,6 +188,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
           )
         })}
       </div>
+      <EventPreview preview={dragPreview ? null : preview} />
       <DayEventsModal
         day={dayListDay}
         events={dayListDay ? getDayEvents(dayListDay) : []}

@@ -177,6 +177,15 @@ export default function EventFormModal({
 
   const effectiveDurationMinutes = durationChoice === 'custom' ? Number(customDuration) : Number(durationChoice)
 
+  // Hora de la reunión tal como está en el formulario: los participantes dicen si pueden y su
+  // hora local, y se actualizan al cambiar la fecha o la hora.
+  const liveTimes = (() => {
+    if (!date || !startTime || !endTime) return { start: null, end: null }
+    const s = combineDateAndTime(date, startTime)
+    const e = combineDateAndTime(date, endTime)
+    return Number.isNaN(s.getTime()) || e <= s ? { start: null, end: null } : { start: s, end: e }
+  })()
+
   // Qué días cambian, en una reunión que se repite.
   const occurrenceDay = initialEvent?.isRecurringInstance
     ? format(new Date(initialEvent.originalStart || initialEvent.start), "EEEE d 'de' MMMM", { locale: es })
@@ -482,6 +491,8 @@ export default function EventFormModal({
                 guests={participantSelection.guests}
                 onChange={setParticipantSelection}
                 onCreateContact={onCreateContact}
+                start={liveTimes.start}
+                end={liveTimes.end}
               />
             </div>
           )}

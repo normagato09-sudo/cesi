@@ -12,6 +12,7 @@ import {
   formatMsDelta,
   weekStartOf,
 } from '../lib/weeklyReport'
+import { ParticipantList } from './Participant.jsx'
 import './ReportView.css'
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -235,6 +236,7 @@ export default function ReportView({ rawEvents, workingHours, weeklyAvailability
                       </span>
                       <span className="report-meeting-text">
                         <span className="report-meeting-title">{ev.title}</span>
+                        <ParticipantList item={ev} contacts={contacts} start={ev.start} end={ev.end} size="compact" />
                         <span className={`report-meeting-notes${notes ? '' : ' empty'}`}>
                           {notes && <NotebookPen size={12} strokeWidth={2} />}
                           {notes ? notesPreview(notes, 140) : 'Sin notas'}

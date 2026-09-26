@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { availabilityIntervals, commonAvailability, hasAvailability, slotLocalNotes } from './contactAvailability'
+import { availabilityIntervals, commonAvailability, hasAvailability } from './contactAvailability'
 import { explainNoSlots, findSlots } from './findSlots'
 import { emptyWeek } from './weeklySchedule'
 
@@ -103,44 +103,5 @@ describe('findSlots con participantes', () => {
     const ana = contact('Ana', WEEKDAYS([{ start: '09:00', end: '19:00' }]))
     const sat = new Date(2026, 0, 17)
     expect(explainNoSlots({ ...base, fromDate: sat, toDate: sat, participants: [ana] })).toEqual({ blockers: [], combined: false })
-  })
-})
-
-describe('hora local de los participantes en los resultados', () => {
-  const slot = (y, m, d, h, dur = 60) => {
-    const start = new Date(y, m - 1, d, h)
-    return [start, new Date(start.getTime() + dur * 60000)]
-  }
-  const MADRID = 'Europe/Madrid'
-
-  it('muestra la hora en la zona del país de cada participante', () => {
-    const luis = contact('Luis', null, 'America/Mexico_City')
-    const kenji = contact('Kenji', null, 'Asia/Tokyo')
-    const ana = contact('Ana', null, 'Europe/Madrid')
-    // 17:00 en España en invierno = 10:00 en México y 01:00 del día siguiente en Tokio.
-    const { times } = slotLocalNotes(...slot(2026, 1, 14, 17), [luis, kenji, ana], MADRID)
-    expect(times).toEqual(['10:00 en Ciudad de México', '01:00 en Japón (día siguiente)'])
-    // En verano México va 8 h por detrás.
-    expect(slotLocalNotes(...slot(2026, 7, 15, 17), [luis], MADRID).times).toEqual(['09:00 en Ciudad de México'])
-  })
-
-  it('avisa si el hueco cae fuera de 08:00–20:00 para quien no tiene disponibilidad', () => {
-    const ana = contact('Ana García', null, 'America/Mexico_City')
-    // 09:00 en España = 02:00 en México (invierno).
-    expect(slotLocalNotes(...slot(2026, 1, 14, 9), [ana], MADRID).warnings).toEqual(['Para Ana serían las 02:00'])
-    // 16:00 en España = 09:00 en México: sin aviso.
-    expect(slotLocalNotes(...slot(2026, 1, 14, 16), [ana], MADRID).warnings).toEqual([])
-    // 08:00 en España = 01:00: "sería la 01:00".
-    expect(slotLocalNotes(...slot(2026, 1, 14, 8), [ana], MADRID).warnings).toEqual(['Para Ana sería la 01:00'])
-    // Terminar justo a las 20:00 en su hora es razonable; pasarse, no.
-    const kenji = contact('Kenji', null, 'Asia/Tokyo')
-    expect(slotLocalNotes(...slot(2026, 1, 14, 11, 60), [kenji], MADRID).warnings).toEqual([])
-    expect(slotLocalNotes(...slot(2026, 1, 14, 11, 90), [kenji], MADRID).warnings).toEqual(['Para Kenji serían las 19:00'])
-    expect(slotLocalNotes(...slot(2026, 1, 14, 12, 90), [kenji], MADRID).warnings).toEqual(['Para Kenji serían las 20:00'])
-  })
-
-  it('no avisa por horas a quien tiene disponibilidad apuntada (ya se filtra por ella)', () => {
-    const luis = contact('Luis', WEEKDAYS([{ start: '01:00', end: '03:00' }]), 'America/Mexico_City')
-    expect(slotLocalNotes(...slot(2026, 1, 14, 9), [luis], MADRID).warnings).toEqual([])
   })
 })

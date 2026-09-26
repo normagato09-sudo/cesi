@@ -1,8 +1,10 @@
 import { format, differenceInMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Clock, Users, Ban, ChevronRight, NotebookPen } from 'lucide-react'
+import { X, Clock, Ban, ChevronRight, NotebookPen } from 'lucide-react'
+import { ParticipantList } from './Participant.jsx'
 import { hasNotes } from '../lib/notes'
 import { colorForEvent } from '../lib/eventStyle'
+import { useScheduling } from '../lib/schedulingContext'
 import './DayEventsModal.css'
 
 function formatDuration(ev) {
@@ -17,6 +19,7 @@ function formatDuration(ev) {
 }
 
 export default function DayEventsModal({ day, events, onClose, onSelectEvent }) {
+  const { contacts = [] } = useScheduling() || {}
   if (!day) return null
 
   return (
@@ -65,14 +68,17 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
                       {formatDuration(ev)}
                     </>
                   )}
-                  {ev.participants?.length > 0 && (
-                    <>
-                      <span className="day-events-modal-item-dot">·</span>
-                      <Users size={12} strokeWidth={1.75} />
-                      {ev.participants.length}
-                    </>
-                  )}
                 </span>
+                {!ev.isUnavailable && (
+                  <ParticipantList
+                    item={ev}
+                    contacts={contacts}
+                    start={ev.allDay ? null : ev.start}
+                    end={ev.allDay ? null : ev.end}
+                    size="compact"
+                    className="day-events-modal-people"
+                  />
+                )}
               </span>
               <ChevronRight size={16} strokeWidth={1.75} className="day-events-modal-item-chevron" />
             </button>
