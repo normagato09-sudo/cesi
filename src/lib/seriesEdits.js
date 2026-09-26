@@ -26,6 +26,7 @@ export const EXCEPTION_FIELDS = [
   'meetLink',
   'allDay',
   'reminder',
+  'acceptedUnavailable',
 ]
 
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)

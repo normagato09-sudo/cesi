@@ -12,6 +12,7 @@ import { allTags } from '../lib/tags'
 import { RuleWarning } from '../lib/rules'
 import { useScheduling } from '../lib/schedulingContext'
 import { SCOPES } from '../lib/seriesEdits'
+import { hasUnavailableWarning, warningTitle } from '../lib/meetingWarnings'
 import { NO_REMINDER, REMINDER_OPTIONS } from '../lib/reminders'
 import './EventFormModal.css'
 
@@ -63,15 +64,6 @@ function diffMinutes(startTime, endTime) {
   const [sh, sm] = startTime.split(':').map(Number)
   const [eh, em] = endTime.split(':').map(Number)
   return eh * 60 + em - (sh * 60 + sm)
-}
-
-// Título del aviso según lo que incumple: reglas por tipo, margen entre reuniones o ambos.
-function warningTitle(violations) {
-  const rules = violations.some((v) => v.type !== 'buffer')
-  const buffer = violations.some((v) => v.type === 'buffer')
-  if (rules && buffer) return 'Esta reunión no cumple tus reglas ni el margen entre reuniones'
-  if (buffer) return 'Esta reunión no respeta el margen entre reuniones'
-  return 'Esta reunión no cumple tus reglas'
 }
 
 export default function EventFormModal({
@@ -535,9 +527,22 @@ export default function EventFormModal({
                 ))}
               </ul>
               <div className="event-form-warning-actions">
-                <button type="button" className="event-form-cancel" onClick={() => setRuleWarning(null)}>
-                  Revisar
-                </button>
+                {hasUnavailableWarning(ruleWarning.violations) ? (
+                  <button
+                    type="button"
+                    className="event-form-cancel"
+                    onClick={() => {
+                      setRuleWarning(null)
+                      setSlotFinderOpen(true)
+                    }}
+                  >
+                    Buscar otro hueco
+                  </button>
+                ) : (
+                  <button type="button" className="event-form-cancel" onClick={() => setRuleWarning(null)}>
+                    Revisar
+                  </button>
+                )}
                 <button
                   type="button"
                   className="event-form-submit"

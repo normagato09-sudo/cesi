@@ -21,8 +21,9 @@
 --         notes (reunión única) o notesByDate { 'AAAA-MM-DD': texto } (reunión que se repite),
 --         exceptions (reunión que se repite) { 'AAAA-MM-DD' (día que le toca en la serie):
 --           { cancelled: true } (ese día no hay reunión) o { start, end, title, participantIds, guests,
---           participants, projectId, description, meetLink, category, tags, reminder } (solo lo que cambia ese día) },
---         reminder: aviso antes de la reunión: null (el aviso por defecto), 5 | 10 | 15 | 30 | 60 (minutos) o 'none' }
+--           participants, projectId, description, meetLink, category, tags, reminder, acceptedUnavailable } (solo lo que cambia ese día) },
+--         reminder: aviso antes de la reunión: null (el aviso por defecto), 5 | 10 | 15 | 30 | 60 (minutos) o 'none',
+--         acceptedUnavailable: [ids de contactos que no podían y se guardó igualmente] (también por día en exceptions) }
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

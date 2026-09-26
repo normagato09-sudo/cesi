@@ -17,6 +17,17 @@ export const STATUS_LABELS = {
 }
 
 const DAY_PLURAL = ['los domingos', 'los lunes', 'los martes', 'los miércoles', 'los jueves', 'los viernes', 'los sábados']
+const DAY_NAME = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+const MIDDAY = '14:00'
+
+// Motivo corto para los avisos: "jueves solo por la mañana", "sábado no tiene disponibilidad".
+function shortReason(weekday, entry, zoneNote) {
+  const day = DAY_NAME[weekday]
+  if (!entry?.enabled || entry.slots.length === 0) return `${day} no tiene disponibilidad`
+  if (entry.slots.every((s) => s.end <= MIDDAY)) return `${day} solo por la mañana`
+  if (entry.slots.every((s) => s.start >= MIDDAY)) return `${day} solo por la tarde`
+  return `${day} solo ${slotsText(entry.slots)}${zoneNote ? `, ${zoneNote.trim().slice(1, -1)}` : ''}`
+}
 
 // '09:00' → '9:00'
 const shortTime = (hhmm) => hhmm.replace(/^0(\d)/, '$1')
@@ -55,10 +66,11 @@ export function availabilityStatus(contact, start, end, myZone = localTimeZone()
   const days = DAY_PLURAL[weekday]
   const zoneNote = sameClock(from, tz, myZone) ? '' : ` (hora de ${zonePlace(tz)})`
   if (ok) return { status: STATUS.CAN, message: `Puede: ${days} ${slotsText(entry.slots)}${zoneNote}` }
+  const reason = shortReason(weekday, entry, zoneNote)
   if (!entry?.enabled || entry.slots.length === 0) {
-    return { status: STATUS.CANNOT, message: `No puede: ${days} no tiene disponibilidad` }
+    return { status: STATUS.CANNOT, message: `No puede: ${days} no tiene disponibilidad`, reason }
   }
-  return { status: STATUS.CANNOT, message: `No puede: ${days} solo ${slotsText(entry.slots)}${zoneNote}` }
+  return { status: STATUS.CANNOT, message: `No puede: ${days} solo ${slotsText(entry.slots)}${zoneNote}`, reason }
 }
 
 /**

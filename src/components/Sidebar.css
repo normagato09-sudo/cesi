@@ -103,6 +103,7 @@
     grid-template-areas:
       'nav footer'
       'week week'
+      'pending pending'
       'summary summary'
       'proposals proposals'
       'notes notes';
@@ -206,10 +207,16 @@
     min-width: 0;
   }
 
+  .sidebar .pending-panel {
+    grid-area: pending;
+    min-width: 0;
+  }
+
   /* Fuera del calendario el resumen y las propuestas no aportan nada y quitan espacio en móvil */
   .sidebar:not(.section-calendar) .summary-panel,
   .sidebar:not(.section-calendar) .proposals-panel,
   .sidebar:not(.section-calendar) .missing-notes-panel,
+  .sidebar:not(.section-calendar) .pending-panel,
   .sidebar:not(.section-calendar) .week-notice {
     display: none;
   }

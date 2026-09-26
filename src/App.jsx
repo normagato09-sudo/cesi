@@ -21,6 +21,8 @@ import VacanciesView from './components/VacanciesView.jsx'
 import DepartmentsModal from './components/DepartmentsModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import SettingsModal from './components/SettingsModal.jsx'
+import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
+import { meetingsWithUnavailable, unavailableWarning } from './lib/unavailableParticipants.js'
 import { refreshThisDevice } from './lib/push.js'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
@@ -139,6 +141,8 @@ export default function App() {
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Aviso al mover o redimensionar: { violations, resolve } (resolve: 'save' | 'find' | null).
+  const [moveWarning, setMoveWarning] = useState(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -350,11 +354,16 @@ export default function App() {
     return checkMeetingAgainstRules(meeting, rules, expandEvents(rawEvents, dayStart, dayEnd), exclude)
   }
 
-  // Avisos que no bloquean: reglas por tipo y margen con la reunión anterior o la siguiente.
+  // Avisos que no bloquean: reglas por tipo, margen con la reunión anterior o la siguiente
+  // y participantes que no pueden según su disponibilidad (los que no la tienen apuntada no avisan).
   const warningsFor = (meeting, exclude) => [
     ...ruleViolationsFor(meeting, exclude).map((v) => ({ ...v, type: 'rule' })),
     ...bufferWarningsFor(meeting, rawEvents, preferences.bufferMinutes, exclude),
+    ...[unavailableWarning(meeting, contacts)].filter(Boolean),
   ]
+
+  // Quién no puede y se ha aceptado al guardar igualmente (para no volver a salir en "Pendientes").
+  const acceptedUnavailableFor = (meeting) => unavailableWarning(meeting, contacts)?.contactIds || []
 
   // ---------------------------------------------------------------------------
   // Reuniones que se repiten: solo este día, este y los siguientes o toda la serie
@@ -409,6 +418,31 @@ export default function App() {
   }
 
   const missingNotes = useMemo(() => meetingsMissingNotes(rawEvents, now), [rawEvents, now])
+
+  // "Pendientes": reuniones de los próximos 60 días con participantes que no pueden.
+  const unavailableMeetings = useMemo(() => meetingsWithUnavailable(rawEvents, contacts, now), [rawEvents, contacts, now])
+
+  // "Buscar otro hueco" para una reunión que ya existe: misma duración, participantes y tipo;
+  // al elegir un hueco se mueve la reunión (en una serie, preguntando a qué días).
+  const findSlotToReschedule = (occurrence) =>
+    setFindSlot({
+      participants: { participantIds: occurrence.participantIds || [], guests: occurrence.guests || [] },
+      meetingType: { category: occurrence.category || null, tags: occurrence.tags || [] },
+      durationMinutes: Math.round((new Date(occurrence.end) - new Date(occurrence.start)) / 60000),
+      reschedule: occurrence,
+    })
+
+  // "Mantener así": se acepta que esas personas no pueden (en una serie, para toda la serie,
+  // salvo que ese día tenga ya sus propios datos).
+  const handleKeepUnavailable = ({ occurrence, people }) => {
+    const series = seriesOf(occurrence)
+    if (!series) return
+    const ids = people.map((p) => p.contact.id)
+    const merge = (list) => [...new Set([...(list || []), ...ids])]
+    const own = series.recurrence && 'acceptedUnavailable' in (exceptionOf(series, occurrenceKeyOf(occurrence)) || {})
+    if (own) editEvent(series.id, editOccurrencePatch(series, occurrence, { acceptedUnavailable: merge(occurrence.acceptedUnavailable) }))
+    else editEvent(series.id, { acceptedUnavailable: merge(series.acceptedUnavailable) })
+  }
 
   const openEvent = (event, { focusNotes = false } = {}) => {
     setSelectedEvent(event)
@@ -671,16 +705,23 @@ export default function App() {
       window.alert('Esta franja ya está ocupada.')
       return
     }
-    const violations = warningsFor({ ...event, start: newStart, end: newEnd }, exclude)
+    const moved = { ...event, start: newStart, end: newEnd }
+    const violations = warningsFor(moved, exclude)
     if (violations.length > 0) {
-      const reasons = violations.map((v) => `• ${v.message}`).join('\n')
-      if (!window.confirm(`${reasons}\n\n¿Guardar igualmente?`)) return
+      const choice = await new Promise((resolve) => setMoveWarning({ violations, resolve }))
+      if (choice === 'find') findSlotToReschedule(event)
+      if (choice !== 'save') return
     }
-    applyOccurrenceChange(event, { start: newStart, end: newEnd }, scope)
+    applyOccurrenceChange(event, { start: newStart, end: newEnd, acceptedUnavailable: acceptedUnavailableFor(moved) }, scope)
   }
 
   const handleFindSlotPick = (slot, meetingType, participants) => {
+    const reschedule = findSlot?.reschedule
     setFindSlot(null)
+    if (reschedule) {
+      handleMoveOrResize(reschedule, slot.start, slot.end)
+      return
+    }
     const prefill = { start: slot.start, end: slot.end }
     if (participants && (participants.participantIds.length || participants.guests.length)) {
       prefill.participantIds = participants.participantIds
@@ -704,9 +745,10 @@ export default function App() {
       if (violations.length > 0) throw new RuleWarning(violations)
     }
 
-    const data = { ...values, start: start.toISOString(), end: end.toISOString() }
+    const accepted = { acceptedUnavailable: acceptedUnavailableFor(values) }
+    const data = { ...values, ...accepted, start: start.toISOString(), end: end.toISOString() }
     if (editing) {
-      applyOccurrenceChange(editing, values, formModal.scope)
+      applyOccurrenceChange(editing, { ...values, ...accepted }, formModal.scope)
     } else {
       addEvent(data)
     }
@@ -742,6 +784,10 @@ export default function App() {
           proposals={proposalItems}
           onOpenProposal={setProposalModalId}
           missingNotes={missingNotes}
+          unavailableMeetings={unavailableMeetings}
+          onOpenUnavailable={(item) => openEvent(item.occurrence)}
+          onRescheduleUnavailable={(item) => findSlotToReschedule(item.occurrence)}
+          onKeepUnavailable={handleKeepUnavailable}
           onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
           pendingWeek={pendingWeek}
           onDeclareWeek={setWeekModalKey}
@@ -936,7 +982,7 @@ export default function App() {
 
         {findSlot && (
           <FindSlotModal
-            initialDurationMinutes={60}
+            initialDurationMinutes={findSlot.durationMinutes || 60}
             initialParticipants={findSlot.participants}
             initialMeetingType={findSlot.meetingType}
             onPick={handleFindSlotPick}
@@ -991,6 +1037,16 @@ export default function App() {
             onMove={handleMoveDepartment}
             onRemove={handleRemoveDepartment}
             onClose={() => setDepartmentsOpen(false)}
+          />
+        )}
+
+        {moveWarning && (
+          <MeetingWarningDialog
+            violations={moveWarning.violations}
+            onChoose={(choice) => {
+              moveWarning.resolve(choice)
+              setMoveWarning(null)
+            }}
           />
         )}
 

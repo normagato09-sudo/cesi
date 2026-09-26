@@ -30,13 +30,13 @@ describe('puede / no puede / sin disponibilidad', () => {
   })
 
   it('no puede si cae fuera, aunque sea en parte', () => {
-    expect(availabilityStatus(ana, at(15, 13, 30), at(15, 14, 30), MADRID)).toEqual({
+    expect(availabilityStatus(ana, at(15, 13, 30), at(15, 14, 30), MADRID)).toMatchObject({
       status: 'cannot',
       message: 'No puede: los jueves solo de 9:00 a 14:00',
     })
     expect(availabilityStatus(ana, at(15, 16), at(15, 17), MADRID).status).toBe('cannot')
     // Un día sin franjas.
-    expect(availabilityStatus(ana, at(16, 10), at(16, 11), MADRID)).toEqual({
+    expect(availabilityStatus(ana, at(16, 10), at(16, 11), MADRID)).toMatchObject({
       status: 'cannot',
       message: 'No puede: los viernes no tiene disponibilidad',
     })
@@ -49,7 +49,7 @@ describe('puede / no puede / sin disponibilidad', () => {
     // Con hueco entre ellas (9–12 y 13–14), no.
     const separadas = contact('Eva', WEEKDAYS([{ start: '09:00', end: '12:00' }, { start: '13:00', end: '14:00' }]))
     const r = availabilityStatus(separadas, at(15, 11, 30), at(15, 13, 30), MADRID)
-    expect(r).toEqual({ status: 'cannot', message: 'No puede: los jueves solo de 9:00 a 12:00 y de 13:00 a 14:00' })
+    expect(r).toMatchObject({ status: 'cannot', message: 'No puede: los jueves solo de 9:00 a 12:00 y de 13:00 a 14:00' })
   })
 
   it('sin disponibilidad apuntada, y los invitados sin ficha', () => {
@@ -68,7 +68,7 @@ describe('puede / no puede / sin disponibilidad', () => {
       message: 'Puede: los miércoles de 9:00 a 12:00 (hora de Ciudad de México)',
     })
     // 18:30–19:30 en España = 11:30–12:30 en México: se pasa de su franja.
-    expect(availabilityStatus(luis, at(14, 18, 30), at(14, 19, 30), MADRID)).toEqual({
+    expect(availabilityStatus(luis, at(14, 18, 30), at(14, 19, 30), MADRID)).toMatchObject({
       status: 'cannot',
       message: 'No puede: los miércoles solo de 9:00 a 12:00 (hora de Ciudad de México)',
     })

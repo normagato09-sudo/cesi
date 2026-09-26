@@ -2,6 +2,7 @@ import { BadgeCheck, BarChart3, Briefcase, CalendarDays, DatabaseBackup, Setting
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
+import PendingPanel from './PendingPanel.jsx'
 import WeeklyAvailabilityPanel from './WeeklyAvailabilityPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
 import './Sidebar.css'
@@ -21,6 +22,10 @@ export default function Sidebar({
   onSectionChange,
   onOpenBackup,
   onOpenSettings,
+  unavailableMeetings = [],
+  onOpenUnavailable,
+  onRescheduleUnavailable,
+  onKeepUnavailable,
   proposals = [],
   onOpenProposal,
   missingNotes = [],
@@ -57,6 +62,8 @@ export default function Sidebar({
       </nav>
 
       <WeeklyAvailabilityPanel pending={pendingWeek} onDeclare={onDeclareWeek} onDismiss={onDismissWeek} />
+
+      <PendingPanel items={unavailableMeetings} onOpen={onOpenUnavailable} onReschedule={onRescheduleUnavailable} onKeep={onKeepUnavailable} />
 
       <SummaryPanel summary={summary} now={now} />
 
