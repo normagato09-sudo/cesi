@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, CalendarPlus, Ban, Search, TriangleAlert } from 'lucide-react'
+import { X, CalendarPlus, Ban, Search } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import TagInput from './TagInput.jsx'
@@ -12,8 +12,8 @@ import { allTags } from '../lib/tags'
 import { RuleWarning } from '../lib/rules'
 import { useScheduling } from '../lib/schedulingContext'
 import { SCOPES } from '../lib/seriesEdits'
-import { hasUnavailableWarning, warningTitle } from '../lib/meetingWarnings'
 import { NO_REMINDER, REMINDER_OPTIONS } from '../lib/reminders'
+import MeetingWarning from './MeetingWarning.jsx'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -516,43 +516,16 @@ export default function EventFormModal({
           {formError && <div className="event-form-error">{formError}</div>}
 
           {ruleWarning && (
-            <div className="event-form-warning" role="alert">
-              <p className="event-form-warning-title">
-                <TriangleAlert size={15} strokeWidth={1.75} />
-                {warningTitle(ruleWarning.violations)}
-              </p>
-              <ul>
-                {ruleWarning.violations.map((v, i) => (
-                  <li key={i}>{v.message}</li>
-                ))}
-              </ul>
-              <div className="event-form-warning-actions">
-                {hasUnavailableWarning(ruleWarning.violations) ? (
-                  <button
-                    type="button"
-                    className="event-form-cancel"
-                    onClick={() => {
-                      setRuleWarning(null)
-                      setSlotFinderOpen(true)
-                    }}
-                  >
-                    Buscar otro hueco
-                  </button>
-                ) : (
-                  <button type="button" className="event-form-cancel" onClick={() => setRuleWarning(null)}>
-                    Revisar
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="event-form-submit"
-                  onClick={() => save(ruleWarning.payload, { ignoreRules: true })}
-                  disabled={submitting}
-                >
-                  Guardar igualmente
-                </button>
-              </div>
-            </div>
+            <MeetingWarning
+              violations={ruleWarning.violations}
+              onFind={() => {
+                setRuleWarning(null)
+                setSlotFinderOpen(true)
+              }}
+              onReview={() => setRuleWarning(null)}
+              onSave={() => save(ruleWarning.payload, { ignoreRules: true })}
+              saving={submitting}
+            />
           )}
         </div>
 
