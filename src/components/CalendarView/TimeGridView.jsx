@@ -7,6 +7,7 @@ import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
 import { dragThresholdFor } from '../../lib/dragThreshold'
+import { swallowNextClick, trackPointer } from '../../lib/pointerDrag'
 import { useMediaQuery } from '../../lib/useMediaQuery'
 import { useEventPreview } from '../../hooks/useEventPreview'
 import EventPreview from './EventPreview.jsx'
@@ -29,8 +30,12 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   const scrollRef = useRef(null)
   const gutterRef = useRef(null)
   const dragDataRef = useRef(null)
-  const draggedRef = useRef(false)
-  const [dragPreview, setDragPreview] = useState(null)
+  const dragPreviewRef = useRef(null)
+  const [dragPreview, setDragPreviewState] = useState(null)
+  const setDragPreview = (value) => {
+    dragPreviewRef.current = value
+    setDragPreviewState(value)
+  }
   const { preview, bind: bindPreview, hide: hidePreview } = useEventPreview()
   const today = new Date()
 
@@ -58,12 +63,26 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     return Math.min(days.length - 1, Math.max(0, Math.floor(rel / colWidth)))
   }
 
-  const handleMoveStart = (e, event, dayIndex) => {
+  // El arrastre se sigue en window y no solo con la captura del puntero en el botón: al pasar por
+  // encima de otra reunión (o a otro día) React recoloca el botón en el DOM y el navegador suelta
+  // la captura, y la reunión se quedaba enganchada sin poder soltarla.
+  const startDrag = (e, data) => {
     hidePreview()
     e.stopPropagation()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    draggedRef.current = false
-    dragDataRef.current = {
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    dragDataRef.current = data
+    data.stopListening = trackPointer({
+      pointerId: data.pointerId,
+      onMove: (ev) => handlePointerMoveRef.current(ev),
+      onEnd: (ev) => finishDragRef.current(ev),
+      onCancel: (ev) => finishDragRef.current(ev, { cancel: true }),
+    })
+  }
+
+  useEffect(() => () => dragDataRef.current?.stopListening?.(), [])
+
+  const handleMoveStart = (e, event, dayIndex) => {
+    startDrag(e, {
       kind: 'move',
       event,
       pointerId: e.pointerId,
@@ -74,15 +93,11 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       originalStart: event.start,
       originalDayIndex: dayIndex,
       duration: event.end - event.start,
-    }
+    })
   }
 
   const handleResizeStart = (e, event) => {
-    hidePreview()
-    e.stopPropagation()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    draggedRef.current = false
-    dragDataRef.current = {
+    startDrag(e, {
       kind: 'resize',
       event,
       pointerId: e.pointerId,
@@ -92,7 +107,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       startClientY: e.clientY,
       originalStart: event.start,
       originalEnd: event.end,
-    }
+    })
   }
 
   const handlePointerMove = (e) => {
@@ -103,7 +118,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
       const dist = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY)
       if (dist < dragThresholdFor(drag.pointerType)) return
       drag.engaged = true
-      draggedRef.current = true
+      hidePreview()
     }
 
     const deltaMinutes = snap(((e.clientY - drag.startClientY) / HOUR_HEIGHT) * 60)
@@ -130,23 +145,31 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     }
   }
 
-  const finishDrag = (e) => {
+  const finishDrag = (e, { cancel = false } = {}) => {
     const drag = dragDataRef.current
     if (!drag || e.pointerId !== drag.pointerId) return
-    const preview = dragPreview
+    const preview = dragPreviewRef.current
+    drag.stopListening?.()
     dragDataRef.current = null
     setDragPreview(null)
-    if (!preview || !draggedRef.current) return
+    if (!drag.engaged) return
+    // El clic que sigue a soltar no abre nada (ni la reunión ni un hueco nuevo), caiga donde caiga.
+    swallowNextClick()
+    if (cancel || !preview) return
     if (drag.kind === 'move') onMoveEvent?.(drag.event, preview.start, preview.end)
     else onResizeEvent?.(drag.event, preview.start, preview.end)
   }
 
+  // Los manejadores de window llaman siempre a la versión más reciente.
+  const handlePointerMoveRef = useRef(handlePointerMove)
+  const finishDragRef = useRef(finishDrag)
+  useEffect(() => {
+    handlePointerMoveRef.current = handlePointerMove
+    finishDragRef.current = finishDrag
+  })
+
   const handleEventClick = (event) => {
     hidePreview()
-    if (draggedRef.current) {
-      draggedRef.current = false
-      return
-    }
     onSelectEvent(event)
   }
 
@@ -248,9 +271,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                     }}
                     {...bindPreview(event)}
                     onPointerDown={(e) => handleMoveStart(e, event, dayIndex)}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={finishDrag}
-                    onPointerCancel={finishDrag}
                     onClick={() => handleEventClick(event)}
                   >
                     <span className="time-grid-event-title">
@@ -267,9 +287,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                       className="time-grid-event-resize-handle"
                       style={{ touchAction: 'none' }}
                       onPointerDown={(e) => handleResizeStart(e, event)}
-                      onPointerMove={handlePointerMove}
-                      onPointerUp={finishDrag}
-                      onPointerCancel={finishDrag}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </button>
