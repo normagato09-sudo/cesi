@@ -442,3 +442,8 @@
 .event-modal-exception-restore:hover {
   text-decoration: underline;
 }
+
+.event-modal-reminder {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}

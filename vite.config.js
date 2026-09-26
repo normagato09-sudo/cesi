@@ -9,6 +9,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      // Notificaciones de los recordatorios (public/push-sw.js).
+      workbox: { importScripts: ['push-sw.js'] },
       manifest: {
         name: 'CESI',
         short_name: 'CESI',

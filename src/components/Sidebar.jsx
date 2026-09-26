@@ -1,4 +1,4 @@
-import { BadgeCheck, BarChart3, Briefcase, CalendarDays, DatabaseBackup, Users } from 'lucide-react'
+import { BadgeCheck, BarChart3, Briefcase, CalendarDays, DatabaseBackup, Settings, Users } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
@@ -20,6 +20,7 @@ export default function Sidebar({
   section,
   onSectionChange,
   onOpenBackup,
+  onOpenSettings,
   proposals = [],
   onOpenProposal,
   missingNotes = [],
@@ -65,6 +66,16 @@ export default function Sidebar({
 
       <div className="sidebar-footer">
         <SyncStatus />
+        <button
+          type="button"
+          className="sidebar-backup-btn"
+          onClick={onOpenSettings}
+          aria-label="Ajustes"
+          title="Ajustes"
+        >
+          <Settings size={16} strokeWidth={1.75} />
+          <span>Ajustes</span>
+        </button>
         <button
           type="button"
           className="sidebar-backup-btn"

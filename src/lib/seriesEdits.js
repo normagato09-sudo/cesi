@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, endOfDay, parseISO, subDays } from 'date-fns'
-import { dateKey, exceptionOf } from './recurrence'
+import { dateKey, exceptionOf, expandEvent } from './recurrence'
 
 // Cambios en reuniones que se repiten: solo un día, ese día y los siguientes, o toda la serie.
 // Las funciones son puras: devuelven lo que hay que guardar y App lo guarda.
@@ -25,6 +25,7 @@ export const EXCEPTION_FIELDS = [
   'description',
   'meetLink',
   'allDay',
+  'reminder',
 ]
 
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
@@ -210,4 +211,20 @@ export function truncateSeriesPatch(series, occurrence) {
     notesByDate: splitByKey(series.notesByDate, key).before,
     exceptions: splitByKey(series.exceptions, key).before,
   }
+}
+
+/**
+ * Ocurrencia con ese id (el de una reunión o "serie::inicio" de un día de una serie), p. ej.
+ * para abrir la reunión desde una notificación. null si ya no existe o ese día está cancelado.
+ */
+export function findOccurrence(rawEvents, id) {
+  if (!id) return null
+  const [seriesId, iso] = String(id).split('::')
+  const series = rawEvents.find((ev) => ev.id === seriesId)
+  if (!series) return null
+  if (!iso) return expandEvent(series, new Date(-8.64e15), new Date(8.64e15))[0] || null
+  // Un día cambiado puede haberse movido: se busca con margen alrededor del día que le tocaba.
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return null
+  return expandEvent(series, addDays(at, -400), addDays(at, 400)).find((o) => o.id === id) || null
 }

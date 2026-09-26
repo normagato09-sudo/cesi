@@ -20,6 +20,8 @@ import ProjectsModal from './components/ProjectsModal.jsx'
 import VacanciesView from './components/VacanciesView.jsx'
 import DepartmentsModal from './components/DepartmentsModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
+import SettingsModal from './components/SettingsModal.jsx'
+import { refreshThisDevice } from './lib/push.js'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -39,6 +41,7 @@ import {
   cancelOccurrencePatch,
   editOccurrencePatch,
   editSeriesPatch,
+  findOccurrence,
   occurrenceKeyOf,
   restoreOccurrencePatch,
   splitSeries,
@@ -93,6 +96,16 @@ function formatCompactRange(start, end) {
   return `${format(start, 'd')}–${format(end, 'd MMM yyyy', { locale: es })}`
 }
 
+// Reunión que hay que abrir al arrancar (la app se abrió desde una notificación: /?event=id).
+function eventFromUrl(url) {
+  try {
+    const id = new URL(url, window.location.origin).searchParams.get('event')
+    return id ? findOccurrence(getAllEvents(), id) : null
+  } catch {
+    return null
+  }
+}
+
 function getHeaderLabel(currentDate, view, compactWeek) {
   if (view === 'week' && compactWeek) return formatCompactRange(currentDate, addDays(currentDate, COMPACT_WEEK_DAYS - 1))
   if (view === 'day') return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
@@ -106,9 +119,10 @@ export default function App() {
   const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
   const [selectedCandidateId, setSelectedCandidateId] = useState(null)
+  const [launchEvent] = useState(() => eventFromUrl(window.location.href))
   const [view, setView] = useState('month')
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [currentDate, setCurrentDate] = useState(() => (launchEvent ? new Date(launchEvent.start) : new Date()))
+  const [selectedEvent, setSelectedEvent] = useState(launchEvent)
   // true si la reunión se abrió para escribir las notas (desde "Sin notas").
   const [notesFocus, setNotesFocus] = useState(false)
   const [formModal, setFormModal] = useState(null)
@@ -124,11 +138,30 @@ export default function App() {
   const [departmentsOpen, setDepartmentsOpen] = useState(false)
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(id)
+  }, [])
+
+  // Notificaciones de los recordatorios: al pulsar una con la app ya abierta, el service worker
+  // pide abrir la reunión; si la app se abrió desde la notificación, se limpia la dirección.
+  useEffect(() => {
+    if (new URL(window.location.href).searchParams.has('event')) window.history.replaceState(null, '', window.location.pathname)
+    if (!('serviceWorker' in navigator)) return
+    const onMessage = (message) => {
+      if (message.data?.type !== 'cesi-open-event') return
+      const occurrence = eventFromUrl(message.data.url)
+      if (!occurrence) return
+      setSection('calendar')
+      setCurrentDate(new Date(occurrence.start))
+      setSelectedEvent(occurrence)
+      setNotesFocus(false)
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [])
 
   // En móvil la vista Semana muestra solo COMPACT_WEEK_DAYS días a partir de currentDate.
@@ -190,6 +223,11 @@ export default function App() {
   const sync = useSync()
   const syncStatus = useSyncStatus()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
+
+  // Avisos de este dispositivo: se renueva la suscripción si el navegador la ha cambiado.
+  useEffect(() => {
+    if (sync) refreshThisDevice().catch(() => {})
+  }, [sync])
   useEffect(() => {
     if (!canSaveDepartments) return
     // Migraciones únicas de datos (departamentos, categorías → proyectos).
@@ -284,6 +322,13 @@ export default function App() {
   const handleCancelProposal = (proposalId) => {
     removeProposal(proposalId)
     setSelectedEvent(null)
+  }
+
+  // Ajustes → Recordatorios: aviso por defecto y zona horaria en la que se calculan los avisos.
+  const handleSaveReminders = (patch) => {
+    const current = getPreferences()
+    savePreferences({ ...current, reminders: { ...current.reminders, ...patch } })
+    reloadPreferences()
   }
 
   const handleSavePreferences = ({ workingHours: newHours, preferences: newPrefs, rules: newRules }) => {
@@ -693,6 +738,7 @@ export default function App() {
           section={section}
           onSectionChange={setSection}
           onOpenBackup={() => setBackupOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
           proposals={proposalItems}
           onOpenProposal={setProposalModalId}
           missingNotes={missingNotes}
@@ -909,6 +955,10 @@ export default function App() {
         )}
 
         {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
+
+        {settingsOpen && (
+          <SettingsModal preferences={preferences} onSaveReminders={handleSaveReminders} onClose={() => setSettingsOpen(false)} />
+        )}
 
         {weekModalKey && (
           <WeeklyAvailabilityModal

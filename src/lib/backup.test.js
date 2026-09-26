@@ -34,6 +34,19 @@ describe('copia de seguridad', () => {
     expect(getAllEvents()).toEqual(old.events)
   })
 
+  it('guarda el aviso por defecto y el de cada reunión; en copias anteriores, 10 minutos por defecto', () => {
+    savePreferences({ bufferMinutes: 5, reminders: { defaultMinutes: 30, timeZone: 'Europe/Madrid' } })
+    createEvent({ title: 'Con aviso', start: '2026-09-01T08:00:00.000Z', end: '2026-09-01T09:00:00.000Z', reminder: 'none' })
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getPreferences().reminders).toEqual({ defaultMinutes: 30, timeZone: 'Europe/Madrid' })
+    expect(getAllEvents()[0].reminder).toBe('none')
+
+    restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 13, events: [], contacts: [], preferences: { bufferMinutes: 5 } })))
+    expect(getPreferences().reminders.defaultMinutes).toBe(10)
+  })
+
   it('acepta copias antiguas (v1) sin preferencias', () => {
     savePreferences({ bufferMinutes: 10 })
     restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 1, events: [], contacts: [] })))
@@ -56,7 +69,7 @@ describe('copia de seguridad', () => {
     proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
     createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
     const backup = buildBackup()
-    expect(backup.version).toBe(13)
+    expect(backup.version).toBe(14)
     localStorage.clear()
     restoreBackup(parseBackup(JSON.stringify(backup)))
     expect(getAllProposals()[0].title).toBe('Demo')

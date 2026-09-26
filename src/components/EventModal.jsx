@@ -18,6 +18,8 @@ import {
   CalendarCheck,
   Check,
   Undo2,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
@@ -30,6 +32,7 @@ import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
 import { copyText } from '../lib/clipboard'
 import { useScheduling } from '../lib/schedulingContext'
 import { projectOf } from '../lib/projects'
+import { NO_REMINDER, reminderMinutesOf } from '../lib/reminders'
 import './ProjectsModal.css'
 import './EventModal.css'
 
@@ -71,7 +74,7 @@ export default function EventModal({
   onConfirmOption,
   onCancelProposal,
 }) {
-  const { rawEvents, proposals, projects = [] } = useScheduling()
+  const { rawEvents, proposals, projects = [], preferences } = useScheduling()
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -174,6 +177,17 @@ export default function EventModal({
                     {t}
                   </span>
                 ))}
+              </span>
+            </div>
+          )}
+
+          {!event.isUnavailable && !proposal && (
+            <div className="event-modal-row">
+              {event.reminder === NO_REMINDER ? <BellOff size={16} strokeWidth={1.75} /> : <Bell size={16} strokeWidth={1.75} />}
+              <span className="event-modal-reminder">
+                {event.reminder === NO_REMINDER
+                  ? 'Sin aviso'
+                  : `Aviso ${reminderMinutesOf(event, preferences?.reminders?.defaultMinutes)} minutos antes${event.reminder ? '' : ' (por defecto)'}`}
               </span>
             </div>
           )}

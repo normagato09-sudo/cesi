@@ -219,3 +219,13 @@
     grid-template-areas: 'nav footer';
   }
 }
+
+/* Ajustes y Copia de seguridad, uno debajo del otro. */
+.sidebar-backup-btn + .sidebar-backup-btn {
+  margin-top: 6px;
+}
+@media (max-width: 860px) {
+  .sidebar-backup-btn + .sidebar-backup-btn {
+    margin-top: 0;
+  }
+}

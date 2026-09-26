@@ -26,6 +26,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Vacantes y candidatos**: vacantes con título, departamento, descripción, requisitos, fecha de apertura y estado (abierta, en proceso o cubierta). Los candidatos se apuntan a mano y son contactos (con país, para poder buscar hueco y proponer reuniones) que solo aparecen en Contactos con el filtro «Candidatos». Cada candidato tiene CV (PDF de hasta 5 MB o un enlace), notas y estado (nuevo, entrevista, aceptado o descartado) con la fecha de cada cambio; la vacante los muestra en columnas por estado. «Buscar hueco para entrevista» abre Buscar hueco con la categoría Entrevista, y al crear la reunión el candidato pasa a «entrevista». «Aceptar e incorporar» abre su perfil de equipo ya rellenado, lo pasa al equipo con «DD/MM/AAAA – Se incorporó como…» al principio de su trayectoria, marca la vacante como cubierta y ofrece descartar al resto. Pasados 6 meses desde un descarte, Vacantes avisa y permite borrar sus datos personales (contacto, CV y notas), dejando solo un registro anónimo.
 - **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Si un participante está en otro país, se ve también su hora local.
+- **Recordatorios**: un aviso antes de cada reunión (5, 10, 15, 30 o 60 minutos; 10 por defecto), también con la app cerrada, en el móvil y en el ordenador. Muestra el título, la hora (y la hora local de los participantes de otro país), el enlace de videollamada, y al pulsarlo abre la reunión. Cada reunión (o un solo día de una serie) puede tener su propio aviso o ninguno. No se avisa de los bloques «No disponible» ni de las opciones provisionales. Se configura en **Ajustes → Recordatorios** (activar en este dispositivo, aviso por defecto, lista de dispositivos y notificación de prueba). Necesita la sincronización con Supabase (ver [Recordatorios](#recordatorios-notificaciones)).
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
 - **Sincronización entre pestañas**: si la app está abierta en varias pestañas del mismo navegador, los cambios se reflejan en todas.
 - **Sincronización entre dispositivos** con Supabase (opcional): inicio de sesión con email y contraseña, funciona sin conexión y los cambios de otro dispositivo aparecen solos.
@@ -71,7 +72,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_events_v1`         | Reuniones, franjas no disponibles y opciones provisionales de las propuestas. |
 | `cesi_contacts_v1`       | Contactos, con su zona horaria y disponibilidad. |
 | `cesi_working_hours_v1`  | Horario habitual (varias franjas por día).       |
-| `cesi_preferences_v1`    | Preferencias, como el margen entre reuniones.    |
+| `cesi_preferences_v1`    | Preferencias: margen entre reuniones y aviso por defecto de los recordatorios. |
 | `cesi_rules_v1`          | Reglas por tipo de reunión.                      |
 | `cesi_proposals_v1`      | Propuestas pendientes.                           |
 | `cesi_groups_v1`         | Grupos de contactos.                             |
@@ -82,6 +83,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_sync_queue_v1`     | Cambios pendientes de enviar a Supabase (solo con sincronización). |
 | `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
 | `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |
+| `cesi_push_device_v1`    | Este dispositivo, si tiene los recordatorios activados (no se sincroniza). |
 
 Las fotos (y los CV) no van en `localStorage` sino en IndexedDB (`cesi-files`): sin sincronización es su único sitio; con ella, es la caché de lo que está en Supabase Storage.
 
@@ -119,6 +121,44 @@ Con Supabase configurado, la app pide iniciar sesión y mantiene los mismos dato
 
 Si quitas las variables, la app vuelve a funcionar solo con los datos de cada dispositivo.
 
+## Recordatorios (notificaciones)
+
+Los avisos llegan aunque la app esté cerrada gracias a **Web Push**:
+
+- Cada dispositivo que activa los avisos (Ajustes → Recordatorios) guarda su suscripción en la tabla `push_subscriptions` (con RLS: cada usuario solo ve las suyas).
+- La Edge Function `send-reminders` (`supabase/functions/send-reminders`) se ejecuta **cada minuto con pg_cron**. Lee tus reuniones de Supabase, calcula en tu zona horaria qué reuniones empiezan dentro de su tiempo de aviso (con las repeticiones y los días cambiados o cancelados, con el mismo código que la app, en `supabase/functions/_shared`) y envía el aviso a tus dispositivos. Cada aviso se apunta en `reminders_sent`, así nunca se envía dos veces.
+- El service worker de la PWA (`public/push-sw.js`) muestra la notificación y, al pulsarla, abre la reunión.
+- Las claves **VAPID** identifican al servidor: la **pública** va en la app (`VITE_VAPID_PUBLIC_KEY`) y la **privada** solo en los secretos de Supabase. Nunca van en el repositorio.
+- **iPhone y iPad**: solo con la app añadida a la pantalla de inicio (Safari → Compartir → «Añadir a pantalla de inicio») y iOS 16.4 o posterior. Si el permiso está denegado o el navegador no las admite, Ajustes lo explica.
+
+### Cómo activarlos
+
+Hace falta tener la sincronización ya funcionando. `TU-REF` es el identificador del proyecto: la parte `xxxxxxxx` de `https://xxxxxxxx.supabase.co`.
+
+1. **Generar las claves** en tu ordenador: `node scripts/generate-vapid-keys.mjs`. Muestra la clave pública, la privada y un secreto para pg_cron. Guárdalos en un sitio seguro (p. ej. tu gestor de contraseñas); no los subas a GitHub.
+2. **Tablas**: en Supabase → **SQL Editor**, pega y ejecuta otra vez todo `supabase/schema.sql` (crea `push_subscriptions` y `reminders_sent`; no toca tus datos).
+3. **Secretos de la función**: en Supabase → **Edge Functions → Secrets**, añade:
+   - `VAPID_PUBLIC_KEY`: la clave pública.
+   - `VAPID_PRIVATE_KEY`: la clave privada.
+   - `VAPID_SUBJECT`: `mailto:` seguido de tu email (p. ej. `mailto:yo@ejemplo.com`); los servicios push lo usan como contacto.
+   - `CRON_SECRET`: el secreto para pg_cron.
+4. **Desplegar la función** desde la carpeta del proyecto:
+   ```bash
+   npx supabase login
+   npx supabase functions deploy send-reminders --project-ref TU-REF --no-verify-jwt
+   ```
+   (`--no-verify-jwt` es necesario: la función comprueba ella misma el secreto de pg_cron o tu sesión. Si el comando pide Docker, añade `--use-api`.)
+5. **Guardar en Vault** la dirección del proyecto y el mismo secreto (SQL Editor):
+   ```sql
+   select vault.create_secret('https://TU-REF.supabase.co', 'cesi_project_url');
+   select vault.create_secret('EL-SECRETO-PARA-PG_CRON', 'cesi_cron_secret');
+   ```
+6. **Programar la ejecución cada minuto**: en SQL Editor, pega y ejecuta `supabase/cron.sql`.
+7. **Vercel**: **Settings → Environment Variables**, añade `VITE_VAPID_PUBLIC_KEY` con la clave pública (Production y Preview) y vuelve a desplegar. En tu ordenador, añádela también a `.env.local`.
+8. Abre la app publicada → **Ajustes → Recordatorios** → activa **Avisos en este dispositivo**, acepta el permiso y pulsa **Enviar notificación de prueba**. Repite en cada dispositivo.
+
+Para comprobar que pg_cron la llama bien, en SQL Editor: `select status_code, content from net._http_response order by created desc limit 5;` (debe salir `200`).
+
 ## Copia de seguridad
 
 En la barra lateral (en el móvil, el icono junto a las pestañas) pulsa **Copia de seguridad**:
@@ -130,4 +170,4 @@ Sirve también para pasar los datos de un dispositivo a otro: descarga la copia 
 
 ## Tecnología
 
-React 19, Vite, date-fns, lucide-react, vite-plugin-pwa y @supabase/supabase-js (solo se carga si la sincronización está configurada).
+React 19, Vite, date-fns, lucide-react, vite-plugin-pwa y @supabase/supabase-js (solo se carga si la sincronización está configurada). Los recordatorios usan una Supabase Edge Function (Deno) con Web Push hecho con WebCrypto, sin dependencias.

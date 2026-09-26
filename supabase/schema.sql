@@ -21,7 +21,8 @@
 --         notes (reunión única) o notesByDate { 'AAAA-MM-DD': texto } (reunión que se repite),
 --         exceptions (reunión que se repite) { 'AAAA-MM-DD' (día que le toca en la serie):
 --           { cancelled: true } (ese día no hay reunión) o { start, end, title, participantIds, guests,
---           participants, projectId, description, meetLink, category, tags } (solo lo que cambia ese día) } }
+--           participants, projectId, description, meetLink, category, tags, reminder } (solo lo que cambia ese día) },
+--         reminder: aviso antes de la reunión: null (el aviso por defecto), 5 | 10 | 15 | 30 | 60 (minutos) o 'none' }
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -76,7 +77,8 @@ create table if not exists public.groups (
 -- ---------------------------------------------------------------------------
 -- Ajustes de un solo documento por usuario (id = nombre del ajuste)
 --   id = 'working_hours' (cesi_working_hours_v1): horario semanal con varias franjas por día
---   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes }
+--   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes, reminders: { defaultMinutes (5, 10, 15, 30 o 60),
+--                                                   timeZone (zona IANA en la que se calculan los avisos) } }
 --   id = 'team_areas'    (cesi_team_areas_v1):    lista ordenada de departamentos del equipo, p. ej. ["Directivo", "Radio"]
 --                                                 (contacts.data.teamProfile.area y vacancies.data.area guardan el departamento)
 --   id = 'migrations'    (cesi_migrations_v1):    { done: { [migración]: fecha } } migraciones de datos ya hechas
@@ -262,6 +264,59 @@ begin
   end loop;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Recordatorios: dispositivos suscritos a las notificaciones (Web Push)
+-- ---------------------------------------------------------------------------
+-- Una fila por dispositivo (navegador) con los avisos activados. No va por la sincronización:
+-- la app la escribe directamente al activar o quitar un dispositivo en Ajustes → Recordatorios.
+-- La Edge Function send-reminders (con la clave de servicio) las lee para enviar los avisos.
+--   id           huella del endpoint (sha-256), para no repetir el mismo dispositivo
+--   endpoint     dirección del servicio push del navegador; p256dh y auth: claves del cifrado
+--   device_name  p. ej. "Chrome en Windows"; time_zone: zona horaria del dispositivo
+create table if not exists public.push_subscriptions (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  device_name text not null default '',
+  time_zone text,
+  user_agent text,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "push_subscriptions: leer las mías" on public.push_subscriptions;
+drop policy if exists "push_subscriptions: crear las mías" on public.push_subscriptions;
+drop policy if exists "push_subscriptions: editar las mías" on public.push_subscriptions;
+drop policy if exists "push_subscriptions: borrar las mías" on public.push_subscriptions;
+create policy "push_subscriptions: leer las mías" on public.push_subscriptions
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "push_subscriptions: crear las mías" on public.push_subscriptions
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "push_subscriptions: editar las mías" on public.push_subscriptions
+  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "push_subscriptions: borrar las mías" on public.push_subscriptions
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- Avisos ya enviados (para no enviar dos veces el mismo). key = ocurrencia | hora | minutos.
+-- Solo la usa la Edge Function (clave de servicio): con RLS activo y sin políticas, nadie más
+-- puede leerla ni escribirla.
+create table if not exists public.reminders_sent (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  key text not null,
+  sent_at timestamptz not null default now(),
+  primary key (user_id, key)
+);
+
+alter table public.reminders_sent enable row level security;
+create index if not exists reminders_sent_sent_at_idx on public.reminders_sent (sent_at);
+
+-- La ejecución cada minuto (pg_cron) está en supabase/cron.sql: se ejecuta aparte, después de
+-- desplegar la función y guardar sus secretos.
 
 -- ---------------------------------------------------------------------------
 -- Fotos de contactos y CV de candidatos (Supabase Storage)

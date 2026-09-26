@@ -22,4 +22,8 @@ export default defineConfig([
     files: ['scripts/**/*.{js,mjs}', 'test/**/*.js', 'vite.config.js'],
     languageOptions: { globals: globals.node },
   },
+  {
+    files: ['public/push-sw.js'],
+    languageOptions: { globals: globals.serviceworker },
+  },
 ])

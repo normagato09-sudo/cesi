@@ -12,6 +12,7 @@ import { allTags } from '../lib/tags'
 import { RuleWarning } from '../lib/rules'
 import { useScheduling } from '../lib/schedulingContext'
 import { SCOPES } from '../lib/seriesEdits'
+import { NO_REMINDER, REMINDER_OPTIONS } from '../lib/reminders'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -85,7 +86,8 @@ export default function EventFormModal({
   onClose,
   onSubmit,
 }) {
-  const { rawEvents, projects, onManageProjects } = useScheduling()
+  const { rawEvents, projects, onManageProjects, preferences } = useScheduling()
+  const defaultReminder = preferences?.reminders?.defaultMinutes
   const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
   const isEditing = !!initialEvent
   // Solo se duplica si el prefill es un evento existente (no un hueco o un participante preseleccionado).
@@ -117,6 +119,10 @@ export default function EventFormModal({
     return { participantIds: resolved.contacts.map((c) => c.id), guests: resolved.guests }
   })
   const [meetLink, setMeetLink] = useState(seed.meetLink || '')
+  // '' = aviso por defecto, 'none' = sin aviso, o los minutos antes.
+  const [reminder, setReminder] = useState(
+    seed.reminder === NO_REMINDER ? NO_REMINDER : REMINDER_OPTIONS.includes(seed.reminder) ? String(seed.reminder) : '',
+  )
   const [allDay, setAllDay] = useState(!!seed.allDay)
   const [date, setDate] = useState(toDateInputValue(baseStart))
   const [startTime, setStartTime] = useState(toTimeInputValue(baseStart))
@@ -242,6 +248,7 @@ export default function EventFormModal({
             participantSelection.guests,
           )),
       meetLink: isUnavailable ? '' : meetLink.trim(),
+      reminder: isUnavailable || reminder === '' ? null : reminder === NO_REMINDER ? NO_REMINDER : Number(reminder),
       category: isUnavailable ? 'No disponible' : category,
       tags: isUnavailable ? [] : tags,
       // Si el proyecto se ha borrado mientras tanto, la reunión se queda sin proyecto.
@@ -449,6 +456,21 @@ export default function EventFormModal({
               </label>
             )}
           </div>
+
+          {!isUnavailable && (
+            <label className="event-form-field">
+              <span>Aviso</span>
+              <select value={reminder} onChange={(e) => setReminder(e.target.value)}>
+                <option value="">Por defecto{defaultReminder ? ` (${defaultReminder} minutos antes)` : ''}</option>
+                {REMINDER_OPTIONS.map((m) => (
+                  <option key={m} value={String(m)}>
+                    {m} minutos antes
+                  </option>
+                ))}
+                <option value={NO_REMINDER}>Sin aviso</option>
+              </select>
+            </label>
+          )}
 
           {!isUnavailable && (
             <div className="event-form-field">
