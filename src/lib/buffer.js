@@ -1,4 +1,5 @@
 import { expandEvents } from './recurrence'
+import { isExcluded } from './conflicts'
 
 // Aviso de margen entre reuniones: una reunión que deja menos minutos que `bufferMinutes`
 // con la reunión anterior o la siguiente se puede guardar igualmente (los solapes reales se
@@ -18,7 +19,7 @@ function gapText(minutes, which, title) {
  * Motivos por los que `meeting` ({ start, end, isUnavailable, allDay }) no respeta el margen con
  * las reuniones de `occurrences` (ya expandidas). Devuelve [{ type: 'buffer', side, minutes, message }].
  */
-export function checkMeetingBuffer(meeting, occurrences, bufferMinutes, { excludeSeriesId } = {}) {
+export function checkMeetingBuffer(meeting, occurrences, bufferMinutes, exclude = {}) {
   if (!(bufferMinutes > 0) || !countsForBuffer(meeting)) return []
   const start = new Date(meeting.start)
   const end = new Date(meeting.end)
@@ -27,7 +28,7 @@ export function checkMeetingBuffer(meeting, occurrences, bufferMinutes, { exclud
   let previous = null
   let next = null
   for (const ev of occurrences) {
-    if (!countsForBuffer(ev) || (excludeSeriesId && ev.seriesId === excludeSeriesId)) continue
+    if (!countsForBuffer(ev) || isExcluded(ev, exclude)) continue
     const evStart = new Date(ev.start)
     const evEnd = new Date(ev.end)
     // Si se solapan no es un problema de margen sino un conflicto.

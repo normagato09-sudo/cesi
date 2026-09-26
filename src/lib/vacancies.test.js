@@ -107,6 +107,20 @@ describe('aviso de los 6 meses', () => {
     expect(plan.eventPatches).toEqual([{ id: 'e1', patch: { participantIds: ['ana'], participants: ['Ana'] } }])
     expect(plan.vacancyPatches.v1).toEqual([{ discardedAt: old.candidacy.discardedAt, erasedAt: now.toISOString() }])
   })
+
+  it('el borrado también quita al candidato de los días cambiados de una serie', () => {
+    const old = discardedOn('viejo', new Date(2026, 1, 1))
+    const series = {
+      id: 's',
+      participantIds: ['ana'],
+      participants: ['Ana'],
+      exceptions: { '2026-03-02': { participantIds: ['ana', 'viejo'], participants: ['Ana', 'Candidato viejo'] } },
+    }
+    const plan = planErasure([old], [series], [vacancy], now)
+    expect(plan.eventPatches).toEqual([
+      { id: 's', patch: { exceptions: { '2026-03-02': { participantIds: ['ana'], participants: ['Ana'] } } } },
+    ])
+  })
 })
 
 describe('lista de contactos y recuentos', () => {

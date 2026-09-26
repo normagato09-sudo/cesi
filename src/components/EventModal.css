@@ -410,3 +410,35 @@
 .event-modal-actions[hidden] {
   display: none;
 }
+
+/* Día de una serie con sus propios datos. */
+.event-modal-exception {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.event-modal-exception-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-hover);
+}
+.event-modal-exception-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.event-modal-exception-restore:hover {
+  text-decoration: underline;
+}

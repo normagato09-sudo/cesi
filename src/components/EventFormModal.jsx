@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { X, CalendarPlus, Ban, Search, TriangleAlert } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
@@ -10,6 +11,7 @@ import { participantFields, participantsOf } from '../lib/contacts'
 import { allTags } from '../lib/tags'
 import { RuleWarning } from '../lib/rules'
 import { useScheduling } from '../lib/schedulingContext'
+import { SCOPES } from '../lib/seriesEdits'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -74,6 +76,8 @@ function warningTitle(violations) {
 export default function EventFormModal({
   mode,
   initialEvent,
+  // En una reunión que se repite: a qué días se aplica el cambio (SCOPES).
+  scope = null,
   prefill,
   defaultDate,
   contacts,
@@ -166,6 +170,19 @@ export default function EventFormModal({
   }
 
   const effectiveDurationMinutes = durationChoice === 'custom' ? Number(customDuration) : Number(durationChoice)
+
+  // Qué días cambian, en una reunión que se repite.
+  const occurrenceDay = initialEvent?.isRecurringInstance
+    ? format(new Date(initialEvent.originalStart || initialEvent.start), "EEEE d 'de' MMMM", { locale: es })
+    : null
+  const scopeNote =
+    scope === SCOPES.THIS
+      ? `Solo cambia el ${occurrenceDay}. El resto de la serie no cambia.`
+      : scope === SCOPES.FOLLOWING
+        ? `Cambia el ${occurrenceDay} y los días siguientes. Los anteriores no cambian.`
+        : scope === SCOPES.ALL
+          ? 'Cambia toda la serie.'
+          : null
 
   const heading = isEditing
     ? isUnavailable
@@ -268,6 +285,8 @@ export default function EventFormModal({
         </div>
 
         <div className="event-form-body">
+          {scopeNote && <p className="event-form-scope-note">{scopeNote}</p>}
+
           {!isEditing && (
             <div className="event-form-type-switch">
               <button
@@ -412,7 +431,7 @@ export default function EventFormModal({
             </>
           )}
 
-          <div className="event-form-row">
+          <div className="event-form-row" hidden={scope === SCOPES.THIS}>
             <label className="event-form-field">
               <span>Repetir</span>
               <select value={repeatFreq} onChange={(e) => setRepeatFreq(e.target.value)}>

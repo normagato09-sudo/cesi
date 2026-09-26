@@ -56,7 +56,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   }
 
   const handleMoveStart = (e, event, dayIndex) => {
-    if (event.isRecurringInstance) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false
@@ -75,7 +74,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   }
 
   const handleResizeStart = (e, event) => {
-    if (event.isRecurringInstance) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false
@@ -256,17 +254,15 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                       {format(event.start, 'HH:mm')}
                       {event.provisional && <span className="time-grid-event-provisional"> · Provisional</span>}
                     </span>
-                    {!event.isRecurringInstance && (
-                      <div
-                        className="time-grid-event-resize-handle"
-                        style={{ touchAction: 'none' }}
-                        onPointerDown={(e) => handleResizeStart(e, event)}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={finishDrag}
-                        onPointerCancel={finishDrag}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    )}
+                    <div
+                      className="time-grid-event-resize-handle"
+                      style={{ touchAction: 'none' }}
+                      onPointerDown={(e) => handleResizeStart(e, event)}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={finishDrag}
+                      onPointerCancel={finishDrag}
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </button>
                 )
               })}

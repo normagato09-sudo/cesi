@@ -6,7 +6,8 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 
 - **Calendario** con vistas de Mes, Semana y Día. En el móvil, la vista Semana muestra 3 días.
 - **Reuniones y franjas "No disponible"**, con categorías, enlace de videollamada, descripción y repeticiones (diaria, semanal, mensual o anual).
-- **Arrastrar y redimensionar** reuniones en las vistas Semana y Día, también con el dedo.
+- **Cambiar o borrar un solo día de una serie**: al editar, mover, redimensionar o borrar una reunión que se repite, la app pregunta «Solo este día», «Este y los siguientes» o «Toda la serie». Un día cambiado tiene su propia hora, título, participantes, proyecto o notas (en la reunión se ve «Cambiado solo este día», con la opción de volver a como era en la serie); un día cancelado desaparece del calendario, de «Buscar hueco» y de los resúmenes. «Este y los siguientes» termina la serie el día anterior y crea una nueva desde ese día; las notas de cada día se quedan en la serie que corresponde a su fecha.
+- **Arrastrar y redimensionar** reuniones en las vistas Semana y Día, también con el dedo (y en las series, preguntando a qué días se aplica).
 - **Detección de solapamientos**: avisa si una franja ya está ocupada.
 - **Horario y preferencias**: horario habitual con varias franjas por día, margen entre reuniones y reglas por tipo de reunión (días, mañana/tarde o franja propia, duración máxima y máximo al día para una categoría o etiqueta). Si una reunión incumple una regla o deja menos margen del configurado con la reunión anterior o la siguiente, avisa con el motivo y deja guardarla igualmente.
 - **Buscar hueco**: solo propone huecos dentro de tu horario, con el margen, las reglas del tipo de reunión y la disponibilidad de los participantes. Si no hay huecos, dice qué contacto lo impide.

@@ -47,7 +47,6 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
       : events
 
   const handlePointerDown = (e, ev, dayIndex) => {
-    if (ev.isRecurringInstance) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false

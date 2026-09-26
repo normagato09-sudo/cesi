@@ -1,6 +1,7 @@
 import { createCollection } from './store'
 import { eventHasTag, sameTag } from './tags'
 import { timeToMinutes } from './weeklySchedule'
+import { isExcluded } from './conflicts'
 
 // Reglas por tipo de reunión. Cada regla se aplica a una categoría o a una etiqueta:
 // {
@@ -156,10 +157,12 @@ function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-// Reuniones de ese tipo que ya hay en el día (ocurrencias expandidas), sin contar `excludeSeriesId`.
-export function countOfTypeOnDay(rule, occurrences, day, excludeSeriesId) {
+// Reuniones de ese tipo que ya hay en el día (ocurrencias expandidas), sin contar la que se está
+// editando (`exclude`: su serie, excludeSeriesId, o solo esa ocurrencia, excludeId; ver conflicts.js).
+export function countOfTypeOnDay(rule, occurrences, day, exclude = {}) {
+  const options = typeof exclude === 'string' ? { excludeSeriesId: exclude } : exclude || {}
   return occurrences.filter(
-    (ev) => ev.seriesId !== excludeSeriesId && sameDay(ev.start, day) && eventMatchesRuleTarget(ev, rule),
+    (ev) => !isExcluded(ev, options) && sameDay(ev.start, day) && eventMatchesRuleTarget(ev, rule),
   ).length
 }
 
@@ -168,7 +171,7 @@ export function countOfTypeOnDay(rule, occurrences, day, excludeSeriesId) {
  * `meeting` = { start, end, category, tags, isUnavailable }; `occurrences` = reuniones expandidas
  * de ese día. Devuelve [{ rule, message }] (vacío si cumple todas).
  */
-export function checkMeetingAgainstRules(meeting, rules, occurrences, { excludeSeriesId } = {}) {
+export function checkMeetingAgainstRules(meeting, rules, occurrences, exclude = {}) {
   if (meeting.isUnavailable || meeting.allDay) return []
   const start = new Date(meeting.start)
   const end = new Date(meeting.end)
@@ -187,7 +190,7 @@ export function checkMeetingAgainstRules(meeting, rules, occurrences, { excludeS
     if (rule.maxDurationMinutes && minutes > rule.maxDurationMinutes) {
       violations.push({ rule, message: `${subject(rule)} duran como máximo ${formatMinutes(rule.maxDurationMinutes)}.` })
     }
-    if (rule.maxPerDay && countOfTypeOnDay(rule, occurrences, start, excludeSeriesId) + 1 > rule.maxPerDay) {
+    if (rule.maxPerDay && countOfTypeOnDay(rule, occurrences, start, exclude) + 1 > rule.maxPerDay) {
       const n = rule.maxPerDay
       violations.push({ rule, message: `Ya tienes ${n} ${n === 1 ? 'reunión' : 'reuniones'} ${ruleTargetLabel(rule)} ese día (máximo ${n}).` })
     }

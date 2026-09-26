@@ -1,5 +1,5 @@
-import { format, subDays } from 'date-fns'
-import { expandEvents } from './recurrence'
+import { subDays } from 'date-fns'
+import { dateKey, expandEvents } from './recurrence'
 
 // Notas de lo que se habló en cada reunión.
 // - Reunión única: campo `notes` (texto).
@@ -7,9 +7,10 @@ import { expandEvents } from './recurrence'
 
 export const MISSING_NOTES_DAYS = 7
 
-// Día (hora local) de una ocurrencia, clave de notesByDate.
+// Día (hora local) de una ocurrencia, clave de notesByDate. Si ese día se ha movido solo a otra
+// hora o a otro día, sigue siendo el día que le tocaba en la serie.
 export function occurrenceDateKey(occurrence) {
-  return format(new Date(occurrence.start), 'yyyy-MM-dd')
+  return dateKey(occurrence.originalStart || occurrence.start)
 }
 
 // Notas de una ocurrencia (o de una reunión única).

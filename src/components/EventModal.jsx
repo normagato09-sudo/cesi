@@ -17,6 +17,7 @@ import {
   Globe,
   CalendarCheck,
   Check,
+  Undo2,
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
@@ -63,6 +64,7 @@ export default function EventModal({
   onClose,
   onEdit,
   onDelete,
+  onRestoreOccurrence,
   onDuplicate,
   onOpenContact,
   onSaveGuestAsContact,
@@ -98,16 +100,18 @@ export default function EventModal({
     onCancelProposal(proposal.id)
   }
 
+  const handleRestore = () => {
+    if (!window.confirm('¿Quitar los cambios de este día y dejarlo como el resto de la serie?')) return
+    onRestoreOccurrence(event)
+  }
+
+  // App pide la confirmación (o, en una serie, a qué días se aplica) y dice si se ha borrado.
   const handleDelete = async () => {
-    const confirmMsg = event.isRecurringInstance
-      ? '¿Eliminar toda la serie de repeticiones de este evento?'
-      : '¿Seguro que quieres eliminar este evento?'
-    if (!window.confirm(confirmMsg)) return
     setDeleting(true)
     setDeleteError(null)
     try {
-      await onDelete(event)
-      onClose()
+      if (await onDelete(event)) onClose()
+      else setDeleting(false)
     } catch (err) {
       setDeleteError(err.message || 'No se pudo eliminar el evento.')
       setDeleting(false)
@@ -141,6 +145,15 @@ export default function EventModal({
               {RECURRENCE_LABELS[event.recurrence.freq]}
               {event.recurrence.until &&
                 ` hasta ${format(new Date(event.recurrence.until), "d 'de' MMMM yyyy", { locale: es })}`}
+            </p>
+          )}
+          {event.isException && (
+            <p className="event-modal-exception">
+              <span className="event-modal-exception-badge">Cambiado solo este día</span>
+              <button type="button" className="event-modal-exception-restore" onClick={handleRestore}>
+                <Undo2 size={13} strokeWidth={1.75} />
+                Volver a como era en la serie
+              </button>
             </p>
           )}
         </div>

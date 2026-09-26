@@ -69,11 +69,23 @@ export function meetingCountByProject(rawEvents) {
   return counts
 }
 
-// Al borrar un proyecto sus reuniones y propuestas se conservan, sin proyecto.
-// Devuelve los ids de las reuniones y de las propuestas que hay que cambiar.
+// Al borrar un proyecto sus reuniones y propuestas se conservan, sin proyecto (también los días
+// de una serie que tenían ese proyecto solo ese día). Devuelve los cambios de las reuniones
+// ([{ id, patch }]) y los ids de las propuestas que hay que cambiar.
 export function unlinkProject(projectId, rawEvents, proposals = []) {
+  const eventPatches = []
+  for (const ev of rawEvents) {
+    const patch = {}
+    if (ev.projectId === projectId) patch.projectId = null
+    const days = Object.entries(ev.exceptions || {}).filter(([, ex]) => ex?.projectId === projectId)
+    if (days.length > 0) {
+      patch.exceptions = { ...ev.exceptions }
+      for (const [key, ex] of days) patch.exceptions[key] = { ...ex, projectId: null }
+    }
+    if (Object.keys(patch).length > 0) eventPatches.push({ id: ev.id, patch })
+  }
   return {
-    eventIds: rawEvents.filter((ev) => ev.projectId === projectId).map((ev) => ev.id),
+    eventPatches,
     proposalIds: proposals.filter((p) => p.projectId === projectId).map((p) => p.id),
   }
 }

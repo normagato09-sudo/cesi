@@ -48,8 +48,30 @@ describe('proyectos', () => {
       { id: 'e3', projectId: 'radio', isUnavailable: false },
     ]
     const proposals = [{ id: 'p1', projectId: 'radio' }, { id: 'p2' }]
-    expect(unlinkProject('radio', events, proposals)).toEqual({ eventIds: ['e1', 'e3'], proposalIds: ['p1'] })
+    expect(unlinkProject('radio', events, proposals)).toEqual({
+      eventPatches: [
+        { id: 'e1', patch: { projectId: null } },
+        { id: 'e3', patch: { projectId: null } },
+      ],
+      proposalIds: ['p1'],
+    })
     expect(meetingCountByProject(events)).toEqual({ radio: 2, doblaje: 1 })
+  })
+
+  it('también quita el proyecto de los días de una serie que lo tenían solo ese día', () => {
+    const series = {
+      id: 's',
+      projectId: 'doblaje',
+      exceptions: { '2026-09-29': { projectId: 'radio', title: 'Otra' }, '2026-10-06': { cancelled: true } },
+    }
+    expect(unlinkProject('radio', [series]).eventPatches).toEqual([
+      {
+        id: 's',
+        patch: {
+          exceptions: { '2026-09-29': { projectId: null, title: 'Otra' }, '2026-10-06': { cancelled: true } },
+        },
+      },
+    ])
   })
 
   it('se crean activos por defecto y van en la copia de seguridad', () => {

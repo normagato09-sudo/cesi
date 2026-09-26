@@ -3,7 +3,7 @@ import { addYears, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Briefcase, Building2, CalendarClock, ChevronRight, Globe, Link2, Mail, Phone, StickyNote } from 'lucide-react'
 import { useMinuteClock } from '../hooks/useMinuteClock'
-import { contactSeries } from '../lib/contacts'
+import { contactOccurrences, contactSeries } from '../lib/contacts'
 import { availabilityLines, availabilityZoneNote, hasAvailability } from '../lib/contactAvailability'
 import { expandEvents } from '../lib/recurrence'
 import { colorForEvent } from '../lib/eventStyle'
@@ -163,10 +163,10 @@ export function ContactMeetings({ contact, contacts, rawEvents, now, onOpenEvent
   const { upcoming, past } = useMemo(() => {
     const series = contactSeries(contact, rawEvents, contacts)
     if (series.length === 0) return { upcoming: [], past: [] }
-    const upcomingList = expandEvents(series, now, addYears(now, 2))
+    const upcomingList = contactOccurrences(contact, expandEvents(series, now, addYears(now, 2)), contacts)
       .sort((a, b) => a.start - b.start)
       .slice(0, MAX_LISTED_MEETINGS)
-    const pastList = expandEvents(series, new Date(0), now)
+    const pastList = contactOccurrences(contact, expandEvents(series, new Date(0), now), contacts)
       .filter((ev) => ev.end <= now)
       .sort((a, b) => b.start - a.start)
       .slice(0, MAX_LISTED_MEETINGS)

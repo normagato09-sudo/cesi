@@ -19,6 +19,7 @@ import WeeklyAvailabilityModal from './components/WeeklyAvailabilityModal.jsx'
 import ProjectsModal from './components/ProjectsModal.jsx'
 import VacanciesView from './components/VacanciesView.jsx'
 import DepartmentsModal from './components/DepartmentsModal.jsx'
+import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -32,7 +33,17 @@ import { useStoredValue } from './hooks/useStoredValue.js'
 import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
 import { SchedulingContext } from './lib/schedulingContext.js'
 import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules, rulesStore } from './lib/rules.js'
-import { expandEvents } from './lib/recurrence.js'
+import { exceptionOf, expandEvent, expandEvents } from './lib/recurrence.js'
+import {
+  SCOPES,
+  cancelOccurrencePatch,
+  editOccurrencePatch,
+  editSeriesPatch,
+  occurrenceKeyOf,
+  restoreOccurrencePatch,
+  splitSeries,
+  truncateSeriesPatch,
+} from './lib/seriesEdits.js'
 import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
@@ -111,6 +122,8 @@ export default function App() {
   const [weekModalKey, setWeekModalKey] = useState(null)
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [departmentsOpen, setDepartmentsOpen] = useState(false)
+  // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
+  const [scopeAsk, setScopeAsk] = useState(null)
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -282,20 +295,67 @@ export default function App() {
   }
 
   // Reglas por tipo de reunión que incumpliría `meeting` (no bloquean: solo avisan).
-  const ruleViolationsFor = (meeting, excludeSeriesId) => {
+  // `exclude`: la propia reunión ({ excludeSeriesId } o, si cambia solo un día, { excludeId }).
+  const ruleViolationsFor = (meeting, exclude) => {
     const start = new Date(meeting.start)
     const dayStart = new Date(start)
     dayStart.setHours(0, 0, 0, 0)
     const dayEnd = new Date(dayStart)
     dayEnd.setDate(dayEnd.getDate() + 1)
-    return checkMeetingAgainstRules(meeting, rules, expandEvents(rawEvents, dayStart, dayEnd), { excludeSeriesId })
+    return checkMeetingAgainstRules(meeting, rules, expandEvents(rawEvents, dayStart, dayEnd), exclude)
   }
 
   // Avisos que no bloquean: reglas por tipo y margen con la reunión anterior o la siguiente.
-  const warningsFor = (meeting, excludeSeriesId) => [
-    ...ruleViolationsFor(meeting, excludeSeriesId).map((v) => ({ ...v, type: 'rule' })),
-    ...bufferWarningsFor(meeting, rawEvents, preferences.bufferMinutes, { excludeSeriesId }),
+  const warningsFor = (meeting, exclude) => [
+    ...ruleViolationsFor(meeting, exclude).map((v) => ({ ...v, type: 'rule' })),
+    ...bufferWarningsFor(meeting, rawEvents, preferences.bufferMinutes, exclude),
   ]
+
+  // ---------------------------------------------------------------------------
+  // Reuniones que se repiten: solo este día, este y los siguientes o toda la serie
+  // ---------------------------------------------------------------------------
+
+  // Pregunta a qué días se aplica el cambio. Devuelve el alcance (SCOPES) o null si se cancela.
+  const askScope = (action, event) => new Promise((resolve) => setScopeAsk({ action, title: event.title, resolve }))
+
+  const seriesOf = (occurrence) => getAllEvents().find((ev) => ev.id === occurrence.seriesId) || null
+
+  // Qué se ignora al comprobar solapes, reglas y margen: solo ese día o toda la serie.
+  const excludeFor = (event, scope) => (scope === SCOPES.THIS ? { excludeId: event.id } : { excludeSeriesId: event.seriesId })
+
+  // Guarda `changes` ({ start, end, title, ... }) en la reunión de `occurrence` con ese alcance.
+  const applyOccurrenceChange = (occurrence, changes, scope) => {
+    const series = seriesOf(occurrence)
+    if (!series) return
+    const iso = (d) => (d instanceof Date ? d.toISOString() : d)
+    if (!series.recurrence) {
+      editEvent(series.id, { ...changes, start: iso(changes.start ?? series.start), end: iso(changes.end ?? series.end) })
+      return
+    }
+    if (scope === SCOPES.THIS) {
+      editEvent(series.id, editOccurrencePatch(series, occurrence, changes))
+      return
+    }
+    if (scope === SCOPES.FOLLOWING) {
+      const split = splitSeries(series, occurrence, changes)
+      if (split) {
+        editEvent(series.id, split.seriesPatch)
+        addEvent(split.newEvent)
+        return
+      }
+    }
+    editEvent(series.id, editSeriesPatch(series, occurrence, changes))
+  }
+
+  // "Volver a como era en la serie": quita los cambios de ese día y muestra el día como la serie.
+  const handleRestoreOccurrence = (occurrence) => {
+    const series = seriesOf(occurrence)
+    if (!series) return
+    const updated = editEvent(series.id, restoreOccurrencePatch(series, occurrence))
+    const from = new Date(occurrence.originalStart)
+    const restored = expandEvent(updated, from, new Date(from.getTime() + 1)).find((ev) => ev.id === occurrence.id)
+    setSelectedEvent(restored || null)
+  }
 
   const handleBackupRestored = () => {
     reloadAllData()
@@ -364,8 +424,8 @@ export default function App() {
 
   // Al borrar un proyecto sus reuniones (y propuestas) se conservan, sin proyecto.
   const handleDeleteProject = (id) => {
-    const { eventIds, proposalIds } = unlinkProject(id, rawEvents, proposals)
-    for (const eventId of eventIds) editEvent(eventId, { projectId: null })
+    const { eventPatches, proposalIds } = unlinkProject(id, rawEvents, proposals)
+    for (const { id: eventId, patch } of eventPatches) editEvent(eventId, patch)
     for (const proposalId of proposalIds) proposalsStore.update(proposalId, { projectId: null })
     projectsStore.remove(id)
     reloadProjects()
@@ -505,7 +565,11 @@ export default function App() {
       [...current.contacts, contact],
       current.guests.filter((g) => g !== guest),
     )
-    editEvent(event.seriesId, fields)
+    // Si ese día de la serie tiene sus propios participantes, el cambio es solo de ese día.
+    const series = seriesOf(event)
+    const ownParticipants = series?.recurrence && 'guests' in (exceptionOf(series, occurrenceKeyOf(event)) || {})
+    if (ownParticipants) editEvent(series.id, editOccurrencePatch(series, event, fields))
+    else editEvent(event.seriesId, fields)
     setSelectedEvent((ev) => (ev ? { ...ev, ...fields } : ev))
   }
 
@@ -516,9 +580,14 @@ export default function App() {
     setFormModal({ mode: 'meeting', editingEvent: null, prefill: { start, end } })
   }
 
-  const handleEditEvent = (event) => {
+  const handleEditEvent = async (event) => {
+    let scope = null
+    if (event.isRecurringInstance) {
+      scope = await askScope('edit', event)
+      if (!scope) return
+    }
     setSelectedEvent(null)
-    setFormModal({ mode: event.isUnavailable ? 'unavailable' : 'meeting', editingEvent: event, prefill: null })
+    setFormModal({ mode: event.isUnavailable ? 'unavailable' : 'meeting', editingEvent: event, prefill: null, scope })
   }
 
   const handleDuplicateEvent = (event) => {
@@ -526,22 +595,43 @@ export default function App() {
     setFormModal({ mode: event.isUnavailable ? 'unavailable' : 'meeting', editingEvent: null, prefill: event })
   }
 
+  // Devuelve true si se ha borrado (false si se cancela).
   const handleDeleteEvent = async (event) => {
-    removeEvent(event.seriesId)
+    if (!event.isRecurringInstance) {
+      if (!window.confirm('¿Seguro que quieres eliminar este evento?')) return false
+      removeEvent(event.seriesId)
+      return true
+    }
+    const scope = await askScope('delete', event)
+    if (!scope) return false
+    const series = seriesOf(event)
+    if (!series) return true
+    const truncated = scope === SCOPES.FOLLOWING ? truncateSeriesPatch(series, event) : null
+    if (scope === SCOPES.THIS) editEvent(series.id, cancelOccurrencePatch(series, event))
+    else if (truncated) editEvent(series.id, truncated)
+    else removeEvent(series.id)
+    return true
   }
 
-  const handleMoveOrResize = (event, newStart, newEnd) => {
-    const conflict = checkConflict(newStart, newEnd, { excludeSeriesId: event.seriesId })
+  // Arrastrar o redimensionar en Semana, Día o Mes. En una serie, pregunta a qué días se aplica.
+  const handleMoveOrResize = async (event, newStart, newEnd) => {
+    let scope = null
+    if (event.isRecurringInstance) {
+      scope = await askScope('move', event)
+      if (!scope) return
+    }
+    const exclude = excludeFor(event, scope)
+    const conflict = checkConflict(newStart, newEnd, exclude)
     if (conflict) {
       window.alert('Esta franja ya está ocupada.')
       return
     }
-    const violations = warningsFor({ ...event, start: newStart, end: newEnd }, event.seriesId)
+    const violations = warningsFor({ ...event, start: newStart, end: newEnd }, exclude)
     if (violations.length > 0) {
       const reasons = violations.map((v) => `• ${v.message}`).join('\n')
       if (!window.confirm(`${reasons}\n\n¿Guardar igualmente?`)) return
     }
-    editEvent(event.seriesId, { start: newStart.toISOString(), end: newEnd.toISOString() })
+    applyOccurrenceChange(event, { start: newStart, end: newEnd }, scope)
   }
 
   const handleFindSlotPick = (slot, meetingType, participants) => {
@@ -558,19 +648,20 @@ export default function App() {
 
   const handleFormSubmit = async (values, { ignoreRules = false } = {}) => {
     const { start, end } = values
-    const excludeSeriesId = formModal?.editingEvent?.seriesId
-    const conflict = checkConflict(start, end, { excludeSeriesId })
+    const editing = formModal?.editingEvent
+    const exclude = editing ? excludeFor(editing, formModal.scope) : {}
+    const conflict = checkConflict(start, end, exclude)
     if (conflict) {
       throw new Error('Esta franja ya está ocupada.')
     }
     if (!ignoreRules) {
-      const violations = warningsFor(values, excludeSeriesId)
+      const violations = warningsFor(values, exclude)
       if (violations.length > 0) throw new RuleWarning(violations)
     }
 
     const data = { ...values, start: start.toISOString(), end: end.toISOString() }
-    if (formModal.editingEvent) {
-      editEvent(formModal.editingEvent.seriesId, data)
+    if (editing) {
+      applyOccurrenceChange(editing, values, formModal.scope)
     } else {
       addEvent(data)
     }
@@ -777,6 +868,7 @@ export default function App() {
           onSaveGuestAsContact={handleSaveGuestAsContact}
           onEdit={handleEditEvent}
           onDelete={handleDeleteEvent}
+          onRestoreOccurrence={handleRestoreOccurrence}
           onDuplicate={handleDuplicateEvent}
           onConfirmOption={handleConfirmOption}
           onCancelProposal={handleCancelProposal}
@@ -786,6 +878,7 @@ export default function App() {
           <EventFormModal
             mode={formModal.mode}
             initialEvent={formModal.editingEvent}
+            scope={formModal.scope}
             prefill={formModal.prefill}
             defaultDate={currentDate}
             contacts={contacts}
@@ -848,6 +941,21 @@ export default function App() {
             onMove={handleMoveDepartment}
             onRemove={handleRemoveDepartment}
             onClose={() => setDepartmentsOpen(false)}
+          />
+        )}
+
+        {scopeAsk && (
+          <RecurrenceScopeDialog
+            action={scopeAsk.action}
+            title={scopeAsk.title}
+            onChoose={(scope) => {
+              scopeAsk.resolve(scope)
+              setScopeAsk(null)
+            }}
+            onCancel={() => {
+              scopeAsk.resolve(null)
+              setScopeAsk(null)
+            }}
           />
         )}
 

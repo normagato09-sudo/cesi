@@ -152,9 +152,22 @@ export function eventIncludesContact(event, contact, contacts) {
   return participantsOf(event, contacts).contacts.some((c) => c.id === contact.id)
 }
 
-// Reuniones (series) en las que participa el contacto; los bloques "No disponible" no cuentan.
+// Reuniones (series) en las que participa el contacto, aunque sea solo algún día cambiado de la
+// serie; los bloques "No disponible" no cuentan.
 export function contactSeries(contact, rawEvents, contacts) {
-  return rawEvents.filter((ev) => !ev.isUnavailable && eventIncludesContact(ev, contact, contacts))
+  return rawEvents.filter(
+    (ev) =>
+      !ev.isUnavailable &&
+      (eventIncludesContact(ev, contact, contacts) ||
+        Object.values(ev.exceptions || {}).some(
+          (ex) => ex && !ex.cancelled && ('participantIds' in ex || 'participants' in ex) && eventIncludesContact({ ...ev, ...ex }, contact, contacts),
+        )),
+  )
+}
+
+// Ocurrencias (ya expandidas) en las que participa el contacto: cada día con sus propios participantes.
+export function contactOccurrences(contact, occurrences, contacts) {
+  return occurrences.filter((ev) => !ev.isUnavailable && eventIncludesContact(ev, contact, contacts))
 }
 
 export function isEmail(text) {

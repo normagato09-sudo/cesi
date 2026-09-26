@@ -367,3 +367,20 @@
 .contact-form-hint.warn {
   color: #92400e;
 }
+
+.event-form-row[hidden] {
+  display: none;
+}
+
+/* A qué días de la serie se aplica el cambio. */
+.event-form-scope-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-size: 13px;
+  color: var(--accent-hover);
+}
+.event-form-scope-note::first-letter {
+  text-transform: uppercase;
+}

@@ -40,11 +40,12 @@ export function useLocalCalendar(range) {
 
   const events = useMemo(() => expandEvents(rawEvents, range.start, range.end), [rawEvents, range])
 
-  // excludeSeriesId: al mover/editar un evento, ignora su propia serie al comprobar solapamientos.
+  // exclude: al mover/editar un evento, se ignora a sí mismo al comprobar solapamientos (toda su
+  // serie con excludeSeriesId o, si cambia solo un día, esa ocurrencia con excludeId).
   const checkConflict = useCallback(
-    (start, end, { excludeSeriesId } = {}) => {
+    (start, end, exclude = {}) => {
       const occurrences = expandEvents(rawEvents, start, end)
-      return findConflict(occurrences, start, end, { excludeSeriesId })
+      return findConflict(occurrences, start, end, exclude)
     },
     [rawEvents],
   )

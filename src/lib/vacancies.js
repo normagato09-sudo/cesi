@@ -177,17 +177,31 @@ export function planErasure(candidates, events, vacancies, now = new Date(), pro
   const ids = new Set(candidates.map((c) => c.id))
   const names = new Set(candidates.map((c) => c.name))
 
-  const eventPatches = []
-  for (const ev of events) {
-    if (!(ev.participantIds || []).some((id) => ids.has(id))) continue
-    const participantIds = ev.participantIds.filter((id) => !ids.has(id))
-    const removedNames = candidates.filter((c) => ev.participantIds.includes(c.id)).map((c) => c.name)
-    const participants = [...(ev.participants || [])]
+  // Participantes de una reunión (o de un día cambiado de una serie) sin esos candidatos, o null.
+  const withoutCandidates = (item) => {
+    if (!(item.participantIds || []).some((id) => ids.has(id))) return null
+    const participantIds = item.participantIds.filter((id) => !ids.has(id))
+    const removedNames = candidates.filter((c) => item.participantIds.includes(c.id)).map((c) => c.name)
+    const participants = [...(item.participants || [])]
     for (const name of removedNames) {
       const i = participants.indexOf(name)
       if (i >= 0) participants.splice(i, 1)
     }
-    eventPatches.push({ id: ev.id, patch: { participantIds, participants } })
+    return { participantIds, participants }
+  }
+
+  const eventPatches = []
+  for (const ev of events) {
+    const patch = { ...withoutCandidates(ev) }
+    let exceptions = null
+    for (const [key, ex] of Object.entries(ev.exceptions || {})) {
+      const fields = ex && withoutCandidates(ex)
+      if (!fields) continue
+      exceptions = exceptions || { ...ev.exceptions }
+      exceptions[key] = { ...ex, ...fields }
+    }
+    if (exceptions) patch.exceptions = exceptions
+    if (Object.keys(patch).length > 0) eventPatches.push({ id: ev.id, patch })
   }
 
   const proposalPatches = proposals

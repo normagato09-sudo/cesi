@@ -1,0 +1,12 @@
+/* Por encima de la ficha de la reunión y del formulario. */
+.scope-dialog-backdrop {
+  z-index: 130;
+}
+
+.initial-sync-choice.scope-dialog-danger {
+  color: #b91c1c;
+}
+.initial-sync-choice.scope-dialog-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fecaca;
+}

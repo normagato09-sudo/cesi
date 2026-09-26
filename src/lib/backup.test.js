@@ -20,6 +20,20 @@ describe('copia de seguridad', () => {
     expect(getPreferences().bufferMinutes).toBe(15)
   })
 
+  it('guarda los días cambiados o cancelados de una serie y acepta copias anteriores sin ellos', () => {
+    const recurrence = { freq: 'weekly', until: '2026-10-27T21:59:59.000Z' }
+    const exceptions = { '2026-09-08': { cancelled: true }, '2026-09-15': { title: 'Solo ese día' } }
+    createEvent({ title: 'Serie', start: '2026-09-01T08:00:00.000Z', end: '2026-09-01T09:00:00.000Z', recurrence, exceptions })
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getAllEvents()[0].exceptions).toEqual(exceptions)
+
+    const old = { app: 'cesi', version: 12, contacts: [], events: [{ id: 'v', title: 'Antigua', start: '2026-09-01T08:00:00.000Z', end: '2026-09-01T09:00:00.000Z', recurrence, notesByDate: { '2026-09-08': 'Nota' } }] }
+    restoreBackup(parseBackup(JSON.stringify(old)))
+    expect(getAllEvents()).toEqual(old.events)
+  })
+
   it('acepta copias antiguas (v1) sin preferencias', () => {
     savePreferences({ bufferMinutes: 10 })
     restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 1, events: [], contacts: [] })))
@@ -42,7 +56,7 @@ describe('copia de seguridad', () => {
     proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
     createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
     const backup = buildBackup()
-    expect(backup.version).toBe(12)
+    expect(backup.version).toBe(13)
     localStorage.clear()
     restoreBackup(parseBackup(JSON.stringify(backup)))
     expect(getAllProposals()[0].title).toBe('Demo')
