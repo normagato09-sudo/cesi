@@ -55,6 +55,19 @@
   color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent-soft-strong);
 }
+/* Tamaño completo: indicador, foto y nombre centrados con la foto (28 px; 20 px en los chips). */
+.participant.full > .participant-status {
+  margin-top: 5px;
+}
+.participant.full > .participant-body {
+  padding-top: 5px;
+}
+.participant.full.chip > .participant-status,
+.participant.full.chip > .participant-body {
+  margin-top: 1px;
+  padding-top: 0;
+}
+
 .participant-status-q {
   font-size: 11px;
   font-weight: 800;

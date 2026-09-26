@@ -9,6 +9,7 @@ import {
   statusCountsText,
   unreasonableTimeWarning,
 } from '../lib/participants'
+import ContactAvatar from './ContactAvatar.jsx'
 import './Participant.css'
 
 const LONG_PRESS_MS = 450
@@ -102,7 +103,7 @@ function StatusIndicator({ status, message }) {
 
 /**
  * Un participante de una reunión: contacto (`contact`) o invitado suelto (`guest`, texto).
- * - size="full": indicador de disponibilidad, nombre, bandera, país y hora local de la reunión
+ * - size="full": indicador de disponibilidad, foto (o iniciales), nombre, bandera, país y hora local de la reunión
  *   (y el aviso de hora poco razonable). Si no cabe, país y hora bajan debajo del nombre.
  * - size="compact": indicador y nombre.
  * Sin `start`/`end` (aún no hay hora) el indicador dice si tiene disponibilidad apuntada.
@@ -134,8 +135,9 @@ export default function Participant({ contact = null, guest = null, start = null
   const place = contact ? localTimeInfo(contact, start) : null
   const warning = unreasonableTimeWarning(contact, start, end)
   return (
-    <span className={`participant full ${status}`}>
+    <span className={`participant full ${status}${onRemove ? ' chip' : ''}`}>
       <StatusIndicator status={status} message={message} />
+      <ContactAvatar name={name} photo={contact?.photo} size={onRemove ? 'xs' : 'sm'} />
       <span className="participant-body">
         <span className="participant-line">
           {nameEl}
