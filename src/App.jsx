@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, format, subDays, subMonths, subWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Sidebar from './components/Sidebar.jsx'
@@ -10,17 +10,7 @@ import EventModal from './components/EventModal.jsx'
 import EventFormModal from './components/EventFormModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
 import AvailabilityModal from './components/AvailabilityModal.jsx'
-import ContactsView from './components/ContactsView.jsx'
-import BackupModal from './components/BackupModal.jsx'
-import ProposalModal from './components/ProposalModal.jsx'
-import ReportView from './components/ReportView.jsx'
-import TeamView from './components/TeamView.jsx'
-import WeeklyAvailabilityModal from './components/WeeklyAvailabilityModal.jsx'
-import ProjectsModal from './components/ProjectsModal.jsx'
-import VacanciesView from './components/VacanciesView.jsx'
-import DepartmentsModal from './components/DepartmentsModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
-import SettingsModal from './components/SettingsModal.jsx'
 import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
 import { meetingsWithUnavailable, unavailableWarning } from './lib/unavailableParticipants.js'
 import { refreshThisDevice } from './lib/push.js'
@@ -86,6 +76,28 @@ import {
 } from './lib/weeklyAvailability.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
 import './App.css'
+
+// Las secciones y los modales que no hacen falta al abrir el calendario se cargan aparte,
+// la primera vez que se usan (el service worker los guarda para usarlos sin conexión).
+const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
+const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
+const TeamView = lazy(() => import('./components/TeamView.jsx'))
+const ReportView = lazy(() => import('./components/ReportView.jsx'))
+const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
+const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
+const SettingsModal = lazy(() => import('./components/SettingsModal.jsx'))
+const WeeklyAvailabilityModal = lazy(() => import('./components/WeeklyAvailabilityModal.jsx'))
+const DepartmentsModal = lazy(() => import('./components/DepartmentsModal.jsx'))
+const ProjectsModal = lazy(() => import('./components/ProjectsModal.jsx'))
+
+// Mientras llega el código de una sección: un aviso discreto que solo se ve si tarda.
+function SectionLoading() {
+  return (
+    <div className="app-section-loading" role="status">
+      Cargando…
+    </div>
+  )
+}
 
 // Rango compacto, p. ej. "23–25 sept 2026", "30 sept – 2 oct 2026" o "30 dic 2026 – 1 ene 2027".
 function formatCompactRange(start, end) {
@@ -796,97 +808,105 @@ export default function App() {
 
         {section === 'contacts' && (
           <div className="app-main">
-            <ContactsView
-              contacts={contacts}
-              groups={groups}
-              rawEvents={rawEvents}
-              now={now}
-              selectedContactId={selectedContactId}
-              onSelectContact={setSelectedContactId}
-              onAddContact={addContact}
-              onEditContact={editContact}
-              onRemoveContact={removeContact}
-              onOpenEvent={openEvent}
-              onNewMeetingWithContact={handleNewMeetingWithContact}
-              onFindSlotWithContact={handleFindSlotWithContact}
-              onCreateGroup={handleCreateGroup}
-              onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
-              onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
-              onDeleteGroup={handleDeleteGroup}
-              areas={teamAreas}
-              onAddArea={handleAddArea}
-              onSaveTeamProfile={handleSaveTeamProfile}
-              onOpenTeamMember={handleOpenTeamMember}
-              onOpenCandidate={handleOpenCandidate}
-            />
+            <Suspense fallback={<SectionLoading />}>
+              <ContactsView
+                contacts={contacts}
+                groups={groups}
+                rawEvents={rawEvents}
+                now={now}
+                selectedContactId={selectedContactId}
+                onSelectContact={setSelectedContactId}
+                onAddContact={addContact}
+                onEditContact={editContact}
+                onRemoveContact={removeContact}
+                onOpenEvent={openEvent}
+                onNewMeetingWithContact={handleNewMeetingWithContact}
+                onFindSlotWithContact={handleFindSlotWithContact}
+                onCreateGroup={handleCreateGroup}
+                onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
+                onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
+                onDeleteGroup={handleDeleteGroup}
+                areas={teamAreas}
+                onAddArea={handleAddArea}
+                onSaveTeamProfile={handleSaveTeamProfile}
+                onOpenTeamMember={handleOpenTeamMember}
+                onOpenCandidate={handleOpenCandidate}
+              />
+            </Suspense>
           </div>
         )}
 
         {section === 'vacancies' && (
           <div className="app-main">
-            <VacanciesView
-              vacancies={vacancies}
-              contacts={contacts}
-              rawEvents={rawEvents}
-              now={now}
-              areas={teamAreas}
-              groups={groups}
-              onAddArea={handleAddArea}
-              onManageDepartments={() => setDepartmentsOpen(true)}
-              selectedVacancyId={selectedVacancyId}
-              onSelectVacancy={setSelectedVacancyId}
-              selectedCandidateId={selectedCandidateId}
-              onSelectCandidate={setSelectedCandidateId}
-              onCreateVacancy={handleCreateVacancy}
-              onUpdateVacancy={handleUpdateVacancy}
-              onDeleteVacancy={handleDeleteVacancy}
-              onAddCandidate={addContact}
-              onEditCandidate={editContact}
-              onRemoveCandidate={removeContact}
-              onCandidateStatus={handleCandidateStatus}
-              onFindInterviewSlot={handleFindInterviewSlot}
-              onIncorporate={handleIncorporate}
-              onEraseExpired={handleEraseExpired}
-              onOpenEvent={openEvent}
-              onOpenTeamMember={handleOpenTeamMember}
-            />
+            <Suspense fallback={<SectionLoading />}>
+              <VacanciesView
+                vacancies={vacancies}
+                contacts={contacts}
+                rawEvents={rawEvents}
+                now={now}
+                areas={teamAreas}
+                groups={groups}
+                onAddArea={handleAddArea}
+                onManageDepartments={() => setDepartmentsOpen(true)}
+                selectedVacancyId={selectedVacancyId}
+                onSelectVacancy={setSelectedVacancyId}
+                selectedCandidateId={selectedCandidateId}
+                onSelectCandidate={setSelectedCandidateId}
+                onCreateVacancy={handleCreateVacancy}
+                onUpdateVacancy={handleUpdateVacancy}
+                onDeleteVacancy={handleDeleteVacancy}
+                onAddCandidate={addContact}
+                onEditCandidate={editContact}
+                onRemoveCandidate={removeContact}
+                onCandidateStatus={handleCandidateStatus}
+                onFindInterviewSlot={handleFindInterviewSlot}
+                onIncorporate={handleIncorporate}
+                onEraseExpired={handleEraseExpired}
+                onOpenEvent={openEvent}
+                onOpenTeamMember={handleOpenTeamMember}
+              />
+            </Suspense>
           </div>
         )}
 
         {section === 'team' && (
           <div className="app-main">
-            <TeamView
-              contacts={contacts}
-              groups={groups}
-              rawEvents={rawEvents}
-              now={now}
-              areas={teamAreas}
-              selectedMemberId={selectedMemberId}
-              onSelectMember={setSelectedMemberId}
-              onSaveProfile={handleSaveTeamProfile}
-              onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
-              onAddArea={handleAddArea}
-              onManageDepartments={() => setDepartmentsOpen(true)}
-              onOpenEvent={openEvent}
-              onFindSlot={handleFindSlotWithContact}
-              onNewMeeting={handleNewMeetingWithContact}
-              onOpenContact={handleOpenContact}
-            />
+            <Suspense fallback={<SectionLoading />}>
+              <TeamView
+                contacts={contacts}
+                groups={groups}
+                rawEvents={rawEvents}
+                now={now}
+                areas={teamAreas}
+                selectedMemberId={selectedMemberId}
+                onSelectMember={setSelectedMemberId}
+                onSaveProfile={handleSaveTeamProfile}
+                onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
+                onAddArea={handleAddArea}
+                onManageDepartments={() => setDepartmentsOpen(true)}
+                onOpenEvent={openEvent}
+                onFindSlot={handleFindSlotWithContact}
+                onNewMeeting={handleNewMeetingWithContact}
+                onOpenContact={handleOpenContact}
+              />
+            </Suspense>
           </div>
         )}
 
         {section === 'report' && (
           <div className="app-main">
-            <ReportView
-              rawEvents={rawEvents}
-              workingHours={workingHours}
-              weeklyAvailability={weeklyAvailability}
-              contacts={contacts}
-              groups={groups}
-              projects={projects}
-              now={now}
-              onOpenEvent={openEvent}
-            />
+            <Suspense fallback={<SectionLoading />}>
+              <ReportView
+                rawEvents={rawEvents}
+                workingHours={workingHours}
+                weeklyAvailability={weeklyAvailability}
+                contacts={contacts}
+                groups={groups}
+                projects={projects}
+                now={now}
+                onOpenEvent={openEvent}
+              />
+            </Suspense>
           </div>
         )}
 
@@ -992,29 +1012,39 @@ export default function App() {
         )}
 
         {proposalModalId && proposals.some((p) => p.id === proposalModalId) && (
-          <ProposalModal
-            proposal={proposals.find((p) => p.id === proposalModalId)}
-            onConfirmOption={handleConfirmOption}
-            onCancelProposal={handleCancelProposal}
-            onClose={() => setProposalModalId(null)}
-          />
+          <Suspense fallback={null}>
+            <ProposalModal
+              proposal={proposals.find((p) => p.id === proposalModalId)}
+              onConfirmOption={handleConfirmOption}
+              onCancelProposal={handleCancelProposal}
+              onClose={() => setProposalModalId(null)}
+            />
+          </Suspense>
         )}
 
-        {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />}
+        {backupOpen && (
+          <Suspense fallback={null}>
+            <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />
+          </Suspense>
+        )}
 
         {settingsOpen && (
-          <SettingsModal preferences={preferences} onSaveReminders={handleSaveReminders} onClose={() => setSettingsOpen(false)} />
+          <Suspense fallback={null}>
+            <SettingsModal preferences={preferences} onSaveReminders={handleSaveReminders} onClose={() => setSettingsOpen(false)} />
+          </Suspense>
         )}
 
         {weekModalKey && (
-          <WeeklyAvailabilityModal
-            initialKey={weekModalKey}
-            workingHours={workingHours}
-            weeks={weeklyAvailability}
-            onSave={handleDeclareWeek}
-            onRevert={handleRevertWeek}
-            onClose={() => setWeekModalKey(null)}
-          />
+          <Suspense fallback={null}>
+            <WeeklyAvailabilityModal
+              initialKey={weekModalKey}
+              workingHours={workingHours}
+              weeks={weeklyAvailability}
+              onSave={handleDeclareWeek}
+              onRevert={handleRevertWeek}
+              onClose={() => setWeekModalKey(null)}
+            />
+          </Suspense>
         )}
 
         {availabilityOpen && (
@@ -1028,16 +1058,18 @@ export default function App() {
         )}
 
         {departmentsOpen && (
-          <DepartmentsModal
-            departments={teamAreas}
-            contacts={contacts}
-            vacancies={vacancies}
-            onAdd={handleAddArea}
-            onRename={handleRenameDepartment}
-            onMove={handleMoveDepartment}
-            onRemove={handleRemoveDepartment}
-            onClose={() => setDepartmentsOpen(false)}
-          />
+          <Suspense fallback={null}>
+            <DepartmentsModal
+              departments={teamAreas}
+              contacts={contacts}
+              vacancies={vacancies}
+              onAdd={handleAddArea}
+              onRename={handleRenameDepartment}
+              onMove={handleMoveDepartment}
+              onRemove={handleRemoveDepartment}
+              onClose={() => setDepartmentsOpen(false)}
+            />
+          </Suspense>
         )}
 
         {moveWarning && (
@@ -1066,14 +1098,16 @@ export default function App() {
         )}
 
         {projectsOpen && (
-          <ProjectsModal
-            projects={projects}
-            rawEvents={rawEvents}
-            onCreate={handleCreateProject}
-            onUpdate={handleUpdateProject}
-            onDelete={handleDeleteProject}
-            onClose={() => setProjectsOpen(false)}
-          />
+          <Suspense fallback={null}>
+            <ProjectsModal
+              projects={projects}
+              rawEvents={rawEvents}
+              onCreate={handleCreateProject}
+              onUpdate={handleUpdateProject}
+              onDelete={handleDeleteProject}
+              onClose={() => setProjectsOpen(false)}
+            />
+          </Suspense>
         )}
       </div>
     </SchedulingContext.Provider>

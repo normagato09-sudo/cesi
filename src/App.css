@@ -23,6 +23,24 @@
   background: var(--bg);
 }
 
+/* Aviso mientras se carga una sección: ocupa el mismo hueco que la vista y solo
+   aparece si la carga tarda, para que no parpadee. */
+.app-section-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  animation: app-section-loading-in 0.2s ease 0.3s both;
+}
+
+@keyframes app-section-loading-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .app-calendar-body {
   flex: 1;
   display: flex;
