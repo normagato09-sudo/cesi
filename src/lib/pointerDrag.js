@@ -51,3 +51,48 @@ export function swallowNextClick(target = globalThis.window) {
   target.addEventListener('click', swallow, { capture: true })
   timer = setTimeout(stop, SWALLOW_MS)
 }
+
+// Solo el botón principal del ratón arrastra; con el derecho o la rueda no se empieza nada.
+export function canStartDrag(e) {
+  return e.pointerType !== 'mouse' || e.button === 0
+}
+
+/**
+ * Arrastre de una reunión desde un pointerdown `e`. Hasta superar el umbral de dragThreshold.js
+ * es un clic y no se mueve nada. Llama a onEngage() al superarlo, a onMove(e) con cada movimiento
+ * posterior y a onEnd({ engaged, cancel, event }) una sola vez al terminar. Termina al soltar, si
+ * el navegador cancela el puntero o, con ratón, al llegar un movimiento sin el botón pulsado: el
+ * pointerup se perdió (p. ej. se soltó fuera de la ventana) y el arrastre no debe seguir activo;
+ * se cancela, sin guardar. Tras un arrastre de verdad descarta el clic que sigue a soltar.
+ * Devuelve stop() para dejar de escuchar sin llamar a onEnd (al desmontar).
+ */
+export function trackDrag(e, { threshold, onEngage, onMove, onEnd, target = globalThis.window }) {
+  const { pointerId, pointerType, clientX: startX, clientY: startY } = e
+  let engaged = false
+
+  const finish = (ev, cancel) => {
+    stop()
+    if (engaged) swallowNextClick(target)
+    onEnd?.({ engaged, cancel, event: ev })
+  }
+
+  const stop = trackPointer({
+    pointerId,
+    target,
+    onMove: (ev) => {
+      if (pointerType === 'mouse' && (ev.buttons & 1) === 0) {
+        finish(ev, true)
+        return
+      }
+      if (!engaged) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < threshold) return
+        engaged = true
+        onEngage?.()
+      }
+      onMove?.(ev)
+    },
+    onEnd: (ev) => finish(ev, false),
+    onCancel: (ev) => finish(ev, true),
+  })
+  return stop
+}

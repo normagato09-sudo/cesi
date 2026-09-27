@@ -7,7 +7,7 @@ import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
 import { dragThresholdFor } from '../../lib/dragThreshold'
-import { swallowNextClick, trackPointer } from '../../lib/pointerDrag'
+import { canStartDrag, trackDrag } from '../../lib/pointerDrag'
 import { useMediaQuery } from '../../lib/useMediaQuery'
 import { useEventPreview } from '../../hooks/useEventPreview'
 import EventPreview from './EventPreview.jsx'
@@ -69,13 +69,15 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
   const startDrag = (e, data) => {
     hidePreview()
     e.stopPropagation()
+    if (!canStartDrag(e)) return
+    dragDataRef.current?.stopListening?.() // otro dedo que empieza a arrastrar sustituye al anterior
     e.currentTarget.setPointerCapture?.(e.pointerId)
     dragDataRef.current = data
-    data.stopListening = trackPointer({
-      pointerId: data.pointerId,
+    data.stopListening = trackDrag(e, {
+      threshold: dragThresholdFor(e.pointerType),
+      onEngage: hidePreview,
       onMove: (ev) => handlePointerMoveRef.current(ev),
-      onEnd: (ev) => finishDragRef.current(ev),
-      onCancel: (ev) => finishDragRef.current(ev, { cancel: true }),
+      onEnd: (result) => finishDragRef.current(result),
     })
   }
 
@@ -85,10 +87,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     startDrag(e, {
       kind: 'move',
       event,
-      pointerId: e.pointerId,
-      pointerType: e.pointerType,
-      engaged: false,
-      startClientX: e.clientX,
       startClientY: e.clientY,
       originalStart: event.start,
       originalDayIndex: dayIndex,
@@ -100,10 +98,6 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     startDrag(e, {
       kind: 'resize',
       event,
-      pointerId: e.pointerId,
-      pointerType: e.pointerType,
-      engaged: false,
-      startClientX: e.clientX,
       startClientY: e.clientY,
       originalStart: event.start,
       originalEnd: event.end,
@@ -112,14 +106,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
 
   const handlePointerMove = (e) => {
     const drag = dragDataRef.current
-    if (!drag || e.pointerId !== drag.pointerId) return
-
-    if (!drag.engaged) {
-      const dist = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY)
-      if (dist < dragThresholdFor(drag.pointerType)) return
-      drag.engaged = true
-      hidePreview()
-    }
+    if (!drag) return
 
     const deltaMinutes = snap(((e.clientY - drag.startClientY) / HOUR_HEIGHT) * 60)
 
@@ -145,17 +132,15 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     }
   }
 
-  const finishDrag = (e, { cancel = false } = {}) => {
+  // Un clic sin superar el umbral no mueve nada; el clic que sigue a un arrastre ya lo descarta
+  // trackDrag, para que no abra la reunión ni un hueco nuevo donde caiga.
+  const finishDrag = ({ engaged, cancel }) => {
     const drag = dragDataRef.current
-    if (!drag || e.pointerId !== drag.pointerId) return
+    if (!drag) return
     const preview = dragPreviewRef.current
-    drag.stopListening?.()
     dragDataRef.current = null
     setDragPreview(null)
-    if (!drag.engaged) return
-    // El clic que sigue a soltar no abre nada (ni la reunión ni un hueco nuevo), caiga donde caiga.
-    swallowNextClick()
-    if (cancel || !preview) return
+    if (!engaged || cancel || !preview) return
     if (drag.kind === 'move') onMoveEvent?.(drag.event, preview.start, preview.end)
     else onResizeEvent?.(drag.event, preview.start, preview.end)
   }

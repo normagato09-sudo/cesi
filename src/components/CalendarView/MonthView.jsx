@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { NotebookPen } from 'lucide-react'
@@ -7,6 +7,8 @@ import { isEventOnDay } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
 import { hasNotes } from '../../lib/notes'
 import { dragThresholdFor } from '../../lib/dragThreshold'
+import { cellIndexFromPoint } from '../../lib/monthGrid'
+import { canStartDrag, trackDrag } from '../../lib/pointerDrag'
 import { useMediaQuery } from '../../lib/useMediaQuery'
 import DayEventsModal from '../DayEventsModal.jsx'
 import EventPreview from './EventPreview.jsx'
@@ -24,18 +26,18 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
   const gridRef = useRef(null)
   const dragDataRef = useRef(null)
   const draggedRef = useRef(false)
-  const [dragPreview, setDragPreview] = useState(null) // { id, dayIndex }
+  const dragPreviewRef = useRef(null)
+  const [dragPreview, setDragPreviewState] = useState(null) // { id, dayIndex, originalDayIndex }
+  const setDragPreview = (value) => {
+    dragPreviewRef.current = value
+    setDragPreviewState(value)
+  }
   const [dayListDay, setDayListDay] = useState(null)
 
   const dayIndexFromPoint = (clientX, clientY) => {
     if (!gridRef.current) return null
-    const rect = gridRef.current.getBoundingClientRect()
-    const rows = Math.ceil(days.length / 7)
-    const colWidth = rect.width / 7
-    const rowHeight = rect.height / rows
-    const col = Math.min(6, Math.max(0, Math.floor((clientX - rect.left) / colWidth)))
-    const row = Math.min(rows - 1, Math.max(0, Math.floor((clientY - rect.top) / rowHeight)))
-    return row * 7 + col
+    const rects = [...gridRef.current.children].map((cell) => cell.getBoundingClientRect())
+    return cellIndexFromPoint(rects, clientX, clientY)
   }
 
   const dayDelta = dragPreview ? dragPreview.dayIndex - dragPreview.originalDayIndex : 0
@@ -49,48 +51,57 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
         )
       : events
 
+  // El arrastre se sigue en window y no solo con la captura del puntero en la reunión: al pasar a
+  // otro día React la recoloca en otra casilla, el navegador suelta la captura y la reunión ya no
+  // recibía el soltar; se quedaba arrastrando y seguía moviéndose al pasar el ratón por encima.
   const handlePointerDown = (e, ev, dayIndex) => {
     e.stopPropagation()
+    if (!canStartDrag(e)) return
+    dragDataRef.current?.stopListening?.() // otro dedo que empieza a arrastrar sustituye al anterior
     e.currentTarget.setPointerCapture(e.pointerId)
     draggedRef.current = false
-    dragDataRef.current = {
-      event: ev,
-      pointerId: e.pointerId,
-      pointerType: e.pointerType,
-      engaged: false,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      originalDayIndex: dayIndex,
-    }
+    const drag = { event: ev, originalDayIndex: dayIndex }
+    dragDataRef.current = drag
+    drag.stopListening = trackDrag(e, {
+      threshold: dragThresholdFor(e.pointerType),
+      onEngage: () => {
+        draggedRef.current = true
+        hidePreview()
+      },
+      onMove: (me) => handlePointerMoveRef.current(me),
+      onEnd: (result) => finishDragRef.current(result),
+    })
   }
+
+  useEffect(() => () => dragDataRef.current?.stopListening?.(), [])
 
   const handlePointerMove = (e) => {
     const drag = dragDataRef.current
-    if (!drag || e.pointerId !== drag.pointerId) return
-
-    if (!drag.engaged) {
-      const dist = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY)
-      if (dist < dragThresholdFor(drag.pointerType)) return
-      drag.engaged = true
-      draggedRef.current = true
-      hidePreview()
-    }
+    if (!drag) return
 
     const newIndex = dayIndexFromPoint(e.clientX, e.clientY)
     if (newIndex === null) return
     setDragPreview({ id: drag.event.id, dayIndex: newIndex, originalDayIndex: drag.originalDayIndex })
   }
 
-  const finishDrag = (e) => {
+  const finishDrag = ({ engaged, cancel }) => {
     const drag = dragDataRef.current
-    if (!drag || e.pointerId !== drag.pointerId) return
-    const finalDelta = dragPreview ? dragPreview.dayIndex - drag.originalDayIndex : 0
+    if (!drag) return
+    const preview = dragPreviewRef.current
+    const finalDelta = preview ? preview.dayIndex - drag.originalDayIndex : 0
     dragDataRef.current = null
     setDragPreview(null)
-    if (finalDelta !== 0 && draggedRef.current) {
-      onMoveEvent?.(drag.event, addDays(drag.event.start, finalDelta), addDays(drag.event.end, finalDelta))
-    }
+    if (!engaged || cancel || finalDelta === 0) return
+    onMoveEvent?.(drag.event, addDays(drag.event.start, finalDelta), addDays(drag.event.end, finalDelta))
   }
+
+  // Los manejadores de window llaman siempre a la versión más reciente.
+  const handlePointerMoveRef = useRef(handlePointerMove)
+  const finishDragRef = useRef(finishDrag)
+  useEffect(() => {
+    handlePointerMoveRef.current = handlePointerMove
+    finishDragRef.current = finishDrag
+  })
 
   const handleEventClick = (e, ev) => {
     hidePreview()
@@ -162,9 +173,6 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                           handlePointerDown(e, ev, dayIndex)
                           pressPreview(e, ev)
                         }}
-                        onPointerMove={handlePointerMove}
-                        onPointerUp={finishDrag}
-                        onPointerCancel={finishDrag}
                         onClick={(e) => handleEventClick(e, ev)}
                       >
                         <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''}`} />
