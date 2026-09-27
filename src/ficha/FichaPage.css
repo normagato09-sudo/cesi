@@ -1,0 +1,204 @@
+/* Página pública para que un contacto rellene sus datos: pensada primero para el móvil. */
+.ficha {
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.ficha-card {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 24px 18px;
+}
+
+@media (min-width: 600px) {
+  .ficha {
+    padding-top: 48px;
+  }
+
+  .ficha-card {
+    padding: 32px 32px 28px;
+  }
+}
+
+.ficha-header h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.ficha-header p {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ficha-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ficha-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ficha-field em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.ficha-field input {
+  font-family: inherit;
+  /* 16 px: con menos, Safari en iPhone amplía la página al escribir. */
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.ficha-field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.ficha-availability {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ficha-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ficha-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.ficha-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ficha-error,
+.ficha-saved {
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.ficha-error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.ficha-saved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.ficha-submit {
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 13px 16px;
+  cursor: pointer;
+}
+
+.ficha-submit:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.ficha-submit:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.ficha-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 24px 4px;
+  color: var(--text-secondary);
+}
+
+.ficha-message h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.ficha-message p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 34ch;
+}
+
+.ficha-spin {
+  animation: ficha-spin 1s linear infinite;
+}
+
+@keyframes ficha-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ficha-footer {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Los campos de país y horario vienen de la app: aquí también a 16 px por el zoom de iPhone. */
+.ficha select,
+.ficha .tz-select input,
+.ficha .tz-select button,
+.ficha input[type='time'] {
+  font-size: 16px;
+}

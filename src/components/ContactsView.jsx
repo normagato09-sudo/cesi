@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, BadgeCheck, Briefcase, CalendarPlus, Mail, Pencil, Phone, Search, Tags, Trash2, UserPlus, Users } from 'lucide-react'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { ArrowLeft, BadgeCheck, Briefcase, CalendarPlus, Link2, Mail, Pencil, Phone, Search, Tags, Trash2, UserCheck, UserPlus, Users } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
 import GroupsModal from './GroupsModal.jsx'
 import TeamProfileModal from './TeamProfileModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
+import ContactLinkModal from './ContactLinkModal.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import { contactMatches, contactSeries } from '../lib/contacts'
 import { contactsInGroup } from '../lib/groups'
 import { countryLabel } from '../lib/timezones'
 import { isTeamMember } from '../lib/team'
 import { contactsForList, isCandidate } from '../lib/vacancies'
+import { useSync } from '../lib/sync/syncContext'
 import './ContactsView.css'
 
 function subtitleOf(contact) {
@@ -45,6 +49,9 @@ export default function ContactsView({
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [groupFilter, setGroupFilter] = useState(null)
   const [teamProfileFor, setTeamProfileFor] = useState(null)
+  const [linkFor, setLinkFor] = useState(null)
+  // El enlace para que el contacto rellene sus datos necesita la sincronización (los datos van por Supabase).
+  const syncActive = !!useSync()
   // Los candidatos (Vacantes) solo se ven con el filtro "Candidatos".
   const [showCandidates, setShowCandidates] = useState(false)
   const candidateCount = contacts.filter(isCandidate).length
@@ -258,6 +265,12 @@ export default function ContactsView({
                 <h2>{selected.name}</h2>
                 {subtitleOf(selected) && <p>{subtitleOf(selected)}</p>}
                 <GroupChips contact={selected} groups={groups} />
+                {selected.selfUpdatedAt && (
+                  <span className="contact-self-updated">
+                    <UserCheck size={13} strokeWidth={2} />
+                    Actualizado por el contacto el {format(new Date(selected.selfUpdatedAt), "d MMM yyyy 'a las' HH:mm", { locale: es })}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -274,6 +287,12 @@ export default function ContactsView({
                 <Pencil size={14} strokeWidth={1.75} />
                 Editar
               </button>
+              {syncActive && (
+                <button type="button" className="contact-action-btn" onClick={() => setLinkFor(selected)}>
+                  <Link2 size={14} strokeWidth={1.75} />
+                  Enviar link para que lo rellene
+                </button>
+              )}
               {isCandidate(selected) ? (
                 <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(selected.id)}>
                   <Briefcase size={14} strokeWidth={1.75} />
@@ -328,6 +347,8 @@ export default function ContactsView({
           onClose={() => setTeamProfileFor(null)}
         />
       )}
+
+      {linkFor && <ContactLinkModal contact={linkFor} onClose={() => setLinkFor(null)} />}
 
       {groupsOpen && (
         <GroupsModal

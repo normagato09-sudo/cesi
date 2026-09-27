@@ -658,3 +658,18 @@
   flex-direction: column;
   gap: 4px;
 }
+
+/* Aviso en la ficha cuando el contacto ha cambiado sus datos desde el enlace. */
+.contact-self-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  padding: 3px 10px;
+}

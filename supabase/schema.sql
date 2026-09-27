@@ -354,3 +354,238 @@ create policy "cesi-photos: cambiar los míos" on storage.objects
 create policy "cesi-photos: borrar los míos" on storage.objects
   for delete to authenticated
   using (bucket_id = 'cesi-photos' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+-- ---------------------------------------------------------------------------
+-- Enlace para que un contacto rellene su ficha (página pública /ficha/<token>)
+-- ---------------------------------------------------------------------------
+-- La persona abre el enlace sin iniciar sesión. La página no toca las tablas: solo llama a
+-- cesi_contact_form_get y cesi_contact_form_save con el token, que comprueban que el enlace
+-- existe, no está desactivado ni caducado, y solo leen o cambian los campos permitidos del
+-- contacto. Al guardar se pone data.selfUpdatedAt y el cambio llega a la app como cualquier otro.
+--   token       32 bytes aleatorios en base64url (lo genera la app)
+--   expires_at  caducidad (30 días por defecto; la app puede elegir otra al crearlo)
+--   revoked     true al regenerar o desactivar el enlace
+create table if not exists public.contact_links (
+  token text primary key check (length(token) between 32 and 100),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  contact_id text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '30 days',
+  revoked boolean not null default false
+);
+
+create index if not exists contact_links_contact_idx on public.contact_links (user_id, contact_id);
+
+alter table public.contact_links enable row level security;
+drop policy if exists "contact_links: leer los míos" on public.contact_links;
+drop policy if exists "contact_links: crear los míos" on public.contact_links;
+drop policy if exists "contact_links: editar los míos" on public.contact_links;
+drop policy if exists "contact_links: borrar los míos" on public.contact_links;
+create policy "contact_links: leer los míos" on public.contact_links
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "contact_links: crear los míos" on public.contact_links
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "contact_links: editar los míos" on public.contact_links
+  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "contact_links: borrar los míos" on public.contact_links
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- ¿Es un horario semanal válido (o null)? [{ day: 0..6, enabled, slots: [{ start: 'HH:mm', end }] }]
+create or replace function public.cesi_valid_week(p_week jsonb)
+returns boolean
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  e jsonb;
+  s jsonb;
+  seen int[] := '{}';
+  hhmm constant text := '^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$';
+begin
+  if p_week is null or jsonb_typeof(p_week) = 'null' then
+    return true;
+  end if;
+  if jsonb_typeof(p_week) <> 'array' or jsonb_array_length(p_week) <> 7 then
+    return false;
+  end if;
+  for e in select value from jsonb_array_elements(p_week) loop
+    if jsonb_typeof(e) <> 'object' then
+      return false;
+    end if;
+    if exists (select 1 from jsonb_object_keys(e) k where k not in ('day', 'enabled', 'slots')) then
+      return false;
+    end if;
+    if jsonb_typeof(e -> 'day') is distinct from 'number'
+      or jsonb_typeof(e -> 'enabled') is distinct from 'boolean'
+      or jsonb_typeof(e -> 'slots') is distinct from 'array' then
+      return false;
+    end if;
+    if (e ->> 'day') !~ '^[0-6]$' or (e ->> 'day')::int = any (seen) then
+      return false;
+    end if;
+    seen := seen || (e ->> 'day')::int;
+    if jsonb_array_length(e -> 'slots') > 8 then
+      return false;
+    end if;
+    for s in select value from jsonb_array_elements(e -> 'slots') loop
+      if jsonb_typeof(s) <> 'object' then
+        return false;
+      end if;
+      if exists (select 1 from jsonb_object_keys(s) k where k not in ('start', 'end')) then
+        return false;
+      end if;
+      if jsonb_typeof(s -> 'start') is distinct from 'string' or jsonb_typeof(s -> 'end') is distinct from 'string'
+        or (s ->> 'start') !~ hhmm or (s ->> 'end') !~ hhmm then
+        return false;
+      end if;
+    end loop;
+  end loop;
+  return true;
+end;
+$$;
+
+-- Datos que ve la persona: solo los campos permitidos de su contacto. null si el enlace no vale.
+create or replace function public.cesi_contact_form_get(p_token text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_data jsonb;
+begin
+  if p_token is null or length(p_token) > 100 then
+    return null;
+  end if;
+  select c.data into v_data
+  from public.contact_links l
+  join public.contacts c on c.user_id = l.user_id and c.id = l.contact_id
+  where l.token = p_token and not l.revoked and l.expires_at > now() and c.deleted_at is null;
+  if v_data is null then
+    return null;
+  end if;
+  return jsonb_build_object(
+    'name', coalesce(v_data ->> 'name', ''),
+    'email', coalesce(v_data ->> 'email', ''),
+    'phone', coalesce(v_data ->> 'phone', ''),
+    'organization', coalesce(v_data ->> 'organization', ''),
+    'role', coalesce(v_data ->> 'role', ''),
+    'country', coalesce(v_data ->> 'country', ''),
+    'timeZone', coalesce(v_data ->> 'timeZone', ''),
+    'availability', case when jsonb_typeof(v_data -> 'availability') = 'array' then v_data -> 'availability' end
+  );
+end;
+$$;
+
+-- Guarda lo que envía la persona. Solo acepta los campos de la lista blanca, con su tipo y
+-- longitud máxima; cualquier otra cosa se rechaza entera. Errores (en el mensaje): invalid_link,
+-- invalid_data, name_required, invalid_email, invalid_zone, invalid_availability.
+create or replace function public.cesi_contact_form_save(p_token text, p_fields jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_link public.contact_links%rowtype;
+  v_limits constant jsonb := '{"name": 120, "email": 200, "phone": 40, "organization": 120, "role": 120}';
+  v_clean jsonb := '{}'::jsonb;
+  v_key text;
+  v_text text;
+  v_old timestamptz;
+  v_stamp timestamptz;
+  v_iso text;
+begin
+  if p_token is null or length(p_token) > 100 then
+    raise exception 'invalid_link';
+  end if;
+  select * into v_link from public.contact_links
+  where token = p_token and not revoked and expires_at > now();
+  if not found then
+    raise exception 'invalid_link';
+  end if;
+
+  if p_fields is null or jsonb_typeof(p_fields) <> 'object' or octet_length(p_fields::text) > 20000 then
+    raise exception 'invalid_data';
+  end if;
+  if exists (
+    select 1 from jsonb_object_keys(p_fields) k
+    where k not in ('name', 'email', 'phone', 'organization', 'role', 'country', 'timeZone', 'availability')
+  ) then
+    raise exception 'invalid_data';
+  end if;
+
+  for v_key in select jsonb_object_keys(v_limits) loop
+    if p_fields ? v_key then
+      if jsonb_typeof(p_fields -> v_key) <> 'string' then
+        raise exception 'invalid_data';
+      end if;
+      v_text := btrim(p_fields ->> v_key);
+      if length(v_text) > (v_limits ->> v_key)::int then
+        raise exception 'invalid_data';
+      end if;
+      v_clean := v_clean || jsonb_build_object(v_key, v_text);
+    end if;
+  end loop;
+  if v_clean ? 'name' and v_clean ->> 'name' = '' then
+    raise exception 'name_required';
+  end if;
+  if coalesce(v_clean ->> 'email', '') <> '' and (v_clean ->> 'email') !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$' then
+    raise exception 'invalid_email';
+  end if;
+
+  -- País y zona van juntos, y la zona tiene que existir.
+  if p_fields ? 'country' or p_fields ? 'timeZone' then
+    if jsonb_typeof(p_fields -> 'country') is distinct from 'string'
+      or jsonb_typeof(p_fields -> 'timeZone') is distinct from 'string'
+      or (p_fields ->> 'country') !~ '^[A-Z]{2}$'
+      or length(p_fields ->> 'timeZone') > 64
+      or not exists (select 1 from pg_catalog.pg_timezone_names where name = p_fields ->> 'timeZone') then
+      raise exception 'invalid_zone';
+    end if;
+    v_clean := v_clean || jsonb_build_object(
+      'country', p_fields ->> 'country',
+      'timeZone', p_fields ->> 'timeZone',
+      'countryUnreviewed', false
+    );
+  end if;
+
+  if p_fields ? 'availability' then
+    if not public.cesi_valid_week(p_fields -> 'availability') then
+      raise exception 'invalid_availability';
+    end if;
+    v_clean := v_clean || jsonb_build_object(
+      'availability', case when jsonb_typeof(p_fields -> 'availability') = 'array' then p_fields -> 'availability' end
+    );
+  end if;
+
+  select updated_at into v_old from public.contacts
+  where user_id = v_link.user_id and id = v_link.contact_id and deleted_at is null
+  for update;
+  if not found then
+    raise exception 'invalid_link';
+  end if;
+
+  -- Nunca anterior a la fila guardada: si no, cesi_keep_newest ignoraría el cambio.
+  v_stamp := greatest(clock_timestamp(), v_old + interval '1 millisecond');
+  v_iso := to_char(v_stamp at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+  v_clean := v_clean || jsonb_build_object('selfUpdatedAt', v_iso, 'updatedAt', v_iso);
+
+  update public.contacts
+  set data = data || v_clean, updated_at = v_stamp
+  where user_id = v_link.user_id and id = v_link.contact_id;
+
+  return jsonb_build_object('ok', true, 'savedAt', v_iso);
+end;
+$$;
+
+-- Solo la página pública (anon) y la app pueden llamar a las dos funciones del formulario;
+-- la de validar horarios es interna.
+revoke all on function public.cesi_valid_week(jsonb) from public, anon, authenticated;
+revoke all on function public.cesi_contact_form_get(text) from public;
+revoke all on function public.cesi_contact_form_save(text, jsonb) from public;
+grant execute on function public.cesi_contact_form_get(text) to anon, authenticated;
+grant execute on function public.cesi_contact_form_save(text, jsonb) to anon, authenticated;

@@ -1,0 +1,56 @@
+.contact-link-modal {
+  max-width: 520px;
+}
+
+.contact-link-intro {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.contact-link-muted {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.contact-link-url {
+  display: flex;
+  gap: 8px;
+}
+
+.contact-link-url input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+
+.contact-link-manage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.contact-link-days {
+  margin-right: auto;
+}
+
+.proposal-share-btn.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.proposal-share-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
