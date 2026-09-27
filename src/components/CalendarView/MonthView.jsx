@@ -16,7 +16,7 @@ import './MonthView.css'
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 export default function MonthView({ currentDate, events, onSelectEvent, onSelectDay, onMoveEvent }) {
-  const { preview, bind: bindPreview, hide: hidePreview } = useEventPreview()
+  const { preview, bind: bindPreview, press: pressPreview, hide: hidePreview } = useEventPreview()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const MAX_VISIBLE_DOTS = isMobile ? 4 : 6
   const days = getMonthGridDays(currentDate)
@@ -73,6 +73,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
       if (dist < dragThresholdFor(drag.pointerType)) return
       drag.engaged = true
       draggedRef.current = true
+      hidePreview()
     }
 
     const newIndex = dayIndexFromPoint(e.clientX, e.clientY)
@@ -159,6 +160,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         onPointerDown={(e) => {
                           hidePreview()
                           handlePointerDown(e, ev, dayIndex)
+                          pressPreview(e, ev)
                         }}
                         onPointerMove={handlePointerMove}
                         onPointerUp={finishDrag}

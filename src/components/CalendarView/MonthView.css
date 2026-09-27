@@ -223,3 +223,9 @@
   color: var(--text-secondary);
   box-sizing: content-box;
 }
+
+/* Mantener pulsada una reunión muestra su vista previa: sin menú ni selección del navegador. */
+.month-event-dot {
+  -webkit-touch-callout: none;
+  user-select: none;
+}

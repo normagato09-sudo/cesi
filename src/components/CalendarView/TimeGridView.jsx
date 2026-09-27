@@ -36,7 +36,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
     dragPreviewRef.current = value
     setDragPreviewState(value)
   }
-  const { preview, bind: bindPreview, hide: hidePreview } = useEventPreview()
+  const { preview, bind: bindPreview, press: pressPreview, hide: hidePreview } = useEventPreview()
   const today = new Date()
 
   useEffect(() => {
@@ -270,7 +270,10 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                       touchAction: 'none',
                     }}
                     {...bindPreview(event)}
-                    onPointerDown={(e) => handleMoveStart(e, event, dayIndex)}
+                    onPointerDown={(e) => {
+                      handleMoveStart(e, event, dayIndex)
+                      pressPreview(e, event)
+                    }}
                     onClick={() => handleEventClick(event)}
                   >
                     <span className="time-grid-event-title">

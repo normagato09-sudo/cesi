@@ -270,3 +270,10 @@
   vertical-align: -1px;
   color: var(--text-secondary);
 }
+
+/* Mantener pulsada una reunión muestra su vista previa: sin menú ni selección del navegador. */
+.time-grid-event,
+.time-grid-allday-event {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
