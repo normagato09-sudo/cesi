@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Check, Copy, Link2, Link2Off, Mail, MessageCircle, RefreshCw, X } from 'lucide-react'
 import { copyText } from '../lib/clipboard'
+import { SYNC_ENABLED } from '../lib/sync/client'
 import { mailtoUrl, whatsappUrl } from '../lib/proposals'
 import {
   DEFAULT_LINK_DAYS,
@@ -18,7 +19,45 @@ import './ProposalShare.css'
 import './ContactLinkModal.css'
 
 // Enlace para que el contacto rellene y edite sus propios datos (página pública /ficha/<token>).
-export default function ContactLinkModal({ contact, onClose }) {
+// Sin la sincronización activa no hay enlace posible: se explica qué falta.
+export default function ContactLinkModal({ contact, syncActive, onClose }) {
+  if (!syncActive) return <SyncRequired onClose={onClose} />
+  return <LinkManager contact={contact} onClose={onClose} />
+}
+
+function SyncRequired({ onClose }) {
+  return (
+    <div className="event-form-backdrop" onClick={onClose}>
+      <div className="event-form contact-link-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="contact-link-title">
+        <div className="event-form-header">
+          <h2 id="contact-link-title">
+            <Link2 size={17} strokeWidth={1.75} />
+            Enlace para que lo rellene
+          </h2>
+          <button type="button" className="event-form-close" onClick={onClose} aria-label="Cerrar">
+            <X size={18} strokeWidth={1.75} />
+          </button>
+        </div>
+        <div className="event-form-body">
+          {SYNC_ENABLED ? (
+            <p className="contact-link-intro">
+              Para crear el enlace hace falta haber iniciado sesión y que la sincronización esté en marcha. Espera a que la
+              barra lateral diga «Sincronizado» e inténtalo otra vez.
+            </p>
+          ) : (
+            <p className="contact-link-intro">
+              El enlace necesita la sincronización con Supabase, y esta versión de la app no la tiene configurada. En Vercel,
+              añade <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en Settings → Environment Variables
+              y vuelve a desplegar.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LinkManager({ contact, onClose }) {
   const [link, setLink] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | busy
   const [error, setError] = useState(null)

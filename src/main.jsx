@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import SyncGate from './components/SyncGate.jsx'
+import { setupAppUpdates } from './lib/appUpdates'
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill'
 import flagFontUrl from 'country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url'
 
@@ -15,6 +16,9 @@ try {
 } catch {
   // Sin acceso a localStorage no hay nada que limpiar.
 }
+
+// Versiones nuevas: la página se recarga una vez cuando están listas (ver appUpdates.js).
+setupAppUpdates()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -19,7 +19,7 @@ function fichaRoute() {
     configurePreviewServer(server) {
       server.middlewares.use(rewrite)
     },
-    // Quien abre el enlace no usa la app: sin manifest ni service worker (no se le instala nada).
+    // Quien abre el enlace no usa la app: sin manifest (y ficha/main.jsx no registra el service worker).
     transformIndexHtml: {
       order: 'post',
       handler(html, ctx) {
@@ -43,12 +43,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Se registra desde src/lib/appUpdates.js, que además recarga la página con la versión nueva.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       // Notificaciones de los recordatorios (public/push-sw.js).
       // La fuente de las banderas (woff2) también se guarda para usar la app sin conexión.
       // /ficha/<token> es la página pública (ficha.html), no la app: el service worker no la sustituye.
       workbox: {
         importScripts: ['push-sw.js'],
+        // Con injectRegister: false el plugin ya no los activa solo: la versión nueva toma el control al instalarse.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,woff2}'],
         navigateFallbackDenylist: [/^\/ficha\//],
       },

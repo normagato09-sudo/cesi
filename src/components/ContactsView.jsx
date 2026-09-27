@@ -50,7 +50,8 @@ export default function ContactsView({
   const [groupFilter, setGroupFilter] = useState(null)
   const [teamProfileFor, setTeamProfileFor] = useState(null)
   const [linkFor, setLinkFor] = useState(null)
-  // El enlace para que el contacto rellene sus datos necesita la sincronización (los datos van por Supabase).
+  // El enlace para que el contacto rellene sus datos necesita la sincronización (los datos van por
+  // Supabase). El botón se ve siempre; sin ella, el modal explica qué falta.
   const syncActive = !!useSync()
   // Los candidatos (Vacantes) solo se ven con el filtro "Candidatos".
   const [showCandidates, setShowCandidates] = useState(false)
@@ -287,12 +288,10 @@ export default function ContactsView({
                 <Pencil size={14} strokeWidth={1.75} />
                 Editar
               </button>
-              {syncActive && (
-                <button type="button" className="contact-action-btn" onClick={() => setLinkFor(selected)}>
-                  <Link2 size={14} strokeWidth={1.75} />
-                  Enviar link para que lo rellene
-                </button>
-              )}
+              <button type="button" className="contact-action-btn" onClick={() => setLinkFor(selected)}>
+                <Link2 size={14} strokeWidth={1.75} />
+                Enviar link para que lo rellene
+              </button>
               {isCandidate(selected) ? (
                 <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(selected.id)}>
                   <Briefcase size={14} strokeWidth={1.75} />
@@ -348,7 +347,7 @@ export default function ContactsView({
         />
       )}
 
-      {linkFor && <ContactLinkModal contact={linkFor} onClose={() => setLinkFor(null)} />}
+      {linkFor && <ContactLinkModal contact={linkFor} syncActive={syncActive} onClose={() => setLinkFor(null)} />}
 
       {groupsOpen && (
         <GroupsModal
