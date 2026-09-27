@@ -2,18 +2,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { contactFormPayload, loadContactForm, saveContactForm, tokenFromPath, validateContactForm } from './contactForm'
 import { emptyWeek } from './weeklySchedule'
 
+const WEEKDAYS = emptyWeek().map((d) => (d.day >= 1 && d.day <= 5 ? { ...d, enabled: true, slots: [{ start: '09:00', end: '18:00' }] } : d))
+
 const TOKEN = 'A'.repeat(43)
 
 function values(overrides = {}) {
   return {
     name: 'Ana López',
     email: 'ana@example.com',
-    phone: '+34 600 000 000',
-    organization: 'Acme',
-    role: 'Directora',
     zone: { country: 'ES', timeZone: 'Europe/Madrid' },
-    hasAvailability: false,
-    availability: emptyWeek(),
+    availability: WEEKDAYS,
     ...overrides,
   }
 }
@@ -33,20 +31,30 @@ describe('formulario público del contacto', () => {
   it('valida nombre, longitudes, email, país y disponibilidad', () => {
     expect(validateContactForm(values())).toBe(null)
     expect(validateContactForm(values({ name: '  ' }))).toBe('Escribe tu nombre.')
-    expect(validateContactForm(values({ phone: '1'.repeat(41) }))).toMatch(/máximo 40/)
+    expect(validateContactForm(values({ name: 'a'.repeat(121) }))).toMatch(/máximo 120/)
     expect(validateContactForm(values({ email: 'no-es-email' }))).toMatch(/email/)
     expect(validateContactForm(values({ zone: null }))).toBe('Elige tu país.')
     const week = emptyWeek().map((d) => (d.day === 1 ? { ...d, enabled: true, slots: [{ start: '10:00', end: '09:00' }] } : d))
-    expect(validateContactForm(values({ hasAvailability: true, availability: week }))).toMatch(/^Disponibilidad:/)
+    expect(validateContactForm(values({ availability: week }))).toMatch(/^Disponibilidad:/)
   })
 
-  it('envía solo los campos permitidos, sin espacios sobrantes', () => {
-    const payload = contactFormPayload(values({ name: '  Ana  ', notes: 'no', groupIds: ['g1'], id: 'x' }))
-    expect(Object.keys(payload).sort()).toEqual(
-      ['availability', 'country', 'email', 'name', 'organization', 'phone', 'role', 'timeZone'].sort(),
+  it('el email es opcional', () => {
+    expect(validateContactForm(values({ email: '' }))).toBe(null)
+  })
+
+  it('la disponibilidad es obligatoria: al menos un día con una franja', () => {
+    expect(validateContactForm(values({ availability: emptyWeek() }))).toMatch(/al menos un día/)
+    const enabledWithoutSlots = emptyWeek().map((d) => (d.day === 1 ? { ...d, enabled: true } : d))
+    expect(validateContactForm(values({ availability: enabledWithoutSlots }))).toMatch(/^Disponibilidad:/)
+  })
+
+  it('envía solo nombre, email, país, zona y disponibilidad (nunca teléfono, organización ni cargo)', () => {
+    const payload = contactFormPayload(
+      values({ name: '  Ana  ', phone: '600', organization: 'Acme', role: 'Directora', notes: 'no', groupIds: ['g1'], id: 'x' }),
     )
+    expect(Object.keys(payload).sort()).toEqual(['availability', 'country', 'email', 'name', 'timeZone'])
     expect(payload.name).toBe('Ana')
-    expect(payload.availability).toBe(null)
+    expect(payload.availability.filter((d) => d.enabled).map((d) => d.day)).toEqual([1, 2, 3, 4, 5])
   })
 
   it('llama a las funciones de Supabase con la clave pública, sin tocar tablas', async () => {

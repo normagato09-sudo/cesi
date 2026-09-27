@@ -90,23 +90,14 @@
   gap: 10px;
 }
 
-.ficha-check {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.ficha-check input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+.ficha-availability-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .ficha-hint {
-  margin: 0;
+  margin: -4px 0 0;
   font-size: 13px;
   color: var(--text-secondary);
 }

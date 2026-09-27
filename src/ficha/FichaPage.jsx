@@ -25,11 +25,7 @@ function toValues(data) {
   return {
     name: data.name || '',
     email: data.email || '',
-    phone: data.phone || '',
-    organization: data.organization || '',
-    role: data.role || '',
     zone: initialZone(data),
-    hasAvailability: Array.isArray(data.availability),
     availability: data.availability ? normalizeWeek(data.availability, defaultAvailability()) : defaultAvailability(),
   }
 }
@@ -79,6 +75,7 @@ export default function FichaPage() {
   const [token] = useState(() => tokenFromPath(window.location.pathname))
   const [state, setState] = useState(token ? 'loading' : 'invalid') // loading | invalid | error | ready
   const [values, setValues] = useState(null)
+  const [greetingName, setGreetingName] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [savedAt, setSavedAt] = useState(null)
@@ -94,6 +91,7 @@ export default function FichaPage() {
           return
         }
         setValues(toValues(data))
+        setGreetingName((data.name || '').trim())
         setState('ready')
       })
       .catch(() => active && setState('error'))
@@ -154,33 +152,26 @@ export default function FichaPage() {
     <Shell>
       <header className="ficha-header">
         <h1>Tus datos de contacto</h1>
-        <p>Revisa y completa tus datos. Puedes volver a este enlace para cambiarlos cuando quieras.</p>
+        <p>
+          Hola{greetingName ? `, ${greetingName}` : ''}. Rellena tus datos y tu disponibilidad para que podamos organizar las
+          reuniones de CESI.
+        </p>
       </header>
 
       <form className="ficha-form" onSubmit={handleSubmit} noValidate>
         <TextField label="Nombre y apellidos" value={values.name} onChange={set('name')} max={FIELD_LIMITS.name} autoComplete="name" required />
         <TextField label="Email" type="email" value={values.email} onChange={set('email')} max={FIELD_LIMITS.email} autoComplete="email" placeholder="nombre@ejemplo.com" />
-        <TextField label="Teléfono" type="tel" value={values.phone} onChange={set('phone')} max={FIELD_LIMITS.phone} autoComplete="tel" placeholder="+34 600 000 000" />
-        <TextField label="Organización" value={values.organization} onChange={set('organization')} max={FIELD_LIMITS.organization} autoComplete="organization" />
-        <TextField label="Cargo" value={values.role} onChange={set('role')} max={FIELD_LIMITS.role} autoComplete="organization-title" />
 
         <div className="ficha-field">
-          <TimeZoneSelect label="País" value={values.zone} onChange={set('zone')} requireZoneChoice />
+          <TimeZoneSelect label="País y zona horaria" value={values.zone} onChange={set('zone')} requireZoneChoice />
         </div>
 
         <div className="ficha-availability">
-          <label className="ficha-check">
-            <input type="checkbox" checked={values.hasAvailability} onChange={(e) => set('hasAvailability')(e.target.checked)} />
-            <span>Indicar cuándo suelo poder reunirme</span>
-          </label>
-          {values.hasAvailability && (
-            <>
-              <p className="ficha-hint">
-                Franjas en {values.zone?.timeZone ? `hora de ${zonePlace(values.zone.timeZone)}` : 'tu hora local'}.
-              </p>
-              <WeeklyScheduleEditor value={values.availability} onChange={set('availability')} />
-            </>
-          )}
+          <span className="ficha-availability-title">Disponibilidad semanal</span>
+          <p className="ficha-hint">
+            Cuándo sueles poder reunirte, en {values.zone?.timeZone ? `hora de ${zonePlace(values.zone.timeZone)}` : 'tu hora local'}.
+          </p>
+          <WeeklyScheduleEditor value={values.availability} onChange={set('availability')} />
         </div>
 
         {error && (

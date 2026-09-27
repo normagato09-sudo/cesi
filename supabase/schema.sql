@@ -361,7 +361,9 @@ create policy "cesi-photos: borrar los míos" on storage.objects
 -- La persona abre el enlace sin iniciar sesión. La página no toca las tablas: solo llama a
 -- cesi_contact_form_get y cesi_contact_form_save con el token, que comprueban que el enlace
 -- existe, no está desactivado ni caducado, y solo leen o cambian los campos permitidos del
--- contacto. Al guardar se pone data.selfUpdatedAt y el cambio llega a la app como cualquier otro.
+-- contacto: nombre, email, país y zona, y disponibilidad. El resto de la ficha (teléfono,
+-- organización, cargo, notas…) ni se envía ni se toca al guardar.
+-- Al guardar se pone data.selfUpdatedAt y el cambio llega a la app como cualquier otro.
 --   token       32 bytes aleatorios en base64url (lo genera la app)
 --   expires_at  caducidad (30 días por defecto; la app puede elegir otra al crearlo)
 --   revoked     true al regenerar o desactivar el enlace
@@ -469,9 +471,6 @@ begin
   return jsonb_build_object(
     'name', coalesce(v_data ->> 'name', ''),
     'email', coalesce(v_data ->> 'email', ''),
-    'phone', coalesce(v_data ->> 'phone', ''),
-    'organization', coalesce(v_data ->> 'organization', ''),
-    'role', coalesce(v_data ->> 'role', ''),
     'country', coalesce(v_data ->> 'country', ''),
     'timeZone', coalesce(v_data ->> 'timeZone', ''),
     'availability', case when jsonb_typeof(v_data -> 'availability') = 'array' then v_data -> 'availability' end
@@ -480,8 +479,10 @@ end;
 $$;
 
 -- Guarda lo que envía la persona. Solo acepta los campos de la lista blanca, con su tipo y
--- longitud máxima; cualquier otra cosa se rechaza entera. Errores (en el mensaje): invalid_link,
--- invalid_data, name_required, invalid_email, invalid_zone, invalid_availability.
+-- longitud máxima; cualquier otra cosa se rechaza entera. Nombre, país y zona, y disponibilidad
+-- (al menos un día con una franja) son obligatorios; el email es opcional. Los demás campos del
+-- contacto se conservan tal cual. Errores (en el mensaje): invalid_link, invalid_data,
+-- name_required, invalid_email, invalid_zone, invalid_availability.
 create or replace function public.cesi_contact_form_save(p_token text, p_fields jsonb)
 returns jsonb
 language plpgsql
@@ -491,7 +492,7 @@ set search_path = ''
 as $$
 declare
   v_link public.contact_links%rowtype;
-  v_limits constant jsonb := '{"name": 120, "email": 200, "phone": 40, "organization": 120, "role": 120}';
+  v_limits constant jsonb := '{"name": 120, "email": 200}';
   v_clean jsonb := '{}'::jsonb;
   v_key text;
   v_text text;
@@ -513,7 +514,7 @@ begin
   end if;
   if exists (
     select 1 from jsonb_object_keys(p_fields) k
-    where k not in ('name', 'email', 'phone', 'organization', 'role', 'country', 'timeZone', 'availability')
+    where k not in ('name', 'email', 'country', 'timeZone', 'availability')
   ) then
     raise exception 'invalid_data';
   end if;
@@ -530,37 +531,40 @@ begin
       v_clean := v_clean || jsonb_build_object(v_key, v_text);
     end if;
   end loop;
-  if v_clean ? 'name' and v_clean ->> 'name' = '' then
+  if coalesce(v_clean ->> 'name', '') = '' then
     raise exception 'name_required';
   end if;
   if coalesce(v_clean ->> 'email', '') <> '' and (v_clean ->> 'email') !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$' then
     raise exception 'invalid_email';
   end if;
 
-  -- País y zona van juntos, y la zona tiene que existir.
-  if p_fields ? 'country' or p_fields ? 'timeZone' then
-    if jsonb_typeof(p_fields -> 'country') is distinct from 'string'
-      or jsonb_typeof(p_fields -> 'timeZone') is distinct from 'string'
-      or (p_fields ->> 'country') !~ '^[A-Z]{2}$'
-      or length(p_fields ->> 'timeZone') > 64
-      or not exists (select 1 from pg_catalog.pg_timezone_names where name = p_fields ->> 'timeZone') then
-      raise exception 'invalid_zone';
-    end if;
-    v_clean := v_clean || jsonb_build_object(
-      'country', p_fields ->> 'country',
-      'timeZone', p_fields ->> 'timeZone',
-      'countryUnreviewed', false
-    );
+  -- País y zona (obligatorios) van juntos, y la zona tiene que existir.
+  if jsonb_typeof(p_fields -> 'country') is distinct from 'string'
+    or jsonb_typeof(p_fields -> 'timeZone') is distinct from 'string'
+    or (p_fields ->> 'country') !~ '^[A-Z]{2}$'
+    or length(p_fields ->> 'timeZone') > 64
+    or not exists (select 1 from pg_catalog.pg_timezone_names where name = p_fields ->> 'timeZone') then
+    raise exception 'invalid_zone';
   end if;
+  v_clean := v_clean || jsonb_build_object(
+    'country', p_fields ->> 'country',
+    'timeZone', p_fields ->> 'timeZone',
+    'countryUnreviewed', false
+  );
 
-  if p_fields ? 'availability' then
-    if not public.cesi_valid_week(p_fields -> 'availability') then
-      raise exception 'invalid_availability';
-    end if;
-    v_clean := v_clean || jsonb_build_object(
-      'availability', case when jsonb_typeof(p_fields -> 'availability') = 'array' then p_fields -> 'availability' end
-    );
+  -- Disponibilidad obligatoria: un horario válido con al menos un día activo con franjas.
+  -- En dos pasos: SQL no asegura el orden de un OR, y el segundo solo vale con un horario válido.
+  if jsonb_typeof(p_fields -> 'availability') is distinct from 'array'
+    or not public.cesi_valid_week(p_fields -> 'availability') then
+    raise exception 'invalid_availability';
   end if;
+  if not exists (
+    select 1 from jsonb_array_elements(p_fields -> 'availability') e
+    where (e ->> 'enabled')::boolean and jsonb_array_length(e -> 'slots') > 0
+  ) then
+    raise exception 'invalid_availability';
+  end if;
+  v_clean := v_clean || jsonb_build_object('availability', p_fields -> 'availability');
 
   select updated_at into v_old from public.contacts
   where user_id = v_link.user_id and id = v_link.contact_id and deleted_at is null
