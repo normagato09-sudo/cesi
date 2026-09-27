@@ -65,6 +65,8 @@ El proyecto está en GitHub y conectado a Vercel:
 
 Sin variables de entorno la app funciona solo con los datos de cada dispositivo. Para activar la sincronización hay que añadir `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en Vercel (ver abajo).
 
+Añade también `VITE_PUBLIC_URL` con la dirección de producción (**Settings → Domains**, p. ej. `https://cesi.example.com`), en Production y Preview. Los enlaces `/ficha/<token>` para que un contacto rellene sus datos siempre la usan: las URLs de despliegue de Vercel (`cesi-xxxx-….vercel.app`) están protegidas y el contacto no podría abrirlas. Sin ella, el enlace usa la dirección desde la que tengas abierta la app.
+
 ## Dónde se guardan los datos
 
 Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los datos están **solo en ese dispositivo y en ese navegador** y no se envía nada a ningún servidor. Con Supabase, `localStorage` hace de caché: la app abre al instante y funciona sin conexión, y los cambios se envían a la nube.

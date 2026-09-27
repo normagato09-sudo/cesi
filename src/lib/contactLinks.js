@@ -16,8 +16,13 @@ export function newLinkToken(cryptoImpl = globalThis.crypto) {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-export function contactLinkUrl(token, origin = globalThis.location?.origin || '') {
-  return `${origin}/ficha/${token}`
+// Dirección pública de la app (dominio de producción, Vercel → Settings → Domains). Los enlaces
+// siempre la usan: si la app está abierta desde una URL de despliegue de Vercel, esa URL está
+// protegida y el contacto no podría abrir su ficha. Sin la variable, la dirección desde la que está abierta.
+export const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL || ''
+
+export function contactLinkUrl(token, base = PUBLIC_URL || globalThis.location?.origin || '') {
+  return `${base.trim().replace(/\/+$/, '')}/ficha/${token}`
 }
 
 // Mensaje para enviar por WhatsApp o email.

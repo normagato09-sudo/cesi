@@ -18,6 +18,10 @@ describe('enlace para que un contacto rellene sus datos', () => {
     expect(contactLinkUrl('abc', 'https://cesi.example.com')).toBe('https://cesi.example.com/ficha/abc')
   })
 
+  it('acepta la dirección pública con barra final', () => {
+    expect(contactLinkUrl('abc', 'https://cesi.example.com/')).toBe('https://cesi.example.com/ficha/abc')
+  })
+
   it('el mensaje saluda por el nombre e incluye el enlace', () => {
     const url = 'https://cesi.example.com/ficha/abc'
     expect(contactLinkMessage({ name: 'Ana López' }, url)).toBe(
