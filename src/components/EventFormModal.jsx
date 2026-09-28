@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, CalendarPlus, Ban, Search } from 'lucide-react'
+import { X, CalendarPlus, Ban, Search, Send } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
+import MeetingInvitesModal from './MeetingInvitesModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import TagInput from './TagInput.jsx'
 import ProjectSelect from './ProjectSelect.jsx'
@@ -14,6 +15,8 @@ import { useScheduling } from '../lib/schedulingContext'
 import { SCOPES } from '../lib/seriesEdits'
 import { NO_REMINDER, REMINDER_OPTIONS } from '../lib/reminders'
 import MeetingWarning from './MeetingWarning.jsx'
+import { useInvites } from '../lib/invitesContext'
+import { canAskConfirmation } from '../lib/meetingInvites'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -133,6 +136,16 @@ export default function EventFormModal({
   )
 
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
+  const [invitesOpen, setInvitesOpen] = useState(false)
+  const { enabled: invitesEnabled } = useInvites()
+  // "Pedir confirmación" en una reunión ya guardada (con sus datos guardados, no los del formulario).
+  const [openedAt] = useState(() => new Date())
+  const savedParticipants = initialEvent ? participantsOf(initialEvent, contacts) : null
+  const canAskInvites =
+    invitesEnabled &&
+    !!initialEvent &&
+    savedParticipants.contacts.length + savedParticipants.guests.length > 0 &&
+    canAskConfirmation(initialEvent, openedAt)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
   const [ruleWarning, setRuleWarning] = useState(null)
@@ -530,6 +543,12 @@ export default function EventFormModal({
         </div>
 
         <div className="event-form-footer">
+          {canAskInvites && (
+            <button type="button" className="event-form-cancel event-form-invites" onClick={() => setInvitesOpen(true)} disabled={submitting}>
+              <Send size={14} strokeWidth={1.75} />
+              Pedir confirmación
+            </button>
+          )}
           <button type="button" className="event-form-cancel" onClick={onClose} disabled={submitting}>
             Cancelar
           </button>
@@ -538,6 +557,8 @@ export default function EventFormModal({
           </button>
         </div>
       </form>
+
+      {invitesOpen && <MeetingInvitesModal occurrence={initialEvent} contacts={contacts} onClose={() => setInvitesOpen(false)} />}
 
       {slotFinderOpen && (
         <FindSlotModal

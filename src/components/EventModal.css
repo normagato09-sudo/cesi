@@ -454,3 +454,17 @@
 .event-modal-save-guest {
   align-self: flex-start;
 }
+
+/* Confirmación de asistencia: resumen encima de los participantes y botón "Pedir confirmación". */
+.event-modal-participants-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.event-modal-invites-btn {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 10px;
+}

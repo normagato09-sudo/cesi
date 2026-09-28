@@ -12,6 +12,10 @@ import FindSlotModal from './components/FindSlotModal.jsx'
 import AvailabilityModal from './components/AvailabilityModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
+import InviteNotice from './components/InviteNotice.jsx'
+import { useMeetingInvites } from './hooks/useMeetingInvites.js'
+import { InvitesContext } from './lib/invitesContext.js'
+import { occurrenceForInvite } from './lib/meetingInvites.js'
 import { meetingsWithUnavailable, unavailableWarning } from './lib/unavailableParticipants.js'
 import { refreshThisDevice } from './lib/push.js'
 import {
@@ -110,6 +114,15 @@ function formatCompactRange(start, end) {
   return `${format(start, 'd')}–${format(end, 'd MMM yyyy', { locale: es })}`
 }
 
+// Datos compartidos con toda la app: los de las reuniones y los de la confirmación de asistencia.
+function AppProviders({ scheduling, invites, children }) {
+  return (
+    <SchedulingContext.Provider value={scheduling}>
+      <InvitesContext.Provider value={invites}>{children}</InvitesContext.Provider>
+    </SchedulingContext.Provider>
+  )
+}
+
 // Reunión que hay que abrir al arrancar (la app se abrió desde una notificación: /?event=id).
 function eventFromUrl(url) {
   try {
@@ -139,6 +152,8 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(launchEvent)
   // true si la reunión se abrió para escribir las notas (desde "Sin notas").
   const [notesFocus, setNotesFocus] = useState(false)
+  // Id de la reunión abierta con "Pedir confirmación" ya abierto (desde el aviso de cambio de hora).
+  const [invitesFor, setInvitesFor] = useState(null)
   const [formModal, setFormModal] = useState(null)
   // null = cerrado; { participants, meetingType } = abierto, con los participantes y el tipo de
   // reunión iniciales si los hay.
@@ -239,6 +254,9 @@ export default function App() {
   const sync = useSync()
   const syncStatus = useSyncStatus()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
+
+  // Confirmación de asistencia: enlaces por participante y sus respuestas (con la sincronización).
+  const meetingInvites = useMeetingInvites({ sync, synced: syncStatus.status === 'synced', rawEvents, contacts })
 
   // Avisos de este dispositivo: se renueva la suscripción si el navegador la ha cambiado.
   useEffect(() => {
@@ -394,8 +412,10 @@ export default function App() {
     const series = seriesOf(occurrence)
     if (!series) return
     const iso = (d) => (d instanceof Date ? d.toISOString() : d)
+    // Los enlaces de confirmación siguen a su reunión y su día (luego cambian de hora con ella).
     if (!series.recurrence) {
-      editEvent(series.id, { ...changes, start: iso(changes.start ?? series.start), end: iso(changes.end ?? series.end) })
+      const updated = editEvent(series.id, { ...changes, start: iso(changes.start ?? series.start), end: iso(changes.end ?? series.end) })
+      meetingInvites.moveInvites({ series, updated, occurrence, scope })
       return
     }
     if (scope === SCOPES.THIS) {
@@ -405,12 +425,14 @@ export default function App() {
     if (scope === SCOPES.FOLLOWING) {
       const split = splitSeries(series, occurrence, changes)
       if (split) {
-        editEvent(series.id, split.seriesPatch)
-        addEvent(split.newEvent)
+        const updated = editEvent(series.id, split.seriesPatch)
+        const newEvent = addEvent(split.newEvent)
+        meetingInvites.moveInvites({ series, updated, occurrence, scope, newEvent })
         return
       }
     }
-    editEvent(series.id, editSeriesPatch(series, occurrence, changes))
+    const updated = editEvent(series.id, editSeriesPatch(series, occurrence, changes))
+    meetingInvites.moveInvites({ series, updated, occurrence, scope })
   }
 
   // "Volver a como era en la serie": quita los cambios de ese día y muestra el día como la serie.
@@ -459,6 +481,19 @@ export default function App() {
   const openEvent = (event, { focusNotes = false } = {}) => {
     setSelectedEvent(event)
     setNotesFocus(focusNotes)
+    setInvitesFor(null)
+  }
+
+  // "Reenviar enlaces" en el aviso de cambio de hora: abre la reunión con "Pedir confirmación".
+  const handleOpenInviteNotice = (notice) => {
+    meetingInvites.dismissNotice(notice)
+    const occurrence = occurrenceForInvite(rawEvents.find((ev) => ev.id === notice.eventId), notice.key)
+    if (!occurrence) return
+    setSection('calendar')
+    setCurrentDate(new Date(occurrence.start))
+    setSelectedEvent(occurrence)
+    setNotesFocus(false)
+    setInvitesFor(occurrence.id)
   }
 
   // Guarda las notas de la ocurrencia: en notesByDate si la reunión se repite, si no en notes.
@@ -661,6 +696,8 @@ export default function App() {
     const ownParticipants = series?.recurrence && 'guests' in (exceptionOf(series, occurrenceKeyOf(event)) || {})
     if (ownParticipants) editEvent(series.id, editOccurrencePatch(series, event, fields))
     else editEvent(event.seriesId, fields)
+    // Conserva su enlace de confirmación (y su respuesta).
+    meetingInvites.moveGuestToContact(event.seriesId, guest, contact.id, ownParticipants ? occurrenceKeyOf(event) : null)
     setSelectedEvent((ev) => (ev ? { ...ev, ...fields } : ev))
   }
 
@@ -784,7 +821,7 @@ export default function App() {
   const handleToday = () => setCurrentDate(new Date())
 
   return (
-    <SchedulingContext.Provider value={scheduling}>
+    <AppProviders scheduling={scheduling} invites={meetingInvites}>
       <div className="app">
         <Sidebar
           summary={summary}
@@ -975,7 +1012,11 @@ export default function App() {
           now={now}
           focusNotes={notesFocus}
           onSaveNotes={handleSaveNotes}
-          onClose={() => setSelectedEvent(null)}
+          openInvites={!!selectedEvent && invitesFor === selectedEvent.id}
+          onClose={() => {
+            setSelectedEvent(null)
+            setInvitesFor(null)
+          }}
           onOpenContact={handleOpenContact}
           onSaveGuestAsContact={handleSaveGuestAsContact}
           onEdit={handleEditEvent}
@@ -1109,7 +1150,9 @@ export default function App() {
             />
           </Suspense>
         )}
+
+        <InviteNotice notices={meetingInvites.notices} onOpen={handleOpenInviteNotice} onDismiss={meetingInvites.dismissNotice} />
       </div>
-    </SchedulingContext.Provider>
+    </AppProviders>
   )
 }

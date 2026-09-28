@@ -384,3 +384,21 @@
 .event-form-scope-note::first-letter {
   text-transform: uppercase;
 }
+
+/* "Pedir confirmación" (reunión ya guardada): a la izquierda del pie. */
+.event-form-invites {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+@media (max-width: 640px) {
+  .event-form-footer:has(.event-form-invites) {
+    flex-wrap: wrap;
+  }
+  .event-form-invites {
+    flex-basis: 100%;
+    justify-content: center;
+    margin-right: 0;
+  }
+}

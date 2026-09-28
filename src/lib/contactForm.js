@@ -1,5 +1,6 @@
 import { isEmail, validateContactCountry } from './contacts'
 import { cleanWeek, validateWeek } from './weeklySchedule'
+import { callPublicRpc } from './publicRpc'
 
 // Formulario público /ficha/<token>: la persona rellena sus propios datos. No usa el cliente de
 // Supabase ni toca tablas: solo llama por HTTP a las funciones cesi_contact_form_get y
@@ -64,25 +65,8 @@ export class ContactFormError extends Error {
   }
 }
 
-// Llama a una función de Supabase con la clave pública (anon), que no da acceso a ninguna tabla.
-async function rpc(name, args, { url, anonKey, fetchImpl = globalThis.fetch }) {
-  if (!url || !anonKey) throw new ContactFormError('unavailable')
-  let res
-  try {
-    res = await fetchImpl(`${url}/rest/v1/rpc/${name}`, {
-      method: 'POST',
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(args),
-    })
-  } catch {
-    throw new ContactFormError('network')
-  }
-  const body = await res.json().catch(() => null)
-  if (!res.ok) {
-    const code = Object.keys(ERROR_TEXT).find((c) => (body?.message || '').includes(c))
-    throw new ContactFormError(code || 'server')
-  }
-  return body
+function rpc(name, args, config) {
+  return callPublicRpc(name, args, config, { codes: Object.keys(ERROR_TEXT), makeError: (code) => new ContactFormError(code) })
 }
 
 // Datos actuales del contacto, o null si el enlace no existe, está desactivado o ha caducado.

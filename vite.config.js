@@ -2,16 +2,21 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Página pública para que un contacto rellene sus datos (ficha.html). En Vercel la ruta
-// /ficha/<token> la sirve vercel.json; aquí, lo mismo para `npm run dev` y `npm run preview`.
-const FICHA_ROUTE = /^\/ficha\/[^/?#]+\/?(\?.*)?$/
-function fichaRoute() {
+// Páginas públicas, aparte de la app: /ficha/<token> (un contacto rellena sus datos, ficha.html)
+// y /confirmar/<token> (confirmar la asistencia a una reunión, confirmar.html). En Vercel las
+// rutas las sirve vercel.json; aquí, lo mismo para `npm run dev` y `npm run preview`.
+const PUBLIC_PAGES = [
+  { route: /^\/ficha\/[^/?#]+\/?(\?.*)?$/, file: 'ficha.html' },
+  { route: /^\/confirmar\/[^/?#]+\/?(\?.*)?$/, file: 'confirmar.html' },
+]
+function publicPages() {
   const rewrite = (req, _res, next) => {
-    if (FICHA_ROUTE.test(req.url || '')) req.url = '/ficha.html'
+    const page = PUBLIC_PAGES.find((p) => p.route.test(req.url || ''))
+    if (page) req.url = `/${page.file}`
     next()
   }
   return {
-    name: 'cesi-ficha-route',
+    name: 'cesi-public-pages',
     enforce: 'post',
     configureServer(server) {
       server.middlewares.use(rewrite)
@@ -19,11 +24,11 @@ function fichaRoute() {
     configurePreviewServer(server) {
       server.middlewares.use(rewrite)
     },
-    // Quien abre el enlace no usa la app: sin manifest (y ficha/main.jsx no registra el service worker).
+    // Quien abre el enlace no usa la app: sin manifest (y sus main.jsx no registran el service worker).
     transformIndexHtml: {
       order: 'post',
       handler(html, ctx) {
-        if (!ctx.filename.endsWith('ficha.html')) return html
+        if (!PUBLIC_PAGES.some((p) => ctx.filename.endsWith(p.file))) return html
         return html
           .replace(/<link rel="manifest"[^>]*>/g, '')
           .replace(/<script id="vite-plugin-pwa:register-sw"[^>]*><\/script>/g, '')
@@ -36,7 +41,7 @@ function fichaRoute() {
 export default defineConfig({
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', ficha: 'ficha.html' },
+      input: { main: 'index.html', ficha: 'ficha.html', confirmar: 'confirmar.html' },
     },
   },
   plugins: [
@@ -48,14 +53,14 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       // Notificaciones de los recordatorios (public/push-sw.js).
       // La fuente de las banderas (woff2) también se guarda para usar la app sin conexión.
-      // /ficha/<token> es la página pública (ficha.html), no la app: el service worker no la sustituye.
+      // /ficha/<token> y /confirmar/<token> son páginas públicas, no la app: el service worker no las sustituye.
       workbox: {
         importScripts: ['push-sw.js'],
         // Con injectRegister: false el plugin ya no los activa solo: la versión nueva toma el control al instalarse.
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,woff2}'],
-        navigateFallbackDenylist: [/^\/ficha\//],
+        navigateFallbackDenylist: [/^\/ficha\//, /^\/confirmar\//],
       },
       manifest: {
         name: 'CESI',
@@ -79,7 +84,7 @@ export default defineConfig({
         ],
       },
     }),
-    fichaRoute(),
+    publicPages(),
   ],
   test: {
     environment: 'node',

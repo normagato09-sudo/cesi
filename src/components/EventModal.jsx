@@ -18,10 +18,15 @@ import {
   Undo2,
   Bell,
   BellOff,
+  Send,
 } from 'lucide-react'
 import { ParticipantList } from './Participant.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
 import EventNotes from './EventNotes.jsx'
+import MeetingInvitesModal from './MeetingInvitesModal.jsx'
+import { InviteBadge, InviteSummary } from './InviteStatus.jsx'
+import { useInvites } from '../lib/invitesContext'
+import { canAskConfirmation, invitesOf, occurrenceSummary, participantKeyOf } from '../lib/meetingInvites'
 import { RECURRENCE_LABELS } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
@@ -50,6 +55,8 @@ export default function EventModal({
   contacts,
   now,
   focusNotes = false,
+  // Abrir directamente "Pedir confirmación" (desde el aviso de cambio de hora).
+  openInvites = false,
   onSaveNotes,
   onClose,
   onEdit,
@@ -66,6 +73,8 @@ export default function EventModal({
   const [deleteError, setDeleteError] = useState(null)
   const [copied, setCopied] = useState(false)
   const [savingGuest, setSavingGuest] = useState(null) // invitado que se está guardando como contacto
+  const [invitesOpen, setInvitesOpen] = useState(openInvites)
+  const { enabled: invitesEnabled, invites } = useInvites()
 
   if (!event) return null
 
@@ -77,6 +86,12 @@ export default function EventModal({
   const proposal = isProvisional(event) ? proposals.find((p) => p.id === event.proposalId) : null
   const options = proposal ? optionsOf(proposal, rawEvents) : []
   const optionIndex = options.findIndex((o) => o.id === event.seriesId)
+
+  // Confirmación de asistencia: respuestas de cada participante y resumen.
+  const hasParticipants = people.length > 0 || guests.length > 0
+  const inviteByKey = invitesOf(invites, event)
+  const inviteSummary = occurrenceSummary(invites, event, contacts)
+  const canAsk = invitesEnabled && hasParticipants && canAskConfirmation(event, now)
 
   const handleCopyMessage = async () => {
     if (await copyText(proposalShareData(proposal, options, contacts).text)) {
@@ -188,41 +203,47 @@ export default function EventModal({
             </div>
           )}
 
-          {(people.length > 0 || guests.length > 0) && (
+          {hasParticipants && (
             <div className="event-modal-row align-top">
               <Users size={16} strokeWidth={1.75} />
-              <ParticipantList
-                item={event}
-                contacts={contacts}
-                start={event.allDay ? null : event.start}
-                end={event.allDay ? null : event.end}
-                onOpenContact={onOpenContact}
-                className="event-modal-participants"
-                extra={(entry) =>
-                  entry.contact ? (
-                    entry.contact.email && (
-                      <a href={`mailto:${entry.contact.email}`} className="event-modal-attendee-email">
-                        {entry.contact.email}
-                      </a>
-                    )
-                  ) : savingGuest === entry.guest ? (
-                    <ContactCountryStep
-                      name={entry.guest}
-                      confirmLabel="Guardar contacto"
-                      onCancel={() => setSavingGuest(null)}
-                      onConfirm={(zone) => {
-                        onSaveGuestAsContact(event, entry.guest, zone)
-                        setSavingGuest(null)
-                      }}
-                    />
-                  ) : (
-                    <button type="button" className="event-modal-save-guest" onClick={() => setSavingGuest(entry.guest)}>
-                      <UserPlus size={13} strokeWidth={1.75} />
-                      Guardar como contacto
-                    </button>
-                  )
-                }
-              />
+              <div className="event-modal-participants-block">
+                {inviteSummary && <InviteSummary text={inviteSummary} />}
+                <ParticipantList
+                  item={event}
+                  contacts={contacts}
+                  start={event.allDay ? null : event.start}
+                  end={event.allDay ? null : event.end}
+                  onOpenContact={onOpenContact}
+                  className="event-modal-participants"
+                  extra={(entry) => (
+                    <>
+                      {inviteSummary && <InviteBadge invite={inviteByKey.get(participantKeyOf(entry))} />}
+                      {entry.contact ? (
+                        entry.contact.email && (
+                          <a href={`mailto:${entry.contact.email}`} className="event-modal-attendee-email">
+                            {entry.contact.email}
+                          </a>
+                        )
+                      ) : savingGuest === entry.guest ? (
+                        <ContactCountryStep
+                          name={entry.guest}
+                          confirmLabel="Guardar contacto"
+                          onCancel={() => setSavingGuest(null)}
+                          onConfirm={(zone) => {
+                            onSaveGuestAsContact(event, entry.guest, zone)
+                            setSavingGuest(null)
+                          }}
+                        />
+                      ) : (
+                        <button type="button" className="event-modal-save-guest" onClick={() => setSavingGuest(entry.guest)}>
+                          <UserPlus size={13} strokeWidth={1.75} />
+                          Guardar como contacto
+                        </button>
+                      )}
+                    </>
+                  )}
+                />
+              </div>
             </div>
           )}
 
@@ -259,6 +280,13 @@ export default function EventModal({
             </div>
           )}
 
+          {!proposal && canAsk && (
+            <button type="button" className="event-modal-action-btn primary event-modal-invites-btn" onClick={() => setInvitesOpen(true)}>
+              <Send size={14} strokeWidth={1.75} />
+              Pedir confirmación
+            </button>
+          )}
+
           <div className="event-modal-actions" hidden={!!proposal}>
             <button type="button" className="event-modal-action-btn" onClick={() => onEdit(event)}>
               <Pencil size={14} strokeWidth={1.75} />
@@ -282,6 +310,8 @@ export default function EventModal({
           </div>
         </div>
       </div>
+
+      {invitesOpen && <MeetingInvitesModal occurrence={event} contacts={contacts} now={now} onClose={() => setInvitesOpen(false)} />}
     </div>
   )
 }

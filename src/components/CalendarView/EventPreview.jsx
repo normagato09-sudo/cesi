@@ -5,6 +5,9 @@ import { Ban } from 'lucide-react'
 import { ParticipantList } from '../Participant.jsx'
 import { colorForEvent } from '../../lib/eventStyle'
 import { useScheduling } from '../../lib/schedulingContext'
+import { useInvites } from '../../lib/invitesContext'
+import { occurrenceSummary } from '../../lib/meetingInvites'
+import { InviteSummary } from '../InviteStatus.jsx'
 import './EventPreview.css'
 
 const WIDTH = 280
@@ -14,6 +17,7 @@ const WIDTH = 280
 // ni quedar bajo el dedo.
 export default function EventPreview({ preview }) {
   const { contacts = [] } = useScheduling() || {}
+  const { invites } = useInvites()
   if (!preview) return null
   const { event, rect, touch } = preview
   const width = Math.min(WIDTH, window.innerWidth - 16)
@@ -47,6 +51,7 @@ export default function EventPreview({ preview }) {
         {event.provisional && <span className="event-preview-badge">Provisional</span>}
       </p>
       <p className="event-preview-when">{when}</p>
+      {!event.isUnavailable && <InviteSummary text={occurrenceSummary(invites, event, contacts)} compact />}
       {!event.isUnavailable && (
         <ParticipantList
           item={event}

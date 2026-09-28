@@ -593,3 +593,258 @@ revoke all on function public.cesi_contact_form_get(text) from public;
 revoke all on function public.cesi_contact_form_save(text, jsonb) from public;
 grant execute on function public.cesi_contact_form_get(text) to anon, authenticated;
 grant execute on function public.cesi_contact_form_save(text, jsonb) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Confirmación de asistencia a una reunión (página pública /confirmar/<token>)
+-- ---------------------------------------------------------------------------
+-- Un enlace por participante y reunión; en las que se repiten, por participante y día. La
+-- persona abre el enlace sin iniciar sesión y la página solo llama a cesi_meeting_invite_get y
+-- cesi_meeting_invite_respond con el token: ve el título, el día, la hora y su propia respuesta,
+-- nada más (ni participantes, ni notas, ni descripción).
+--   token            32 bytes aleatorios en base64url (lo genera la app)
+--   event_id         id de la reunión (de la serie, si se repite) en la tabla events
+--   occurrence_key   '' en una reunión única; 'AAAA-MM-DD' (clave del día en la serie) si se repite
+--   participant_key  'contact:<id>' o 'guest:<nombre>' (invitados que no son contactos)
+--   name             nombre para el saludo
+--   starts_at/ends_at  hora de la reunión para este enlace (la app la mantiene al día). Si cambia
+--                    y ya había respuesta, se marca needs_reconfirm (trigger de abajo).
+--   response         'yes' | 'no' | 'maybe' o null (sin responder); comment: hasta 300 caracteres
+--   revoked          true si la app quita al participante o se borra la reunión o ese día
+-- El enlace deja de valer al terminar la reunión, y se puede responder hasta que empieza.
+-- Además de revoked, las funciones comprueban en la propia reunión que sigue existiendo, que ese
+-- día no está cancelado ni fuera de la serie y que el participante sigue en ella (también en los
+-- cambios de un solo día): un cambio hecho sin conexión anula el enlace en cuanto se sincroniza.
+create table if not exists public.meeting_invites (
+  token text primary key check (length(token) between 32 and 100),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  event_id text not null,
+  occurrence_key text not null default '' check (occurrence_key = '' or occurrence_key ~ '^\d{4}-\d{2}-\d{2}$'),
+  participant_key text not null check (participant_key ~ '^(contact|guest):.+' and length(participant_key) <= 300),
+  name text not null default '' check (length(name) <= 200),
+  starts_at timestamptz not null,
+  ends_at timestamptz not null check (ends_at > starts_at),
+  response text check (response in ('yes', 'no', 'maybe')),
+  comment text check (length(comment) <= 300),
+  responded_at timestamptz,
+  needs_reconfirm boolean not null default false,
+  revoked boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- Un solo enlace activo por participante y reunión (o día).
+create unique index if not exists meeting_invites_active_idx
+  on public.meeting_invites (user_id, event_id, occurrence_key, participant_key) where not revoked;
+create index if not exists meeting_invites_ends_idx on public.meeting_invites (user_id, ends_at);
+
+alter table public.meeting_invites enable row level security;
+drop policy if exists "meeting_invites: leer los míos" on public.meeting_invites;
+drop policy if exists "meeting_invites: crear los míos" on public.meeting_invites;
+drop policy if exists "meeting_invites: editar los míos" on public.meeting_invites;
+drop policy if exists "meeting_invites: borrar los míos" on public.meeting_invites;
+create policy "meeting_invites: leer los míos" on public.meeting_invites
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "meeting_invites: crear los míos" on public.meeting_invites
+  for insert to authenticated
+  with check ((select auth.uid()) = user_id and response is null and comment is null and not needs_reconfirm and not revoked);
+create policy "meeting_invites: editar los míos" on public.meeting_invites
+  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "meeting_invites: borrar los míos" on public.meeting_invites
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- La app solo cambia la hora, el día o la reunión (al moverla), el participante (un invitado
+-- que pasa a ser contacto) y revoked. La respuesta solo la escribe cesi_meeting_invite_respond.
+revoke all on public.meeting_invites from anon;
+revoke update on public.meeting_invites from authenticated;
+grant select, insert, delete on public.meeting_invites to authenticated;
+grant update (event_id, occurrence_key, participant_key, name, starts_at, ends_at, revoked)
+  on public.meeting_invites to authenticated;
+
+-- Si cambia la hora y ya había respuesta, hay que confirmar de nuevo (la respuesta anterior se conserva).
+create or replace function public.cesi_meeting_invite_reschedule()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (new.starts_at, new.ends_at) is distinct from (old.starts_at, old.ends_at) and old.response is not null then
+    new.needs_reconfirm := true;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists meeting_invites_reschedule on public.meeting_invites;
+create trigger meeting_invites_reschedule before update on public.meeting_invites
+  for each row execute function public.cesi_meeting_invite_reschedule();
+
+-- Realtime: las respuestas llegan solas a la app (respetando RLS).
+do $$
+begin
+  alter publication supabase_realtime add table public.meeting_invites;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end;
+$$;
+
+-- Reunión (o día de la serie) del enlace si el enlace sigue valiendo: { title, allDay, timeZone },
+-- o null. Comprueba el enlace (sin desactivar ni caducado), la reunión (sin borrar, y única o
+-- serie según el enlace), el día (no cancelado ni después del final de la serie) y que el
+-- participante sigue en ella. Interna: solo la usan las dos funciones de abajo.
+create or replace function public.cesi_meeting_invite_check(p_invite public.meeting_invites)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_data jsonb;
+  v_ex jsonb := '{}'::jsonb;
+  v_ids jsonb;
+  v_guests jsonb;
+  v_until text;
+  v_kind text;
+  v_who text;
+  v_zone text;
+begin
+  if p_invite.token is null or p_invite.revoked or p_invite.ends_at <= now() then
+    return null;
+  end if;
+  select e.data into v_data from public.events e
+  where e.user_id = p_invite.user_id and e.id = p_invite.event_id and e.deleted_at is null;
+  if v_data is null or (v_data ->> 'isUnavailable') = 'true' then
+    return null;
+  end if;
+
+  if jsonb_typeof(v_data -> 'recurrence') = 'object' then
+    if p_invite.occurrence_key = '' then
+      return null;
+    end if;
+    if jsonb_typeof(v_data -> 'exceptions' -> p_invite.occurrence_key) = 'object' then
+      v_ex := v_data -> 'exceptions' -> p_invite.occurrence_key;
+    end if;
+    if (v_ex ->> 'cancelled') = 'true' then
+      return null;
+    end if;
+    -- Series partidas o acortadas: los días después de "until" ya no son de esta serie.
+    v_until := v_data -> 'recurrence' ->> 'until';
+    if v_until ~ '^\d{4}-\d{2}-\d{2}T[0-9:.]+(Z|[+-]\d{2}:?\d{2})$' and p_invite.starts_at > v_until::timestamptz then
+      return null;
+    end if;
+  elsif p_invite.occurrence_key <> '' then
+    return null;
+  end if;
+
+  -- ¿Sigue en la reunión? Los participantes de ese día, si tiene los suyos, o los de la reunión.
+  v_ids := case when v_ex ? 'participantIds' then v_ex -> 'participantIds' else v_data -> 'participantIds' end;
+  v_guests := case when v_ex ? 'guests' then v_ex -> 'guests' else v_data -> 'guests' end;
+  v_kind := split_part(p_invite.participant_key, ':', 1);
+  v_who := substr(p_invite.participant_key, length(v_kind) + 2);
+  -- (Reuniones antiguas sin participantIds, solo con nombres: lo comprueba la app al revocar.)
+  if jsonb_typeof(v_ids) = 'array' then
+    if v_kind = 'contact' and not (v_ids ? v_who) then
+      return null;
+    end if;
+    if v_kind = 'guest' and not (jsonb_typeof(v_guests) = 'array' and v_guests ? v_who) then
+      return null;
+    end if;
+  end if;
+
+  -- Zona horaria de la ficha del contacto; null en invitados (la página usa la del navegador).
+  if v_kind = 'contact' then
+    select nullif(c.data ->> 'timeZone', '') into v_zone from public.contacts c
+    where c.user_id = p_invite.user_id and c.id = v_who and c.deleted_at is null;
+  end if;
+
+  return jsonb_build_object(
+    'title', left(coalesce(v_ex ->> 'title', v_data ->> 'title', ''), 300),
+    'allDay', coalesce(coalesce(v_ex ->> 'allDay', v_data ->> 'allDay') = 'true', false),
+    'timeZone', v_zone
+  );
+end;
+$$;
+
+-- Lo que ve la persona, o null si el enlace no vale.
+create or replace function public.cesi_meeting_invite_get(p_token text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_invite public.meeting_invites%rowtype;
+  v_meeting jsonb;
+begin
+  if p_token is null or length(p_token) > 100 then
+    return null;
+  end if;
+  select * into v_invite from public.meeting_invites where token = p_token;
+  if not found then
+    return null;
+  end if;
+  v_meeting := public.cesi_meeting_invite_check(v_invite);
+  if v_meeting is null then
+    return null;
+  end if;
+  return v_meeting || jsonb_build_object(
+    'name', v_invite.name,
+    'startsAt', v_invite.starts_at,
+    'endsAt', v_invite.ends_at,
+    'response', v_invite.response,
+    'comment', coalesce(v_invite.comment, ''),
+    'respondedAt', v_invite.responded_at,
+    'needsReconfirm', v_invite.needs_reconfirm,
+    'canRespond', now() < v_invite.starts_at
+  );
+end;
+$$;
+
+-- Guarda la respuesta: solo 'yes', 'no' o 'maybe' y un comentario opcional de hasta 300
+-- caracteres, con el enlace válido y antes de que empiece la reunión.
+-- Errores (en el mensaje): invalid_link, meeting_started, invalid_response, comment_too_long.
+create or replace function public.cesi_meeting_invite_respond(p_token text, p_response text, p_comment text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_invite public.meeting_invites%rowtype;
+  v_comment text;
+begin
+  if p_token is null or length(p_token) > 100 then
+    raise exception 'invalid_link';
+  end if;
+  select * into v_invite from public.meeting_invites where token = p_token for update;
+  if not found or public.cesi_meeting_invite_check(v_invite) is null then
+    raise exception 'invalid_link';
+  end if;
+  if now() >= v_invite.starts_at then
+    raise exception 'meeting_started';
+  end if;
+  if p_response is null or p_response not in ('yes', 'no', 'maybe') then
+    raise exception 'invalid_response';
+  end if;
+  v_comment := nullif(btrim(coalesce(p_comment, '')), '');
+  if length(v_comment) > 300 then
+    raise exception 'comment_too_long';
+  end if;
+
+  update public.meeting_invites
+  set response = p_response, comment = v_comment, responded_at = now(), needs_reconfirm = false
+  where token = p_token;
+
+  return jsonb_build_object('ok', true, 'response', p_response, 'comment', coalesce(v_comment, ''), 'respondedAt', now());
+end;
+$$;
+
+-- La página pública (anon) y la app pueden llamar a get y respond; las demás son internas.
+revoke all on function public.cesi_meeting_invite_check(public.meeting_invites) from public, anon, authenticated;
+revoke all on function public.cesi_meeting_invite_reschedule() from public, anon, authenticated;
+revoke all on function public.cesi_meeting_invite_get(text) from public;
+revoke all on function public.cesi_meeting_invite_respond(text, text, text) from public;
+grant execute on function public.cesi_meeting_invite_get(text) to anon, authenticated;
+grant execute on function public.cesi_meeting_invite_respond(text, text, text) to anon, authenticated;
