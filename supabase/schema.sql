@@ -43,13 +43,17 @@ create table if not exists public.events (
 --         availability: horario semanal con varias franjas por día, en su zona horaria, o null,
 --         groupIds: ids de los grupos a los que pertenece (tabla groups),
 --         photo: referencia de la foto en Storage { store: 'cloud', path } o null,
---         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt, role, area,
---           joinedAt, bio (trayectoria, texto libre), quote (frase personal, hasta 150), links: [{ id, label, url }] (una sola
+--         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt,
+--           roles: trayectoria en CESI [{ id, role, area, start, end }] (end null = rol actual),
+--           role, area (copia del rol principal), joinedAt (fecha de incorporación antigua),
+--           bio («Sobre esta persona», texto libre), quote (frase personal, hasta 150), links: [{ id, label, url }] (una sola
 --           lista, redes incluidas), cv (si vino de una candidatura) },
 --         links: enlaces que conserva un contacto que salió del equipo,
---         candidacy (candidatos de Vacantes): { vacancyId, appliedAt, status: 'new' | 'interview' |
---           'accepted' | 'discarded', history: [{ status, at }], discardedAt,
---           cv: { store: 'cloud', path } (PDF en Storage) o { url } o null } }
+--         candidateOnly: true si el contacto existe solo por ser candidato,
+--         candidacies (candidaturas a Vacantes, una por vacante): [{ id, vacancyId, appliedAt,
+--           status: 'new' | 'interview' | 'accepted' | 'discarded', history: [{ status, at }], discardedAt,
+--           cv: { store: 'cloud', path } (PDF en Storage) o { url } o null, notes }] }
+--         (antes una sola candidatura en `candidacy`: la app la convierte al leerla)
 -- ---------------------------------------------------------------------------
 create table if not exists public.contacts (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -162,7 +166,7 @@ create table if not exists public.projects (
 -- data: { title, area, description, requirements, openedAt: 'AAAA-MM-DD',
 --         status: 'open' | 'in_progress' | 'filled', hiredContactIds: [ids de contactos],
 --         erasedCandidates: [{ discardedAt, erasedAt }] (registro anónimo de candidatos borrados) }
--- Los candidatos son filas de contacts con data.candidacy.vacancyId = id.
+-- Los candidatos son filas de contacts con una candidatura en data.candidacies con vacancyId = id.
 -- ---------------------------------------------------------------------------
 create table if not exists public.vacancies (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -325,7 +329,7 @@ create index if not exists reminders_sent_sent_at_idx on public.reminders_sent (
 -- Bucket privado "cesi-photos". Cada usuario guarda sus archivos en su carpeta:
 --   {user_id}/photos/{id}.webp   fotos (recortadas a 512×512, WebP)
 --   {user_id}/cvs/{id}.pdf       CV de candidatos (PDF de hasta 5 MB)
--- En los documentos (contacts.data.photo, contacts.data.candidacy.cv) solo va la ruta.
+-- En los documentos (contacts.data.photo, contacts.data.candidacies[].cv) solo va la ruta.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('cesi-photos', 'cesi-photos', false, 5242880, array['image/webp', 'image/jpeg', 'application/pdf'])
 on conflict (id) do update

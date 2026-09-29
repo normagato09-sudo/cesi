@@ -47,6 +47,8 @@ import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
+import { deleteFile } from './lib/files/files.js'
+import { planCandidacy } from './lib/applications.js'
 import { AREAS_KEY, getStoredTeamAreas, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -57,12 +59,17 @@ import { STORAGE_KEY as PROJECTS_KEY, getAllProjects, projectsStore, unlinkProje
 import {
   INTERVIEW_TYPE,
   STORAGE_KEY as VACANCIES_KEY,
+  candidacyPatch,
   candidatesOf,
   getAllVacancies,
   incorporate,
   interviewUpdates,
+  isCandidateOnly,
+  latestCandidacy,
+  newCandidacy,
   newVacancy,
   planErasure,
+  removeCandidacyPlan,
   vacanciesStore,
   withStatus,
 } from './lib/vacancies.js'
@@ -145,7 +152,7 @@ export default function App() {
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
-  const [selectedCandidateId, setSelectedCandidateId] = useState(null)
+  const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
   const [launchEvent] = useState(() => eventFromUrl(window.location.href))
   const [view, setView] = useState('month')
   const [currentDate, setCurrentDate] = useState(() => (launchEvent ? new Date(launchEvent.start) : new Date()))
@@ -565,7 +572,7 @@ export default function App() {
 
   // Al crear (o confirmar) una entrevista, los candidatos en "nuevo" pasan a "entrevista".
   const applyInterviewUpdates = (meeting) => {
-    for (const { id, candidacy } of interviewUpdates(meeting, contacts)) editContact(id, { candidacy })
+    for (const { id, patch } of interviewUpdates(meeting, contacts)) editContact(id, patch)
   }
 
   const handleCreateVacancy = (data) => {
@@ -579,52 +586,79 @@ export default function App() {
     reloadVacancies()
   }
 
-  // Al borrar una vacante se borran también sus candidatos (contacto, CV y notas).
+  // Quitar una candidatura: se borran su CV y sus notas, y el contacto solo si existía únicamente por ella.
+  const handleRemoveCandidacy = (contact, candidacyId) => {
+    const plan = removeCandidacyPlan(contact, candidacyId)
+    if (plan.deleteContact) {
+      removeContact(contact.id)
+      return
+    }
+    editContact(contact.id, plan.patch)
+    for (const ref of plan.files) deleteFile(ref)
+  }
+
+  // Al borrar una vacante se borran también sus candidaturas.
   const handleDeleteVacancy = (id) => {
-    for (const c of candidatesOf(id, contacts)) removeContact(c.id)
+    for (const { contact, candidacy } of candidatesOf(id, contacts)) handleRemoveCandidacy(contact, candidacy.id)
     vacanciesStore.remove(id)
     reloadVacancies()
   }
 
-  const handleCandidateStatus = (contact, status) => editContact(contact.id, { candidacy: withStatus(contact.candidacy, status) })
+  // Nueva candidatura: al contacto elegido, al que ya tiene ese email o a un contacto nuevo.
+  const handleAddCandidacy = (vacancyId, { contactId, contactData, candidacy }) => {
+    const entry = newCandidacy(vacancyId, candidacy)
+    const plan = planCandidacy(contacts, contactData || {}, entry, contactId)
+    if (plan.action === 'create') addContact(plan.contact)
+    else editContact(plan.id, plan.patch)
+  }
+
+  const handleEditCandidacy = (contact, candidacyId, { contactData, candidacy }) =>
+    editContact(contact.id, { ...(contactData || {}), ...candidacyPatch(contact, candidacyId, candidacy) })
+
+  const handleCandidateStatus = (contact, candidacyId, status) =>
+    editContact(contact.id, candidacyPatch(contact, candidacyId, (c) => withStatus(c, status)))
 
   const handleFindInterviewSlot = (contact) =>
     setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, meetingType: INTERVIEW_TYPE })
 
-  // Candidato → miembro del equipo: perfil (con "Se incorporó como…" en la trayectoria), vacante cubierta y, si quedan
-  // otros candidatos, se ofrece descartarlos.
-  const handleIncorporate = (contact, vacancy, { contactPatch, teamProfile }) => {
-    const result = incorporate({ contact, vacancy, teamProfile, contacts })
+  // Candidato → miembro del equipo: perfil con el nuevo rol en su trayectoria (si ya era del equipo,
+  // se ha preguntado si se suma o sustituye), vacante cubierta y, si quedan otros candidatos, se
+  // ofrece descartarlos.
+  const handleIncorporate = (contact, candidacyId, vacancy, { contactPatch, teamProfile }) => {
+    const result = incorporate({ contact, candidacyId, vacancy, teamProfile, contacts })
     editContact(contact.id, { ...contactPatch, ...result.contactPatch })
     vacanciesStore.update(vacancy.id, result.vacancyPatch)
     reloadVacancies()
     const n = result.remaining.length
     if (n > 0) {
-      const who = result.remaining.map((c) => `• ${c.name}`).join('\n')
+      const who = result.remaining.map((e) => `• ${e.contact.name}`).join('\n')
       const question = n === 1 ? 'Queda 1 candidato en esta vacante' : `Quedan ${n} candidatos en esta vacante`
       if (window.confirm(`${question}:\n${who}\n\n¿Marcarlos como descartados?`)) {
-        for (const c of result.remaining) handleCandidateStatus(c, 'discarded')
+        for (const e of result.remaining) handleCandidateStatus(e.contact, e.candidacy.id, 'discarded')
       }
     }
   }
 
-  // Protección de datos: borra los datos personales de los candidatos descartados hace más de
+  // Protección de datos: borra los datos personales de las candidaturas descartadas hace más de
   // 6 meses y deja un registro anónimo en su vacante. Siempre tras la confirmación del usuario.
-  const handleEraseExpired = (candidates) => {
-    const plan = planErasure(candidates, getAllEvents(), vacancies, new Date(), proposals)
+  const handleEraseExpired = (entries) => {
+    const plan = planErasure(entries, getAllEvents(), vacancies, new Date(), proposals)
     for (const { id, patch } of plan.eventPatches) editEvent(id, patch)
     for (const { id, patch } of plan.proposalPatches) proposalsStore.update(id, patch)
     for (const [id, erasedCandidates] of Object.entries(plan.vacancyPatches)) vacanciesStore.update(id, { erasedCandidates })
+    for (const { id, patch } of plan.contactPatches) editContact(id, patch)
+    for (const ref of plan.files) deleteFile(ref)
     for (const id of plan.contactIds) removeContact(id)
     reloadProposals()
     reloadVacancies()
   }
 
+  // Abre la candidatura más reciente de ese contacto.
   const handleOpenCandidate = (contactId) => {
-    const contact = contacts.find((c) => c.id === contactId)
+    const candidacy = latestCandidacy(contacts.find((c) => c.id === contactId))
     setSelectedEvent(null)
-    setSelectedVacancyId(contact?.candidacy?.vacancyId || null)
-    setSelectedCandidateId(contactId)
+    setSelectedVacancyId(candidacy?.vacancyId || null)
+    setSelectedCandidacyId(candidacy?.id || null)
     setSection('vacancies')
   }
 
@@ -674,7 +708,7 @@ export default function App() {
     setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participantIds: [contact.id], guests: [] } })
 
   const handleOpenContact = (contactId) => {
-    if (contacts.find((c) => c.id === contactId)?.candidacy) {
+    if (isCandidateOnly(contacts.find((c) => c.id === contactId))) {
       handleOpenCandidate(contactId)
       return
     }
@@ -887,14 +921,14 @@ export default function App() {
                 onManageDepartments={() => setDepartmentsOpen(true)}
                 selectedVacancyId={selectedVacancyId}
                 onSelectVacancy={setSelectedVacancyId}
-                selectedCandidateId={selectedCandidateId}
-                onSelectCandidate={setSelectedCandidateId}
+                selectedCandidacyId={selectedCandidacyId}
+                onSelectCandidacy={setSelectedCandidacyId}
                 onCreateVacancy={handleCreateVacancy}
                 onUpdateVacancy={handleUpdateVacancy}
                 onDeleteVacancy={handleDeleteVacancy}
-                onAddCandidate={addContact}
-                onEditCandidate={editContact}
-                onRemoveCandidate={removeContact}
+                onAddCandidacy={handleAddCandidacy}
+                onEditCandidacy={handleEditCandidacy}
+                onRemoveCandidacy={handleRemoveCandidacy}
                 onCandidateStatus={handleCandidateStatus}
                 onFindInterviewSlot={handleFindInterviewSlot}
                 onIncorporate={handleIncorporate}

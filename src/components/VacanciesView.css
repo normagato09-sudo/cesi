@@ -437,3 +437,164 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Nuevo candidato: contacto existente o persona nueva, y avisos de duplicados. */
+.candidate-mode-switch {
+  align-self: flex-start;
+}
+.candidate-mode-switch .view-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.candidate-search {
+  width: 100%;
+}
+.candidate-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-height: 280px;
+  overflow-y: auto;
+  font-weight: 400;
+}
+.candidate-result,
+.candidate-chosen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.candidate-result {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.candidate-result:hover,
+.candidate-result:focus-visible {
+  background: var(--surface-hover);
+}
+.candidate-chosen {
+  border: 1px solid var(--border);
+  font-weight: 400;
+}
+.candidate-chosen-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.candidate-chosen-name {
+  font-weight: 500;
+  color: var(--text);
+}
+.candidate-chosen-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.candidate-result-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  white-space: nowrap;
+}
+.candidate-results-empty {
+  padding: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.candidate-results-empty button,
+.candidate-other button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+.candidate-duplicates {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 400;
+}
+.candidate-duplicates svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.candidate-duplicates p {
+  margin: 0 0 6px;
+}
+.candidate-duplicates ul {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.candidate-duplicates li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.candidate-other {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.candidate-member {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Aceptar a alguien que ya es (o fue) del equipo: ¿el rol nuevo se suma o sustituye? */
+.accept-role-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.accept-role-choice legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.accept-role-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 400;
+}
+.accept-role-close {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 0 24px;
+}

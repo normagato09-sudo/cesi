@@ -1,6 +1,4 @@
 import { useMemo, useState } from 'react'
-import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
   CalendarPlus,
@@ -18,22 +16,21 @@ import TeamProfileModal from './TeamProfileModal.jsx'
 import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import LinkList from './LinkList.jsx'
-import { capitalize, filterMembers, isTeamMember, milestonesToBio, quoteDisplay, seniorityText } from '../lib/team'
+import TeamTrajectory from './TeamTrajectory.jsx'
+import { MEMBER_SORTS, filterMembers, isTeamMember, milestonesToBio, quoteDisplay } from '../lib/team'
+import { currentRoles, dayLong, roleLabel, tenure, tenureText, withRoles } from '../lib/trajectory'
 import { migrateProfileLinks } from '../lib/links'
 import './TeamView.css'
 
-function formatDay(key) {
-  if (!key) return ''
-  return format(parseISO(key), "d 'de' MMMM 'de' yyyy", { locale: es })
-}
-
+// Sus roles actuales ("Moderadora · Moderación / Técnico"), o el principal si ya no tiene ninguno.
 function roleLine(profile) {
-  return [profile.role, profile.area].filter(Boolean).join(' · ')
+  const current = currentRoles(profile).map(roleLabel).filter(Boolean)
+  return current.length > 0 ? current.join(' / ') : [profile.role, profile.area].filter(Boolean).join(' · ')
 }
 
 function MemberCard({ contact, now, onOpen }) {
   const p = contact.teamProfile
-  const seniority = seniorityText(p.joinedAt, now, p.status === 'former' ? p.leftAt : null)
+  const seniority = tenureText(tenure(p, now))
   return (
     <li>
       <button type="button" className="team-card" onClick={() => onOpen(contact.id)}>
@@ -46,15 +43,30 @@ function MemberCard({ contact, now, onOpen }) {
           </span>
         )}
         {p.area && <span className="team-card-area">{p.area}</span>}
-        {seniority && <span className="team-card-seniority">{capitalize(seniority)}</span>}
+        {seniority && <span className="team-card-seniority">{seniority}</span>}
       </button>
     </li>
   )
 }
 
-function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdit, onRemove, onOpenEvent, onFindSlot, onNewMeeting, onOpenContact }) {
+function MemberDetail({
+  contact,
+  contacts,
+  groups,
+  rawEvents,
+  now,
+  areas,
+  onBack,
+  onEdit,
+  onRemove,
+  onSaveRoles,
+  onOpenEvent,
+  onFindSlot,
+  onNewMeeting,
+  onOpenContact,
+}) {
   const p = milestonesToBio(contact.teamProfile)
-  const seniority = seniorityText(p.joinedAt, now, p.status === 'former' ? p.leftAt : null)
+  const seniority = tenureText(tenure(p, now))
   const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)
 
   return (
@@ -70,12 +82,9 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
           <h2>{contact.name}</h2>
           {quoteDisplay(p.quote) && <p className="team-detail-quote">{quoteDisplay(p.quote)}</p>}
           {roleLine(p) && <p className="team-detail-role">{roleLine(p)}</p>}
-          <p className="team-detail-seniority">
-            {p.joinedAt && `Desde el ${formatDay(p.joinedAt)}`}
-            {seniority && ` · ${seniority}`}
-          </p>
+          {seniority && <p className="team-detail-seniority">{seniority}</p>}
           {p.status === 'former' && (
-            <span className="team-former-badge">Antiguo miembro{p.leftAt ? ` · salió el ${formatDay(p.leftAt)}` : ''}</span>
+            <span className="team-former-badge">Antiguo miembro{p.leftAt ? ` · salió el ${dayLong(p.leftAt)}` : ''}</span>
           )}
           <GroupChips contact={contact} groups={groups} />
         </div>
@@ -104,9 +113,11 @@ function MemberDetail({ contact, contacts, groups, rawEvents, now, onBack, onEdi
         </button>
       </div>
 
+      <TeamTrajectory profile={p} now={now} areas={areas} joinedAt={p.joinedAt || ''} onChange={onSaveRoles} />
+
       <section className="team-section">
-        <h3>Trayectoria</h3>
-        {p.bio ? <p className="team-bio">{p.bio}</p> : <p className="team-empty">Todavía no has escrito su trayectoria.</p>}
+        <h3>Sobre esta persona</h3>
+        {p.bio ? <p className="team-bio">{p.bio}</p> : <p className="team-empty">Todavía no has escrito nada sobre esta persona.</p>}
       </section>
 
       <section className="team-section">
@@ -170,9 +181,10 @@ export default function TeamView({
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
   const [status, setStatus] = useState('active')
+  const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(false)
 
-  const members = useMemo(() => filterMembers(contacts, { query, area, status }), [contacts, query, area, status])
+  const members = useMemo(() => filterMembers(contacts, { query, area, status, sort, now }), [contacts, query, area, status, sort, now])
   const counts = useMemo(() => {
     const all = contacts.filter(isTeamMember)
     const former = all.filter((c) => c.teamProfile.status === 'former').length
@@ -189,8 +201,10 @@ export default function TeamView({
           groups={groups}
           rawEvents={rawEvents}
           now={now}
+          areas={areas}
           onBack={() => onSelectMember(null)}
           onEdit={() => setEditing(true)}
+          onSaveRoles={(roles) => onSaveProfile(selected.id, { contactPatch: {}, teamProfile: withRoles(selected.teamProfile, roles) })}
           onRemove={() => {
             if (window.confirm(`¿Quitar a ${selected.name} del equipo? Se borra su perfil de equipo (cargo, departamento, trayectoria); el contacto con todos sus datos, sus enlaces y sus reuniones se conserva. Si ya no está en el equipo, mejor márcalo como antiguo miembro.`)) {
               onRemoveFromTeam(selected.id)
@@ -239,6 +253,13 @@ export default function TeamView({
             {areas.map((a) => (
               <option key={a} value={a}>
                 {a}
+              </option>
+            ))}
+          </select>
+          <select className="team-area-filter" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Ordenar">
+            {Object.entries(MEMBER_SORTS).map(([value, label]) => (
+              <option key={value} value={value}>
+                Ordenar por {label.toLocaleLowerCase('es')}
               </option>
             ))}
           </select>

@@ -4,6 +4,8 @@
 //
 // La lista es ordenada: el orden es el de los desplegables y filtros.
 
+import { rolesOf } from './trajectory'
+
 // Lista de ejemplo de versiones anteriores: si la guardada es exactamente esta, se sustituye.
 export const LEGACY_DEFAULT_DEPARTMENTS = ['Dirección', 'Profesorado', 'Doblaje', 'Radio', 'Redes', 'Coordinación']
 
@@ -68,8 +70,9 @@ export function moveDepartment(list, index, delta) {
   return next
 }
 
+// Miembros con ese departamento en su perfil o en algún rol de su trayectoria.
 function membersIn(name, contacts) {
-  return contacts.filter((c) => c.teamProfile && c.teamProfile.area === name)
+  return contacts.filter((c) => c.teamProfile && (c.teamProfile.area === name || rolesOf(c.teamProfile).some((r) => r.area === name)))
 }
 
 function vacanciesIn(name, vacancies) {
@@ -84,7 +87,12 @@ export function departmentUsage(name, contacts, vacancies) {
 // Cambios en miembros y vacantes para pasar de `from` a `to` ('' = sin departamento).
 function reassign(from, to, contacts, vacancies) {
   return {
-    contactPatches: membersIn(from, contacts).map((c) => ({ id: c.id, patch: { teamProfile: { ...c.teamProfile, area: to } } })),
+    contactPatches: membersIn(from, contacts).map((c) => {
+      const p = c.teamProfile
+      const next = { ...p, area: p.area === from ? to : p.area }
+      if (Array.isArray(p.roles)) next.roles = p.roles.map((r) => (r.area === from ? { ...r, area: to } : r))
+      return { id: c.id, patch: { teamProfile: next } }
+    }),
     vacancyPatches: vacanciesIn(from, vacancies).map((v) => ({ id: v.id, patch: { area: to } })),
   }
 }
@@ -127,7 +135,10 @@ export function resolveDepartments(stored, contacts = [], vacancies = []) {
   const isLegacy =
     valid && stored.length === LEGACY_DEFAULT_DEPARTMENTS.length && stored.every((d, i) => d === LEGACY_DEFAULT_DEPARTMENTS[i])
   let list = valid && !isLegacy ? [...stored] : [...DEFAULT_DEPARTMENTS]
-  const used = [...contacts.map((c) => c.teamProfile?.area), ...vacancies.map((v) => v.area)]
+  const used = [
+    ...contacts.flatMap((c) => [c.teamProfile?.area, ...rolesOf(c.teamProfile).map((r) => r.area)]),
+    ...vacancies.map((v) => v.area),
+  ]
   for (const name of used) {
     if (name && !list.some((d) => departmentKey(d) === departmentKey(name)) && !list.includes(name)) list = [...list, name]
   }

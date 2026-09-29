@@ -1,7 +1,7 @@
 import { addMonths, parseISO } from 'date-fns'
-import { createCollection } from './store'
+import { createCollection, makeId } from './store'
 import { eventHasTag } from './tags'
-import { emptyTeamProfile, joinedLine, todayKey } from './team'
+import { emptyTeamProfile, todayKey } from './team'
 
 // Vacantes y candidatos.
 //
@@ -11,11 +11,17 @@ import { emptyTeamProfile, joinedLine, todayKey } from './team'
 //     hiredContactIds: [ids de los contactos incorporados al equipo],
 //     erasedCandidates: [{ discardedAt, erasedAt }]  registro anónimo de candidatos borrados }
 //
-// Cada candidato es un contacto (con país obligatorio, como todos) con `candidacy`:
-//   { vacancyId, appliedAt: 'AAAA-MM-DD', status: 'new' | 'interview' | 'accepted' | 'discarded',
+// Los candidatos son contactos (con país obligatorio, como todos) con `candidacies`, una por
+// vacante a la que se han presentado (una persona puede tener varias):
+//   { id, vacancyId, appliedAt: 'AAAA-MM-DD', status: 'new' | 'interview' | 'accepted' | 'discarded',
 //     history: [{ status, at }], discardedAt: ISO | null,
-//     cv: referencia de archivo (PDF en Storage o en el dispositivo) | { url } | null }
-// Las notas del candidato son las notas del contacto.
+//     cv: referencia de archivo (PDF en Storage o en el dispositivo) | { url } | null,
+//     notes: notas de esa candidatura }
+// `candidateOnly: true` marca los contactos que existen solo por ser candidatos: solo esos se
+// ocultan en Contactos (salvo con el filtro «Candidatos») y se borran enteros al borrar sus
+// datos. Un contacto o miembro del equipo que se postula sigue siendo un contacto normal.
+// (Antes había una sola candidatura en `candidacy`, con las notas en las del contacto: se
+// convierte al leer los contactos, con migrateCandidacy.)
 
 export const STORAGE_KEY = 'cesi_vacancies_v1'
 
@@ -60,25 +66,109 @@ export function newVacancy(partial = {}) {
   }
 }
 
+export function candidaciesOf(contact) {
+  return Array.isArray(contact?.candidacies) ? contact.candidacies : []
+}
+
 export function isCandidate(contact) {
-  return !!contact?.candidacy
+  return candidaciesOf(contact).length > 0
 }
 
-export function newCandidacy(vacancyId, { appliedAt = todayKey(), cv = null, now = new Date() } = {}) {
-  return { vacancyId, appliedAt, status: 'new', history: [{ status: 'new', at: now.toISOString() }], discardedAt: null, cv }
+// ¿Existe solo por ser candidato? (no es del equipo ni era ya un contacto)
+export function isCandidateOnly(contact) {
+  return isCandidate(contact) && !!contact.candidateOnly && !contact.teamProfile
 }
 
+export function newCandidacy(vacancyId, { appliedAt = todayKey(), cv = null, notes = '', now = new Date(), ...extra } = {}) {
+  return {
+    id: makeId('cand'),
+    vacancyId,
+    appliedAt,
+    status: 'new',
+    history: [{ status: 'new', at: now.toISOString() }],
+    discardedAt: null,
+    cv,
+    notes,
+    ...extra,
+  }
+}
+
+/**
+ * Migración: la candidatura única (`candidacy`) pasa a la lista `candidacies`, con las notas del
+ * contacto (que eran las del candidato). Esos contactos existían solo como candidatos. Si ya
+ * había lista (p. ej. un dispositivo con la versión anterior cambió la candidatura), se
+ * actualiza la misma entrada. Devuelve el mismo contacto si no hay nada que cambiar.
+ */
+export function migrateCandidacy(contact) {
+  if (!contact || !('candidacy' in contact)) return contact
+  const { candidacy, ...rest } = contact
+  if (!candidacy) return rest
+  const id = `cand-${contact.id}`
+  const list = candidaciesOf(rest)
+  if (list.some((c) => c.id === id)) {
+    return { ...rest, candidacies: list.map((c) => (c.id === id ? { ...c, ...candidacy, id } : c)) }
+  }
+  return {
+    ...rest,
+    notes: '',
+    candidateOnly: list.length === 0 && !rest.teamProfile ? true : !!rest.candidateOnly,
+    candidacies: [...list, { notes: contact.notes || '', ...candidacy, id }],
+  }
+}
+
+// Candidaturas de una vacante: [{ contact, candidacy }].
 export function candidatesOf(vacancyId, contacts) {
-  return contacts.filter((c) => c.candidacy?.vacancyId === vacancyId)
+  return contacts.flatMap((contact) =>
+    candidaciesOf(contact)
+      .filter((c) => c.vacancyId === vacancyId)
+      .map((candidacy) => ({ contact, candidacy })),
+  )
+}
+
+// { contact, candidacy } de una candidatura, o null.
+export function findCandidacy(contacts, candidacyId) {
+  for (const contact of contacts) {
+    const candidacy = candidaciesOf(contact).find((c) => c.id === candidacyId)
+    if (candidacy) return { contact, candidacy }
+  }
+  return null
+}
+
+// La candidatura más reciente de un contacto (la que se abre desde Contactos), o null.
+export function latestCandidacy(contact) {
+  return [...candidaciesOf(contact)].sort((a, b) => (b.appliedAt || '').localeCompare(a.appliedAt || ''))[0] || null
+}
+
+// Cambio en el contacto para cambiar una de sus candidaturas: { candidacies }.
+export function candidacyPatch(contact, candidacyId, patch) {
+  return {
+    candidacies: candidaciesOf(contact).map((c) => {
+      if (c.id !== candidacyId) return c
+      return typeof patch === 'function' ? patch(c) : { ...c, ...patch }
+    }),
+  }
+}
+
+/**
+ * Quitar una candidatura: si el contacto existía solo por ella, se borra el contacto entero
+ * ({ deleteContact: true }); si no, solo la candidatura ({ patch }). `files`: su CV, para borrarlo.
+ */
+export function removeCandidacyPlan(contact, candidacyId) {
+  const removed = candidaciesOf(contact).find((c) => c.id === candidacyId)
+  const rest = candidaciesOf(contact).filter((c) => c.id !== candidacyId)
+  const files = removed?.cv?.store ? [removed.cv] : []
+  if (isCandidateOnly(contact) && rest.length === 0) return { deleteContact: true, files }
+  return { deleteContact: false, patch: { candidacies: rest }, files }
 }
 
 export function filterVacancies(vacancies, status = '') {
   return status ? vacancies.filter((v) => v.status === status) : vacancies
 }
 
-// Lista de Contactos: los candidatos solo aparecen con el filtro "Candidatos".
+// Lista de Contactos: los que existen solo como candidatos aparecen únicamente con el filtro
+// "Candidatos" (que muestra a todos los que tienen alguna candidatura).
 export function contactsForList(contacts, showCandidates = false) {
-  return contacts.filter((c) => (showCandidates ? isCandidate(c) : !isCandidate(c)))
+  return contacts.filter((c) => (showCandidates ? isCandidate(c) : !isCandidateOnly(c)))
 }
 
 // "3 candidatos · 1 candidato descartado": los actuales y los borrados (registro anónimo).
@@ -90,10 +180,10 @@ export function vacancyCountsText(vacancy, contacts) {
   return parts.join(' · ')
 }
 
-// Candidatos por estado, en el orden de las columnas.
+// Candidaturas por estado, en el orden de las columnas: [{ status, candidates: [{ contact, candidacy }] }].
 export function candidatesByStatus(vacancyId, contacts) {
   const list = candidatesOf(vacancyId, contacts).sort((a, b) => (a.candidacy.appliedAt || '').localeCompare(b.candidacy.appliedAt || ''))
-  return CANDIDATE_STATUS_ORDER.map((status) => ({ status, candidates: list.filter((c) => c.candidacy.status === status) }))
+  return CANDIDATE_STATUS_ORDER.map((status) => ({ status, candidates: list.filter((e) => e.candidacy.status === status) }))
 }
 
 // Nueva candidatura con el cambio de estado apuntado en el historial (y la fecha de descarte).
@@ -112,45 +202,52 @@ function isInterview(meeting) {
   return meeting.category === INTERVIEW_TYPE.category || eventHasTag(meeting, 'entrevista')
 }
 
-// Al crear una entrevista, los candidatos que participan y estaban en "nuevo" pasan a
-// "entrevista". Devuelve [{ id, candidacy }] con los cambios.
+// Al crear una entrevista, los candidatos que participan y tenían una candidatura en "nuevo"
+// pasan a "entrevista" (si tienen varias en "nuevo", la más reciente).
+// Devuelve [{ id, patch }] con los cambios de cada contacto.
 export function interviewUpdates(meeting, contacts, now = new Date()) {
   if (!meeting || meeting.isUnavailable || !isInterview(meeting)) return []
   const ids = meeting.participantIds || []
   return contacts
-    .filter((c) => ids.includes(c.id) && c.candidacy?.status === 'new')
-    .map((c) => ({ id: c.id, candidacy: withStatus(c.candidacy, 'interview', now) }))
+    .filter((c) => ids.includes(c.id))
+    .map((c) => {
+      const pending = latestCandidacy({ candidacies: candidaciesOf(c).filter((x) => x.status === 'new') })
+      return pending ? { id: c.id, patch: candidacyPatch(c, pending.id, (x) => withStatus(x, 'interview', now)) } : null
+    })
+    .filter(Boolean)
 }
 
-// Perfil de equipo con el que se abre la incorporación: cargo y departamento de la vacante, hoy,
-// y la trayectoria empieza con "DD/MM/AAAA – Se incorporó como [cargo]" (editable antes de guardar).
+// Perfil de equipo con el que se abre la incorporación de alguien que aún no es del equipo:
+// cargo y departamento de la vacante, y hoy como inicio de ese rol (editable antes de guardar).
 export function incorporationDraft(vacancy, now = new Date()) {
-  const joinedAt = todayKey(now)
-  const role = vacancy?.title || ''
-  return emptyTeamProfile({ role, area: vacancy?.area || '', joinedAt, bio: joinedLine(joinedAt, role) })
+  return emptyTeamProfile({ role: vacancy?.title || '', area: vacancy?.area || '', joinedAt: todayKey(now) })
 }
 
 /**
- * Incorporar al equipo a un candidato aceptado.
+ * Incorporar al equipo a un candidato aceptado. `teamProfile`: el perfil ya con el rol nuevo en
+ * su trayectoria (el del formulario, o el que ya tenía con el rol añadido).
  * Devuelve:
- *   contactPatch: deja de ser candidato (candidacy null) y pasa a tener teamProfile (el que se
- *                 guardó en el formulario, con su trayectoria; el CV se conserva en el perfil);
+ *   contactPatch: la candidatura queda aceptada, el contacto deja de ser solo candidato y tiene
+ *                 teamProfile (el CV de la candidatura se conserva en el perfil si no tenía);
  *   vacancyPatch: la vacante queda cubierta y apunta al contacto incorporado;
- *   remaining:    otros candidatos de la vacante que siguen en proceso (para ofrecer descartarlos).
+ *   remaining:    otras candidaturas de la vacante que siguen en proceso (para ofrecer descartarlas).
  */
-export function incorporate({ contact, vacancy, teamProfile, contacts }) {
+export function incorporate({ contact, candidacyId, vacancy, teamProfile, contacts, now = new Date() }) {
   const profile = emptyTeamProfile(teamProfile)
-  const cv = contact.candidacy?.cv || null
+  const cv = candidaciesOf(contact).find((c) => c.id === candidacyId)?.cv || null
   return {
     contactPatch: {
-      candidacy: null,
-      teamProfile: { ...profile, status: 'active', leftAt: null, ...(cv ? { cv } : {}) },
+      ...candidacyPatch(contact, candidacyId, (c) => withStatus(c, 'accepted', now)),
+      candidateOnly: false,
+      teamProfile: { ...profile, status: 'active', leftAt: null, ...(cv && !profile.cv ? { cv } : {}) },
     },
     vacancyPatch: {
       status: 'filled',
       hiredContactIds: [...new Set([...(vacancy.hiredContactIds || []), contact.id])],
     },
-    remaining: candidatesOf(vacancy.id, contacts).filter((c) => c.id !== contact.id && c.candidacy.status !== 'discarded'),
+    remaining: candidatesOf(vacancy.id, contacts).filter(
+      (e) => e.candidacy.id !== candidacyId && e.contact.id !== contact.id && !['discarded', 'accepted'].includes(e.candidacy.status),
+    ),
   }
 }
 
@@ -158,30 +255,51 @@ export function incorporate({ contact, vacancy, teamProfile, contacts }) {
 // Protección de datos
 // ---------------------------------------------------------------------------
 
-// Candidatos descartados hace RETENTION_MONTHS meses o más.
+// Candidaturas descartadas hace RETENTION_MONTHS meses o más: [{ contact, candidacy }].
 export function expiredDiscarded(contacts, now = new Date()) {
-  return contacts.filter((c) => {
-    const at = c.candidacy?.status === 'discarded' && c.candidacy.discardedAt
-    return at && addMonths(parseISO(at), RETENTION_MONTHS) <= now
-  })
+  return contacts.flatMap((contact) =>
+    candidaciesOf(contact)
+      .filter((c) => c.status === 'discarded' && c.discardedAt && addMonths(parseISO(c.discardedAt), RETENTION_MONTHS) <= now)
+      .map((candidacy) => ({ contact, candidacy })),
+  )
 }
 
 /**
- * Qué hay que cambiar para borrar los datos personales de esos candidatos:
- *   contactIds: contactos a borrar (con su foto y su CV);
- *   eventPatches: reuniones de las que se quita su nombre y su id;
+ * Qué hay que cambiar para borrar los datos personales de esas candidaturas (`entries`:
+ * [{ contact, candidacy }]):
+ *   contactIds: contactos a borrar enteros (con su foto y sus CV): los que existían solo como
+ *               candidatos y no tienen ninguna otra candidatura;
+ *   contactPatches: [{ id, patch }] a los demás contactos solo se les quitan esas candidaturas;
+ *   files: CV de las candidaturas quitadas (de los contactos que no se borran);
+ *   eventPatches: reuniones de las que se quita el nombre y el id de los contactos borrados;
  *   proposalPatches: propuestas de las que se quita su id;
- *   vacancyPatches: { vacancyId: erasedCandidates } con un registro anónimo por candidato.
+ *   vacancyPatches: { vacancyId: erasedCandidates } con un registro anónimo por candidatura.
  */
-export function planErasure(candidates, events, vacancies, now = new Date(), proposals = []) {
-  const ids = new Set(candidates.map((c) => c.id))
-  const names = new Set(candidates.map((c) => c.name))
+export function planErasure(entries, events, vacancies, now = new Date(), proposals = []) {
+  const erasedIds = new Set(entries.map((e) => e.candidacy.id))
+  const byContact = new Map()
+  for (const { contact } of entries) byContact.set(contact.id, contact)
 
-  // Participantes de una reunión (o de un día cambiado de una serie) sin esos candidatos, o null.
+  const deleted = []
+  const contactPatches = []
+  const files = []
+  for (const contact of byContact.values()) {
+    const rest = candidaciesOf(contact).filter((c) => !erasedIds.has(c.id))
+    if (isCandidateOnly(contact) && rest.length === 0) {
+      deleted.push(contact)
+    } else {
+      contactPatches.push({ id: contact.id, patch: { candidacies: rest } })
+      for (const c of candidaciesOf(contact)) if (erasedIds.has(c.id) && c.cv?.store) files.push(c.cv)
+    }
+  }
+
+  const ids = new Set(deleted.map((c) => c.id))
+
+  // Participantes de una reunión (o de un día cambiado de una serie) sin esos contactos, o null.
   const withoutCandidates = (item) => {
     if (!(item.participantIds || []).some((id) => ids.has(id))) return null
     const participantIds = item.participantIds.filter((id) => !ids.has(id))
-    const removedNames = candidates.filter((c) => item.participantIds.includes(c.id)).map((c) => c.name)
+    const removedNames = deleted.filter((c) => item.participantIds.includes(c.id)).map((c) => c.name)
     const participants = [...(item.participants || [])]
     for (const name of removedNames) {
       const i = participants.indexOf(name)
@@ -209,15 +327,15 @@ export function planErasure(candidates, events, vacancies, now = new Date(), pro
     .map((p) => ({ id: p.id, patch: { participantIds: p.participantIds.filter((id) => !ids.has(id)) } }))
 
   const vacancyPatches = {}
-  for (const c of candidates) {
-    const vacancy = vacancies.find((v) => v.id === c.candidacy.vacancyId)
+  for (const { candidacy } of entries) {
+    const vacancy = vacancies.find((v) => v.id === candidacy.vacancyId)
     if (!vacancy) continue
     const list = vacancyPatches[vacancy.id] || [...(vacancy.erasedCandidates || [])]
-    list.push({ discardedAt: c.candidacy.discardedAt, erasedAt: now.toISOString() })
+    list.push({ discardedAt: candidacy.discardedAt, erasedAt: now.toISOString() })
     vacancyPatches[vacancy.id] = list
   }
 
-  return { contactIds: [...ids], eventPatches, proposalPatches, vacancyPatches, names: [...names] }
+  return { contactIds: [...ids], contactPatches, files, eventPatches, proposalPatches, vacancyPatches }
 }
 
 // "3 candidatos", "1 candidato"

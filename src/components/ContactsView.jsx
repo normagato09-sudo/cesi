@@ -292,12 +292,14 @@ export default function ContactsView({
                 <Link2 size={14} strokeWidth={1.75} />
                 Enviar link para que lo rellene
               </button>
-              {isCandidate(selected) ? (
+              {/* Un miembro del equipo o un contacto normal también puede tener candidaturas. */}
+              {isCandidate(selected) && (
                 <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(selected.id)}>
                   <Briefcase size={14} strokeWidth={1.75} />
                   Ver candidatura
                 </button>
-              ) : isTeamMember(selected) ? (
+              )}
+              {isCandidate(selected) && !isTeamMember(selected) ? null : isTeamMember(selected) ? (
                 <button type="button" className="contact-action-btn team" onClick={() => onOpenTeamMember(selected.id)}>
                   <BadgeCheck size={14} strokeWidth={1.75} />
                   Perfil de equipo

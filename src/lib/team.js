@@ -1,14 +1,22 @@
-import { addMonths, differenceInCalendarDays, format, parseISO, startOfDay } from 'date-fns'
+import { format, parseISO, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { readJSON, writeJSON } from './store'
 import { DEFAULT_DEPARTMENTS, addDepartment } from './departments'
 import { cleanLinks, migrateProfileLinks, normalizeUrl } from './links'
+import { calendarSpan, longSpan, shortSpan } from './duration'
+import { currentRoles, migrateRoles, rolesOf, tenure } from './trajectory'
+import { TRAJECTORY_FIXES } from './trajectoryFixes'
+
+export { calendarSpan }
 
 // Equipo. Cada miembro es un contacto con `teamProfile` (no se duplican sus datos):
 // {
 //   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null,
-//   role, area (el departamento), joinedAt: 'AAAA-MM-DD',
-//   bio: trayectoria (texto libre, con saltos de línea),
+//   role, area (el departamento): copia del rol principal de `roles`,
+//   roles: trayectoria en CESI, el historial de roles (ver trajectory.js),
+//   joinedAt: 'AAAA-MM-DD' fecha de incorporación (la de versiones anteriores; se ofrece como
+//             fecha de inicio de los roles que no la tienen),
+//   bio: «Sobre esta persona» (texto libre, con saltos de línea; antes se llamaba trayectoria),
 //   quote: frase personal (opcional, hasta QUOTE_MAX_LENGTH caracteres),
 //   links: [{ id, label, url }]  una sola lista de enlaces (redes incluidas),
 // }
@@ -102,36 +110,6 @@ export function milestonesToBio(profile) {
   return { ...rest, bio: [bio, ...lines].filter(Boolean).join('\n') }
 }
 
-function plural(n, one, many) {
-  return `${n} ${n === 1 ? one : many}`
-}
-
-/**
- * Tiempo entre dos fechas por calendario: meses completos y días que sobran.
- * Del 30/07 al 30/08 es 1 mes; del 30/07 al 24/09, 1 mes y 25 días. En los finales de mes se
- * cuenta hasta el último día del mes siguiente: del 31/01 al 28/02 es 1 mes.
- */
-export function calendarSpan(from, to) {
-  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
-  // addMonths ajusta al último día del mes (31/01 + 1 mes = 28/02).
-  while (months > 0 && addMonths(from, months) > to) months -= 1
-  const days = differenceInCalendarDays(to, addMonths(from, months))
-  return { months, days }
-}
-
-// "3 semanas", "5 días" (menos de un mes)
-function shortSpan(days) {
-  if (days >= 7) return plural(Math.floor(days / 7), 'semana', 'semanas')
-  return plural(days, 'día', 'días')
-}
-
-// "1 mes y 25 días", "2 meses", "1 año y 2 meses", "2 años" (un mes o más)
-function longSpan({ months, days }) {
-  if (months < 12) return days > 0 ? `${plural(months, 'mes', 'meses')} y ${plural(days, 'día', 'días')}` : plural(months, 'mes', 'meses')
-  const years = Math.floor(months / 12)
-  const rest = months % 12
-  return rest > 0 ? `${plural(years, 'año', 'años')} y ${plural(rest, 'mes', 'meses')}` : plural(years, 'año', 'años')
-}
 
 /**
  * Antigüedad a partir de la fecha de incorporación ('AAAA-MM-DD'), por calendario:
@@ -174,16 +152,37 @@ export function memberMatches(contact, query) {
   const q = norm(query).trim()
   if (!q) return true
   const p = contact.teamProfile || {}
-  return [contact.name, contact.email, p.role, p.area, p.bio].some((f) => norm(f).includes(q))
+  const roles = rolesOf(p).flatMap((r) => [r.role, r.area])
+  return [contact.name, contact.email, p.role, p.area, p.bio, ...roles].some((f) => norm(f).includes(q))
 }
 
-export function filterMembers(contacts, { query = '', area = '', status = 'active' } = {}) {
-  return contacts
+// ¿Está en ese departamento? Por sus roles actuales (los antiguos miembros, por cualquiera de sus roles).
+export function memberInArea(contact, area) {
+  const p = contact.teamProfile || {}
+  if (p.area === area) return true
+  const roles = p.status === 'former' ? rolesOf(p) : currentRoles(p)
+  return roles.some((r) => r.area === area)
+}
+
+export const MEMBER_SORTS = { name: 'Nombre', tenure: 'Antigüedad' }
+
+const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })
+
+// sort: 'name' o 'tenure' (más tiempo en CESI primero; quien no tiene ningún rol con fecha, al final).
+export function filterMembers(contacts, { query = '', area = '', status = 'active', sort = 'name', now = new Date() } = {}) {
+  const list = contacts
     .filter(isTeamMember)
     .filter((c) => (status === 'former' ? c.teamProfile.status === 'former' : c.teamProfile.status !== 'former'))
-    .filter((c) => !area || c.teamProfile.area === area)
+    .filter((c) => !area || memberInArea(c, area))
     .filter((c) => memberMatches(c, query))
-    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }))
+  if (sort !== 'tenure') return list.sort(byName)
+  const times = new Map(list.map((c) => [c.id, tenure(c.teamProfile, now)]))
+  return list.sort((a, b) => {
+    const ta = times.get(a.id)
+    const tb = times.get(b.id)
+    if (!ta.span !== !tb.span) return ta.span ? -1 : 1
+    return tb.days - ta.days || byName(a, b)
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -243,13 +242,13 @@ export function removeFromTeamPatch(contact) {
 }
 
 /**
- * Migraciones del perfil de equipo al leer los contactos (datos del contacto, redes e hitos) (también los que llegan de la nube o de
+ * Migraciones del perfil de equipo al leer los contactos (datos del contacto, redes, hitos y trayectoria) (también los que llegan de la nube o de
  * una copia antigua). Devuelve el mismo contacto si no hay nada que cambiar.
  */
 export function migrateTeamProfile(contact) {
   let next = mergeTeamContactData(contact)
   if (next?.teamProfile) {
-    const profile = milestonesToBio(migrateProfileLinks(next.teamProfile))
+    const profile = migrateRoles(milestonesToBio(migrateProfileLinks(next.teamProfile)), TRAJECTORY_FIXES[next.id])
     if (profile !== next.teamProfile) next = { ...next, teamProfile: profile }
   }
   return next

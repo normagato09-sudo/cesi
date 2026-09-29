@@ -105,7 +105,13 @@ describe('hitos → trayectoria', () => {
       teamProfile: { bio: '', email: 'ana@cesi.es', social: { instagram: 'ana' }, milestones: [{ id: 'm', date: '2026-07-30', text: 'Entró' }] },
     }
     const migrated = migrateTeamProfile(contact)
-    expect(migrated.teamProfile).toEqual({ bio: '30/07/2026 – Entró', links: [expect.objectContaining({ url: 'https://instagram.com/ana' })] })
+    // La línea no dice ningún rol: se queda en «Sobre esta persona» (y en la copia de la trayectoria antigua).
+    expect(migrated.teamProfile).toEqual({
+      bio: '30/07/2026 – Entró',
+      links: [expect.objectContaining({ url: 'https://instagram.com/ana' })],
+      roles: [],
+      legacyTrajectory: { bio: '30/07/2026 – Entró', role: '', area: '', joinedAt: null },
+    })
     expect(migrated.notes).toBe('Otro email: ana@cesi.es')
     expect(migrateTeamProfile(migrated)).toBe(migrated)
   })

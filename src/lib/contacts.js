@@ -1,17 +1,19 @@
 import { SPAIN_ZONE, findCountry } from './timezones'
 import { writeJSON } from './store'
 import { migrateTeamProfile } from './team'
+import { migrateCandidacy } from './vacancies'
 
 const STORAGE_KEY = 'cesi_contacts_v1'
 
 // Los contactos antiguos sin país pasan a España (península) y quedan marcados como
 // "País sin revisar" hasta que se guarden desde el formulario. Los miembros del equipo con
-// datos del contacto guardados en el perfil (formato antiguo) se fusionan con el contacto.
+// datos del contacto guardados en el perfil (formato antiguo) se fusionan con el contacto, y la
+// candidatura única de los candidatos (formato antiguo) pasa a su lista de candidaturas.
 export function migrateContacts(list) {
   let changed = false
   const out = list.map((original) => {
     // Perfil de equipo en formato antiguo: datos del contacto guardados aparte y redes sueltas.
-    const c = migrateTeamProfile(original)
+    const c = migrateCandidacy(migrateTeamProfile(original))
     if (c !== original) changed = true
     if (c.country && c.timeZone) return c
     changed = true

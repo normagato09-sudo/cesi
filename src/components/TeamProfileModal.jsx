@@ -6,6 +6,7 @@ import { useContactDraft } from '../hooks/useContactDraft'
 import { QUOTE_MAX_LENGTH, emptyTeamProfile, milestonesToBio, normalizeQuote, teamProfileDefaults, todayKey, validateQuote } from '../lib/team'
 import { cleanLinks, migrateProfileLinks, validateUrl } from '../lib/links'
 import { departmentKey } from '../lib/departments'
+import { applyLeaving, newRoleId, rolesOf, withRoles } from '../lib/trajectory'
 import './EventFormModal.css'
 import './TeamProfileModal.css'
 
@@ -13,10 +14,12 @@ const NEW_AREA = '__new__'
 
 /**
  * Perfil de equipo de un contacto. Arriba, los datos del contacto (ya rellenados y editables aquí
- * mismo; se guardan en el contacto, una sola vez). Debajo, lo propio del equipo: cargo,
- * departamento, incorporación, estado, trayectoria (texto libre) y enlaces. onSave({ contactPatch, teamProfile }).
+ * mismo; se guardan en el contacto, una sola vez). Debajo, lo propio del equipo: estado, frase,
+ * «Sobre esta persona» (texto libre) y enlaces. onSave({ contactPatch, teamProfile }).
+ * Al crear el perfil se piden también el cargo, el departamento y la fecha de inicio, que son la
+ * primera entrada de su trayectoria en CESI; después se cambian desde la trayectoria, en su ficha.
  * `initialProfile` permite abrirlo ya rellenado (p. ej. al incorporar a un candidato); si no hay
- * perfil, se parte del cargo del contacto, hoy como incorporación y sus enlaces.
+ * perfil, se parte del cargo del contacto, hoy como inicio y sus enlaces.
  */
 export default function TeamProfileModal({
   contact,
@@ -30,6 +33,8 @@ export default function TeamProfileModal({
   onClose: close,
 }) {
   const seed = emptyTeamProfile(milestonesToBio(migrateProfileLinks(initialProfile || contact.teamProfile || teamProfileDefaults(contact))))
+  // Perfil nuevo: el cargo, el departamento y la fecha son su primer rol.
+  const isNew = !contact.teamProfile
   const draft = useContactDraft(contact, groups)
   const [role, setRole] = useState(seed.role)
   const [area, setArea] = useState(seed.area)
@@ -73,9 +78,9 @@ export default function TeamProfileModal({
     setError(null)
     const contactProblem = draft.validate()
     if (contactProblem) return setError(contactProblem)
-    if (!joinedAt) return setError('Indica la fecha de incorporación.')
+    if (isNew && !role.trim()) return setError('Escribe el cargo.')
     if (status === 'former' && !leftAt) return setError('Indica la fecha de salida.')
-    if (status === 'former' && leftAt < joinedAt) return setError('La fecha de salida es anterior a la de incorporación.')
+    if (isNew && status === 'former' && joinedAt && leftAt < joinedAt) return setError('La fecha de salida es anterior a la de inicio.')
     const quoteProblem = validateQuote(quote)
     if (quoteProblem) return setError(quoteProblem)
     for (const link of links) {
@@ -84,18 +89,23 @@ export default function TeamProfileModal({
       if (problem) return setError(`Enlaces: ${problem}`)
     }
 
-    const teamProfile = {
-      status,
-      leftAt: status === 'former' ? leftAt : null,
-      role: role.trim(),
-      area,
-      joinedAt,
-      bio: bio.replace(/^\s*\n|\s+$/g, ''),
-      quote: normalizeQuote(quote),
-      links: cleanLinks(links),
-      // CV de la candidatura, si se incorporó desde Vacantes.
-      ...(seed.cv ? { cv: seed.cv } : {}),
-    }
+    const roles = isNew ? [{ id: newRoleId(), role: role.trim(), area, start: joinedAt || null, end: null }] : rolesOf(seed)
+    const teamProfile = withRoles(
+      {
+        // Lo que no se edita aquí (p. ej. la copia de la trayectoria antigua) se conserva.
+        ...(contact.teamProfile || {}),
+        status,
+        leftAt: status === 'former' ? leftAt : null,
+        joinedAt: isNew ? joinedAt : seed.joinedAt,
+        bio: bio.replace(/^\s*\n|\s+$/g, ''),
+        quote: normalizeQuote(quote),
+        links: cleanLinks(links),
+        // CV de la candidatura, si se incorporó desde Vacantes.
+        ...(seed.cv ? { cv: seed.cv } : {}),
+      },
+      // Al pasar a antiguo miembro, sus roles actuales se cierran con la fecha de salida.
+      applyLeaving(roles, status, leftAt),
+    )
     savedRef.current = true
     draft.commitFiles()
     // Los enlaces que el contacto tenía guardados (al salir del equipo) vuelven al perfil.
@@ -119,6 +129,12 @@ export default function TeamProfileModal({
         </div>
 
         <div className="event-form-body">
+          {!isNew && (
+            <p className="team-fieldset-hint">
+              El cargo y el departamento se cambian en «Trayectoria en CESI», en su ficha del equipo.
+            </p>
+          )}
+          {isNew && (
           <div className="event-form-row">
             <label className="event-form-field">
               <span>Cargo</span>
@@ -161,6 +177,7 @@ export default function TeamProfileModal({
               )}
             </label>
           </div>
+          )}
 
           <label className="event-form-field">
             <span className="team-quote-label">
@@ -180,10 +197,12 @@ export default function TeamProfileModal({
           </label>
 
           <div className="event-form-row">
-            <label className="event-form-field">
-              <span>Fecha de incorporación</span>
-              <input type="date" value={joinedAt} onChange={(e) => setJoinedAt(e.target.value)} />
-            </label>
+            {isNew && (
+              <label className="event-form-field">
+                <span>Fecha de inicio (opcional)</span>
+                <input type="date" value={joinedAt} onChange={(e) => setJoinedAt(e.target.value)} />
+              </label>
+            )}
             <label className="event-form-field">
               <span>Estado</span>
               <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -196,6 +215,7 @@ export default function TeamProfileModal({
             <label className="event-form-field">
               <span>Fecha de salida</span>
               <input type="date" value={leftAt} onChange={(e) => setLeftAt(e.target.value)} />
+              {seed.status !== 'former' && <em className="team-fieldset-hint">Sus roles actuales se cerrarán con esta fecha.</em>}
             </label>
           )}
 
@@ -211,13 +231,13 @@ export default function TeamProfileModal({
           </fieldset>
 
           <label className="event-form-field">
-            <span>Trayectoria</span>
+            <span>Sobre esta persona</span>
             <textarea
               className="team-bio-input"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              rows={10}
-              placeholder={'Formación, experiencia, lo que aporta al equipo…\nPuedes apuntar fechas importantes, una por línea: "30/07/2026 – Se incorporó como moderador".'}
+              rows={8}
+              placeholder="Formación, experiencia, lo que aporta al equipo…"
             />
           </label>
 

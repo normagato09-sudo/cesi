@@ -20,6 +20,7 @@ import CvLink from './CvLink.jsx'
 import TeamProfileModal from './TeamProfileModal.jsx'
 import VacancyFormModal from './VacancyFormModal.jsx'
 import CandidateFormModal from './CandidateFormModal.jsx'
+import AcceptRoleModal from './AcceptRoleModal.jsx'
 import { ContactFields, ContactMeetings } from './ContactInfo.jsx'
 import {
   CANDIDATE_STATUS,
@@ -28,12 +29,16 @@ import {
   VACANCY_STATUS,
   candidateCountText,
   candidatesByStatus,
+  candidaciesOf,
   candidatesOf,
   expiredDiscarded,
   filterVacancies,
+  findCandidacy,
   incorporationDraft,
+  isCandidateOnly,
   vacancyCountsText,
 } from '../lib/vacancies'
+import { memberSummary } from '../lib/trajectory'
 import './TeamView.css'
 import './VacanciesView.css'
 
@@ -66,7 +71,7 @@ function RetentionNotice({ expired, onErase }) {
           type="button"
           className="contact-action-btn danger"
           onClick={() => {
-            const names = expired.map((c) => `• ${c.name}`).join('\n')
+            const names = expired.map((e) => `• ${e.contact.name}`).join('\n')
             if (
               window.confirm(
                 `Se borrarán definitivamente los datos personales de:\n${names}\n\n` +
@@ -85,12 +90,11 @@ function RetentionNotice({ expired, onErase }) {
   )
 }
 
-function CandidateCard({ contact, onOpen }) {
-  const c = contact.candidacy
+function CandidateCard({ contact, candidacy: c, onOpen }) {
   const last = c.history?.[c.history.length - 1]
   return (
     <li>
-      <button type="button" className="candidate-card" onClick={() => onOpen(contact.id)}>
+      <button type="button" className="candidate-card" onClick={() => onOpen(c.id)}>
         <ContactAvatar name={contact.name} photo={contact.photo} size="sm" />
         <span className="candidate-card-text">
           <span className="candidate-card-name">{contact.name}</span>
@@ -179,8 +183,8 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
               <p className="vacancy-column-empty">Nadie</p>
             ) : (
               <ul>
-                {candidates.map((c) => (
-                  <CandidateCard key={c.id} contact={c} onOpen={onOpenCandidate} />
+                {candidates.map(({ contact, candidacy }) => (
+                  <CandidateCard key={candidacy.id} contact={contact} candidacy={candidacy} onOpen={onOpenCandidate} />
                 ))}
               </ul>
             )}
@@ -198,7 +202,9 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
 
 function CandidateDetail({
   contact,
+  candidacy: c,
   vacancy,
+  vacancies,
   contacts,
   rawEvents,
   now,
@@ -208,9 +214,12 @@ function CandidateDetail({
   onStatus,
   onFindInterview,
   onIncorporate,
+  onOpenCandidate,
   onOpenEvent,
 }) {
-  const c = contact.candidacy
+  const member = memberSummary(contact, now)
+  const others = candidaciesOf(contact).filter((x) => x.id !== c.id)
+  const titleOf = (vacancyId) => vacancies.find((v) => v.id === vacancyId)?.title || 'una vacante borrada'
   return (
     <div className="vacancy-detail">
       <button type="button" className="contact-back-btn team-back" onClick={onBack}>
@@ -224,6 +233,25 @@ function CandidateDetail({
           <h2>{contact.name}</h2>
           <p className="team-detail-role">Candidato a {vacancy ? vacancy.title : 'una vacante borrada'}</p>
           <p className="team-detail-seniority">Candidatura del {formatDay(c.appliedAt)}</p>
+          {member ? (
+            <p className="candidate-member">{member.text}</p>
+          ) : (
+            !isCandidateOnly(contact) && <p className="candidate-member">Ya es contacto</p>
+          )}
+          {others.length > 0 && (
+            <p className="candidate-other">
+              También se ha presentado a:{' '}
+              {others.map((o, i) => (
+                <span key={o.id}>
+                  {i > 0 && ', '}
+                  <button type="button" onClick={() => onOpenCandidate(o.id)}>
+                    {titleOf(o.vacancyId)}
+                  </button>{' '}
+                  ({CANDIDATE_STATUS[o.status]?.toLocaleLowerCase('es')})
+                </span>
+              ))}
+            </p>
+          )}
           {c.cv && <CvLink cv={c.cv} className="cv-link" />}
         </div>
       </div>
@@ -281,6 +309,11 @@ function CandidateDetail({
       </section>
 
       <section className="team-section">
+        <h3>Notas de esta candidatura</h3>
+        {c.notes ? <p className="team-bio">{c.notes}</p> : <p className="team-empty">Sin notas.</p>}
+      </section>
+
+      <section className="team-section">
         <h3>Datos</h3>
         <ContactFields contact={contact} />
       </section>
@@ -301,14 +334,14 @@ export default function VacanciesView({
   onManageDepartments,
   selectedVacancyId,
   onSelectVacancy,
-  selectedCandidateId,
-  onSelectCandidate,
+  selectedCandidacyId,
+  onSelectCandidacy,
   onCreateVacancy,
   onUpdateVacancy,
   onDeleteVacancy,
-  onAddCandidate,
-  onEditCandidate,
-  onRemoveCandidate,
+  onAddCandidacy,
+  onEditCandidacy,
+  onRemoveCandidacy,
   onCandidateStatus,
   onFindInterviewSlot,
   onIncorporate,
@@ -318,50 +351,75 @@ export default function VacanciesView({
 }) {
   const [statusFilter, setStatusFilter] = useState('')
   const [vacancyForm, setVacancyForm] = useState(null) // { vacancy } (null = nueva)
-  const [candidateForm, setCandidateForm] = useState(null) // { contact } (null = nuevo)
-  const [incorporating, setIncorporating] = useState(null) // contacto
+  const [candidateForm, setCandidateForm] = useState(null) // { entry: { contact, candidacy } } (entry null = nueva)
+  const [incorporating, setIncorporating] = useState(null) // { contact, candidacy }
   const [hired, setHired] = useState(null) // contacto recién incorporado
 
   const expired = useMemo(() => expiredDiscarded(contacts, now), [contacts, now])
   const list = filterVacancies(vacancies, statusFilter)
   const selectedVacancy = vacancies.find((v) => v.id === selectedVacancyId) || null
-  const candidate = contacts.find((c) => c.id === selectedCandidateId && c.candidacy) || null
-  const candidateVacancy = candidate ? vacancies.find((v) => v.id === candidate.candidacy.vacancyId) || null : null
+  const selected = selectedCandidacyId ? findCandidacy(contacts, selectedCandidacyId) : null // { contact, candidacy }
+  const candidateVacancy = selected ? vacancies.find((v) => v.id === selected.candidacy.vacancyId) || null : null
+
+  const openCandidacy = (id) => {
+    const found = findCandidacy(contacts, id)
+    if (found) onSelectVacancy(found.candidacy.vacancyId)
+    onSelectCandidacy(id)
+  }
 
   const countByStatus = (status) => vacancies.filter((v) => v.status === status).length
 
+  const handleIncorporated = (data) => {
+    const { contact, candidacy } = incorporating
+    onIncorporate(contact, candidacy.id, candidateVacancy, data)
+    setHired(contact)
+    setIncorporating(null)
+    onSelectCandidacy(null)
+    onSelectVacancy(candidateVacancy.id)
+  }
+
   const handleDeleteVacancy = (vacancy) => {
     const n = candidatesOf(vacancy.id, contacts).length
-    const extra = n === 0 ? '' : ` También se borrarán sus ${candidateCountText(n)} (contacto, CV y notas).`
+    const extra =
+      n === 0
+        ? ''
+        : ` También se borrarán sus ${candidateCountText(n)}: las candidaturas (CV y notas) y los contactos que solo existían por ellas.`
     if (!window.confirm(`¿Borrar la vacante «${vacancy.title}»?${extra}`)) return
     onDeleteVacancy(vacancy.id)
     onSelectVacancy(null)
   }
 
-  const handleDeleteCandidate = (contact) => {
-    if (!window.confirm(`¿Eliminar a ${contact.name}? Se borran el contacto, su CV y sus notas; las reuniones se conservan.`)) return
-    onRemoveCandidate(contact.id)
-    onSelectCandidate(null)
+  const handleDeleteCandidacy = ({ contact, candidacy }) => {
+    const onlyThis = isCandidateOnly(contact) && candidaciesOf(contact).length === 1
+    const what = onlyThis
+      ? `¿Eliminar a ${contact.name}? Se borran el contacto, su CV y sus notas; las reuniones se conservan.`
+      : `¿Quitar la candidatura de ${contact.name} a esta vacante? Se borran su CV y sus notas; el contacto se conserva.`
+    if (!window.confirm(what)) return
+    onRemoveCandidacy(contact, candidacy.id)
+    onSelectCandidacy(null)
   }
 
   let content
-  if (candidate) {
+  if (selected) {
     content = (
       <CandidateDetail
-        contact={candidate}
+        contact={selected.contact}
+        candidacy={selected.candidacy}
         vacancy={candidateVacancy}
+        vacancies={vacancies}
         contacts={contacts}
         rawEvents={rawEvents}
         now={now}
         onBack={() => {
-          onSelectCandidate(null)
+          onSelectCandidacy(null)
           if (candidateVacancy) onSelectVacancy(candidateVacancy.id)
         }}
-        onEdit={() => setCandidateForm({ contact: candidate })}
-        onDelete={() => handleDeleteCandidate(candidate)}
-        onStatus={(status) => onCandidateStatus(candidate, status)}
-        onFindInterview={() => onFindInterviewSlot(candidate)}
-        onIncorporate={() => setIncorporating(candidate)}
+        onEdit={() => setCandidateForm({ entry: selected })}
+        onDelete={() => handleDeleteCandidacy(selected)}
+        onStatus={(status) => onCandidateStatus(selected.contact, selected.candidacy.id, status)}
+        onFindInterview={() => onFindInterviewSlot(selected.contact)}
+        onIncorporate={() => setIncorporating(selected)}
+        onOpenCandidate={openCandidacy}
         onOpenEvent={onOpenEvent}
       />
     )
@@ -373,8 +431,8 @@ export default function VacanciesView({
         onBack={() => onSelectVacancy(null)}
         onEdit={() => setVacancyForm({ vacancy: selectedVacancy })}
         onDelete={() => handleDeleteVacancy(selectedVacancy)}
-        onAddCandidate={() => setCandidateForm({ contact: null })}
-        onOpenCandidate={onSelectCandidate}
+        onAddCandidate={() => setCandidateForm({ entry: null })}
+        onOpenCandidate={onSelectCandidacy}
         onStatusChange={(status) => onUpdateVacancy(selectedVacancy.id, { status })}
       />
     )
@@ -481,34 +539,41 @@ export default function VacanciesView({
         />
       )}
 
-      {candidateForm && (candidateForm.contact ? candidateVacancy : selectedVacancy) && (
+      {candidateForm && (candidateForm.entry ? candidateVacancy : selectedVacancy) && (
         <CandidateFormModal
-          vacancy={candidateForm.contact ? candidateVacancy : selectedVacancy}
-          initialContact={candidateForm.contact}
+          vacancy={candidateForm.entry ? candidateVacancy : selectedVacancy}
+          contacts={contacts}
+          initial={candidateForm.entry}
           onSubmit={(data) => {
-            if (candidateForm.contact) onEditCandidate(candidateForm.contact.id, data)
-            else onAddCandidate(data)
+            if (candidateForm.entry) onEditCandidacy(candidateForm.entry.contact, candidateForm.entry.candidacy.id, data)
+            else onAddCandidacy(selectedVacancy.id, data)
           }}
+          onOpenCandidacy={openCandidacy}
           onClose={() => setCandidateForm(null)}
         />
       )}
 
-      {incorporating && candidateVacancy && (
+      {/* Quien ya es (o fue) del equipo recibe un rol nuevo en su trayectoria (se pregunta si se suma o sustituye). */}
+      {incorporating && candidateVacancy && incorporating.contact.teamProfile && (
+        <AcceptRoleModal
+          contact={incorporating.contact}
+          vacancy={candidateVacancy}
+          areas={areas}
+          now={now}
+          onSave={handleIncorporated}
+          onClose={() => setIncorporating(null)}
+        />
+      )}
+      {incorporating && candidateVacancy && !incorporating.contact.teamProfile && (
         <TeamProfileModal
-          contact={incorporating}
+          contact={incorporating.contact}
           areas={areas}
           groups={groups}
           initialProfile={incorporationDraft(candidateVacancy, now)}
-          title={`Incorporar a ${incorporating.name} al equipo`}
+          title={`Incorporar a ${incorporating.contact.name} al equipo`}
           saveLabel="Incorporar al equipo"
           onAddArea={onAddArea}
-          onSave={(data) => {
-            onIncorporate(incorporating, candidateVacancy, data)
-            setHired(incorporating)
-            setIncorporating(null)
-            onSelectCandidate(null)
-            onSelectVacancy(candidateVacancy.id)
-          }}
+          onSave={handleIncorporated}
           onClose={() => setIncorporating(null)}
         />
       )}

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createContact, getAllContacts, updateContact } from './contacts'
 import { QUOTE_MAX_LENGTH, filterMembers, mergeTeamContactData, normalizeQuote, quoteDisplay, removeFromTeamPatch, teamProfileDefaults, validateQuote } from './team'
 import { buildBackup, parseBackup, restoreBackup } from './backup'
+import { INITIAL_ROLE_ID } from './trajectory'
 
 const now = new Date(2026, 8, 24, 12, 0)
 
@@ -100,9 +101,17 @@ describe('fusión de datos duplicados (formato antiguo)', () => {
     )
     const [ana, luis] = getAllContacts()
     expect(ana.notes).toBe('Otro email: ana@cesi.es')
-    expect(ana.teamProfile).toEqual({ role: 'x' })
+    // Sin el email del perfil; el cargo pasa a ser el primer rol de su trayectoria.
+    const profile = {
+      role: 'x',
+      area: '',
+      bio: '',
+      roles: [{ id: INITIAL_ROLE_ID, role: 'x', area: '', start: null, end: null }],
+      legacyTrajectory: { bio: '', role: 'x', area: '', joinedAt: null },
+    }
+    expect(ana.teamProfile).toEqual(profile)
     expect(luis).not.toHaveProperty('teamProfile')
-    expect(JSON.parse(localStorage.getItem('cesi_contacts_v1'))[0].teamProfile).toEqual({ role: 'x' })
+    expect(JSON.parse(localStorage.getItem('cesi_contacts_v1'))[0].teamProfile).toEqual(profile)
   })
 })
 

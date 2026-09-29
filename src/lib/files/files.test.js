@@ -44,11 +44,12 @@ describe('referencias de archivos', () => {
     expect(sameFile(cloud, null)).toBe(false)
   })
 
-  it('un contacto tiene su foto y, si es candidato, su CV (los enlaces no son archivos)', () => {
+  it('un contacto tiene su foto y, si es candidato, el CV de cada candidatura (los enlaces no son archivos)', () => {
     const photo = { store: 'cloud', path: 'u1/photos/a.webp' }
     const cv = { store: 'device', id: 'cv1' }
-    expect(contactFileRefs({ photo, candidacy: { cv } }).map((r) => r.folder)).toEqual(['photos', 'cvs'])
-    expect(contactFileRefs({ candidacy: { cv: { url: 'https://example.com/cv' } } })).toEqual([])
+    const cv2 = { store: 'cloud', path: 'u1/cvs/b.pdf' }
+    expect(contactFileRefs({ photo, candidacies: [{ cv }, { cv: cv2 }] }).map((r) => r.folder)).toEqual(['photos', 'cvs', 'cvs'])
+    expect(contactFileRefs({ candidacies: [{ cv: { url: 'https://example.com/cv' } }] })).toEqual([])
     expect(contactFileRefs({})).toEqual([])
   })
 })
