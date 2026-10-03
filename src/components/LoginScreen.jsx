@@ -36,7 +36,7 @@ export default function LoginScreen({ onSignIn }) {
 
   return (
     <div className="login-screen">
-      <form className="login-card" onSubmit={handleSubmit} noValidate>
+      <form className="login-card" onSubmit={handleSubmit} noValidate data-reload-safe>
         <div className="login-brand">
           <span className="sidebar-logo">C</span>
           <span className="login-brand-name">CESI</span>

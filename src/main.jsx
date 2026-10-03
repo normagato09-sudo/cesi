@@ -17,7 +17,7 @@ try {
   // Sin acceso a localStorage no hay nada que limpiar.
 }
 
-// Versiones nuevas: la página se recarga una vez cuando están listas (ver appUpdates.js).
+// Versiones nuevas: aviso "Hay una versión nueva · Actualizar" (ver appUpdates.js).
 setupAppUpdates()
 
 createRoot(document.getElementById('root')).render(

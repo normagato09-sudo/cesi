@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Check, ChevronDown, ChevronUp, History, ListChecks, NotebookPen, Plus, X } from 'lucide-react'
 import { moveItem, newAgendaItem, newDecision, pastSessions, sessionOf } from '../lib/meetingSession'
+import { FLUSH_EVENT } from '../lib/appUpdates'
 import './MeetingSession.css'
 
 const SAVE_DELAY_MS = 600
@@ -115,6 +116,7 @@ function ItemList({ items, onChange, checkable = false, itemLabel, addPlaceholde
           }}
           placeholder={addPlaceholder}
           aria-label={addPlaceholder}
+          data-unsaved={draft.trim() ? 'true' : undefined}
         />
         <button type="button" onClick={add} disabled={!draft.trim()}>
           <Plus size={16} strokeWidth={2} />
@@ -197,14 +199,21 @@ export default function MeetingSession({ event, now, focusNotes = false, onSave 
     onSaveRef.current = onSave
   }, [onSave])
 
-  // Si se cierra la reunión antes de que pase el retardo, se guarda lo que quede pendiente.
-  useEffect(
-    () => () => {
+  // Si se cierra la reunión antes de que pase el retardo (o se actualiza la app), se guarda lo
+  // que quede pendiente.
+  useEffect(() => {
+    const flush = () => {
       clearTimeout(timerRef.current)
-      if (pendingRef.current) onSaveRef.current(pendingRef.current)
-    },
-    [],
-  )
+      const changes = pendingRef.current
+      pendingRef.current = null
+      if (changes) onSaveRef.current(changes)
+    }
+    window.addEventListener(FLUSH_EVENT, flush)
+    return () => {
+      window.removeEventListener(FLUSH_EVENT, flush)
+      flush()
+    }
+  }, [])
 
   useEffect(() => {
     if (!focusNotes) return

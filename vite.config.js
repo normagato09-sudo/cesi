@@ -37,8 +37,22 @@ function publicPages() {
   }
 }
 
+// Versión de cada build (el commit en Vercel). La app la lleva dentro (__APP_VERSION__) y se
+// publica en /version.json: si no coinciden, hay una versión nueva (ver src/lib/appUpdates.js).
+const APP_VERSION = process.env.VERCEL_GIT_COMMIT_SHA || `local-${Date.now()}`
+function appVersion() {
+  return {
+    name: 'cesi-app-version',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version: APP_VERSION }) })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   build: {
     rolldownOptions: {
       input: { main: 'index.html', ficha: 'ficha.html', confirmar: 'confirmar.html' },
@@ -85,6 +99,7 @@ export default defineConfig({
       },
     }),
     publicPages(),
+    appVersion(),
   ],
   test: {
     environment: 'node',
