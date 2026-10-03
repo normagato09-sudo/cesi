@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { ParticipantList } from './Participant.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
-import EventNotes from './EventNotes.jsx'
+import MeetingSession from './MeetingSession.jsx'
 import MeetingInvitesModal from './MeetingInvitesModal.jsx'
 import { InviteBadge, InviteSummary } from './InviteStatus.jsx'
 import { useInvites } from '../lib/invitesContext'
@@ -57,7 +57,7 @@ export default function EventModal({
   focusNotes = false,
   // Abrir directamente "Pedir confirmación" (desde el aviso de cambio de hora).
   openInvites = false,
-  onSaveNotes,
+  onSaveSession,
   onClose,
   onEdit,
   onDelete,
@@ -254,7 +254,7 @@ export default function EventModal({
           )}
 
           {!event.isUnavailable && (
-            <EventNotes event={event} now={now} autoFocus={focusNotes} onSave={(text) => onSaveNotes(event, text)} />
+            <MeetingSession event={event} now={now} focusNotes={focusNotes} onSave={(changes) => onSaveSession(event, changes)} />
           )}
         </div>
 

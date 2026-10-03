@@ -29,8 +29,9 @@ import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 // anteriores se usa el aviso por defecto (10 minutos). v15: el perfil de equipo lleva la trayectoria
 // (teamProfile.roles) y cada contacto puede tener varias candidaturas (candidacies, antes una sola
 // en candidacy); las copias anteriores se convierten al leer los contactos.
-// La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; las
-// notas de las reuniones (notes / notesByDate), dentro de events.
+// La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; la
+// agenda y el acta de las reuniones (notes / notesByDate, agenda / agendaByDate y decisions /
+// decisionsByDate), dentro de events.
 const BACKUP_VERSION = 15
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.

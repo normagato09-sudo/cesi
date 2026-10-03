@@ -18,7 +18,9 @@
 -- data: { title, start, end, category, tags, participantIds, guests, participants,
 --         meetLink, description, isUnavailable, allDay, recurrence,
 --         provisional, proposalId (opciones de una propuesta), projectId (tabla projects) o null,
---         notes (reunión única) o notesByDate { 'AAAA-MM-DD': texto } (reunión que se repite),
+--         agenda y acta de la reunión única: agenda [{ id, text, done }], notes (texto del acta) y
+--           decisions [{ id, text }]; en una reunión que se repite, una por sesión: agendaByDate,
+--           notesByDate y decisionsByDate { 'AAAA-MM-DD' (día que le toca en la serie): lo mismo },
 --         exceptions (reunión que se repite) { 'AAAA-MM-DD' (día que le toca en la serie):
 --           { cancelled: true } (ese día no hay reunión) o { start, end, title, participantIds, guests,
 --           participants, projectId, description, meetLink, category, tags, reminder, acceptedUnavailable } (solo lo que cambia ese día) },

@@ -20,6 +20,23 @@ describe('copia de seguridad', () => {
     expect(getPreferences().bufferMinutes).toBe(15)
   })
 
+  it('guarda la agenda y el acta de cada sesión', () => {
+    const recurrence = { freq: 'weekly', until: '2026-10-27T21:59:59.000Z' }
+    const session = {
+      notesByDate: { '2026-09-01': 'Notas' },
+      agendaByDate: { '2026-09-01': [{ id: 'a', text: 'Plazos', done: true }] },
+      decisionsByDate: { '2026-09-01': [{ id: 'd', text: 'Contratar' }] },
+    }
+    createEvent({ title: 'Serie', start: '2026-09-01T08:00:00.000Z', end: '2026-09-01T09:00:00.000Z', recurrence, ...session })
+    createEvent({ title: 'Única', start: '2026-09-02T08:00:00.000Z', end: '2026-09-02T09:00:00.000Z', agenda: [{ id: 'b', text: 'Punto', done: false }], decisions: [{ id: 'e', text: 'Sí' }] })
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    const [serie, unica] = getAllEvents()
+    expect(serie).toMatchObject(session)
+    expect(unica).toMatchObject({ agenda: [{ id: 'b', text: 'Punto', done: false }], decisions: [{ id: 'e', text: 'Sí' }] })
+  })
+
   it('guarda los días cambiados o cancelados de una serie y acepta copias anteriores sin ellos', () => {
     const recurrence = { freq: 'weekly', until: '2026-10-27T21:59:59.000Z' }
     const exceptions = { '2026-09-08': { cancelled: true }, '2026-09-15': { title: 'Solo ese día' } }

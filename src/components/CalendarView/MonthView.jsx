@@ -166,7 +166,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con notas' : ''}`}
+                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
                         {...bindPreview(ev)}
                         onPointerDown={(e) => {
                           hidePreview()

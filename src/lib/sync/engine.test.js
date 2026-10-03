@@ -100,6 +100,11 @@ describe('sincronización entre dispositivos', () => {
 
     await phone.save(() => updateEvent(ev.id, { notes: 'Presupuesto aprobado' }))
     expect(pc.events()[0].notes).toBe('Presupuesto aprobado')
+
+    const agendaByDate = { '2026-09-08': [{ id: 'a', text: 'Plazos', done: true }] }
+    const decisionsByDate = { '2026-09-08': [{ id: 'd', text: 'Contratar' }] }
+    await phone.save(() => updateEvent(ev.id, { agendaByDate, decisionsByDate }))
+    expect(pc.events()[0]).toMatchObject({ notes: 'Presupuesto aprobado', agendaByDate, decisionsByDate })
   })
 
   it('sin conexión guarda los cambios en la cola y los envía al volver la conexión', async () => {

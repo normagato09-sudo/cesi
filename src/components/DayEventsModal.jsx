@@ -56,7 +56,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
                   {ev.title}
                   {ev.provisional && <span className="day-events-modal-provisional">Provisional</span>}
                   {hasNotes(ev) && (
-                    <NotebookPen size={12} strokeWidth={2} className="day-events-modal-notes" aria-label="Tiene notas" />
+                    <NotebookPen size={12} strokeWidth={2} className="day-events-modal-notes" aria-label="Tiene acta" />
                   )}
                 </span>
                 <span className="day-events-modal-item-meta">

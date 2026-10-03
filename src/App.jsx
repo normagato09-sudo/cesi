@@ -42,7 +42,8 @@ import {
   splitSeries,
   truncateSeriesPatch,
 } from './lib/seriesEdits.js'
-import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
+import { meetingsMissingNotes } from './lib/notes.js'
+import { sessionPatch, toSeriesSessionPatch } from './lib/meetingSession.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { deleteFile } from './lib/files/files.js'
@@ -391,7 +392,10 @@ export default function App() {
     const iso = (d) => (d instanceof Date ? d.toISOString() : d)
     // Los enlaces de confirmación siguen a su reunión y su día (luego cambian de hora con ella).
     if (!series.recurrence) {
-      const updated = editEvent(series.id, { ...changes, start: iso(changes.start ?? series.start), end: iso(changes.end ?? series.end) })
+      const start = iso(changes.start ?? series.start)
+      // Si pasa a repetirse, su agenda y su acta pasan a ser las de su primer día.
+      const sessions = changes.recurrence ? toSeriesSessionPatch(series, start) : {}
+      const updated = editEvent(series.id, { ...changes, ...sessions, start, end: iso(changes.end ?? series.end) })
       meetingInvites.moveInvites({ series, updated, occurrence, scope })
       return
     }
@@ -473,11 +477,12 @@ export default function App() {
     setInvitesFor(occurrence.id)
   }
 
-  // Guarda las notas de la ocurrencia: en notesByDate si la reunión se repite, si no en notes.
-  const handleSaveNotes = (occurrence, text) => {
+  // Guarda la agenda y el acta de la ocurrencia ({ notes, agenda, decisions }, solo lo que cambia):
+  // por día si la reunión se repite (notesByDate…), si no en la propia reunión.
+  const handleSaveSession = (occurrence, changes) => {
     const series = getAllEvents().find((ev) => ev.id === occurrence.seriesId)
     if (!series) return
-    editEvent(series.id, notesPatch(series, occurrence, text))
+    editEvent(series.id, sessionPatch(series, occurrence, changes))
   }
 
   const summary = useMemo(
@@ -1014,7 +1019,7 @@ export default function App() {
           contacts={contacts}
           now={now}
           focusNotes={notesFocus}
-          onSaveNotes={handleSaveNotes}
+          onSaveSession={handleSaveSession}
           openInvites={!!selectedEvent && invitesFor === selectedEvent.id}
           onClose={() => {
             setSelectedEvent(null)

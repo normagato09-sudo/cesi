@@ -1,7 +1,8 @@
 import { subDays } from 'date-fns'
-import { dateKey, expandEvents } from './recurrence'
+import { expandEvents } from './recurrence'
+import { sessionKeyOf, sessionOf, sessionPatch } from './meetingSession'
 
-// Notas de lo que se habló en cada reunión.
+// Notas de lo que se habló en cada reunión: el texto del acta (ver meetingSession.js).
 // - Reunión única: campo `notes` (texto).
 // - Reunión que se repite: `notesByDate` { 'AAAA-MM-DD': 'texto' }, una nota por cada día concreto.
 
@@ -10,28 +11,23 @@ export const MISSING_NOTES_DAYS = 7
 // Día (hora local) de una ocurrencia, clave de notesByDate. Si ese día se ha movido solo a otra
 // hora o a otro día, sigue siendo el día que le tocaba en la serie.
 export function occurrenceDateKey(occurrence) {
-  return dateKey(occurrence.originalStart || occurrence.start)
+  return sessionKeyOf(occurrence)
 }
 
 // Notas de una ocurrencia (o de una reunión única).
 export function notesOf(occurrence) {
-  if (!occurrence) return ''
-  if (occurrence.recurrence) return occurrence.notesByDate?.[occurrenceDateKey(occurrence)] || ''
-  return occurrence.notes || ''
+  return sessionOf(occurrence).notes
 }
 
+// ¿Tiene acta (notas o decisiones)?
 export function hasNotes(occurrence) {
-  return notesOf(occurrence).trim() !== ''
+  const { notes, decisions } = sessionOf(occurrence)
+  return notes.trim() !== '' || decisions.length > 0
 }
 
 // Cambio que hay que guardar en la serie `series` para poner `text` como notas de `occurrence`.
 export function notesPatch(series, occurrence, text) {
-  if (!series.recurrence) return { notes: text }
-  const key = occurrenceDateKey(occurrence)
-  const notesByDate = { ...(series.notesByDate || {}) }
-  if (text.trim()) notesByDate[key] = text
-  else delete notesByDate[key]
-  return { notesByDate }
+  return sessionPatch(series, occurrence, { notes: text })
 }
 
 // Principio de las notas en una sola línea ("Quedamos en enviar el presupuesto…").

@@ -1,11 +1,13 @@
 import { addDays, differenceInCalendarDays, endOfDay, parseISO, subDays } from 'date-fns'
 import { dateKey, exceptionOf, expandEvent } from './recurrence'
+import { BY_DATE_FIELDS, SESSION_FIELDS, toSingleSessionPatch } from './meetingSession'
 
 // Cambios en reuniones que se repiten: solo un día, ese día y los siguientes, o toda la serie.
 // Las funciones son puras: devuelven lo que hay que guardar y App lo guarda.
 //
 // Un día cambiado o cancelado se guarda en la propia serie, en exceptions { 'AAAA-MM-DD': ... }
-// (ver recurrence.js). Las notas de cada día (notesByDate) usan la misma clave.
+// (ver recurrence.js). La agenda y el acta de cada día (notesByDate, agendaByDate y
+// decisionsByDate, ver meetingSession.js) usan la misma clave.
 
 export const SCOPES = {
   THIS: 'this',
@@ -142,8 +144,7 @@ export function editSeriesPatch(series, occurrence, changes) {
       ...patch,
       start: toISO(moved.start),
       end: toISO(moved.end),
-      notes: series.notesByDate?.[occurrenceKeyOf(occurrence)] || '',
-      notesByDate: {},
+      ...toSingleSessionPatch(series, occurrenceKeyOf(occurrence)),
       exceptions: {},
     }
   }
@@ -157,7 +158,7 @@ export function editSeriesPatch(series, occurrence, changes) {
   }
   const out = { ...patch, start: toISO(start), end: toISO(end) }
   if (moved.dayDelta) {
-    out.notesByDate = shiftKeys(series.notesByDate, moved.dayDelta)
+    for (const f of BY_DATE_FIELDS) if (series[f]) out[f] = shiftKeys(series[f], moved.dayDelta)
     out.exceptions = shiftKeys(series.exceptions, moved.dayDelta)
   }
   return out
@@ -174,28 +175,31 @@ export function splitSeries(series, occurrence, changes) {
   const key = occurrenceKeyOf(occurrence)
   const original = seriesTimesOf(series, occurrence)
   const moved = movedTimes(series, occurrence, changes)
-  const notes = splitByKey(series.notesByDate, key)
+  const sessions = Object.fromEntries(BY_DATE_FIELDS.map((f) => [f, splitByKey(series[f], key)]))
   const exceptions = splitByKey(series.exceptions, key)
   // Ese día pasa a tener los datos de la serie nueva.
   delete exceptions.after[key]
 
   const seriesPatch = {
     recurrence: { ...series.recurrence, until: endOfDay(subDays(original.start, 1)).toISOString() },
-    notesByDate: notes.before,
     exceptions: exceptions.before,
   }
+  for (const f of BY_DATE_FIELDS) seriesPatch[f] = sessions[f].before
 
   const copy = { ...series }
-  for (const f of ['id', 'createdAt', 'updatedAt', 'notes', 'notesByDate', 'exceptions']) delete copy[f]
+  for (const f of ['id', 'createdAt', 'updatedAt', 'exceptions']) delete copy[f]
+  for (const { field, byDate } of SESSION_FIELDS) {
+    delete copy[field]
+    delete copy[byDate]
+  }
   const recurrence = 'recurrence' in changes ? changes.recurrence : series.recurrence
   const newEvent = { ...copy, ...changes, start: toISO(moved.start), end: toISO(moved.end), recurrence }
-  const laterNotes = shiftKeys(notes.after, moved.dayDelta)
-  if (recurrence) {
-    newEvent.notesByDate = laterNotes
-    newEvent.exceptions = shiftKeys(exceptions.after, moved.dayDelta)
-  } else {
-    newEvent.notes = laterNotes[dateKey(moved.start)] || ''
+  for (const { field, byDate, empty } of SESSION_FIELDS) {
+    const later = shiftKeys(sessions[byDate].after, moved.dayDelta)
+    if (recurrence) newEvent[byDate] = later
+    else newEvent[field] = later[dateKey(moved.start)] ?? empty
   }
+  if (recurrence) newEvent.exceptions = shiftKeys(exceptions.after, moved.dayDelta)
   return { seriesPatch, newEvent }
 }
 
@@ -207,11 +211,12 @@ export function truncateSeriesPatch(series, occurrence) {
   if (isFirstOccurrence(series, occurrence)) return null
   const key = occurrenceKeyOf(occurrence)
   const original = seriesTimesOf(series, occurrence)
-  return {
+  const patch = {
     recurrence: { ...series.recurrence, until: endOfDay(subDays(original.start, 1)).toISOString() },
-    notesByDate: splitByKey(series.notesByDate, key).before,
     exceptions: splitByKey(series.exceptions, key).before,
   }
+  for (const f of BY_DATE_FIELDS) patch[f] = splitByKey(series[f], key).before
+  return patch
 }
 
 /**

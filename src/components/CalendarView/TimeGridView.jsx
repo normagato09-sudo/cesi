@@ -264,7 +264,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                     <span className="time-grid-event-title">
                       {event.isUnavailable && <Ban size={11} strokeWidth={2} />} {event.title}
                       {hasNotes(event) && (
-                        <NotebookPen size={10} strokeWidth={2} className="time-grid-event-notes" aria-label="Tiene notas" />
+                        <NotebookPen size={10} strokeWidth={2} className="time-grid-event-notes" aria-label="Tiene acta" />
                       )}
                     </span>
                     <span className="time-grid-event-time">
