@@ -3,8 +3,9 @@ import { normalizeDefaultMinutes, DEFAULT_REMINDER_MINUTES } from './reminders'
 
 const STORAGE_KEY = 'cesi_preferences_v1'
 
-export const BUFFER_OPTIONS = [0, 5, 10, 15, 30]
+const BUFFER_OPTIONS = [0, 5, 10, 15, 30]
 
+// bufferMinutes: margen entre reuniones. Ya no se usa; se conserva para no perder lo guardado.
 // reminders: aviso por defecto antes de cada reunión y zona horaria en la que el servidor
 // calcula los avisos (la del último dispositivo que cambió los ajustes de recordatorios).
 export function defaultPreferences() {

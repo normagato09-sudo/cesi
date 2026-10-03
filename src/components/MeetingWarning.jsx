@@ -10,7 +10,7 @@ export default function MeetingWarning({ violations, onFind, onReview, onSave, s
     <div className="event-form-warning" role="alert">
       <p className="event-form-warning-title" id={titleId}>
         <TriangleAlert size={15} strokeWidth={1.75} />
-        {warningTitle(violations)}
+        {warningTitle()}
       </p>
       <ul>
         {violations.map((v, i) => (

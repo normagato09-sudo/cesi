@@ -46,7 +46,7 @@ export const CANDIDATE_STATUS = {
 
 export const CANDIDATE_STATUS_ORDER = ['new', 'interview', 'accepted', 'discarded']
 
-// Tipo de reunión de las entrevistas (se aplican las reglas que haya para él).
+// Tipo de reunión de las entrevistas.
 export const INTERVIEW_TYPE = { category: 'Entrevista', tags: ['entrevista'] }
 
 // Meses tras el descarte a partir de los cuales se ofrece borrar los datos del candidato.

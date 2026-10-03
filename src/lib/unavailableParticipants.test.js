@@ -51,11 +51,6 @@ describe('aviso al guardar', () => {
     expect(unavailableWarning(meeting({ participantIds: ['eva'] }), [eva], MADRID)).toBeNull()
     expect(unavailableWarning({ ...meeting(), isUnavailable: true }, [ana], MADRID)).toBeNull()
   })
-
-  it('se mezcla con los avisos de reglas y margen', () => {
-    const warning = unavailableWarning(meeting(), [ana], MADRID)
-    expect(warningTitle([{ type: 'buffer', message: 'x' }, warning])).toBe('Revisa estos avisos antes de guardar')
-  })
 })
 
 describe('Pendientes: reuniones futuras con participantes que no pueden', () => {

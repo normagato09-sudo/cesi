@@ -28,7 +28,7 @@ export function unavailableMessage(people) {
 }
 
 /**
- * Aviso al guardar una reunión (mismo formato que los de reglas y margen), o null si todos
+ * Aviso al guardar una reunión (el formato de MeetingWarningError), o null si todos
  * pueden: { type: 'participants', message, contactIds }.
  */
 export function unavailableWarning(meeting, contacts, myZone) {

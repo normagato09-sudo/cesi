@@ -69,17 +69,11 @@ describe('findSlots estricto', () => {
   })
 })
 
-describe('findSlots: margen entre reuniones', () => {
+describe('findSlots: sin margen entre reuniones', () => {
   const base = { durationMinutes: 60, fromDate: WED, toDate: WED, now: NOW, workingHours: WORKDAYS, minTime: '09:00', maxTime: '13:00' }
 
-  it('sin margen propone el hueco justo al acabar una reunión', () => {
+  it('propone el hueco justo al acabar una reunión', () => {
     const slots = findSlots({ ...base, events: [ev('a', WED, 9, 10)] })
     expect(hhmm(slots[0].start)).toBe('10:00')
-  })
-
-  it('con margen deja tiempo libre antes y después', () => {
-    const slots = findSlots({ ...base, events: [ev('a', WED, 9, 10), ev('b', WED, 11.5, 12)], bufferMinutes: 15 })
-    // 10:15–11:15 cabe (termina 15 min antes de las 11:30); 12:15–13:00 no llega a 1 h.
-    expect(slots.map((s) => hhmm(s.start))).toEqual(['10:15'])
   })
 })

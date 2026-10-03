@@ -10,7 +10,7 @@ import ProjectSelect from './ProjectSelect.jsx'
 import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { participantFields, participantsOf } from '../lib/contacts'
 import { allTags } from '../lib/tags'
-import { RuleWarning } from '../lib/rules'
+import { MeetingWarningError } from '../lib/meetingWarnings'
 import { useScheduling } from '../lib/schedulingContext'
 import { SCOPES } from '../lib/seriesEdits'
 import { NO_REMINDER, REMINDER_OPTIONS } from '../lib/reminders'
@@ -148,7 +148,7 @@ export default function EventFormModal({
     canAskConfirmation(initialEvent, openedAt)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
-  const [ruleWarning, setRuleWarning] = useState(null)
+  const [saveWarning, setSaveWarning] = useState(null)
 
   const applyDuration = (minutes) => {
     if (Number.isFinite(minutes) && minutes > 0) setEndTime(addMinutesToTime(startTime, minutes))
@@ -277,15 +277,15 @@ export default function EventFormModal({
     await save(payload)
   }
 
-  // Si la reunión incumple alguna regla por tipo o el margen entre reuniones, se muestra el aviso y se puede guardar igualmente.
+  // Si algún participante no puede, se muestra el aviso y se puede guardar igualmente.
   const save = async (payload, options) => {
     setSubmitting(true)
-    setRuleWarning(null)
+    setSaveWarning(null)
     try {
       await onSubmit(payload, options)
       onClose()
     } catch (err) {
-      if (err instanceof RuleWarning) setRuleWarning({ violations: err.violations, payload })
+      if (err instanceof MeetingWarningError) setSaveWarning({ violations: err.violations, payload })
       else setFormError(err.message || 'No se pudo guardar. Inténtalo de nuevo.')
     } finally {
       setSubmitting(false)
@@ -528,15 +528,15 @@ export default function EventFormModal({
 
           {formError && <div className="event-form-error">{formError}</div>}
 
-          {ruleWarning && (
+          {saveWarning && (
             <MeetingWarning
-              violations={ruleWarning.violations}
+              violations={saveWarning.violations}
               onFind={() => {
-                setRuleWarning(null)
+                setSaveWarning(null)
                 setSlotFinderOpen(true)
               }}
-              onReview={() => setRuleWarning(null)}
-              onSave={() => save(ruleWarning.payload, { ignoreRules: true })}
+              onReview={() => setSaveWarning(null)}
+              onSave={() => save(saveWarning.payload, { ignoreWarnings: true })}
               saving={submitting}
             />
           )}

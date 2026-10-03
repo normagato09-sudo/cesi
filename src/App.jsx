@@ -29,8 +29,8 @@ import { useContacts } from './hooks/useContacts.js'
 import { useStoredValue } from './hooks/useStoredValue.js'
 import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
 import { SchedulingContext } from './lib/schedulingContext.js'
-import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules } from './lib/rules.js'
-import { exceptionOf, expandEvent, expandEvents } from './lib/recurrence.js'
+import { MeetingWarningError } from './lib/meetingWarnings.js'
+import { exceptionOf, expandEvent } from './lib/recurrence.js'
 import {
   SCOPES,
   cancelOccurrencePatch,
@@ -42,7 +42,6 @@ import {
   splitSeries,
   truncateSeriesPatch,
 } from './lib/seriesEdits.js'
-import { bufferWarningsFor } from './lib/buffer.js'
 import { meetingsMissingNotes, notesPatch } from './lib/notes.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
@@ -228,7 +227,6 @@ export default function App() {
     if (contact) deleteContactFiles(contact)
   }
   const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
-  const [rules, reloadRules] = useStoredValue(RULES_KEY, getAllRules)
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
   const [storedAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getStoredTeamAreas)
@@ -241,7 +239,6 @@ export default function App() {
     reloadCalendar()
     reloadContacts()
     reloadPreferences()
-    reloadRules()
     reloadProposals()
     reloadGroups()
     reloadTeamAreas()
@@ -289,7 +286,6 @@ export default function App() {
       workingHours,
       weeklyAvailability,
       preferences,
-      rules,
       contacts,
       addContact,
       proposals,
@@ -297,7 +293,7 @@ export default function App() {
       projects,
       onManageProjects: () => setProjectsOpen(true),
     }),
-    [rawEvents, workingHours, weeklyAvailability, preferences, rules, contacts, addContact, proposals, groups, projects],
+    [rawEvents, workingHours, weeklyAvailability, preferences, contacts, addContact, proposals, groups, projects],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -369,24 +365,9 @@ export default function App() {
     reloadPreferences()
   }
 
-  // Reglas por tipo de reunión que incumpliría `meeting` (no bloquean: solo avisan).
-  // `exclude`: la propia reunión ({ excludeSeriesId } o, si cambia solo un día, { excludeId }).
-  const ruleViolationsFor = (meeting, exclude) => {
-    const start = new Date(meeting.start)
-    const dayStart = new Date(start)
-    dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayEnd.getDate() + 1)
-    return checkMeetingAgainstRules(meeting, rules, expandEvents(rawEvents, dayStart, dayEnd), exclude)
-  }
-
-  // Avisos que no bloquean: reglas por tipo, margen con la reunión anterior o la siguiente
-  // y participantes que no pueden según su disponibilidad (los que no la tienen apuntada no avisan).
-  const warningsFor = (meeting, exclude) => [
-    ...ruleViolationsFor(meeting, exclude).map((v) => ({ ...v, type: 'rule' })),
-    ...bufferWarningsFor(meeting, rawEvents, preferences.bufferMinutes, exclude),
-    ...[unavailableWarning(meeting, contacts)].filter(Boolean),
-  ]
+  // Avisos que no bloquean: participantes que no pueden según su disponibilidad (los que no la
+  // tienen apuntada no avisan). Las reglas y el margen guardados ya no se aplican.
+  const warningsFor = (meeting) => [unavailableWarning(meeting, contacts)].filter(Boolean)
 
   // Quién no puede y se ha aceptado al guardar igualmente (para no volver a salir en "Pendientes").
   const acceptedUnavailableFor = (meeting) => unavailableWarning(meeting, contacts)?.contactIds || []
@@ -400,7 +381,7 @@ export default function App() {
 
   const seriesOf = (occurrence) => getAllEvents().find((ev) => ev.id === occurrence.seriesId) || null
 
-  // Qué se ignora al comprobar solapes, reglas y margen: solo ese día o toda la serie.
+  // Qué se ignora al comprobar solapes: solo ese día o toda la serie.
   const excludeFor = (event, scope) => (scope === SCOPES.THIS ? { excludeId: event.id } : { excludeSeriesId: event.seriesId })
 
   // Guarda `changes` ({ start, end, title, ... }) en la reunión de `occurrence` con ese alcance.
@@ -778,7 +759,7 @@ export default function App() {
       return
     }
     const moved = { ...event, start: newStart, end: newEnd }
-    const violations = warningsFor(moved, exclude)
+    const violations = warningsFor(moved)
     if (violations.length > 0) {
       const choice = await new Promise((resolve) => setMoveWarning({ violations, resolve }))
       if (choice === 'find') findSlotToReschedule(event)
@@ -804,7 +785,7 @@ export default function App() {
     setFormModal({ mode: 'meeting', editingEvent: null, prefill })
   }
 
-  const handleFormSubmit = async (values, { ignoreRules = false } = {}) => {
+  const handleFormSubmit = async (values, { ignoreWarnings = false } = {}) => {
     const { start, end } = values
     const editing = formModal?.editingEvent
     const exclude = editing ? excludeFor(editing, formModal.scope) : {}
@@ -812,9 +793,9 @@ export default function App() {
     if (conflict) {
       throw new Error('Esta franja ya está ocupada.')
     }
-    if (!ignoreRules) {
-      const violations = warningsFor(values, exclude)
-      if (violations.length > 0) throw new RuleWarning(violations)
+    if (!ignoreWarnings) {
+      const violations = warningsFor(values)
+      if (violations.length > 0) throw new MeetingWarningError(violations)
     }
 
     const accepted = { acceptedUnavailable: acceptedUnavailableFor(values) }

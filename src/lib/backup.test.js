@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildBackup, parseBackup, restoreBackup } from './backup'
 import { getPreferences, savePreferences } from './preferences'
-import { getAllRules, newRule, rulesStore } from './rules'
+import { getAllRules, rulesStore } from './rules'
 import { getAllProposals, proposalsStore } from './proposals'
 import { createContact, getAllContacts } from './contacts'
 import { getAllGroups, groupsStore } from './groups'
@@ -54,7 +54,7 @@ describe('copia de seguridad', () => {
   })
 
   it('incluye las reglas por tipo de reunión', () => {
-    rulesStore.create(newRule({ target: 'Cliente' }))
+    rulesStore.create({ enabled: true, targetType: 'category', target: 'Cliente' })
     const backup = buildBackup()
     expect(backup.rules).toHaveLength(1)
     localStorage.clear()
