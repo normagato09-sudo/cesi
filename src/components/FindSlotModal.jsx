@@ -364,8 +364,8 @@ export default function FindSlotModal({
           <p className="find-slot-hint">
             Solo se proponen huecos dentro de tu horario{scheduleNote ? '' : ' habitual'}
             {preferences.bufferMinutes > 0 ? `, dejando ${preferences.bufferMinutes} min de margen entre reuniones` : ''}
-            {activeRules.length > 0 ? ' y cumpliendo las reglas de este tipo de reunión' : ''}. Puedes cambiarlo en
-            "Horario y preferencias" o en "Disponibilidad de la semana".
+            {activeRules.length > 0 ? ' y cumpliendo las reglas de este tipo de reunión' : ''}. Puedes cambiar tu
+            horario de cada semana en "Disponibilidad de la semana".
           </p>
 
           {searchError && <div className="find-slot-error">{searchError}</div>}

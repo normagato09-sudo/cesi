@@ -9,7 +9,6 @@ import DayView from './components/CalendarView/DayView.jsx'
 import EventModal from './components/EventModal.jsx'
 import EventFormModal from './components/EventFormModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
-import AvailabilityModal from './components/AvailabilityModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
 import InviteNotice from './components/InviteNotice.jsx'
@@ -30,7 +29,7 @@ import { useContacts } from './hooks/useContacts.js'
 import { useStoredValue } from './hooks/useStoredValue.js'
 import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
 import { SchedulingContext } from './lib/schedulingContext.js'
-import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules, rulesStore } from './lib/rules.js'
+import { RuleWarning, STORAGE_KEY as RULES_KEY, checkMeetingAgainstRules, getAllRules } from './lib/rules.js'
 import { exceptionOf, expandEvent, expandEvents } from './lib/recurrence.js'
 import {
   SCOPES,
@@ -165,7 +164,6 @@ export default function App() {
   // null = cerrado; { participants, meetingType } = abierto, con los participantes y el tipo de
   // reunión iniciales si los hay.
   const [findSlot, setFindSlot] = useState(null)
-  const [availabilityOpen, setAvailabilityOpen] = useState(false)
   const [backupOpen, setBackupOpen] = useState(false)
   const [proposalModalId, setProposalModalId] = useState(null)
   // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
@@ -214,7 +212,6 @@ export default function App() {
     rawEvents,
     events,
     workingHours,
-    setWorkingHours,
     checkConflict,
     addEvent,
     editEvent,
@@ -370,14 +367,6 @@ export default function App() {
     const current = getPreferences()
     savePreferences({ ...current, reminders: { ...current.reminders, ...patch } })
     reloadPreferences()
-  }
-
-  const handleSavePreferences = ({ workingHours: newHours, preferences: newPrefs, rules: newRules }) => {
-    setWorkingHours(newHours)
-    savePreferences(newPrefs)
-    rulesStore.replaceAll(newRules)
-    reloadPreferences()
-    reloadRules()
   }
 
   // Reglas por tipo de reunión que incumpliría `meeting` (no bloquean: solo avisan).
@@ -992,7 +981,6 @@ export default function App() {
               onToday={handleToday}
               onNewMeeting={handleNewMeeting}
               onFindSlot={() => setFindSlot({})}
-              onOpenAvailability={() => setAvailabilityOpen(true)}
               onOpenWeekAvailability={() => setWeekModalKey(weekKeyOf(currentDate))}
               filter={calendarFilter}
               onFilterChange={setCalendarFilter}
@@ -1122,15 +1110,6 @@ export default function App() {
           </Suspense>
         )}
 
-        {availabilityOpen && (
-          <AvailabilityModal
-            workingHours={workingHours}
-            preferences={preferences}
-            rules={rules}
-            onSave={handleSavePreferences}
-            onClose={() => setAvailabilityOpen(false)}
-          />
-        )}
 
         {departmentsOpen && (
           <Suspense fallback={null}>
