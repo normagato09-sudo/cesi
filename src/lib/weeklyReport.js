@@ -1,4 +1,4 @@
-import { addDays, addWeeks, startOfWeek } from 'date-fns'
+import { addDays, addMonths, addWeeks, differenceInCalendarDays, getDay, startOfMonth, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { mergeIntervals, subtractIntervals } from './intervals'
 import { scheduleIntervalsOn } from './weeklyAvailability'
@@ -6,11 +6,20 @@ import { participantsOf } from './contacts'
 import { isRealMeeting } from './notes'
 import { normalizeTag, tagKey } from './tags'
 import { NO_PROJECT, NO_PROJECT_LABEL, projectOf } from './projects'
+import { isTeamMember } from './team'
 
-// Resumen semanal (sección "Resumen"). Semanas de lunes a domingo.
-// Solo cuentan las reuniones: no los bloques "No disponible" ni las opciones provisionales.
+// Resumen (sección "Resumen") de una semana o de cualquier periodo, comparado con el anterior.
+// Semanas de lunes a domingo. Solo cuentan las reuniones: no los bloques "No disponible" ni las
+// opciones provisionales.
 
 export const TOP_CONTACTS = 5
+export const NO_DEPARTMENT = '__none__'
+export const NO_DEPARTMENT_LABEL = 'Sin miembros del equipo'
+export const NO_AREA_LABEL = 'Sin departamento'
+// Franjas por hora que se muestran siempre (de 7:00 a 21:00); fuera de ellas, solo si hay reuniones.
+export const DEFAULT_FIRST_HOUR = 7
+export const DEFAULT_LAST_HOUR = 21
+const HOUR_MS = 3600000
 
 export function weekStartOf(date) {
   return startOfWeek(date, { weekStartsOn: 1 })
@@ -47,17 +56,21 @@ function tally(entries) {
   return [...map.values()].sort((a, b) => b.ms - a.ms || b.count - a.count || a.label.localeCompare(b.label, 'es'))
 }
 
-// Datos básicos de una semana: reuniones, tiempo en reuniones y tiempo libre dentro del horario.
-function weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability) {
-  const weekEnd = addDays(weekStart, 7)
-  const occurrences = expandEvents(rawEvents, weekStart, weekEnd)
+function meetingsIn(rawEvents, start, end) {
+  return expandEvents(rawEvents, start, end)
+}
+
+// Datos básicos de un periodo [start, end): reuniones, tiempo en reuniones (en total y por día) y
+// tiempo libre dentro del horario.
+function periodTotals(rawEvents, start, end, workingHours, weeklyAvailability) {
+  const occurrences = meetingsIn(rawEvents, start, end)
   const meetings = occurrences.filter(isRealMeeting).sort((a, b) => a.start - b.start)
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(weekStart, i)
-    const next = addDays(weekStart, i + 1)
+  const days = Array.from({ length: differenceInCalendarDays(end, start) }, (_, i) => {
+    const date = addDays(start, i)
+    const next = addDays(start, i + 1)
     const ofDay = meetings.filter((m) => m.start < next && m.end > date)
-    return { date, meetings: ofDay.length, ms: meetingTime(ofDay, date, next) }
+    return { date, meetings: ofDay.length, ms: meetingTime(ofDay, date, next), ofDay }
   })
 
   // Libre = mi horario (el declarado para esa semana o, si no, el habitual) menos las reuniones y
@@ -66,18 +79,60 @@ function weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability) {
   const windows = days.flatMap((d) => scheduleIntervalsOn(d.date, workingHours, weeklyAvailability))
   const freeMs = totalMs(subtractIntervals(windows, busy))
 
-  return { weekStart, weekEnd, meetings, days, meetingMs: meetingTime(meetings, weekStart, weekEnd), freeMs }
+  return { start, end, meetings, days, meetingMs: meetingTime(meetings, start, end), freeMs }
+}
+
+// Horas por día de la semana (lunes a domingo), sumando todos los días del periodo.
+function weekdayTotals(days) {
+  const out = Array.from({ length: 7 }, (_, i) => ({ weekday: i, ms: 0, meetings: 0, days: 0 }))
+  for (const d of days) {
+    const row = out[(getDay(d.date) + 6) % 7]
+    row.ms += d.ms
+    row.meetings += d.meetings
+    row.days += 1
+  }
+  return out
+}
+
+// Horas en reuniones dentro de cada franja de una hora (0–23), sumando todos los días.
+// Se muestran de 7 a 21 h, ampliando si hay reuniones antes o después.
+function hourTotals(days) {
+  const ms = Array(24).fill(0)
+  const meetings = Array(24).fill(0)
+  for (const d of days) {
+    if (d.ofDay.length === 0) continue
+    const merged = mergeIntervals(d.ofDay.map((m) => ({ start: m.start, end: m.end })))
+    for (let h = 0; h < 24; h++) {
+      const from = new Date(d.date)
+      from.setHours(h, 0, 0, 0)
+      const to = new Date(from.getTime() + HOUR_MS)
+      ms[h] += totalMs(clipTo(merged, from, to))
+      meetings[h] += d.ofDay.filter((m) => m.start < to && m.end > from).length
+    }
+  }
+  const used = ms.map((v, h) => (v > 0 ? h : null)).filter((h) => h !== null)
+  const first = Math.min(DEFAULT_FIRST_HOUR, ...used)
+  const last = Math.max(DEFAULT_LAST_HOUR - 1, ...used)
+  return Array.from({ length: last - first + 1 }, (_, i) => ({ hour: first + i, ms: ms[first + i], meetings: meetings[first + i] }))
+}
+
+// Índice del elemento con más tiempo (null si todos están a 0).
+function busiestIndex(rows) {
+  return rows.reduce((best, r, i) => (r.ms > 0 && (best === null || r.ms > rows[best].ms) ? i : best), null)
 }
 
 /**
- * Resumen de la semana que empieza en `weekStart` (lunes), comparado con la anterior.
+ * Resumen del periodo [start, end), comparado con [prevStart, prevEnd) (el anterior: la semana,
+ * el mes o los meses anteriores, o los mismos días justo antes).
  */
-export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weeklyAvailability = [], contacts = [], groups = [], projects = [] }) {
-  const current = weekTotals(rawEvents, weekStart, workingHours, weeklyAvailability)
-  const previous = weekTotals(rawEvents, addWeeks(weekStart, -1), workingHours, weeklyAvailability)
-  const { meetings, days } = current
-
-  const busiest = days.reduce((best, d, i) => (d.ms > 0 && (best === null || d.ms > days[best].ms) ? i : best), null)
+export function computeReport(
+  rawEvents,
+  { start, end, prevStart, prevEnd, workingHours, weeklyAvailability = [], contacts = [], groups = [], projects = [] },
+) {
+  const current = periodTotals(rawEvents, start, end, workingHours, weeklyAvailability)
+  const previous = periodTotals(rawEvents, prevStart, prevEnd, workingHours, weeklyAvailability)
+  const { meetings } = current
+  const days = current.days.map((d) => ({ date: d.date, meetings: d.meetings, ms: d.ms }))
 
   const byCategory = tally(meetings.map((m) => ({ key: m.category || 'Sin categoría', label: m.category || 'Sin categoría', ms: durationOf(m) })))
 
@@ -115,28 +170,50 @@ export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weekly
     ),
   )
 
-  const topContacts = tally(
+  // Por departamento de los miembros del equipo que participan: una reunión con varios
+  // departamentos cuenta en cada uno; sin nadie del equipo, en "Sin miembros del equipo".
+  const byDepartment = tally(
+    people.flatMap(({ meeting, contacts: list }) => {
+      const members = list.filter(isTeamMember)
+      if (members.length === 0) return [{ key: NO_DEPARTMENT, label: NO_DEPARTMENT_LABEL, ms: durationOf(meeting) }]
+      const areas = [...new Set(members.map((c) => (c.teamProfile.area || '').trim()))]
+      return areas.map((area) => ({ key: area || NO_AREA_LABEL, label: area || NO_AREA_LABEL, ms: durationOf(meeting) }))
+    }),
+  )
+
+  // Todas las personas (contactos) con las que me he reunido: más reuniones primero.
+  const byPerson = tally(
     people.flatMap(({ meeting, contacts: list }) =>
       list.map((c) => ({ key: c.id, label: c.name, ms: durationOf(meeting), extra: { contact: c } })),
     ),
-  )
-    .sort((a, b) => b.count - a.count || b.ms - a.ms || a.label.localeCompare(b.label, 'es'))
-    .slice(0, TOP_CONTACTS)
+  ).sort((a, b) => b.count - a.count || b.ms - a.ms || a.label.localeCompare(b.label, 'es'))
+
+  const byWeekday = weekdayTotals(current.days)
+  const byHour = hourTotals(current.days)
 
   return {
-    weekStart: current.weekStart,
-    weekEnd: current.weekEnd,
+    start,
+    end,
+    // Nombres de siempre (el resumen era solo semanal).
+    weekStart: start,
+    weekEnd: end,
     meetings,
     count: meetings.length,
     meetingMs: current.meetingMs,
     freeMs: current.freeMs,
     days,
-    busiestDayIndex: busiest,
+    busiestDayIndex: busiestIndex(days),
     byCategory,
     byTag,
     byGroup,
     byProject,
-    topContacts,
+    byDepartment,
+    byPerson,
+    topContacts: byPerson.slice(0, TOP_CONTACTS),
+    byWeekday,
+    busiestWeekdayIndex: busiestIndex(byWeekday),
+    byHour,
+    busiestHourIndex: busiestIndex(byHour),
     previous: { count: previous.meetings.length, meetingMs: previous.meetingMs, freeMs: previous.freeMs },
     delta: {
       count: meetings.length - previous.meetings.length,
@@ -144,6 +221,36 @@ export function computeWeeklyReport(rawEvents, { weekStart, workingHours, weekly
       freeMs: current.freeMs - previous.freeMs,
     },
   }
+}
+
+/**
+ * Resumen de la semana que empieza en `weekStart` (lunes), comparado con la anterior.
+ */
+export function computeWeeklyReport(rawEvents, { weekStart, ...options }) {
+  return computeReport(rawEvents, {
+    ...options,
+    start: weekStart,
+    end: addDays(weekStart, 7),
+    prevStart: addWeeks(weekStart, -1),
+    prevEnd: weekStart,
+  })
+}
+
+/**
+ * Evolución: horas y número de reuniones de las últimas `count` semanas (unit 'week') o meses
+ * ('month'), terminando en la que contiene `until` (incluida). [{ start, end, ms, meetings }]
+ */
+export function meetingEvolution(rawEvents, { unit, until, count = 12 }) {
+  const last = unit === 'month' ? startOfMonth(until) : weekStartOf(until)
+  const step = unit === 'month' ? addMonths : addWeeks
+  const first = step(last, -(count - 1))
+  const meetings = meetingsIn(rawEvents, first, step(last, 1)).filter(isRealMeeting)
+  return Array.from({ length: count }, (_, i) => {
+    const start = step(first, i)
+    const end = step(first, i + 1)
+    const inside = meetings.filter((m) => m.start < end && m.end > start)
+    return { start, end, ms: meetingTime(inside, start, end), meetings: inside.filter((m) => m.start >= start).length }
+  })
 }
 
 // "+2", "−1", "="

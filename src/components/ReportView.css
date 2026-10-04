@@ -208,6 +208,120 @@
   font-weight: 600;
 }
 
+/* Muchas columnas (franjas horarias): menos separación. */
+.report-days.dense {
+  gap: 4px;
+}
+.report-days.dense .report-day-bar {
+  width: min(24px, 80%);
+}
+
+/* ---------- Periodo ---------- */
+.report-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
+}
+.report-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.report-seg button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.report-seg button:hover:not(.active) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.report-seg button.active {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+.report-seg.small button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+.report-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+.report-custom label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.report-custom input {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.report-custom-error {
+  align-self: center;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.report-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+}
+.report-card-head .report-card-title {
+  margin: 0;
+}
+.report-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.report-more {
+  margin-top: 10px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.report-card-head .report-more {
+  margin-top: 0;
+}
+.report-more:hover {
+  background: var(--surface-hover);
+}
+
 /* ---------- Repartos ---------- */
 .report-grid {
   display: grid;
@@ -384,13 +498,50 @@
   }
   .report-header-actions .header-icon-btn,
   .report-header-actions .header-action-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     justify-content: center;
   }
   .report-header-actions .header-btn {
-    padding: 9px 12px;
+    min-height: 44px;
+    padding: 0 12px;
+  }
+  .report-seg {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .report-seg button {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .report-seg.small {
+    display: inline-flex;
+    width: auto;
+  }
+  .report-seg.small button {
+    min-height: 36px;
+    font-size: 14px;
+  }
+  .report-custom {
+    width: 100%;
+  }
+  .report-custom label {
+    flex: 1;
+    min-width: 140px;
+  }
+  .report-custom input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .report-more {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .report-caption,
+  .report-empty {
+    font-size: 14px;
   }
 
   .report-body {
@@ -398,17 +549,17 @@
     gap: 12px;
   }
   .report-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
   .report-stat {
-    padding: 12px;
+    padding: 12px 14px;
   }
   .report-stat-value {
-    font-size: 21px;
+    font-size: 24px;
   }
-  .report-delta-note {
-    display: none;
+  .report-delta {
+    font-size: 14px;
   }
   .report-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -441,7 +592,12 @@
     display: block !important;
   }
   .sidebar,
+  .mobile-nav,
   .report-header-actions,
+  .report-toolbar,
+  .report-seg,
+  .report-more,
+  .report-print-hidden,
   .event-modal-backdrop {
     display: none !important;
   }
@@ -468,9 +624,6 @@
   }
   .report-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .report-delta-note {
-    display: inline;
   }
   .report-day-tip {
     display: none !important;
