@@ -130,7 +130,7 @@
 .invite-notices {
   position: fixed;
   left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(16px + var(--mobile-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   width: min(560px, calc(100vw - 32px));
   display: flex;

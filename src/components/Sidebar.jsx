@@ -1,20 +1,12 @@
-import { BadgeCheck, BarChart3, Briefcase, CalendarDays, DatabaseBackup, ListTodo, Settings, Users } from 'lucide-react'
+import { DatabaseBackup, Settings } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
 import PendingPanel from './PendingPanel.jsx'
 import WeeklyAvailabilityPanel from './WeeklyAvailabilityPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
+import { SECTIONS } from './sections.js'
 import './Sidebar.css'
-
-const SECTIONS = [
-  { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
-  { id: 'tasks', label: 'Tareas', Icon: ListTodo },
-  { id: 'contacts', label: 'Contactos', Icon: Users },
-  { id: 'team', label: 'Equipo', Icon: BadgeCheck },
-  { id: 'vacancies', label: 'Vacantes', Icon: Briefcase },
-  { id: 'report', label: 'Resumen', Icon: BarChart3 },
-]
 
 export default function Sidebar({
   summary,
@@ -35,6 +27,8 @@ export default function Sidebar({
   onDeclareWeek,
   onDismissWeek,
 }) {
+  // En Inicio, las propuestas y las reuniones sin acta ya están en el panel.
+  const onHome = section === 'home'
   return (
     <aside className={`sidebar section-${section}`}>
       <div className="sidebar-brand">
@@ -43,7 +37,7 @@ export default function Sidebar({
       </div>
 
       <nav className="sidebar-nav" aria-label="Secciones">
-        {SECTIONS.map(({ id, label, shortLabel, Icon }) => (
+        {SECTIONS.map(({ id, label, Icon }) => (
           <button
             key={id}
             type="button"
@@ -53,11 +47,6 @@ export default function Sidebar({
           >
             <Icon size={17} strokeWidth={1.75} />
             <span className="sidebar-nav-label">{label}</span>
-            {shortLabel && (
-              <span className="sidebar-nav-short" aria-hidden="true">
-                {shortLabel}
-              </span>
-            )}
           </button>
         ))}
       </nav>
@@ -68,9 +57,9 @@ export default function Sidebar({
 
       <SummaryPanel summary={summary} now={now} />
 
-      <ProposalsPanel items={proposals} onOpen={onOpenProposal} />
+      {!onHome && <ProposalsPanel items={proposals} onOpen={onOpenProposal} />}
 
-      <MissingNotesPanel meetings={missingNotes} onOpen={onOpenMissingNotes} />
+      {!onHome && <MissingNotesPanel meetings={missingNotes} onOpen={onOpenMissingNotes} />}
 
       <div className="sidebar-footer">
         <SyncStatus />

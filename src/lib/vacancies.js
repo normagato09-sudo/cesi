@@ -198,7 +198,8 @@ export function withStatus(candidacy, status, now = new Date()) {
   }
 }
 
-function isInterview(meeting) {
+// ¿Es una entrevista? (categoría "Entrevista" o etiqueta "entrevista").
+export function isInterview(meeting) {
   return meeting.category === INTERVIEW_TYPE.category || eventHasTag(meeting, 'entrevista')
 }
 

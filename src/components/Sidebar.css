@@ -67,10 +67,6 @@
   font-weight: 500;
 }
 
-.sidebar-nav-short {
-  display: none;
-}
-
 .sidebar-footer {
   margin-top: auto;
 }
@@ -95,13 +91,14 @@
 }
 
 @media (max-width: 860px) {
-  /* Fila 1: pestañas + botón de copia (solo icono). Fila 2: resumen. */
+  /* Fila 1: nombre de la app + sincronización, Ajustes y Copia (solo icono). Debajo, los avisos.
+     Las secciones van en la barra inferior (MobileNav). */
   .sidebar {
     width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      'nav footer'
+      'brand footer'
       'week week'
       'pending pending'
       'summary summary'
@@ -116,35 +113,11 @@
   }
 
   .sidebar-brand {
-    display: none;
+    grid-area: brand;
   }
 
-  /* Pestañas compactas arriba */
   .sidebar-nav {
-    grid-area: nav;
-    flex-direction: row;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 2px;
-    gap: 2px;
-  }
-
-  .sidebar-nav-item {
-    flex: 1;
-    justify-content: center;
-    gap: 7px;
-    padding: 8px 10px;
-    border-radius: 5px;
-    font-weight: 500;
-  }
-  .sidebar-nav-item:hover:not(.active) {
-    background: transparent;
-  }
-  .sidebar-nav-item.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: var(--shadow-sm);
+    display: none;
   }
 
   /* El resumen conserva su fila con scroll horizontal */
@@ -161,35 +134,14 @@
   }
 
   .sidebar-backup-btn {
-    width: 40px;
+    width: 44px;
+    min-height: 44px;
     justify-content: center;
     padding: 0;
     color: var(--text-secondary);
   }
   .sidebar-backup-btn span {
     display: none;
-  }
-
-  /* Varias pestañas: icono encima del nombre para que quepan todas. */
-  .sidebar-nav-item {
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 2px 5px;
-    font-size: 11px;
-    line-height: 1.2;
-    min-width: 0;
-  }
-  .sidebar-nav-label {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .sidebar-nav-item:has(.sidebar-nav-short) .sidebar-nav-label {
-    display: none;
-  }
-  .sidebar-nav-short {
-    display: inline;
   }
 
   .sidebar .proposals-panel {
@@ -223,7 +175,7 @@
 
   /* Sin esos bloques, la cabecera se queda en una sola fila (sin huecos vacíos). */
   .sidebar:not(.section-calendar) {
-    grid-template-areas: 'nav footer';
+    grid-template-areas: 'brand footer';
   }
 }
 

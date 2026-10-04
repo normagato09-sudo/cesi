@@ -84,7 +84,7 @@ a {
 .app-updated-notice {
   position: fixed;
   left: 50%;
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(20px + var(--mobile-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
   z-index: 1000;
   transform: translateX(-50%);
   max-width: calc(100vw - 32px);
@@ -113,7 +113,7 @@ a {
 .app-update-banner {
   position: fixed;
   left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(16px + var(--mobile-nav-height, 0px) + env(safe-area-inset-bottom, 0px));
   z-index: 1000;
   transform: translateX(-50%);
   display: flex;

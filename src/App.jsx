@@ -2,6 +2,8 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, format, subDays, subMonths, subWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Sidebar from './components/Sidebar.jsx'
+import MobileNav from './components/MobileNav.jsx'
+import HomeView from './components/HomeView.jsx'
 import CalendarHeader from './components/CalendarHeader.jsx'
 import MonthView from './components/CalendarView/MonthView.jsx'
 import WeekView from './components/CalendarView/WeekView.jsx'
@@ -158,12 +160,13 @@ function getHeaderLabel(currentDate, view, compactWeek) {
 }
 
 export default function App() {
-  const [section, setSection] = useState('calendar')
+  const [launchEvent] = useState(() => eventFromUrl(window.location.href))
+  // Se abre en Inicio (en el calendario si se abrió desde la notificación de una reunión).
+  const [section, setSection] = useState(() => (launchEvent ? 'calendar' : 'home'))
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
-  const [launchEvent] = useState(() => eventFromUrl(window.location.href))
   const [view, setView] = useState('month')
   const [currentDate, setCurrentDate] = useState(() => (launchEvent ? new Date(launchEvent.start) : new Date()))
   const [selectedEvent, setSelectedEvent] = useState(launchEvent)
@@ -709,6 +712,12 @@ export default function App() {
     setSection('vacancies')
   }
 
+  const handleOpenVacancy = (vacancyId) => {
+    setSelectedVacancyId(vacancyId)
+    setSelectedCandidacyId(null)
+    setSection('vacancies')
+  }
+
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
 
   const handleAddArea = (name) => {
@@ -1011,6 +1020,28 @@ export default function App() {
           </div>
         )}
 
+        {section === 'home' && (
+          <div className="app-main">
+            <HomeView
+              now={now}
+              today={today}
+              rawEvents={rawEvents}
+              contacts={contacts}
+              tasks={tasks}
+              vacancies={vacancies}
+              proposals={proposalItems}
+              missingNotes={missingNotes}
+              onGoTo={setSection}
+              onOpenEvent={openEvent}
+              onOpenEventNotes={(ev) => openEvent(ev, { focusNotes: true })}
+              onToggleTask={handleToggleTask}
+              onOpenTask={handleOpenTask}
+              onOpenVacancy={handleOpenVacancy}
+              onOpenProposal={setProposalModalId}
+            />
+          </div>
+        )}
+
         {section === 'tasks' && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
@@ -1101,6 +1132,8 @@ export default function App() {
             </div>
           </div>
         )}
+
+        <MobileNav section={section} onSectionChange={setSection} />
 
         <EventModal
           key={selectedEvent?.id || 'none'}
