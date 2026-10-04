@@ -18,7 +18,6 @@ import { useMeetingInvites } from './hooks/useMeetingInvites.js'
 import { InvitesContext } from './lib/invitesContext.js'
 import { occurrenceForInvite } from './lib/meetingInvites.js'
 import { meetingsWithUnavailable, unavailableWarning } from './lib/unavailableParticipants.js'
-import { refreshThisDevice } from './lib/push.js'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
   getAllProposals,
@@ -29,7 +28,6 @@ import {
 import { useLocalCalendar } from './hooks/useLocalCalendar.js'
 import { useContacts } from './hooks/useContacts.js'
 import { useStoredValue } from './hooks/useStoredValue.js'
-import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
 import { SchedulingContext } from './lib/schedulingContext.js'
 import { MeetingWarningError } from './lib/meetingWarnings.js'
 import { dateKey, exceptionOf, expandEvent } from './lib/recurrence.js'
@@ -38,7 +36,6 @@ import {
   cancelOccurrencePatch,
   editOccurrencePatch,
   editSeriesPatch,
-  findOccurrence,
   occurrenceKeyOf,
   restoreOccurrencePatch,
   seriesDayDelta,
@@ -108,7 +105,6 @@ const TasksView = lazy(() => import('./components/TasksView.jsx'))
 const TaskFormModal = lazy(() => import('./components/TaskFormModal.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
-const SettingsModal = lazy(() => import('./components/SettingsModal.jsx'))
 const WeeklyAvailabilityModal = lazy(() => import('./components/WeeklyAvailabilityModal.jsx'))
 const DepartmentsModal = lazy(() => import('./components/DepartmentsModal.jsx'))
 const ProjectsModal = lazy(() => import('./components/ProjectsModal.jsx'))
@@ -142,16 +138,6 @@ function AppProviders({ scheduling, invites, children }) {
   )
 }
 
-// Reunión que hay que abrir al arrancar (la app se abrió desde una notificación: /?event=id).
-function eventFromUrl(url) {
-  try {
-    const id = new URL(url, window.location.origin).searchParams.get('event')
-    return id ? findOccurrence(getAllEvents(), id) : null
-  } catch {
-    return null
-  }
-}
-
 function getHeaderLabel(currentDate, view, compactWeek) {
   if (view === 'week' && compactWeek) return formatCompactRange(currentDate, addDays(currentDate, COMPACT_WEEK_DAYS - 1))
   if (view === 'day') return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
@@ -160,16 +146,15 @@ function getHeaderLabel(currentDate, view, compactWeek) {
 }
 
 export default function App() {
-  const [launchEvent] = useState(() => eventFromUrl(window.location.href))
-  // Se abre en Inicio (en el calendario si se abrió desde la notificación de una reunión).
-  const [section, setSection] = useState(() => (launchEvent ? 'calendar' : 'home'))
+  // Se abre en Inicio.
+  const [section, setSection] = useState('home')
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
   const [view, setView] = useState('month')
-  const [currentDate, setCurrentDate] = useState(() => (launchEvent ? new Date(launchEvent.start) : new Date()))
-  const [selectedEvent, setSelectedEvent] = useState(launchEvent)
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const [selectedEvent, setSelectedEvent] = useState(null)
   // true si la reunión se abrió para escribir las notas (desde "Sin notas").
   const [notesFocus, setNotesFocus] = useState(false)
   // Id de la reunión abierta con "Pedir confirmación" ya abierto (desde el aviso de cambio de hora).
@@ -188,7 +173,6 @@ export default function App() {
   const [departmentsOpen, setDepartmentsOpen] = useState(false)
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   // Tarea abierta: null = cerrada; { task } para editarla o { initial } para crear una nueva.
   const [taskModal, setTaskModal] = useState(null)
   // Aviso al mover o redimensionar: { violations, resolve } (resolve: 'save' | 'find' | null).
@@ -198,24 +182,6 @@ export default function App() {
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(id)
-  }, [])
-
-  // Notificaciones de los recordatorios: al pulsar una con la app ya abierta, el service worker
-  // pide abrir la reunión; si la app se abrió desde la notificación, se limpia la dirección.
-  useEffect(() => {
-    if (new URL(window.location.href).searchParams.has('event')) window.history.replaceState(null, '', window.location.pathname)
-    if (!('serviceWorker' in navigator)) return
-    const onMessage = (message) => {
-      if (message.data?.type !== 'cesi-open-event') return
-      const occurrence = eventFromUrl(message.data.url)
-      if (!occurrence) return
-      setSection('calendar')
-      setCurrentDate(new Date(occurrence.start))
-      setSelectedEvent(occurrence)
-      setNotesFocus(false)
-    }
-    navigator.serviceWorker.addEventListener('message', onMessage)
-    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [])
 
   // En móvil la vista Semana muestra solo COMPACT_WEEK_DAYS días a partir de currentDate.
@@ -245,7 +211,6 @@ export default function App() {
     removeContactOnly(id)
     if (contact) deleteContactFiles(contact)
   }
-  const [preferences, reloadPreferences] = useStoredValue(PREFERENCES_KEY, getPreferences)
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
   const [storedAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getStoredTeamAreas)
@@ -258,7 +223,6 @@ export default function App() {
   const reloadAllData = () => {
     reloadCalendar()
     reloadContacts()
-    reloadPreferences()
     reloadProposals()
     reloadGroups()
     reloadTeamAreas()
@@ -280,10 +244,6 @@ export default function App() {
   // Confirmación de asistencia: enlaces por participante y sus respuestas (con la sincronización).
   const meetingInvites = useMeetingInvites({ sync, synced: syncStatus.status === 'synced', rawEvents, contacts })
 
-  // Avisos de este dispositivo: se renueva la suscripción si el navegador la ha cambiado.
-  useEffect(() => {
-    if (sync) refreshThisDevice().catch(() => {})
-  }, [sync])
   useEffect(() => {
     if (!canSaveDepartments) return
     // Migraciones únicas de datos (departamentos, categorías → proyectos).
@@ -306,7 +266,6 @@ export default function App() {
       rawEvents,
       workingHours,
       weeklyAvailability,
-      preferences,
       contacts,
       addContact,
       proposals,
@@ -314,7 +273,7 @@ export default function App() {
       projects,
       onManageProjects: () => setProjectsOpen(true),
     }),
-    [rawEvents, workingHours, weeklyAvailability, preferences, contacts, addContact, proposals, groups, projects],
+    [rawEvents, workingHours, weeklyAvailability, contacts, addContact, proposals, groups, projects],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -384,13 +343,6 @@ export default function App() {
   const handleCancelProposal = (proposalId) => {
     removeProposal(proposalId)
     setSelectedEvent(null)
-  }
-
-  // Ajustes → Recordatorios: aviso por defecto y zona horaria en la que se calculan los avisos.
-  const handleSaveReminders = (patch) => {
-    const current = getPreferences()
-    savePreferences({ ...current, reminders: { ...current.reminders, ...patch } })
-    reloadPreferences()
   }
 
   // Avisos que no bloquean: participantes que no pueden según su disponibilidad (los que no la
@@ -940,7 +892,6 @@ export default function App() {
           section={section}
           onSectionChange={setSection}
           onOpenBackup={() => setBackupOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
           proposals={proposalItems}
           onOpenProposal={setProposalModalId}
           missingNotes={missingNotes}
@@ -1239,12 +1190,6 @@ export default function App() {
         {backupOpen && (
           <Suspense fallback={null}>
             <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />
-          </Suspense>
-        )}
-
-        {settingsOpen && (
-          <Suspense fallback={null}>
-            <SettingsModal preferences={preferences} onSaveReminders={handleSaveReminders} onClose={() => setSettingsOpen(false)} />
           </Suspense>
         )}
 

@@ -25,7 +25,7 @@
 --         exceptions (reunión que se repite) { 'AAAA-MM-DD' (día que le toca en la serie):
 --           { cancelled: true } (ese día no hay reunión) o { start, end, title, participantIds, guests,
 --           participants, projectId, description, meetLink, category, tags, reminder, acceptedUnavailable } (solo lo que cambia ese día) },
---         reminder: aviso antes de la reunión: null (el aviso por defecto), 5 | 10 | 15 | 30 | 60 (minutos) o 'none',
+--         reminder: aviso antes de la reunión (ya no se usa: los recordatorios se quitaron; se conserva lo guardado),
 --         acceptedUnavailable: [ids de contactos que no podían y se guardó igualmente] (también por día en exceptions) }
 -- ---------------------------------------------------------------------------
 create table if not exists public.events (
@@ -85,8 +85,8 @@ create table if not exists public.groups (
 -- ---------------------------------------------------------------------------
 -- Ajustes de un solo documento por usuario (id = nombre del ajuste)
 --   id = 'working_hours' (cesi_working_hours_v1): horario semanal con varias franjas por día
---   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes, reminders: { defaultMinutes (5, 10, 15, 30 o 60),
---                                                   timeZone (zona IANA en la que se calculan los avisos) } }
+--   id = 'preferences'   (cesi_preferences_v1):   { bufferMinutes, reminders: { defaultMinutes, timeZone } }
+--                                                 (ninguno se usa ya: margen y recordatorios quitados; se conserva lo guardado)
 --   id = 'team_areas'    (cesi_team_areas_v1):    lista ordenada de departamentos del equipo, p. ej. ["Directivo", "Radio"]
 --                                                 (contacts.data.teamProfile.area y vacancies.data.area guardan el departamento)
 --   id = 'migrations'    (cesi_migrations_v1):    { done: { [migración]: fecha } } migraciones de datos ya hechas
@@ -294,6 +294,9 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Recordatorios: dispositivos suscritos a las notificaciones (Web Push)
 -- ---------------------------------------------------------------------------
+-- YA NO SE USAN: los recordatorios se quitaron de la app (y la Edge Function send-reminders del
+-- repositorio). push_subscriptions y reminders_sent se dejan para no borrar datos; si quieres,
+-- puedes eliminarlas a mano en Supabase.
 -- Una fila por dispositivo (navegador) con los avisos activados. No va por la sincronización:
 -- la app la escribe directamente al activar o quitar un dispositivo en Ajustes → Recordatorios.
 -- La Edge Function send-reminders (con la clave de servicio) las lee para enviar los avisos.
@@ -341,8 +344,7 @@ create table if not exists public.reminders_sent (
 alter table public.reminders_sent enable row level security;
 create index if not exists reminders_sent_sent_at_idx on public.reminders_sent (sent_at);
 
--- La ejecución cada minuto (pg_cron) está en supabase/cron.sql: se ejecuta aparte, después de
--- desplegar la función y guardar sus secretos.
+-- La ejecución cada minuto (pg_cron, antes en supabase/cron.sql) ya no existe.
 
 -- ---------------------------------------------------------------------------
 -- Fotos de contactos y CV de candidatos (Supabase Storage)

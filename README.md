@@ -12,7 +12,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Detección de solapamientos**: avisa si una franja ya está ocupada.
 - **Horario habitual**: ya no se edita en la app. Se usa el que estuviera guardado o, si no hay ninguno, de lunes a viernes de 9:00 a 18:00. Para cambiar tu horario de una semana concreta está «Disponibilidad de la semana». No hay margen entre reuniones ni reglas por tipo de reunión: al guardar o mover una reunión solo se avisa si algún participante no puede según su disponibilidad, y se puede guardar igualmente.
 - **Buscar hueco**: solo propone huecos libres dentro de tu horario (el de la semana, si la has declarado, o el habitual) que encajan con la disponibilidad de los participantes, con un filtro de horas opcional. Si no hay huecos, dice qué contacto lo impide y deja ignorar su disponibilidad. Con «Yo no asisto» busca solo en la disponibilidad y las reuniones de los participantes (ver más abajo).
-- **Reuniones en las que no asisto** («Yo no asisto», en el formulario de reunión y en «Buscar hueco»): para organizar que otras personas se reúnan entre ellas. La búsqueda usa solo la disponibilidad de los participantes y las reuniones de tu calendario en las que participan (no tu horario ni tus reuniones); si ninguno tiene disponibilidad apuntada, no busca. La reunión queda en tu calendario atenuada y con la etiqueta «Organizada por mí», pero no es tiempo tuyo: no cuenta en el Resumen ni en el Inicio, no ocupa tus huecos, no choca con tus reuniones y no lleva recordatorio. Al crearla se abre el **mensaje de convocatoria**, generado con una plantilla (sin IA): saludo con el nombre de cada participante, motivo, fecha, hora (y la hora local de quien esté en otra zona), duración, enlace o lugar, agenda y, si ya existen, los enlaces para confirmar asistencia. Se puede editar y luego copiar o enviar por WhatsApp o email (a todos los participantes con email). También se abre desde la reunión con «Mensaje de convocatoria». El acta, las tareas y la confirmación de asistencia funcionan igual que en las demás reuniones.
+- **Reuniones en las que no asisto** («Yo no asisto», en el formulario de reunión y en «Buscar hueco»): para organizar que otras personas se reúnan entre ellas. La búsqueda usa solo la disponibilidad de los participantes y las reuniones de tu calendario en las que participan (no tu horario ni tus reuniones); si ninguno tiene disponibilidad apuntada, no busca. La reunión queda en tu calendario atenuada y con la etiqueta «Organizada por mí», pero no es tiempo tuyo: no cuenta en el Resumen ni en el Inicio, no ocupa tus huecos, no choca con tus reuniones. Al crearla se abre el **mensaje de convocatoria**, generado con una plantilla (sin IA): saludo con el nombre de cada participante, motivo, fecha, hora (y la hora local de quien esté en otra zona), duración, enlace o lugar, agenda y, si ya existen, los enlaces para confirmar asistencia. Se puede editar y luego copiar o enviar por WhatsApp o email (a todos los participantes con email). También se abre desde la reunión con «Mensaje de convocatoria». El acta, las tareas y la confirmación de asistencia funcionan igual que en las demás reuniones.
 - **Proponer varias opciones**: marca de 2 a 5 huecos, se guardan como reuniones provisionales y se genera un mensaje para enviar por WhatsApp, email o copiar. Desde "Propuestas pendientes" confirmas la opción elegida.
 - **Etiquetas** en las reuniones.
 - **Filtro del calendario** por categoría y por etiqueta, con un aviso bien visible mientras está activo.
@@ -30,7 +30,6 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Grupos de contactos** (p. ej. "Profesores", "Equipo"), con color. Se filtran en Contactos y en la lista de participantes se puede añadir un grupo entero de una vez.
 - **Participantes** elegidos de una lista desplegable conectada a Contactos. Desde la lista también se puede crear un contacto nuevo o añadir un invitado solo para esa reunión. Cada participante se muestra igual en toda la app: un indicador según su disponibilidad habitual (✓ verde «Puede», ✗ rojo «No puede», ? gris «Sin disponibilidad apuntada», con la explicación al pasar el ratón o al mantenerlo pulsado), su nombre, y bandera, país y hora local de la reunión («🇪🇸 España · 18:00», «🇲🇽 México (Ciudad de México) · 10:00 (día siguiente)»), con el aviso si le cae a una hora poco razonable. En listas y vistas previas se usa la versión compacta (indicador y nombre). Encima de la lista, el recuento («8 pueden · 1 no puede · 2 sin disponibilidad»). Al pasar el ratón por una reunión del calendario (o al mantenerla pulsada en el móvil; un toque corto la sigue abriendo) se ve una vista previa con sus participantes. Al crear, editar, mover o redimensionar una reunión, si algún participante no puede según su disponibilidad, la app avisa con los nombres y el motivo («No pueden según su disponibilidad: Ana (jueves solo por la mañana)…») y deja elegir «Buscar otro hueco» o «Guardar igualmente». Quien no tiene disponibilidad apuntada no genera aviso. En Chrome y Edge para Windows, que no dibujan las banderas emoji, la app carga su propia fuente de banderas.
 - **Pendientes** (barra lateral): reuniones de los próximos 60 días con participantes que no pueden (p. ej. porque ha cambiado su disponibilidad), con acceso a la reunión, «Buscar otro hueco» (misma duración y participantes; al elegir el hueco se mueve la reunión) y «Mantener» (no volver a avisar de esa reunión por esas personas). Las que se guardaron con «Guardar igualmente» no aparecen, salvo que deje de poder otra persona.
-- **Recordatorios**: un aviso antes de cada reunión (5, 10, 15, 30 o 60 minutos; 10 por defecto), también con la app cerrada, en el móvil y en el ordenador. Muestra el título, la hora (y la hora local de los participantes de otro país), el enlace de videollamada, y al pulsarlo abre la reunión. Cada reunión (o un solo día de una serie) puede tener su propio aviso o ninguno. No se avisa de los bloques «No disponible», de las opciones provisionales ni de las reuniones en las que no asistes. Se configura en **Ajustes → Recordatorios** (activar en este dispositivo, aviso por defecto, lista de dispositivos y notificación de prueba). Necesita la sincronización con Supabase (ver [Recordatorios](#recordatorios-notificaciones)).
 - **Enlace para que un contacto rellene su ficha** (necesita la sincronización): en la ficha del contacto, «Enviar link para que lo rellene» crea un enlace `/ficha/<token>` para copiarlo o enviarlo por WhatsApp o email. La persona lo abre sin iniciar sesión y solo ve y cambia su nombre, email, teléfono, organización, cargo, país y disponibilidad (nada de notas, grupos, reuniones ni otros contactos). Caduca a los 30 días (o 7 o 90, a elegir); se puede regenerar (el anterior deja de valer) o desactivar. Cuando guarda, la ficha muestra «Actualizado por el contacto» con la fecha.
 - **Confirmación de asistencia** (necesita la sincronización): en una reunión (al verla o al editarla), «Pedir confirmación» crea un enlace `/confirmar/<token>` para cada participante, también para los invitados que no son contactos, con un mensaje listo para copiar o enviar por WhatsApp o email («Hola, Ana. ¿Puedes confirmar si vienes a «Revisión» el lunes 5 de octubre a las 18:00 (hora de España)?»), con el día y la hora en la zona de cada uno. La persona lo abre sin iniciar sesión, ve solo el título, el día, la hora y la duración en su zona horaria, y responde «Voy», «No puedo» o «Quizás» con un comentario opcional; puede cambiar la respuesta hasta que empieza la reunión. En la reunión se ve la respuesta de cada participante y un resumen («4 van · 1 no puede · 2 sin responder»), que también sale en la vista previa del calendario. En las reuniones que se repiten, la confirmación es de cada día. Si cambias el día o la hora, las respuestas quedan «a confirmar de nuevo» y la app avisa para reenviar los enlaces; si quitas a un participante (de la reunión o de ese día) o borras la reunión o ese día, su enlace deja de valer. Los enlaces caducan cuando termina la reunión.
 - **Copia de seguridad**: exportar e importar todos los datos en un archivo JSON.
@@ -80,7 +79,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_events_v1`         | Reuniones, franjas no disponibles y opciones provisionales de las propuestas. |
 | `cesi_contacts_v1`       | Contactos, con su zona horaria y disponibilidad. |
 | `cesi_working_hours_v1`  | Horario habitual (varias franjas por día). Ya no se edita; sin él, de lunes a viernes de 9:00 a 18:00. |
-| `cesi_preferences_v1`    | Preferencias: aviso por defecto de los recordatorios (y el margen entre reuniones guardado antes, que ya no se usa). |
+| `cesi_preferences_v1`    | Preferencias guardadas antes (margen entre reuniones y aviso por defecto de los recordatorios). Ya no se usan; se conservan en la sincronización y las copias. |
 | `cesi_rules_v1`          | Reglas por tipo de reunión guardadas antes. Ya no se usan; se conservan en la sincronización y las copias. |
 | `cesi_proposals_v1`      | Propuestas pendientes.                           |
 | `cesi_groups_v1`         | Grupos de contactos.                             |
@@ -92,7 +91,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_sync_queue_v1`     | Cambios pendientes de enviar a Supabase (solo con sincronización). |
 | `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
 | `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |
-| `cesi_push_device_v1`    | Este dispositivo, si tiene los recordatorios activados (no se sincroniza). |
+| `cesi_push_device_v1`    | Ya no se usa (era el dispositivo con los recordatorios activados; no se sincroniza). |
 
 Las fotos (y los CV) no van en `localStorage` sino en IndexedDB (`cesi-files`): sin sincronización es su único sitio; con ella, es la caché de lo que está en Supabase Storage.
 
@@ -142,44 +141,6 @@ Los enlaces se guardan en la tabla `meeting_invites`: uno por participante y reu
 
 Para activarlo en un proyecto que ya estaba funcionando, vuelve a ejecutar todo `supabase/schema.sql` en **SQL Editor** (no toca tus datos).
 
-## Recordatorios (notificaciones)
-
-Los avisos llegan aunque la app esté cerrada gracias a **Web Push**:
-
-- Cada dispositivo que activa los avisos (Ajustes → Recordatorios) guarda su suscripción en la tabla `push_subscriptions` (con RLS: cada usuario solo ve las suyas).
-- La Edge Function `send-reminders` (`supabase/functions/send-reminders`) se ejecuta **cada minuto con pg_cron**. Lee tus reuniones de Supabase, calcula en tu zona horaria qué reuniones empiezan dentro de su tiempo de aviso (con las repeticiones y los días cambiados o cancelados, con el mismo código que la app, en `supabase/functions/_shared`) y envía el aviso a tus dispositivos. Cada aviso se apunta en `reminders_sent`, así nunca se envía dos veces.
-- El service worker de la PWA (`public/push-sw.js`) muestra la notificación y, al pulsarla, abre la reunión.
-- Las claves **VAPID** identifican al servidor: la **pública** va en la app (`VITE_VAPID_PUBLIC_KEY`) y la **privada** solo en los secretos de Supabase. Nunca van en el repositorio.
-- **iPhone y iPad**: solo con la app añadida a la pantalla de inicio (Safari → Compartir → «Añadir a pantalla de inicio») y iOS 16.4 o posterior. Si el permiso está denegado o el navegador no las admite, Ajustes lo explica.
-
-### Cómo activarlos
-
-Hace falta tener la sincronización ya funcionando. `TU-REF` es el identificador del proyecto: la parte `xxxxxxxx` de `https://xxxxxxxx.supabase.co`.
-
-1. **Generar las claves** en tu ordenador: `node scripts/generate-vapid-keys.mjs`. Muestra la clave pública, la privada y un secreto para pg_cron. Guárdalos en un sitio seguro (p. ej. tu gestor de contraseñas); no los subas a GitHub.
-2. **Tablas**: en Supabase → **SQL Editor**, pega y ejecuta otra vez todo `supabase/schema.sql` (crea `push_subscriptions` y `reminders_sent`; no toca tus datos).
-3. **Secretos de la función**: en Supabase → **Edge Functions → Secrets**, añade:
-   - `VAPID_PUBLIC_KEY`: la clave pública.
-   - `VAPID_PRIVATE_KEY`: la clave privada.
-   - `VAPID_SUBJECT`: `mailto:` seguido de tu email (p. ej. `mailto:yo@ejemplo.com`); los servicios push lo usan como contacto.
-   - `CRON_SECRET`: el secreto para pg_cron.
-4. **Desplegar la función** desde la carpeta del proyecto:
-   ```bash
-   npx supabase login
-   npx supabase functions deploy send-reminders --project-ref TU-REF --no-verify-jwt
-   ```
-   (`--no-verify-jwt` es necesario: la función comprueba ella misma el secreto de pg_cron o tu sesión. Si el comando pide Docker, añade `--use-api`.)
-5. **Guardar en Vault** la dirección del proyecto y el mismo secreto (SQL Editor):
-   ```sql
-   select vault.create_secret('https://TU-REF.supabase.co', 'cesi_project_url');
-   select vault.create_secret('EL-SECRETO-PARA-PG_CRON', 'cesi_cron_secret');
-   ```
-6. **Programar la ejecución cada minuto**: en SQL Editor, pega y ejecuta `supabase/cron.sql`.
-7. **Vercel**: **Settings → Environment Variables**, añade `VITE_VAPID_PUBLIC_KEY` con la clave pública (Production y Preview) y vuelve a desplegar. En tu ordenador, añádela también a `.env.local`.
-8. Abre la app publicada → **Ajustes → Recordatorios** → activa **Avisos en este dispositivo**, acepta el permiso y pulsa **Enviar notificación de prueba**. Repite en cada dispositivo.
-
-Para comprobar que pg_cron la llama bien, en SQL Editor: `select status_code, content from net._http_response order by created desc limit 5;` (debe salir `200`).
-
 ## Copia de seguridad
 
 En la barra lateral (en el móvil, el icono junto a las pestañas) pulsa **Copia de seguridad**:
@@ -191,4 +152,4 @@ Sirve también para pasar los datos de un dispositivo a otro: descarga la copia 
 
 ## Tecnología
 
-React 19, Vite, date-fns, lucide-react, vite-plugin-pwa y @supabase/supabase-js (solo se carga si la sincronización está configurada). Los recordatorios usan una Supabase Edge Function (Deno) con Web Push hecho con WebCrypto, sin dependencias.
+React 19, Vite, date-fns, lucide-react, vite-plugin-pwa y @supabase/supabase-js (solo se carga si la sincronización está configurada).

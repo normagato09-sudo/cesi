@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 
 // Datos que necesitan los buscadores de huecos y formularios en cualquier parte de la app:
-// { rawEvents, workingHours, weeklyAvailability, preferences, contacts, addContact, proposals, groups,
+// { rawEvents, workingHours, weeklyAvailability, contacts, addContact, proposals, groups,
 //   projects, onManageProjects }
 export const SchedulingContext = createContext(null)
 

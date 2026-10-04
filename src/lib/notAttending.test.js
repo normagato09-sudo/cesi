@@ -6,7 +6,6 @@ import { expandEvents } from './recurrence'
 import { computeWeeklyReport } from './weeklyReport'
 import { computeSummary } from './summary'
 import { meetingsTodayAndTomorrow } from './home'
-import { reminderMinutesOf } from './reminders'
 import { mailtoUrl } from './proposals'
 import { convocationMessage, convocationShareData, involvesAttendees } from './notAttending'
 
@@ -105,10 +104,6 @@ describe('no es tiempo mío', () => {
     expect(summary.nextMeeting.id).toBe(mine.id)
   })
 
-  it('no lleva recordatorio', () => {
-    expect(reminderMinutesOf({ ...organized, start: at(WED, 10), end: at(WED, 11) })).toBeNull()
-    expect(reminderMinutesOf({ ...mine, start: at(WED, 12), end: at(WED, 13) })).not.toBeNull()
-  })
 })
 
 describe('mensaje de convocatoria', () => {

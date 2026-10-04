@@ -10,7 +10,7 @@ import { localTimeZone } from './timezones'
 // Reuniones que organizo para que otras personas se reúnan entre ellas ("Yo no asisto",
 // events.data.notAttending = true). Están en mi calendario, atenuadas y con la etiqueta
 // "Organizada por mí", pero no son tiempo mío: no cuentan en el Resumen ni en el Inicio, no
-// ocupan mis huecos ni chocan con mis reuniones y no llevan recordatorio. El acta, las tareas y
+// ocupan mis huecos ni chocan con mis reuniones. El acta, las tareas y
 // los enlaces de confirmación funcionan igual que en las demás.
 
 export const NOT_ATTENDING_LABEL = 'Organizada por mí'

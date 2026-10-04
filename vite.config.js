@@ -65,11 +65,9 @@ export default defineConfig({
       // Se registra desde src/lib/appUpdates.js, que además recarga la página con la versión nueva.
       injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-      // Notificaciones de los recordatorios (public/push-sw.js).
       // La fuente de las banderas (woff2) también se guarda para usar la app sin conexión.
       // /ficha/<token> y /confirmar/<token> son páginas públicas, no la app: el service worker no las sustituye.
       workbox: {
-        importScripts: ['push-sw.js'],
         // Con injectRegister: false el plugin ya no los activa solo: la versión nueva toma el control al instalarse.
         skipWaiting: true,
         clientsClaim: true,

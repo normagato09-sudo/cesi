@@ -1,26 +1,21 @@
 import { readJSON, writeJSON } from './store'
-import { normalizeDefaultMinutes, DEFAULT_REMINDER_MINUTES } from './reminders'
 
 const STORAGE_KEY = 'cesi_preferences_v1'
 
 const BUFFER_OPTIONS = [0, 5, 10, 15, 30]
 
-// bufferMinutes: margen entre reuniones. Ya no se usa; se conserva para no perder lo guardado.
-// reminders: aviso por defecto antes de cada reunión y zona horaria en la que el servidor
-// calcula los avisos (la del último dispositivo que cambió los ajustes de recordatorios).
+// Ya no hay preferencias que se usen; se conservan las guardadas (en la sincronización y las
+// copias) para no perderlas:
+// bufferMinutes: margen entre reuniones (ya no se aplica).
+// reminders: aviso por defecto de los recordatorios, que ya no existen ({ defaultMinutes, timeZone }).
 export function defaultPreferences() {
-  return { bufferMinutes: 0, reminders: { defaultMinutes: DEFAULT_REMINDER_MINUTES, timeZone: null } }
+  return { bufferMinutes: 0 }
 }
 
 export function getPreferences() {
   const stored = readJSON(STORAGE_KEY, {})
   const prefs = { ...defaultPreferences(), ...(stored && typeof stored === 'object' ? stored : {}) }
   if (!BUFFER_OPTIONS.includes(prefs.bufferMinutes)) prefs.bufferMinutes = 0
-  const reminders = prefs.reminders && typeof prefs.reminders === 'object' ? prefs.reminders : {}
-  prefs.reminders = {
-    defaultMinutes: normalizeDefaultMinutes(reminders.defaultMinutes),
-    timeZone: typeof reminders.timeZone === 'string' ? reminders.timeZone : null,
-  }
   return prefs
 }
 

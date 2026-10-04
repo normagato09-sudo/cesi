@@ -1,4 +1,4 @@
-import { DatabaseBackup, Settings } from 'lucide-react'
+import { DatabaseBackup } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
@@ -14,7 +14,6 @@ export default function Sidebar({
   section,
   onSectionChange,
   onOpenBackup,
-  onOpenSettings,
   unavailableMeetings = [],
   onOpenUnavailable,
   onRescheduleUnavailable,
@@ -63,16 +62,6 @@ export default function Sidebar({
 
       <div className="sidebar-footer">
         <SyncStatus />
-        <button
-          type="button"
-          className="sidebar-backup-btn"
-          onClick={onOpenSettings}
-          aria-label="Ajustes"
-          title="Ajustes"
-        >
-          <Settings size={16} strokeWidth={1.75} />
-          <span>Ajustes</span>
-        </button>
         <button
           type="button"
           className="sidebar-backup-btn"

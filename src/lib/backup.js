@@ -26,8 +26,8 @@ import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
 // una copia anterior se reasignan los antiguos, como en la migración de la app). v13: las reuniones
 // que se repiten pueden llevar días cambiados o cancelados (exceptions, dentro de events); las copias
 // anteriores se importan igual (sus series no tienen excepciones). v14: las reuniones pueden llevar
-// su propio aviso (reminder) y las preferencias el aviso por defecto (reminders); en las copias
-// anteriores se usa el aviso por defecto (10 minutos). v15: el perfil de equipo lleva la trayectoria
+// su propio aviso (reminder) y las preferencias el aviso por defecto (reminders); los recordatorios
+// ya no existen, pero estos datos se siguen guardando y restaurando tal cual. v15: el perfil de equipo lleva la trayectoria
 // (teamProfile.roles) y cada contacto puede tener varias candidaturas (candidacies, antes una sola
 // en candidacy); las copias anteriores se convierten al leer los contactos.
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; la

@@ -443,11 +443,6 @@
   text-decoration: underline;
 }
 
-.event-modal-reminder {
-  font-size: 13.5px;
-  color: var(--text-secondary);
-}
-
 .event-modal-participants {
   flex: 1;
 }
