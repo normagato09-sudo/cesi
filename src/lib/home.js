@@ -1,7 +1,7 @@
 import { addDays, parseISO, startOfDay } from 'date-fns'
 import { dateKey, expandEvents } from './recurrence'
 import { sessionOf } from './meetingSession'
-import { isRealMeeting } from './notes'
+import { isMyMeeting } from './notes'
 import { participantsOf } from './contacts'
 import { isOverdue, sortTasks } from './tasks'
 import { candidatesOf, isInterview } from './vacancies'
@@ -33,12 +33,13 @@ export function hasAgenda(occurrence) {
 }
 
 function meetingsBetween(rawEvents, from, to) {
-  return expandEvents(rawEvents.filter(isRealMeeting), from, to)
+  return expandEvents(rawEvents.filter(isMyMeeting), from, to)
     .filter((ev) => ev.start >= from && ev.start < to)
     .sort((a, b) => a.start - b.start)
 }
 
-// Reuniones (sin franjas "No disponible" ni opciones provisionales) de hoy y de mañana.
+// Reuniones mías (sin franjas "No disponible", opciones provisionales ni las que organizo sin
+// asistir) de hoy y de mañana.
 export function meetingsTodayAndTomorrow(rawEvents, now) {
   const today = startOfDay(now)
   const tomorrow = addDays(today, 1)
@@ -61,7 +62,7 @@ export function dueTasks(tasks, today, days = UPCOMING_TASK_DAYS) {
 
 // Entrevistas (categoría o etiqueta "Entrevista") que aún no han terminado, de los próximos 14 días.
 export function upcomingInterviews(rawEvents, now, days = UPCOMING_INTERVIEW_DAYS) {
-  return expandEvents(rawEvents.filter(isRealMeeting).filter(isInterview), now, addDays(now, days))
+  return expandEvents(rawEvents.filter(isMyMeeting).filter(isInterview), now, addDays(now, days))
     .filter((ev) => ev.end > now)
     .sort((a, b) => a.start - b.start)
 }

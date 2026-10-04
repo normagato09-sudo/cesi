@@ -114,6 +114,8 @@ export default function EventFormModal({
     return { participantIds: resolved.contacts.map((c) => c.id), guests: resolved.guests }
   })
   const [meetLink, setMeetLink] = useState(seed.meetLink || '')
+  // "Yo no asisto": la organizo para otras personas (no es tiempo mío). Es de toda la serie.
+  const [notAttending, setNotAttending] = useState(!!seed.notAttending)
   // '' = aviso por defecto, 'none' = sin aviso, o los minutos antes.
   const [reminder, setReminder] = useState(
     seed.reminder === NO_REMINDER ? NO_REMINDER : REMINDER_OPTIONS.includes(seed.reminder) ? String(seed.reminder) : '',
@@ -172,8 +174,9 @@ export default function EventFormModal({
     }
   }
 
-  const handleSlotPicked = (slot, _meetingType, participants) => {
+  const handleSlotPicked = (slot, _meetingType, participants, options = {}) => {
     if (participants) setParticipantSelection(participants)
+    if ('notAttending' in options) setNotAttending(!!options.notAttending)
     setDate(toDateInputValue(slot.start))
     setStartTime(toTimeInputValue(slot.start))
     setEndTime(toTimeInputValue(slot.end))
@@ -262,7 +265,8 @@ export default function EventFormModal({
             participantSelection.guests,
           )),
       meetLink: isUnavailable ? '' : meetLink.trim(),
-      reminder: isUnavailable || reminder === '' ? null : reminder === NO_REMINDER ? NO_REMINDER : Number(reminder),
+      reminder: isUnavailable || notAttending || reminder === '' ? null : reminder === NO_REMINDER ? NO_REMINDER : Number(reminder),
+      notAttending: !isUnavailable && notAttending,
       category: isUnavailable ? 'No disponible' : category,
       tags: isUnavailable ? [] : tags,
       // Si el proyecto se ha borrado mientras tanto, la reunión se queda sin proyecto.
@@ -370,6 +374,19 @@ export default function EventFormModal({
             />
           )}
 
+          {!isUnavailable && scope !== SCOPES.THIS && (
+            <label className="not-attending-option">
+              <input type="checkbox" checked={notAttending} onChange={(e) => setNotAttending(e.target.checked)} />
+              <span>
+                <strong>Yo no asisto</strong>
+                <span>
+                  La organizas para que se reúnan entre ellos: se queda en tu calendario como «Organizada por mí», sin
+                  ocupar tu tiempo, y podrás enviarles la convocatoria.
+                </span>
+              </span>
+            </label>
+          )}
+
           {isUnavailable && (
             <label className="event-form-field">
               <span>Motivo</span>
@@ -471,7 +488,7 @@ export default function EventFormModal({
             )}
           </div>
 
-          {!isUnavailable && (
+          {!isUnavailable && !notAttending && (
             <label className="event-form-field">
               <span>Aviso</span>
               <select value={reminder} onChange={(e) => setReminder(e.target.value)}>
@@ -565,6 +582,7 @@ export default function EventFormModal({
           initialDurationMinutes={effectiveDurationMinutes}
           initialMeetingType={{ category, tags }}
           initialParticipants={participantSelection}
+          initialNotAttending={!isUnavailable && notAttending}
           onPick={handleSlotPicked}
           onClose={() => setSlotFinderOpen(false)}
         />

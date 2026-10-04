@@ -9,6 +9,7 @@ import { useInvites } from '../../lib/invitesContext'
 import { occurrenceSummary } from '../../lib/meetingInvites'
 import { InviteSummary } from '../InviteStatus.jsx'
 import './EventPreview.css'
+import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
 
 const WIDTH = 280
 
@@ -49,6 +50,7 @@ export default function EventPreview({ preview }) {
         {event.isUnavailable && <Ban size={12} strokeWidth={2} />}
         {event.title}
         {event.provisional && <span className="event-preview-badge">Provisional</span>}
+        {event.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
       </p>
       <p className="event-preview-when">{when}</p>
       {!event.isUnavailable && <InviteSummary text={occurrenceSummary(invites, event, contacts)} compact />}

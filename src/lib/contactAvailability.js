@@ -112,11 +112,14 @@ function describeWindows(intervals, contact) {
   return { can: 'en su horario habitual', mine: 'en esas franjas' }
 }
 
-// "Ana solo puede por las tardes y tú no tienes huecos libres por la tarde esta semana"
-export function blockingMessage(contact, from, to, { periodLabel }) {
+// "Ana solo puede por las tardes y tú no tienes huecos libres por la tarde esta semana". Con
+// `others` (reunión en la que no asisto): "… y los demás no pueden por la tarde esta semana".
+export function blockingMessage(contact, from, to, { periodLabel, others = false }) {
   const intervals = availabilityIntervals(contact, from, to) || []
   const name = contact.name.split(' ')[0] || contact.name
   if (intervals.length === 0) return `${name} no tiene disponibilidad ${periodLabel}.`
   const { can, mine } = describeWindows(intervals, contact)
-  return `${name} solo puede ${can} y tú no tienes huecos libres ${mine} ${periodLabel}.`
+  return others
+    ? `${name} solo puede ${can} y los demás no pueden ${mine} ${periodLabel}.`
+    : `${name} solo puede ${can} y tú no tienes huecos libres ${mine} ${periodLabel}.`
 }

@@ -20,6 +20,7 @@ import {
   BellOff,
   Send,
   ListTodo,
+  Megaphone,
 } from 'lucide-react'
 import { ParticipantList } from './Participant.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
@@ -27,6 +28,8 @@ import MeetingSession from './MeetingSession.jsx'
 import TaskItem from './TaskItem.jsx'
 import { pendingForMeeting, sourceOccurrence, tasksOfSession } from '../lib/tasks'
 import MeetingInvitesModal from './MeetingInvitesModal.jsx'
+import ConvocationModal from './ConvocationModal.jsx'
+import { NOT_ATTENDING_LABEL, isNotAttending } from '../lib/notAttending'
 import { InviteBadge, InviteSummary } from './InviteStatus.jsx'
 import { useInvites } from '../lib/invitesContext'
 import { canAskConfirmation, invitesOf, occurrenceSummary, participantKeyOf } from '../lib/meetingInvites'
@@ -60,6 +63,8 @@ export default function EventModal({
   focusNotes = false,
   // Abrir directamente "Pedir confirmación" (desde el aviso de cambio de hora).
   openInvites = false,
+  // Abrir directamente el mensaje de convocatoria (al crear una reunión en la que no asisto).
+  openConvocation = false,
   onSaveSession,
   // Tareas (todas) y qué hacer con ellas: crear, abrir, marcar hecha e ir a su reunión.
   tasks = [],
@@ -83,6 +88,7 @@ export default function EventModal({
   const [copied, setCopied] = useState(false)
   const [savingGuest, setSavingGuest] = useState(null) // invitado que se está guardando como contacto
   const [invitesOpen, setInvitesOpen] = useState(openInvites)
+  const [convocationOpen, setConvocationOpen] = useState(openConvocation)
   const { enabled: invitesEnabled, invites } = useInvites()
 
   if (!event) return null
@@ -104,6 +110,7 @@ export default function EventModal({
   const inviteByKey = invitesOf(invites, event)
   const inviteSummary = occurrenceSummary(invites, event, contacts)
   const canAsk = invitesEnabled && hasParticipants && canAskConfirmation(event, now)
+  const organized = isNotAttending(event)
 
   const handleCopyMessage = async () => {
     if (await copyText(proposalShareData(proposal, options, contacts).text)) {
@@ -152,6 +159,12 @@ export default function EventModal({
               Opción {optionIndex + 1} de {options.length} de una propuesta pendiente
             </p>
           )}
+          {organized && (
+            <p className="event-modal-organized">
+              <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>
+              No asistes: no cuenta como tiempo tuyo.
+            </p>
+          )}
           <p className="event-modal-range">
             <Clock size={14} strokeWidth={1.75} />
             {formatRange(event)}
@@ -195,7 +208,7 @@ export default function EventModal({
             </div>
           )}
 
-          {!event.isUnavailable && !proposal && (
+          {!event.isUnavailable && !proposal && !organized && (
             <div className="event-modal-row">
               {event.reminder === NO_REMINDER ? <BellOff size={16} strokeWidth={1.75} /> : <Bell size={16} strokeWidth={1.75} />}
               <span className="event-modal-reminder">
@@ -328,8 +341,19 @@ export default function EventModal({
             </div>
           )}
 
+          {!proposal && organized && hasParticipants && (
+            <button type="button" className="event-modal-action-btn primary event-modal-invites-btn" onClick={() => setConvocationOpen(true)}>
+              <Megaphone size={14} strokeWidth={1.75} />
+              Mensaje de convocatoria
+            </button>
+          )}
+
           {!proposal && canAsk && (
-            <button type="button" className="event-modal-action-btn primary event-modal-invites-btn" onClick={() => setInvitesOpen(true)}>
+            <button
+              type="button"
+              className={`event-modal-action-btn event-modal-invites-btn${organized ? '' : ' primary'}`}
+              onClick={() => setInvitesOpen(true)}
+            >
               <Send size={14} strokeWidth={1.75} />
               Pedir confirmación
             </button>
@@ -360,6 +384,9 @@ export default function EventModal({
       </div>
 
       {invitesOpen && <MeetingInvitesModal occurrence={event} contacts={contacts} now={now} onClose={() => setInvitesOpen(false)} />}
+      {convocationOpen && organized && (
+        <ConvocationModal occurrence={event} contacts={contacts} onClose={() => setConvocationOpen(false)} />
+      )}
     </div>
   )
 }

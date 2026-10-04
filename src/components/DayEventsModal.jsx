@@ -6,6 +6,7 @@ import { hasNotes } from '../lib/notes'
 import { colorForEvent } from '../lib/eventStyle'
 import { useScheduling } from '../lib/schedulingContext'
 import './DayEventsModal.css'
+import { NOT_ATTENDING_LABEL } from '../lib/notAttending'
 
 function formatDuration(ev) {
   if (ev.allDay) return 'Todo el día'
@@ -45,7 +46,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
             <button
               type="button"
               key={ev.id}
-              className={`day-events-modal-item ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''}`}
+              className={`day-events-modal-item ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''} ${ev.notAttending ? 'organized' : ''}`}
               style={{ '--event-color': colorForEvent(ev) }}
               onClick={() => onSelectEvent(ev)}
             >
@@ -55,6 +56,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
                   {ev.isUnavailable && <Ban size={13} strokeWidth={2} />}
                   {ev.title}
                   {ev.provisional && <span className="day-events-modal-provisional">Provisional</span>}
+                  {ev.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
                   {hasNotes(ev) && (
                     <NotebookPen size={12} strokeWidth={2} className="day-events-modal-notes" aria-label="Tiene acta" />
                   )}

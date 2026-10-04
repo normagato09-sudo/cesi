@@ -5,6 +5,7 @@ import { timeToMinutes } from './weeklySchedule'
 import { scheduleIntervalsOn } from './weeklyAvailability'
 import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
 import { blockingMessage, commonAvailability, hasAvailability } from './contactAvailability'
+import { involvesAttendees, isNotAttending } from './notAttending'
 
 const SMALL_GAP_MS = 15 * 60 * 1000
 const ALIGN_MS = 15 * 60 * 1000
@@ -40,6 +41,11 @@ function scoreCandidate(slotEnd, gap) {
  * declarada en `weeklyAvailability` o, si no está declarada, el habitual), y además
  * dentro de [minTime, maxTime) si se indican.
  * Devuelve un candidato por hueco libre, al principio del hueco (alineado a 15 min).
+ *
+ * Con `notAttending` ("Yo no asisto") no cuentan ni mi horario ni mis reuniones: solo la
+ * disponibilidad de los participantes y las reuniones de mi calendario en las que participa
+ * alguno de `attendees` ({ participantIds, guests }). Sin nadie con disponibilidad no hay huecos.
+ * Sin `notAttending`, las reuniones que organizo sin asistir no ocupan mis huecos.
  */
 export function findSlots({
   durationMinutes,
@@ -51,6 +57,9 @@ export function findSlots({
   workingHours = getWorkingHours(),
   weeklyAvailability = [],
   participants = [],
+  notAttending = false,
+  attendees = null,
+  contacts = [],
   now = new Date(),
 }) {
   const durationMs = durationMinutes * 60 * 1000
@@ -58,21 +67,24 @@ export function findSlots({
   const rangeEnd = endOfDay(toDate)
   const occurrences = expandEvents(events, addDays(rangeStart, -1), addDays(rangeEnd, 1))
 
-  const busy = mergeIntervals(
-    occurrences.filter((ev) => !(ev.allDay && ev.isUnavailable)).map((ev) => ({ start: ev.start, end: ev.end })),
-  )
+  const blocking = notAttending
+    ? occurrences.filter((ev) => involvesAttendees(ev, attendees, contacts))
+    : occurrences.filter((ev) => !(ev.allDay && ev.isUnavailable) && !isNotAttending(ev))
+  const busy = mergeIntervals(blocking.map((ev) => ({ start: ev.start, end: ev.end })))
 
   const candidates = []
 
   for (let day = startOfDay(fromDate); day <= rangeEnd; day = addDays(day, 1)) {
-    if (isDayFullyUnavailable(occurrences, day)) continue
+    if (!notAttending && isDayFullyUnavailable(occurrences, day)) continue
 
     const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(maxTime)) }]
     const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
-    let windows = intersectIntervals(intersectIntervals(scheduleIntervalsOn(day, workingHours, weeklyAvailability), filter), future)
+    const mine = notAttending ? [{ start: day, end: addDays(day, 1) }] : scheduleIntervalsOn(day, workingHours, weeklyAvailability)
+    let windows = intersectIntervals(intersectIntervals(mine, filter), future)
     // Disponibilidad de los participantes, convertida desde su zona horaria a la mía.
     const theirs = commonAvailability(participants, day, addDays(day, 1))
     if (theirs) windows = intersectIntervals(windows, theirs)
+    else if (notAttending) windows = []
 
     for (const gap of subtractIntervals(windows, busy)) {
       const slotStart = alignUp(gap.start)
@@ -121,7 +133,10 @@ function periodLabel(fromDate, toDate, now) {
 export function explainNoSlots(params) {
   const withAvailability = (params.participants || []).filter(hasAvailability)
   if (withAvailability.length === 0) return { blockers: [], combined: false }
-  if (findSlots({ ...params, participants: [] }).length === 0) return { blockers: [], combined: false }
+  // "Yo no asisto": sin participantes no hay huecos, así que solo se puede culpar a alguien si
+  // queda otro con disponibilidad.
+  if (params.notAttending && withAvailability.length < 2) return { blockers: [], combined: false }
+  if (!params.notAttending && findSlots({ ...params, participants: [] }).length === 0) return { blockers: [], combined: false }
 
   const label = periodLabel(params.fromDate, params.toDate, params.now || new Date())
   const blockers = []
@@ -130,7 +145,7 @@ export function explainNoSlots(params) {
     if (findSlots({ ...params, participants: others }).length > 0) {
       blockers.push({
         contact,
-        message: blockingMessage(contact, startOfDay(params.fromDate), endOfDay(params.toDate), { periodLabel: label }),
+        message: blockingMessage(contact, startOfDay(params.fromDate), endOfDay(params.toDate), { periodLabel: label, others: !!params.notAttending }),
       })
     }
   }

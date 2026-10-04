@@ -174,6 +174,8 @@ export default function App() {
   const [notesFocus, setNotesFocus] = useState(false)
   // Id de la reunión abierta con "Pedir confirmación" ya abierto (desde el aviso de cambio de hora).
   const [invitesFor, setInvitesFor] = useState(null)
+  // Reunión (id de la ocurrencia) que se abre con el mensaje de convocatoria ("Yo no asisto").
+  const [convocationFor, setConvocationFor] = useState(null)
   const [formModal, setFormModal] = useState(null)
   // null = cerrado; { participants, meetingType } = abierto, con los participantes y el tipo de
   // reunión iniciales si los hay.
@@ -349,6 +351,7 @@ export default function App() {
         end: slot.end.toISOString(),
         provisional: true,
         proposalId: proposal.id,
+        notAttending: !!data.notAttending,
       }),
     )
     reloadProposals()
@@ -369,7 +372,13 @@ export default function App() {
     editEvent(id, { provisional: false, proposalId: null })
     applyInterviewUpdates(option)
     removeProposal(option.proposalId, id)
-    setSelectedEvent(null)
+    // Si la organizo sin asistir, se abre con la convocatoria lista para enviar.
+    if (option.notAttending) {
+      setSelectedEvent({ ...option, provisional: false, proposalId: null })
+      setConvocationFor(option.id)
+    } else {
+      setSelectedEvent(null)
+    }
   }
 
   const handleCancelProposal = (proposalId) => {
@@ -482,6 +491,7 @@ export default function App() {
       participants: { participantIds: occurrence.participantIds || [], guests: occurrence.guests || [] },
       meetingType: { category: occurrence.category || null, tags: occurrence.tags || [] },
       durationMinutes: Math.round((new Date(occurrence.end) - new Date(occurrence.start)) / 60000),
+      notAttending: !!occurrence.notAttending,
       reschedule: occurrence,
     })
 
@@ -501,6 +511,7 @@ export default function App() {
     setSelectedEvent(event)
     setNotesFocus(focusNotes)
     setInvitesFor(null)
+    setConvocationFor(null)
   }
 
   // "Reenviar enlaces" en el aviso de cambio de hora: abre la reunión con "Pedir confirmación".
@@ -839,7 +850,8 @@ export default function App() {
       if (!scope) return
     }
     const exclude = excludeFor(event, scope)
-    const conflict = checkConflict(newStart, newEnd, exclude)
+    // Las que organizo sin asistir no ocupan mi tiempo: no chocan con nada.
+    const conflict = event.notAttending ? null : checkConflict(newStart, newEnd, exclude)
     if (conflict) {
       window.alert('Esta franja ya está ocupada.')
       return
@@ -854,7 +866,7 @@ export default function App() {
     applyOccurrenceChange(event, { start: newStart, end: newEnd, acceptedUnavailable: acceptedUnavailableFor(moved) }, scope)
   }
 
-  const handleFindSlotPick = (slot, meetingType, participants) => {
+  const handleFindSlotPick = (slot, meetingType, participants, { notAttending = false } = {}) => {
     const reschedule = findSlot?.reschedule
     setFindSlot(null)
     if (reschedule) {
@@ -868,6 +880,7 @@ export default function App() {
     }
     if (meetingType?.category) prefill.category = meetingType.category
     if (meetingType?.tags?.length) prefill.tags = meetingType.tags
+    if (notAttending) prefill.notAttending = true
     setFormModal({ mode: 'meeting', editingEvent: null, prefill })
   }
 
@@ -875,7 +888,7 @@ export default function App() {
     const { start, end } = values
     const editing = formModal?.editingEvent
     const exclude = editing ? excludeFor(editing, formModal.scope) : {}
-    const conflict = checkConflict(start, end, exclude)
+    const conflict = values.notAttending ? null : checkConflict(start, end, exclude)
     if (conflict) {
       throw new Error('Esta franja ya está ocupada.')
     }
@@ -889,7 +902,15 @@ export default function App() {
     if (editing) {
       applyOccurrenceChange(editing, { ...values, ...accepted }, formModal.scope)
     } else {
-      addEvent(data)
+      const created = addEvent(data)
+      // "Yo no asisto": se abre la reunión con el mensaje de convocatoria listo para enviar.
+      const occurrence = created.notAttending ? expandEvent(created, start, end)[0] : null
+      if (occurrence) {
+        setSelectedEvent(occurrence)
+        setNotesFocus(false)
+        setInvitesFor(null)
+        setConvocationFor(occurrence.id)
+      }
     }
     applyInterviewUpdates(data)
   }
@@ -1148,9 +1169,11 @@ export default function App() {
           onToggleTask={handleToggleTask}
           onOpenTaskSource={handleOpenTaskSource}
           openInvites={!!selectedEvent && invitesFor === selectedEvent.id}
+          openConvocation={!!selectedEvent && convocationFor === selectedEvent.id}
           onClose={() => {
             setSelectedEvent(null)
             setInvitesFor(null)
+            setConvocationFor(null)
           }}
           onOpenContact={handleOpenContact}
           onSaveGuestAsContact={handleSaveGuestAsContact}
@@ -1195,6 +1218,7 @@ export default function App() {
             initialDurationMinutes={findSlot.durationMinutes || 60}
             initialParticipants={findSlot.participants}
             initialMeetingType={findSlot.meetingType}
+            initialNotAttending={!!findSlot.notAttending}
             onPick={handleFindSlotPick}
             onCreateProposal={handleCreateProposal}
             onClose={() => setFindSlot(null)}

@@ -3,14 +3,14 @@ import { expandEvents } from './recurrence'
 import { mergeIntervals, subtractIntervals } from './intervals'
 import { scheduleIntervalsOn } from './weeklyAvailability'
 import { participantsOf } from './contacts'
-import { isRealMeeting } from './notes'
+import { isMyMeeting } from './notes'
 import { normalizeTag, tagKey } from './tags'
 import { NO_PROJECT, NO_PROJECT_LABEL, projectOf } from './projects'
 import { isTeamMember } from './team'
 
 // Resumen (sección "Resumen") de una semana o de cualquier periodo, comparado con el anterior.
 // Semanas de lunes a domingo. Solo cuentan las reuniones: no los bloques "No disponible" ni las
-// opciones provisionales.
+// opciones provisionales, ni las que organizo sin asistir ("Yo no asisto").
 
 export const TOP_CONTACTS = 5
 export const NO_DEPARTMENT = '__none__'
@@ -64,7 +64,7 @@ function meetingsIn(rawEvents, start, end) {
 // tiempo libre dentro del horario.
 function periodTotals(rawEvents, start, end, workingHours, weeklyAvailability) {
   const occurrences = meetingsIn(rawEvents, start, end)
-  const meetings = occurrences.filter(isRealMeeting).sort((a, b) => a.start - b.start)
+  const meetings = occurrences.filter(isMyMeeting).sort((a, b) => a.start - b.start)
 
   const days = Array.from({ length: differenceInCalendarDays(end, start) }, (_, i) => {
     const date = addDays(start, i)
@@ -244,7 +244,7 @@ export function meetingEvolution(rawEvents, { unit, until, count = 12 }) {
   const last = unit === 'month' ? startOfMonth(until) : weekStartOf(until)
   const step = unit === 'month' ? addMonths : addWeeks
   const first = step(last, -(count - 1))
-  const meetings = meetingsIn(rawEvents, first, step(last, 1)).filter(isRealMeeting)
+  const meetings = meetingsIn(rawEvents, first, step(last, 1)).filter(isMyMeeting)
   return Array.from({ length: count }, (_, i) => {
     const start = step(first, i)
     const end = step(first, i + 1)

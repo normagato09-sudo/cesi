@@ -16,9 +16,10 @@ export function normalizeDefaultMinutes(minutes) {
   return REMINDER_OPTIONS.includes(minutes) ? minutes : DEFAULT_REMINDER_MINUTES
 }
 
-// Los bloques "No disponible" y las opciones provisionales de una propuesta no llevan aviso.
+// Los bloques "No disponible", las opciones provisionales de una propuesta y las reuniones que
+// organizo sin asistir ("Yo no asisto") no llevan aviso.
 function isRealMeeting(ev) {
-  return !ev.isUnavailable && !ev.provisional && !ev.allDay
+  return !ev.isUnavailable && !ev.provisional && !ev.allDay && !ev.notAttending
 }
 
 // Minutos de antelación del aviso de una reunión (u ocurrencia), o null si no tiene aviso.

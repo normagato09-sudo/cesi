@@ -468,3 +468,14 @@
   justify-content: center;
   margin-bottom: 10px;
 }
+
+/* Reunión que organizo sin asistir ("Yo no asisto") */
+.event-modal-organized {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}

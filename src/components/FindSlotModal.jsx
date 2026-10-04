@@ -35,6 +35,7 @@ export default function FindSlotModal({
   initialDurationMinutes,
   initialMeetingType,
   initialParticipants,
+  initialNotAttending = false,
   onPick,
   onCreateProposal,
   onClose,
@@ -56,6 +57,8 @@ export default function FindSlotModal({
   )
   // Contactos cuya disponibilidad se ignora en esta búsqueda ("Ignorar la disponibilidad de Ana").
   const [ignoredIds, setIgnoredIds] = useState([])
+  // "Yo no asisto": solo cuentan la disponibilidad y las reuniones de los participantes.
+  const [notAttending, setNotAttending] = useState(!!initialNotAttending)
   const [results, setResults] = useState(null)
   const [searchError, setSearchError] = useState(null)
   // Proponer varias opciones: 'search' → 'propose' (título, participantes, tipo) → 'share' (mensaje).
@@ -86,16 +89,30 @@ export default function FindSlotModal({
     workingHours,
     weeklyAvailability,
     participants: people.filter((c) => !ignored.includes(c.id)),
+    notAttending,
+    attendees: participantSelection,
+    contacts,
     now,
   })
 
   const emptyMessage = () =>
-    'No hay huecos libres dentro de tu horario con esos criterios. Prueba con otras fechas o una duración menor.'
+    notAttending
+      ? 'No hay ningún momento en que los participantes estén disponibles y libres con esos criterios. Prueba con otras fechas o una duración menor.'
+      : 'No hay huecos libres dentro de tu horario con esos criterios. Prueba con otras fechas o una duración menor.'
 
   const runSearch = (mode, ignored = ignoredIds) => {
     setSearchError(null)
     if (minTime && maxTime && maxTime <= minTime) {
       setSearchError('La hora máxima debe ser posterior a la mínima.')
+      setResults(null)
+      return
+    }
+    if (notAttending && !people.some((c) => hasAvailability(c) && !ignored.includes(c.id))) {
+      setSearchError(
+        people.length === 0
+          ? 'Elige a los participantes: con "Yo no asisto" se busca en su disponibilidad, no en la tuya.'
+          : 'Ninguno de los participantes tiene disponibilidad apuntada en su ficha. Añádela para poder buscar un hueco sin tu calendario.',
+      )
       setResults(null)
       return
     }
@@ -136,6 +153,7 @@ export default function FindSlotModal({
       projectId: projects.some((p) => p.id === proposalProjectId) ? proposalProjectId : null,
       participantIds: participantSelection.participantIds,
       guests: participantSelection.guests,
+      notAttending,
       slots: pickedSlots,
     })
     setCreated(result)
@@ -164,8 +182,9 @@ export default function FindSlotModal({
         {step === 'propose' && (
           <div className="find-slot-body">
             <p className="find-slot-hint">
-              Cada opción se guarda como reunión provisional: ocupa su hueco hasta que confirmes una o canceles la
-              propuesta.
+              {notAttending
+                ? 'Cada opción se guarda como reunión provisional organizada por ti, sin ocupar tus huecos, hasta que confirmes una o canceles la propuesta.'
+                : 'Cada opción se guarda como reunión provisional: ocupa su hueco hasta que confirmes una o canceles la propuesta.'}
             </p>
             <ul className="find-slot-picked">
               {pickedSlots.map((slot) => (
@@ -330,12 +349,35 @@ export default function FindSlotModal({
             )}
           </div>
 
-          {scheduleNote && <p className="find-slot-schedule-note">{scheduleNote}</p>}
+          <label className="not-attending-option">
+            <input
+              type="checkbox"
+              checked={notAttending}
+              onChange={(e) => {
+                setNotAttending(e.target.checked)
+                setResults(null)
+                setSearchError(null)
+              }}
+            />
+            <span>
+              <strong>Yo no asisto</strong>
+              <span>La organizas para que se reúnan entre ellos: se busca solo en su disponibilidad y sus reuniones, sin tu calendario.</span>
+            </span>
+          </label>
 
-          <p className="find-slot-hint">
-            Solo se proponen huecos dentro de tu horario{scheduleNote ? '' : ' habitual'}. Puedes cambiar tu horario
-            de cada semana en "Disponibilidad de la semana".
-          </p>
+          {!notAttending && scheduleNote && <p className="find-slot-schedule-note">{scheduleNote}</p>}
+
+          {notAttending ? (
+            <p className="find-slot-hint">
+              Solo se proponen huecos en los que todos los participantes con disponibilidad apuntada pueden y no tienen
+              otra reunión de tu calendario.
+            </p>
+          ) : (
+            <p className="find-slot-hint">
+              Solo se proponen huecos dentro de tu horario{scheduleNote ? '' : ' habitual'}. Puedes cambiar tu horario
+              de cada semana en "Disponibilidad de la semana".
+            </p>
+          )}
 
           {searchError && <div className="find-slot-error">{searchError}</div>}
 
@@ -366,7 +408,11 @@ export default function FindSlotModal({
                     ))}
                     {results.explanation.combined && (
                       <div className="find-slot-blocker">
-                        <p>No hay ningún momento en que podáis todos a la vez. Prueba a ignorar la disponibilidad de alguien:</p>
+                        <p>
+                          {notAttending
+                            ? 'No hay ningún momento en que puedan todos a la vez. Prueba a ignorar la disponibilidad de alguien:'
+                            : 'No hay ningún momento en que podáis todos a la vez. Prueba a ignorar la disponibilidad de alguien:'}
+                        </p>
                         {constrainedBy.map((contact) => (
                           <button key={contact.id} type="button" className="find-slot-action-btn" onClick={() => ignoreAvailability(contact)}>
                             Ignorar la disponibilidad de {firstName(contact)}
@@ -396,7 +442,7 @@ export default function FindSlotModal({
                       <button
                         type="button"
                         className="find-slot-result-btn"
-                        onClick={() => onPick(slot, meetingType, participantSelection)}
+                        onClick={() => onPick(slot, meetingType, participantSelection, { notAttending })}
                       >
                         <CalendarClock size={15} strokeWidth={1.75} />
                         <span className="find-slot-result-main">

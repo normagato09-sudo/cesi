@@ -156,3 +156,17 @@ a {
     font-size: 16px;
   }
 }
+
+/* Etiqueta "Organizada por mí" (reuniones en las que no asisto): calendario, detalle y listas. */
+.organized-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-hover);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

@@ -129,5 +129,6 @@ export function whatsappUrl(text, phone) {
 
 export function mailtoUrl(text, email, subject) {
   const params = `subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`
-  return `mailto:${email ? encodeURIComponent(email).replace('%40', '@') : ''}?${params}`
+  // `email` puede llevar varias direcciones separadas por comas.
+  return `mailto:${email ? encodeURIComponent(email).replace(/%40/g, '@').replace(/%2C/g, ',') : ''}?${params}`
 }

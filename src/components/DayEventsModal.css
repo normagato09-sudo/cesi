@@ -205,3 +205,14 @@
 .day-events-modal-people {
   margin-top: 3px;
 }
+
+/* Reunión que organizo sin asistir: atenuada */
+.day-events-modal-item.organized .day-events-modal-item-mark {
+  opacity: 0.45;
+}
+.day-events-modal-item.organized .day-events-modal-item-title {
+  color: var(--text-secondary);
+}
+.day-events-modal-item .organized-badge {
+  margin-left: 6px;
+}

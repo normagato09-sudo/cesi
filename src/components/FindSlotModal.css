@@ -489,3 +489,39 @@
 .find-slot-result-people {
   margin-top: 6px;
 }
+
+/* "Yo no asisto" (Buscar hueco y formulario de reunión) */
+.not-attending-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.not-attending-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.not-attending-option input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+.not-attending-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.not-attending-option strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}

@@ -12,6 +12,7 @@ import { useMediaQuery } from '../../lib/useMediaQuery'
 import { useEventPreview } from '../../hooks/useEventPreview'
 import EventPreview from './EventPreview.jsx'
 import './TimeGridView.css'
+import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SNAP_MINUTES = 15
@@ -245,7 +246,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                   <button
                     type="button"
                     key={event.id}
-                    className={`time-grid-event ${event.isUnavailable ? 'unavailable' : ''} ${event.provisional ? 'provisional' : ''} ${isDragging ? 'dragging' : ''}`}
+                    className={`time-grid-event ${event.isUnavailable ? 'unavailable' : ''} ${event.provisional ? 'provisional' : ''} ${event.notAttending ? 'organized' : ''} ${isDragging ? 'dragging' : ''}`}
                     style={{
                       '--event-color': colorForEvent(event),
                       top,
@@ -270,6 +271,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                     <span className="time-grid-event-time">
                       {format(event.start, 'HH:mm')}
                       {event.provisional && <span className="time-grid-event-provisional"> · Provisional</span>}
+                      {event.notAttending && <span className="time-grid-event-organized"> · {NOT_ATTENDING_LABEL}</span>}
                     </span>
                     <div
                       className="time-grid-event-resize-handle"

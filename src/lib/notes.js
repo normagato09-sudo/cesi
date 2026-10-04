@@ -43,6 +43,11 @@ export function isRealMeeting(ev) {
   return !ev.isUnavailable && !ev.provisional
 }
 
+// ¿Es una reunión mía (cuenta en el Resumen y en el Inicio)? Las que organizo sin asistir no.
+export function isMyMeeting(ev) {
+  return isRealMeeting(ev) && !ev.notAttending
+}
+
 // Reuniones de los últimos `days` días que ya han terminado y no tienen notas, de la más
 // reciente a la más antigua.
 export function meetingsMissingNotes(rawEvents, now = new Date(), days = MISSING_NOTES_DAYS) {

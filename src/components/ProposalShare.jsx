@@ -4,8 +4,9 @@ import { mailtoUrl, whatsappUrl } from '../lib/proposals'
 import { copyText } from '../lib/clipboard'
 import './ProposalShare.css'
 
-// Texto listo para enviar con los botones Copiar, Compartir, WhatsApp y Email.
-export default function ProposalShare({ text, subject, phone, email, copyLabel = 'Copiar' }) {
+// Texto listo para enviar con los botones Copiar, Compartir, WhatsApp y Email. Con `onTextChange`
+// el texto se puede editar antes de enviarlo.
+export default function ProposalShare({ text, subject, phone, email, copyLabel = 'Copiar', onTextChange, rows = 5 }) {
   const [copied, setCopied] = useState(false)
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
@@ -26,7 +27,14 @@ export default function ProposalShare({ text, subject, phone, email, copyLabel =
 
   return (
     <div className="proposal-share">
-      <textarea className="proposal-share-text" value={text} readOnly rows={5} aria-label="Mensaje para enviar" />
+      <textarea
+        className="proposal-share-text"
+        value={text}
+        readOnly={!onTextChange}
+        onChange={onTextChange ? (e) => onTextChange(e.target.value) : undefined}
+        rows={rows}
+        aria-label="Mensaje para enviar"
+      />
       <div className="proposal-share-actions">
         <button type="button" className="proposal-share-btn primary" onClick={handleCopy}>
           {copied ? <Check size={15} strokeWidth={2} /> : <Copy size={15} strokeWidth={1.75} />}

@@ -18,6 +18,7 @@
 -- data: { title, start, end, category, tags, participantIds, guests, participants,
 --         meetLink, description, isUnavailable, allDay, recurrence,
 --         provisional, proposalId (opciones de una propuesta), projectId (tabla projects) o null,
+--         notAttending (true: la organizo para otras personas y no asisto; no es tiempo mío),
 --         agenda y acta de la reunión única: agenda [{ id, text, done }], notes (texto del acta) y
 --           decisions [{ id, text }]; en una reunión que se repite, una por sesión: agendaByDate,
 --           notesByDate y decisionsByDate { 'AAAA-MM-DD' (día que le toca en la serie): lo mismo },
@@ -118,7 +119,7 @@ create table if not exists public.rules (
 
 -- ---------------------------------------------------------------------------
 -- Propuestas de varias opciones (localStorage: cesi_proposals_v1)
--- data: { title, durationMinutes, category, tags, projectId, participantIds, guests }
+-- data: { title, durationMinutes, category, tags, projectId, participantIds, guests, notAttending }
 -- Cada opción es una fila de events con data.provisional = true y data.proposalId = id.
 -- ---------------------------------------------------------------------------
 create table if not exists public.proposals (

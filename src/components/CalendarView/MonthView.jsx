@@ -14,6 +14,7 @@ import DayEventsModal from '../DayEventsModal.jsx'
 import EventPreview from './EventPreview.jsx'
 import { useEventPreview } from '../../hooks/useEventPreview'
 import './MonthView.css'
+import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -166,7 +167,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
+                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.notAttending ? `${NOT_ATTENDING_LABEL}: ` : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
                         {...bindPreview(ev)}
                         onPointerDown={(e) => {
                           hidePreview()
@@ -175,7 +176,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         }}
                         onClick={(e) => handleEventClick(e, ev)}
                       >
-                        <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''}`} />
+                        <span className={`month-event-dot-mark ${ev.isUnavailable ? 'unavailable' : ''} ${ev.provisional ? 'provisional' : ''} ${ev.notAttending ? 'organized' : ''}`} />
                         {hasNotes(ev) && <NotebookPen size={8} strokeWidth={2.5} className="month-event-dot-notes" aria-hidden="true" />}
                       </button>
                     ))}

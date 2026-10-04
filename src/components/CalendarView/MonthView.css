@@ -229,3 +229,8 @@
   -webkit-touch-callout: none;
   user-select: none;
 }
+
+/* Reunión que organizo sin asistir: punto atenuado */
+.month-event-dot-mark.organized {
+  opacity: 0.45;
+}

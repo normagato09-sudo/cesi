@@ -29,7 +29,8 @@ export function computeSummary(events, workingHours, now = new Date(), weeklyAva
   const weekStart = startOfWeek(now, WEEK_OPTS)
   const weekEnd = endOfWeek(now, WEEK_OPTS)
 
-  const weekOccurrences = expandEvents(events, weekStart, weekEnd)
+  // Las reuniones que organizo sin asistir no son tiempo mío.
+  const weekOccurrences = expandEvents(events, weekStart, weekEnd).filter((ev) => !ev.notAttending)
   const todayOccurrences = weekOccurrences.filter((ev) => ev.start < todayEnd && ev.end > todayStart)
 
   const refIntervals = referenceIntervals(workingHours, weeklyAvailability, now)
@@ -55,7 +56,7 @@ export function computeSummary(events, workingHours, now = new Date(), weeklyAva
     : occupiedByDay.indexOf(Math.max(...occupiedByDay))
 
   const upcoming = expandEvents(events, now, addDays(now, 30))
-    .filter((ev) => !ev.isUnavailable && !ev.provisional && ev.start >= now)
+    .filter((ev) => !ev.notAttending && !ev.isUnavailable && !ev.provisional && ev.start >= now)
     .sort((a, b) => a.start - b.start)
   const nextMeeting = upcoming[0] || null
 

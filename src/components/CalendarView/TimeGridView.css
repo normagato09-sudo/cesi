@@ -277,3 +277,16 @@
   -webkit-touch-callout: none;
   user-select: none;
 }
+
+/* Reunión que organizo sin asistir: atenuada, no es tiempo mío */
+.time-grid-event.organized {
+  opacity: 0.55;
+  border-left-style: dotted;
+}
+.time-grid-event.organized:hover,
+.time-grid-event.organized:focus-visible {
+  opacity: 0.85;
+}
+.time-grid-event-organized {
+  font-weight: 600;
+}

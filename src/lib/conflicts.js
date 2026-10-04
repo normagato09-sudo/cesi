@@ -8,7 +8,8 @@ export function isExcluded(ev, { excludeSeriesId, excludeId } = {}) {
   return (!!excludeSeriesId && ev.seriesId === excludeSeriesId) || (!!excludeId && ev.id === excludeId)
 }
 
-// `occurrences` debe venir ya expandida (ver recurrence.js) para el rango relevante.
+// `occurrences` debe venir ya expandida (ver recurrence.js) para el rango relevante. Las reuniones
+// que organizo sin asistir ("Yo no asisto") no ocupan mi tiempo, así que no chocan.
 export function findConflict(occurrences, start, end, exclude = {}) {
-  return occurrences.find((ev) => !isExcluded(ev, exclude) && overlaps(start, end, ev.start, ev.end)) || null
+  return occurrences.find((ev) => !ev.notAttending && !isExcluded(ev, exclude) && overlaps(start, end, ev.start, ev.end)) || null
 }
