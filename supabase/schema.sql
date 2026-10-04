@@ -164,6 +164,24 @@ create table if not exists public.projects (
 );
 
 -- ---------------------------------------------------------------------------
+-- Tareas (localStorage: cesi_tasks_v1)
+-- data: { title, assignee: 'me' | id de contacto (responsable), dueDate: 'AAAA-MM-DD' o null,
+--         status: 'pending' | 'done', doneAt,
+--         source: null (tarea suelta) o { eventId (tabla events), sessionKey: 'AAAA-MM-DD' (sesión de
+--           una reunión que se repite) o null, title, start } (reunión de la que sale),
+--         decisionId: decisión del acta de la que sale (events.data.decisions / decisionsByDate) o null }
+-- ---------------------------------------------------------------------------
+create table if not exists public.tasks (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Vacantes (localStorage: cesi_vacancies_v1)
 -- data: { title, area, description, requirements, openedAt: 'AAAA-MM-DD',
 --         status: 'open' | 'in_progress' | 'filled', hiredContactIds: [ids de contactos],
@@ -205,7 +223,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
   end loop;
@@ -239,7 +257,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks'] loop
     execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
       'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',

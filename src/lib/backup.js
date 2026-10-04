@@ -12,6 +12,7 @@ import { AREAS_KEY, getTeamAreas } from './team'
 import { getAllWeeklyAvailability, STORAGE_KEY as WEEKLY_AVAILABILITY_KEY } from './weeklyAvailability'
 import { getAllProjects, STORAGE_KEY as PROJECTS_KEY } from './projects'
 import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
+import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
 // v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
@@ -31,8 +32,8 @@ import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 // en candidacy); las copias anteriores se convierten al leer los contactos.
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; la
 // agenda y el acta de las reuniones (notes / notesByDate, agenda / agendaByDate y decisions /
-// decisionsByDate), dentro de events.
-const BACKUP_VERSION = 15
+// decisionsByDate), dentro de events. v16 añade tasks (tareas, sueltas o de una reunión).
+const BACKUP_VERSION = 16
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -43,6 +44,7 @@ const OPTIONAL_LISTS = [
   { field: 'weeklyAvailability', key: WEEKLY_AVAILABILITY_KEY, label: 'la disponibilidad semanal' },
   { field: 'projects', key: PROJECTS_KEY, label: 'los proyectos' },
   { field: 'vacancies', key: VACANCIES_KEY, label: 'las vacantes' },
+  { field: 'tasks', key: TASKS_KEY, label: 'las tareas' },
 ]
 
 export function buildBackup() {
@@ -61,6 +63,7 @@ export function buildBackup() {
     weeklyAvailability: getAllWeeklyAvailability(),
     projects: getAllProjects(),
     vacancies: getAllVacancies(),
+    tasks: getAllTasks(),
   }
 }
 

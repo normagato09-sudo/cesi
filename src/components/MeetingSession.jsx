@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Check, ChevronDown, ChevronUp, History, ListChecks, NotebookPen, Plus, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronUp, History, ListChecks, ListTodo, NotebookPen, Plus, X } from 'lucide-react'
 import { moveItem, newAgendaItem, newDecision, pastSessions, sessionOf } from '../lib/meetingSession'
 import { FLUSH_EVENT } from '../lib/appUpdates'
+import { sourceOf, taskOfDecision } from '../lib/tasks'
+import TaskItem from './TaskItem.jsx'
 import './MeetingSession.css'
 
 const SAVE_DELAY_MS = 600
@@ -17,7 +19,8 @@ function fitHeight(el) {
 }
 
 // Lista editable: añadir, editar, reordenar con subir/bajar, quitar y (en la agenda) tachar.
-function ItemList({ items, onChange, checkable = false, itemLabel, addPlaceholder, emptyText }) {
+// `renderExtra(item)`: algo más debajo de cada elemento (en las decisiones, su tarea).
+function ItemList({ items, onChange, checkable = false, itemLabel, addPlaceholder, emptyText, renderExtra }) {
   const [draft, setDraft] = useState('')
 
   const setItem = (index, changes) => onChange(items.map((it, i) => (i === index ? { ...it, ...changes } : it)))
@@ -37,68 +40,71 @@ function ItemList({ items, onChange, checkable = false, itemLabel, addPlaceholde
         <ol className="session-items">
           {items.map((item, index) => (
             <li key={item.id} className={`session-item${item.done ? ' done' : ''}`}>
-              {checkable && (
-                <label className="session-check" title={item.done ? 'Marcar como pendiente' : 'Tachar'}>
-                  <input
-                    type="checkbox"
-                    checked={!!item.done}
-                    onChange={(e) => setItem(index, { done: e.target.checked })}
-                    aria-label={`Tachar: ${item.text}`}
-                  />
-                  <span className="session-check-box" aria-hidden="true">
-                    {item.done && <Check size={14} strokeWidth={2.5} />}
-                  </span>
-                </label>
-              )}
-              <textarea
-                ref={fitHeight}
-                className="session-item-text"
-                rows={1}
-                value={item.text}
-                onChange={(e) => {
-                  fitHeight(e.target)
-                  setItem(index, { text: e.target.value.replace(/\n/g, ' ') })
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    e.currentTarget.blur()
-                  }
-                }}
-                onBlur={() => {
-                  if (!item.text.trim()) remove(index)
-                }}
-                aria-label={`${itemLabel} ${index + 1}`}
-              />
-              <div className="session-item-actions">
-                <button
-                  type="button"
-                  onClick={() => onChange(moveItem(items, index, -1))}
-                  disabled={index === 0}
-                  aria-label={`Subir: ${item.text}`}
-                  title="Subir"
-                >
-                  <ChevronUp size={18} strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChange(moveItem(items, index, 1))}
-                  disabled={index === items.length - 1}
-                  aria-label={`Bajar: ${item.text}`}
-                  title="Bajar"
-                >
-                  <ChevronDown size={18} strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() => remove(index)}
-                  aria-label={`Quitar: ${item.text}`}
-                  title="Quitar"
-                >
-                  <X size={17} strokeWidth={2} />
-                </button>
+              <div className="session-item-row">
+                {checkable && (
+                  <label className="session-check" title={item.done ? 'Marcar como pendiente' : 'Tachar'}>
+                    <input
+                      type="checkbox"
+                      checked={!!item.done}
+                      onChange={(e) => setItem(index, { done: e.target.checked })}
+                      aria-label={`Tachar: ${item.text}`}
+                    />
+                    <span className="session-check-box" aria-hidden="true">
+                      {item.done && <Check size={14} strokeWidth={2.5} />}
+                    </span>
+                  </label>
+                )}
+                <textarea
+                  ref={fitHeight}
+                  className="session-item-text"
+                  rows={1}
+                  value={item.text}
+                  onChange={(e) => {
+                    fitHeight(e.target)
+                    setItem(index, { text: e.target.value.replace(/\n/g, ' ') })
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!item.text.trim()) remove(index)
+                  }}
+                  aria-label={`${itemLabel} ${index + 1}`}
+                />
+                <div className="session-item-actions">
+                  <button
+                    type="button"
+                    onClick={() => onChange(moveItem(items, index, -1))}
+                    disabled={index === 0}
+                    aria-label={`Subir: ${item.text}`}
+                    title="Subir"
+                  >
+                    <ChevronUp size={18} strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange(moveItem(items, index, 1))}
+                    disabled={index === items.length - 1}
+                    aria-label={`Bajar: ${item.text}`}
+                    title="Bajar"
+                  >
+                    <ChevronDown size={18} strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => remove(index)}
+                    aria-label={`Quitar: ${item.text}`}
+                    title="Quitar"
+                  >
+                    <X size={17} strokeWidth={2} />
+                  </button>
+                </div>
               </div>
+              {renderExtra && item.text.trim() && renderExtra(item)}
             </li>
           ))}
         </ol>
@@ -182,9 +188,22 @@ function SessionHistory({ event }) {
   )
 }
 
-// Agenda y acta (notas y decisiones) de una reunión o de una sesión de una reunión que se repite,
-// con guardado automático. onSave recibe solo lo que ha cambiado ({ notes, agenda, decisions }).
-export default function MeetingSession({ event, now, focusNotes = false, onSave }) {
+// Agenda y acta (notas, decisiones y tareas) de una reunión o de una sesión de una reunión que se
+// repite, con guardado automático. onSave recibe solo lo que ha cambiado ({ notes, agenda, decisions }).
+// Las tareas se guardan aparte (sección Tareas): `tasks` son todas; aquí se ven las de esta sesión.
+export default function MeetingSession({
+  event,
+  now,
+  focusNotes = false,
+  onSave,
+  tasks = [],
+  sessionTasks = [],
+  contacts = [],
+  today,
+  onNewTask,
+  onOpenTask,
+  onToggleTask,
+}) {
   const [session, setSession] = useState(() => sessionOf(event))
   const finished = new Date(event.end) <= now
   const [tab, setTab] = useState(focusNotes || finished ? 'minutes' : 'agenda')
@@ -316,7 +335,46 @@ export default function MeetingSession({ event, now, focusNotes = false, onSave 
               itemLabel="Decisión"
               addPlaceholder="Añadir una decisión…"
               emptyText="Sin decisiones apuntadas."
+              renderExtra={(item) => {
+                const task = taskOfDecision(tasks, item.id)
+                return task ? (
+                  <button type="button" className="decision-task" onClick={() => onOpenTask(task)}>
+                    <ArrowRight size={13} strokeWidth={2} />
+                    tarea: {task.title}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="decision-task"
+                    onClick={() => onNewTask({ title: item.text, source: sourceOf(event), decisionId: item.id })}
+                  >
+                    <ListTodo size={13} strokeWidth={2} />
+                    Convertir en tarea
+                  </button>
+                )
+              }}
             />
+            <span className="session-subtitle">Tareas</span>
+            {sessionTasks.length === 0 && <p className="session-empty">Sin tareas de esta reunión.</p>}
+            {sessionTasks.length > 0 && (
+              <ul className="task-list">
+                {sessionTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    contacts={contacts}
+                    today={today}
+                    onToggle={onToggleTask}
+                    onOpen={onOpenTask}
+                    showSource={false}
+                  />
+                ))}
+              </ul>
+            )}
+            <button type="button" className="session-tasks-add" onClick={() => onNewTask({ source: sourceOf(event) })}>
+              <Plus size={16} strokeWidth={2} />
+              Nueva tarea
+            </button>
           </>
         )}
       </div>

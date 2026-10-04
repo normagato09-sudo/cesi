@@ -30,7 +30,7 @@ import { useStoredValue } from './hooks/useStoredValue.js'
 import { getPreferences, savePreferences, STORAGE_KEY as PREFERENCES_KEY } from './lib/preferences.js'
 import { SchedulingContext } from './lib/schedulingContext.js'
 import { MeetingWarningError } from './lib/meetingWarnings.js'
-import { exceptionOf, expandEvent } from './lib/recurrence.js'
+import { dateKey, exceptionOf, expandEvent } from './lib/recurrence.js'
 import {
   SCOPES,
   cancelOccurrencePatch,
@@ -39,6 +39,7 @@ import {
   findOccurrence,
   occurrenceKeyOf,
   restoreOccurrencePatch,
+  seriesDayDelta,
   splitSeries,
   truncateSeriesPatch,
 } from './lib/seriesEdits.js'
@@ -72,6 +73,14 @@ import {
   vacanciesStore,
   withStatus,
 } from './lib/vacancies.js'
+import {
+  STORAGE_KEY as TASKS_KEY,
+  getAllTasks,
+  sourceOccurrence,
+  taskData,
+  taskSourcePatches,
+  tasksStore,
+} from './lib/tasks.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -93,6 +102,8 @@ const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
 const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
 const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
+const TasksView = lazy(() => import('./components/TasksView.jsx'))
+const TaskFormModal = lazy(() => import('./components/TaskFormModal.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
 const SettingsModal = lazy(() => import('./components/SettingsModal.jsx'))
@@ -173,6 +184,8 @@ export default function App() {
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Tarea abierta: null = cerrada; { task } para editarla o { initial } para crear una nueva.
+  const [taskModal, setTaskModal] = useState(null)
   // Aviso al mover o redimensionar: { violations, resolve } (resolve: 'save' | 'find' | null).
   const [moveWarning, setMoveWarning] = useState(null)
   const [now, setNow] = useState(() => new Date())
@@ -234,6 +247,7 @@ export default function App() {
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [projects, reloadProjects] = useStoredValue(PROJECTS_KEY, getAllProjects)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
+  const [tasks, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
 
   // Vuelve a leer todos los datos guardados (tras importar una copia o una migración).
   const reloadAllData = () => {
@@ -246,6 +260,7 @@ export default function App() {
     reloadWeeklyAvailability()
     reloadProjects()
     reloadVacancies()
+    reloadTasks()
   }
 
   // Departamentos (antes "áreas"): la lista guardada, la nueva lista si aún era la de ejemplo, y
@@ -385,6 +400,15 @@ export default function App() {
   // Qué se ignora al comprobar solapes: solo ese día o toda la serie.
   const excludeFor = (event, scope) => (scope === SCOPES.THIS ? { excludeId: event.id } : { excludeSeriesId: event.seriesId })
 
+  // Las tareas de una reunión siguen a su sesión si la reunión cambia de día, se parte o deja de
+  // (o empieza a) repetirse.
+  const moveTasks = (change) => {
+    const patches = taskSourcePatches(getAllTasks(), change)
+    if (patches.length === 0) return
+    for (const { id, patch } of patches) tasksStore.update(id, patch)
+    reloadTasks()
+  }
+
   // Guarda `changes` ({ start, end, title, ... }) en la reunión de `occurrence` con ese alcance.
   const applyOccurrenceChange = (occurrence, changes, scope) => {
     const series = seriesOf(occurrence)
@@ -397,6 +421,7 @@ export default function App() {
       const sessions = changes.recurrence ? toSeriesSessionPatch(series, start) : {}
       const updated = editEvent(series.id, { ...changes, ...sessions, start, end: iso(changes.end ?? series.end) })
       meetingInvites.moveInvites({ series, updated, occurrence, scope })
+      if (changes.recurrence) moveTasks({ kind: 'toSeries', eventId: series.id, key: dateKey(start) })
       return
     }
     if (scope === SCOPES.THIS) {
@@ -409,11 +434,21 @@ export default function App() {
         const updated = editEvent(series.id, split.seriesPatch)
         const newEvent = addEvent(split.newEvent)
         meetingInvites.moveInvites({ series, updated, occurrence, scope, newEvent })
+        moveTasks({
+          kind: 'split',
+          eventId: series.id,
+          key: occurrenceKeyOf(occurrence),
+          newEventId: newEvent.id,
+          dayDelta: seriesDayDelta(series, occurrence, changes),
+          newIsSeries: !!split.newEvent.recurrence,
+        })
         return
       }
     }
     const updated = editEvent(series.id, editSeriesPatch(series, occurrence, changes))
     meetingInvites.moveInvites({ series, updated, occurrence, scope })
+    if ('recurrence' in changes && !changes.recurrence) moveTasks({ kind: 'toSingle', eventId: series.id })
+    else moveTasks({ kind: 'shift', eventId: series.id, dayDelta: seriesDayDelta(series, occurrence, changes) })
   }
 
   // "Volver a como era en la serie": quita los cambios de ese día y muestra el día como la serie.
@@ -483,6 +518,43 @@ export default function App() {
     const series = getAllEvents().find((ev) => ev.id === occurrence.seriesId)
     if (!series) return
     editEvent(series.id, sessionPatch(series, occurrence, changes))
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tareas
+  // ---------------------------------------------------------------------------
+
+  const today = dateKey(now)
+
+  // `initial`: datos de la tarea nueva ({ title, source, decisionId } si sale del acta).
+  const handleNewTask = (initial = {}) => setTaskModal({ initial })
+  const handleOpenTask = (task) => setTaskModal({ task })
+
+  const handleSaveTask = (data) => {
+    const editing = taskModal?.task
+    if (editing) tasksStore.update(editing.id, taskData(data, editing))
+    else tasksStore.create(taskData(data))
+    reloadTasks()
+  }
+
+  const handleDeleteTask = (id) => {
+    tasksStore.remove(id)
+    reloadTasks()
+  }
+
+  const handleToggleTask = (task) => {
+    tasksStore.update(task.id, taskData({ ...task, status: task.status === 'done' ? 'pending' : 'done' }, task))
+    reloadTasks()
+  }
+
+  // Abre la reunión (o la sesión) de la que sale la tarea.
+  const handleOpenTaskSource = (task) => {
+    const occurrence = sourceOccurrence(task, rawEvents)
+    if (!occurrence) return
+    setTaskModal(null)
+    setSection('calendar')
+    setCurrentDate(new Date(occurrence.start))
+    openEvent(occurrence)
   }
 
   const summary = useMemo(
@@ -939,6 +1011,23 @@ export default function App() {
           </div>
         )}
 
+        {section === 'tasks' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <TasksView
+                tasks={tasks}
+                contacts={contacts}
+                rawEvents={rawEvents}
+                today={today}
+                onNewTask={handleNewTask}
+                onOpenTask={handleOpenTask}
+                onToggleTask={handleToggleTask}
+                onOpenSource={handleOpenTaskSource}
+              />
+            </Suspense>
+          </div>
+        )}
+
         {section === 'report' && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
@@ -1020,6 +1109,11 @@ export default function App() {
           now={now}
           focusNotes={notesFocus}
           onSaveSession={handleSaveSession}
+          tasks={tasks}
+          onNewTask={handleNewTask}
+          onOpenTask={handleOpenTask}
+          onToggleTask={handleToggleTask}
+          onOpenTaskSource={handleOpenTaskSource}
           openInvites={!!selectedEvent && invitesFor === selectedEvent.id}
           onClose={() => {
             setSelectedEvent(null)
@@ -1034,6 +1128,20 @@ export default function App() {
           onConfirmOption={handleConfirmOption}
           onCancelProposal={handleCancelProposal}
         />
+
+        {taskModal && (
+          <Suspense fallback={null}>
+            <TaskFormModal
+              key={taskModal.task?.id || 'new'}
+              task={taskModal.task || null}
+              initial={taskModal.initial}
+              contacts={contacts}
+              onSave={handleSaveTask}
+              onDelete={handleDeleteTask}
+              onClose={() => setTaskModal(null)}
+            />
+          </Suspense>
+        )}
 
         {formModal && (
           <EventFormModal

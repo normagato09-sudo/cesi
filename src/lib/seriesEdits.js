@@ -128,6 +128,11 @@ function movedTimes(series, occurrence, changes) {
   return { start: newStart, end: newEnd, dayDelta: differenceInCalendarDays(newStart, original.start), changed: true }
 }
 
+// Días que se mueve la serie si `changes` cambia de día la ocurrencia (0 si no).
+export function seriesDayDelta(series, occurrence, changes) {
+  return movedTimes(series, occurrence, changes).dayDelta
+}
+
 /**
  * "Toda la serie": aplica `changes` a la serie. Un cambio de hora (o de día) hecho en una
  * ocurrencia se traslada a toda la serie desde su primer día; las notas y las excepciones se

@@ -19,15 +19,18 @@ import {
   Bell,
   BellOff,
   Send,
+  ListTodo,
 } from 'lucide-react'
 import { ParticipantList } from './Participant.jsx'
 import ContactCountryStep from './ContactCountryStep.jsx'
 import MeetingSession from './MeetingSession.jsx'
+import TaskItem from './TaskItem.jsx'
+import { pendingForMeeting, sourceOccurrence, tasksOfSession } from '../lib/tasks'
 import MeetingInvitesModal from './MeetingInvitesModal.jsx'
 import { InviteBadge, InviteSummary } from './InviteStatus.jsx'
 import { useInvites } from '../lib/invitesContext'
 import { canAskConfirmation, invitesOf, occurrenceSummary, participantKeyOf } from '../lib/meetingInvites'
-import { RECURRENCE_LABELS } from '../lib/recurrence'
+import { RECURRENCE_LABELS, dateKey } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
 import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
@@ -58,6 +61,12 @@ export default function EventModal({
   // Abrir directamente "Pedir confirmación" (desde el aviso de cambio de hora).
   openInvites = false,
   onSaveSession,
+  // Tareas (todas) y qué hacer con ellas: crear, abrir, marcar hecha e ir a su reunión.
+  tasks = [],
+  onNewTask,
+  onOpenTask,
+  onToggleTask,
+  onOpenTaskSource,
   onClose,
   onEdit,
   onDelete,
@@ -77,6 +86,9 @@ export default function EventModal({
   const { enabled: invitesEnabled, invites } = useInvites()
 
   if (!event) return null
+
+  const today = dateKey(now)
+  const pendingTasks = pendingForMeeting(tasks, event, rawEvents)
 
   // Se resuelven en vivo: si se renombra un contacto, aquí aparece ya con el nombre nuevo.
   const { contacts: people, guests } = participantsOf(event, contacts)
@@ -253,8 +265,44 @@ export default function EventModal({
             </div>
           )}
 
+          {!event.isUnavailable && pendingTasks.length > 0 && (
+            <section className="meeting-pending-tasks" aria-labelledby="meeting-pending-tasks-title">
+              <h3 id="meeting-pending-tasks-title">
+                <ListTodo size={15} strokeWidth={1.75} />
+                Tareas pendientes ({pendingTasks.length})
+              </h3>
+              <p>De los participantes y las tuyas de reuniones anteriores con ellos.</p>
+              <ul className="task-list">
+                {pendingTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    contacts={contacts}
+                    today={today}
+                    onToggle={onToggleTask}
+                    onOpen={onOpenTask}
+                    onOpenSource={onOpenTaskSource}
+                    sourceExists={!task.source || !!sourceOccurrence(task, rawEvents)}
+                  />
+                ))}
+              </ul>
+            </section>
+          )}
+
           {!event.isUnavailable && (
-            <MeetingSession event={event} now={now} focusNotes={focusNotes} onSave={(changes) => onSaveSession(event, changes)} />
+            <MeetingSession
+              event={event}
+              now={now}
+              focusNotes={focusNotes}
+              onSave={(changes) => onSaveSession(event, changes)}
+              tasks={tasks}
+              sessionTasks={tasksOfSession(tasks, event)}
+              contacts={contacts}
+              today={today}
+              onNewTask={onNewTask}
+              onOpenTask={onOpenTask}
+              onToggleTask={onToggleTask}
+            />
           )}
         </div>
 

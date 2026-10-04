@@ -11,6 +11,7 @@ import { STORAGE_KEY as MIGRATIONS_KEY } from '../migrations'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY } from '../weeklyAvailability'
 import { STORAGE_KEY as PROJECTS_KEY } from '../projects'
 import { STORAGE_KEY as VACANCIES_KEY } from '../vacancies'
+import { STORAGE_KEY as TASKS_KEY } from '../tasks'
 
 // Qué se sincroniza y dónde vive en cada lado.
 // - Listas (kind 'list'): una fila por documento { id, ... } de la lista guardada en `key`.
@@ -24,6 +25,7 @@ export const LIST_COLLECTIONS = [
   { table: 'weekly_availability', key: WEEKLY_AVAILABILITY_KEY },
   { table: 'projects', key: PROJECTS_KEY },
   { table: 'vacancies', key: VACANCIES_KEY },
+  { table: 'tasks', key: TASKS_KEY },
 ]
 
 export const SETTINGS_TABLE = 'settings'

@@ -15,6 +15,7 @@ CESI es un calendario propio para organizar reuniones y disponibilidad. Funciona
 - **Etiquetas** en las reuniones.
 - **Filtro del calendario** por categoría y por etiqueta, con un aviso bien visible mientras está activo.
 - **Notas de cada reunión**, con guardado automático. En las reuniones que se repiten, cada día tiene sus propias notas. El bloque "Sin notas" de la barra lateral recuerda las reuniones de los últimos 7 días que aún no tienen notas.
+- **Tareas** (sección Tareas): cada tarea tiene qué hay que hacer, responsable (tú o un contacto), fecha límite opcional y estado (pendiente o hecha). Se crean sueltas o desde el acta de una reunión («Nueva tarea» o «Convertir en tarea» en una decisión), y entonces quedan enlazadas a esa reunión (en las que se repiten, a esa sesión) y siguen a su sesión si la reunión se mueve de día o se parte. La lista se filtra por persona, estado y fecha (vencidas, para hoy, próximos 7 días, sin fecha); las vencidas se marcan en rojo. Al abrir una reunión se ven las tareas pendientes de sus participantes y las tuyas de reuniones anteriores con ellos.
 - **Resumen** con la próxima reunión y las horas ocupadas y libres de hoy.
 - **Resumen semanal** (sección Resumen): número de reuniones, horas en reuniones y horas libres dentro del horario comparadas con la semana anterior, horas por día, reparto por categoría, etiqueta y grupo, contactos con los que más te has reunido y la lista de reuniones con el principio de sus notas. Se puede imprimir o guardar en PDF.
 - **Contactos**: ficha con email, teléfono, organización, cargo, notas, país y zona horaria, disponibilidad habitual, grupos y la lista de próximas reuniones y reuniones anteriores con cada contacto (con el principio de sus notas).
@@ -85,6 +86,7 @@ Todo se guarda en el `localStorage` del navegador. Sin Supabase configurado, los
 | `cesi_weekly_availability_v1` | Disponibilidad declarada de cada semana.    |
 | `cesi_projects_v1`       | Proyectos de las reuniones.                      |
 | `cesi_vacancies_v1`      | Vacantes (los candidatos van en los contactos).  |
+| `cesi_tasks_v1`          | Tareas (sueltas o de una reunión).               |
 | `cesi_sync_queue_v1`     | Cambios pendientes de enviar a Supabase (solo con sincronización). |
 | `cesi_sync_state_v1`     | Estado de la sincronización de este dispositivo (solo con sincronización). |
 | `cesi_auth_v1`           | Sesión de Supabase (solo con sincronización).    |

@@ -8,6 +8,7 @@ import { getPreferences, savePreferences } from '../preferences'
 import { declareWeek, getAllWeeklyAvailability, saveWeeklyAvailability } from '../weeklyAvailability'
 import { getAllProjects, projectsStore } from '../projects'
 import { getAllVacancies, newVacancy, vacanciesStore } from '../vacancies'
+import { getAllTasks, taskData, tasksStore } from '../tasks'
 import { emptyWeek } from '../weeklySchedule'
 
 const USER = 'user-1'
@@ -201,6 +202,7 @@ describe('sincronización entre dispositivos', () => {
     phone.setOnline(false)
     server.setOnline(false)
     const vacancy = await phone.save(() => vacanciesStore.create(newVacancy({ title: 'Locutor/a' })))
+    const task = await phone.save(() => tasksStore.create(taskData({ title: 'Enviar el guion', dueDate: '2026-10-10' })))
     await phone.save(() => projectsStore.update(project.id, { status: 'archived' }))
     expect(phone.status().status).toBe('offline')
     phone.setOnline(true)
@@ -208,6 +210,8 @@ describe('sincronización entre dispositivos', () => {
     await phone.sync()
     expect(server.row('vacancies', vacancy.id).data.title).toBe('Locutor/a')
     expect(pc.run(() => getAllVacancies()).map((v) => v.title)).toEqual(['Locutor/a'])
+    expect(server.row('tasks', task.id).data).toMatchObject({ title: 'Enviar el guion', dueDate: '2026-10-10', status: 'pending' })
+    expect(pc.run(() => getAllTasks()).map((t) => t.title)).toEqual(['Enviar el guion'])
     expect(pc.run(() => getAllProjects())[0].status).toBe('archived')
   })
 

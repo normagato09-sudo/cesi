@@ -7,6 +7,7 @@ import { createContact, getAllContacts } from './contacts'
 import { getAllGroups, groupsStore } from './groups'
 import { DEFAULT_AREAS, getTeamAreas, saveTeamAreas } from './team'
 import { createEvent, getAllEvents } from './localEvents'
+import { getAllTasks, taskData, tasksStore } from './tasks'
 
 beforeEach(() => localStorage.clear())
 
@@ -86,7 +87,7 @@ describe('copia de seguridad', () => {
     proposalsStore.create({ title: 'Demo', durationMinutes: 60, participantIds: [], guests: [] })
     createContact({ name: 'Luis', timeZone: 'America/Mexico_City', country: 'MX', availability: [] })
     const backup = buildBackup()
-    expect(backup.version).toBe(15)
+    expect(backup.version).toBe(16)
     localStorage.clear()
     restoreBackup(parseBackup(JSON.stringify(backup)))
     expect(getAllProposals()[0].title).toBe('Demo')
@@ -103,6 +104,17 @@ describe('copia de seguridad', () => {
     expect(getAllGroups()[0].name).toBe('Profesores')
     expect(getAllContacts()[0].groupIds).toEqual([group.id])
     expect(getAllEvents()[0].notes).toBe('Tema 3')
+  })
+
+  it('incluye las tareas; en copias anteriores quedan vacías', () => {
+    const source = { eventId: 'ev1', sessionKey: '2026-09-08', title: 'Seguimiento', start: '2026-09-08T08:00:00.000Z' }
+    tasksStore.create(taskData({ title: 'Enviar el guion', assignee: 'ana', dueDate: '2026-10-10', source, decisionId: 'dec1' }))
+    const backup = buildBackup()
+    localStorage.clear()
+    restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(getAllTasks()[0]).toMatchObject({ title: 'Enviar el guion', assignee: 'ana', dueDate: '2026-10-10', source, decisionId: 'dec1' })
+    restoreBackup(parseBackup(JSON.stringify({ app: 'cesi', version: 15, events: [], contacts: [] })))
+    expect(getAllTasks()).toEqual([])
   })
 
   it('acepta copias v4 sin grupos (quedan vacíos)', () => {
