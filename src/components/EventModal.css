@@ -349,22 +349,6 @@
   }
 }
 
-.event-modal-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.event-modal-tag {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--surface-hover);
-  border: 1px solid var(--border);
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
 
 .event-modal-attendee-zone {
   display: inline-flex;
@@ -450,7 +434,7 @@
   align-self: flex-start;
 }
 
-/* Confirmación de asistencia: resumen encima de los participantes y botón "Pedir confirmación". */
+/* Participantes y botón "Mensaje de convocatoria". */
 .event-modal-participants-block {
   flex: 1;
   min-width: 0;
@@ -458,7 +442,7 @@
   flex-direction: column;
   gap: 8px;
 }
-.event-modal-invites-btn {
+.event-modal-convocation-btn {
   width: 100%;
   justify-content: center;
   margin-bottom: 10px;

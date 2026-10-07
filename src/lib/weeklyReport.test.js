@@ -28,8 +28,6 @@ function meeting(day, from, to, extra = {}) {
   return {
     id: `m${n}`,
     title: `Reunión ${n}`,
-    category: 'Reunión',
-    tags: [],
     participantIds: [],
     guests: [],
     recurrence: null,
@@ -40,11 +38,11 @@ function meeting(day, from, to, extra = {}) {
 }
 
 const events = [
-  meeting(21, [9], [10], { category: 'Cliente', tags: ['Entrevista'], participantIds: ['ana', 'luis'] }),
+  meeting(21, [9], [10], { participantIds: ['ana', 'luis'] }),
   meeting(21, [9, 30], [10, 30], { participantIds: ['luis'] }), // se solapa 30 min con la anterior
-  meeting(23, [10], [12], { tags: ['entrevista', 'Proyecto X'], participantIds: ['eva', 'luis'] }),
+  meeting(23, [10], [12], { participantIds: ['eva', 'luis'] }),
   meeting(25, [16], [17]), // fuera del horario
-  meeting(22, [9], [11], { isUnavailable: true, category: 'No disponible' }),
+  meeting(22, [9], [11], { isUnavailable: true }),
   meeting(24, [9], [10], { provisional: true, proposalId: 'p1' }),
   // Semana anterior: 1 reunión de 1 h
   meeting(15, [9], [10]),
@@ -80,17 +78,6 @@ describe('resumen semanal', () => {
     expect(formatMsDelta(report.delta.meetingMs)).toBe('+3 h 30 min')
     expect(formatMsDelta(report.delta.freeMs)).toBe('−4 h 30 min')
     expect(formatCountDelta(0)).toBe('=')
-  })
-
-  it('reparte por categoría y por etiqueta (sin distinguir mayúsculas)', () => {
-    expect(report.byCategory.map((r) => [r.label, r.count, r.ms / H])).toEqual([
-      ['Reunión', 3, 4],
-      ['Cliente', 1, 1],
-    ])
-    expect(report.byTag.map((r) => [r.label, r.count, r.ms / H])).toEqual([
-      ['Entrevista', 2, 3],
-      ['Proyecto X', 1, 2],
-    ])
   })
 
   it('reparte por grupo de contactos y ordena los contactos con más reuniones', () => {

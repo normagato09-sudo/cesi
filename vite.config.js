@@ -3,7 +3,8 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // Páginas públicas, aparte de la app: /ficha/<token> (un contacto rellena sus datos, ficha.html)
-// y /confirmar/<token> (confirmar la asistencia a una reunión, confirmar.html). En Vercel las
+// y /confirmar/<token> (confirmar.html: solo un aviso "Este enlace ya no está activo", porque la
+// confirmación de asistencia se quitó y aún puede haber enlaces enviados). En Vercel las
 // rutas las sirve vercel.json; aquí, lo mismo para `npm run dev` y `npm run preview`.
 const PUBLIC_PAGES = [
   { route: /^\/ficha\/[^/?#]+\/?(\?.*)?$/, file: 'ficha.html' },

@@ -91,15 +91,17 @@ describe('tareas que vencen', () => {
 describe('entrevistas y vacantes', () => {
   it('entrevistas de los próximos 14 días que aún no han terminado', () => {
     const rawEvents = [
-      meeting('Por categoría', 6, 10, { category: 'Entrevista' }),
-      meeting('Por etiqueta', 5, 10, { tags: ['entrevista'] }),
-      meeting('En curso', 4, 9, { category: 'Entrevista' }),
-      meeting('Ya pasó', 3, 10, { category: 'Entrevista' }),
-      meeting('Muy lejos', 30, 10, { category: 'Entrevista' }),
+      meeting('Marcada', 6, 10, { interview: true }),
+      meeting('Antigua por categoría', 6, 12, { category: 'Entrevista' }),
+      meeting('Antigua por etiqueta', 5, 10, { tags: ['entrevista'] }),
+      meeting('Desmarcada', 5, 9, { category: 'Entrevista', interview: false }),
+      meeting('En curso', 4, 9, { interview: true }),
+      meeting('Ya pasó', 3, 10, { interview: true }),
+      meeting('Muy lejos', 30, 10, { interview: true }),
       meeting('Otra reunión', 5, 11),
-      meeting('Provisional', 5, 12, { category: 'Entrevista', provisional: true }),
+      meeting('Provisional', 5, 12, { interview: true, provisional: true }),
     ]
-    expect(upcomingInterviews(rawEvents, now).map((e) => e.title)).toEqual(['En curso', 'Por etiqueta', 'Por categoría'])
+    expect(upcomingInterviews(rawEvents, now).map((e) => e.title)).toEqual(['En curso', 'Antigua por etiqueta', 'Marcada', 'Antigua por categoría'])
   })
 
   it('vacantes sin cubrir con sus candidatos nuevos y en entrevista', () => {

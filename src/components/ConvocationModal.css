@@ -1,0 +1,21 @@
+/* Mensaje de convocatoria ("Yo no asisto") */
+.convocation-modal {
+  max-width: 560px;
+}
+
+.convocation-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.convocation-reset:hover {
+  text-decoration: underline;
+}

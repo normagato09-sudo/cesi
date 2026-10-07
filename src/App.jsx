@@ -13,10 +13,6 @@ import EventFormModal from './components/EventFormModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
-import InviteNotice from './components/InviteNotice.jsx'
-import { useMeetingInvites } from './hooks/useMeetingInvites.js'
-import { InvitesContext } from './lib/invitesContext.js'
-import { occurrenceForInvite } from './lib/meetingInvites.js'
 import { meetingsWithUnavailable, unavailableWarning } from './lib/unavailableParticipants.js'
 import {
   STORAGE_KEY as PROPOSALS_KEY,
@@ -53,10 +49,7 @@ import { addDepartment, moveDepartment, removeDepartment, renameDepartment, reso
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
-import { EMPTY_FILTER, filterEvents } from './lib/calendarFilter.js'
-import { STORAGE_KEY as PROJECTS_KEY, getAllProjects, projectsStore, unlinkProject } from './lib/projects.js'
 import {
-  INTERVIEW_TYPE,
   STORAGE_KEY as VACANCIES_KEY,
   candidacyPatch,
   candidatesOf,
@@ -107,7 +100,6 @@ const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
 const WeeklyAvailabilityModal = lazy(() => import('./components/WeeklyAvailabilityModal.jsx'))
 const DepartmentsModal = lazy(() => import('./components/DepartmentsModal.jsx'))
-const ProjectsModal = lazy(() => import('./components/ProjectsModal.jsx'))
 
 // Mientras llega el código de una sección: un aviso discreto que solo se ve si tarda.
 function SectionLoading() {
@@ -129,15 +121,6 @@ function formatCompactRange(start, end) {
   return `${format(start, 'd')}–${format(end, 'd MMM yyyy', { locale: es })}`
 }
 
-// Datos compartidos con toda la app: los de las reuniones y los de la confirmación de asistencia.
-function AppProviders({ scheduling, invites, children }) {
-  return (
-    <SchedulingContext.Provider value={scheduling}>
-      <InvitesContext.Provider value={invites}>{children}</InvitesContext.Provider>
-    </SchedulingContext.Provider>
-  )
-}
-
 function getHeaderLabel(currentDate, view, compactWeek) {
   if (view === 'week' && compactWeek) return formatCompactRange(currentDate, addDays(currentDate, COMPACT_WEEK_DAYS - 1))
   if (view === 'day') return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
@@ -157,19 +140,16 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null)
   // true si la reunión se abrió para escribir las notas (desde "Sin notas").
   const [notesFocus, setNotesFocus] = useState(false)
-  // Id de la reunión abierta con "Pedir confirmación" ya abierto (desde el aviso de cambio de hora).
-  const [invitesFor, setInvitesFor] = useState(null)
   // Reunión (id de la ocurrencia) que se abre con el mensaje de convocatoria ("Yo no asisto").
   const [convocationFor, setConvocationFor] = useState(null)
   const [formModal, setFormModal] = useState(null)
-  // null = cerrado; { participants, meetingType } = abierto, con los participantes y el tipo de
-  // reunión iniciales si los hay.
+  // null = cerrado; { participants, interview, ... } = abierto, con los participantes iniciales
+  // si los hay (interview: true desde "Buscar hueco para entrevista").
   const [findSlot, setFindSlot] = useState(null)
   const [backupOpen, setBackupOpen] = useState(false)
   const [proposalModalId, setProposalModalId] = useState(null)
   // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
   const [weekModalKey, setWeekModalKey] = useState(null)
-  const [projectsOpen, setProjectsOpen] = useState(false)
   const [departmentsOpen, setDepartmentsOpen] = useState(false)
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
@@ -215,7 +195,6 @@ export default function App() {
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
   const [storedAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getStoredTeamAreas)
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
-  const [projects, reloadProjects] = useStoredValue(PROJECTS_KEY, getAllProjects)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
   const [tasks, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
 
@@ -227,7 +206,6 @@ export default function App() {
     reloadGroups()
     reloadTeamAreas()
     reloadWeeklyAvailability()
-    reloadProjects()
     reloadVacancies()
     reloadTasks()
   }
@@ -241,12 +219,9 @@ export default function App() {
   const syncStatus = useSyncStatus()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
 
-  // Confirmación de asistencia: enlaces por participante y sus respuestas (con la sincronización).
-  const meetingInvites = useMeetingInvites({ sync, synced: syncStatus.status === 'synced', rawEvents, contacts })
-
   useEffect(() => {
     if (!canSaveDepartments) return
-    // Migraciones únicas de datos (departamentos, categorías → proyectos).
+    // Migraciones únicas de datos (departamentos).
     if (runPendingMigrations().length > 0) {
       reloadAllData()
       return
@@ -258,8 +233,6 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadAllData cambia en cada render
   }, [canSaveDepartments, storedAreas, contacts, vacancies, reloadTeamAreas])
-  const [calendarFilter, setCalendarFilter] = useState(EMPTY_FILTER)
-  const visibleEvents = useMemo(() => filterEvents(events, calendarFilter), [events, calendarFilter])
 
   const scheduling = useMemo(
     () => ({
@@ -270,10 +243,8 @@ export default function App() {
       addContact,
       proposals,
       groups,
-      projects,
-      onManageProjects: () => setProjectsOpen(true),
     }),
-    [rawEvents, workingHours, weeklyAvailability, contacts, addContact, proposals, groups, projects],
+    [rawEvents, workingHours, weeklyAvailability, contacts, addContact, proposals, groups],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -297,9 +268,7 @@ export default function App() {
     const options = slots.map((slot) =>
       addEvent({
         title: data.title,
-        category: data.category,
-        tags: data.tags,
-        projectId: data.projectId || null,
+        ...(data.interview ? { interview: true } : {}),
         ...participantFields(people, data.guests),
         description: '',
         meetLink: '',
@@ -378,13 +347,11 @@ export default function App() {
     const series = seriesOf(occurrence)
     if (!series) return
     const iso = (d) => (d instanceof Date ? d.toISOString() : d)
-    // Los enlaces de confirmación siguen a su reunión y su día (luego cambian de hora con ella).
     if (!series.recurrence) {
       const start = iso(changes.start ?? series.start)
       // Si pasa a repetirse, su agenda y su acta pasan a ser las de su primer día.
       const sessions = changes.recurrence ? toSeriesSessionPatch(series, start) : {}
-      const updated = editEvent(series.id, { ...changes, ...sessions, start, end: iso(changes.end ?? series.end) })
-      meetingInvites.moveInvites({ series, updated, occurrence, scope })
+      editEvent(series.id, { ...changes, ...sessions, start, end: iso(changes.end ?? series.end) })
       if (changes.recurrence) moveTasks({ kind: 'toSeries', eventId: series.id, key: dateKey(start) })
       return
     }
@@ -395,9 +362,8 @@ export default function App() {
     if (scope === SCOPES.FOLLOWING) {
       const split = splitSeries(series, occurrence, changes)
       if (split) {
-        const updated = editEvent(series.id, split.seriesPatch)
+        editEvent(series.id, split.seriesPatch)
         const newEvent = addEvent(split.newEvent)
-        meetingInvites.moveInvites({ series, updated, occurrence, scope, newEvent })
         moveTasks({
           kind: 'split',
           eventId: series.id,
@@ -409,8 +375,7 @@ export default function App() {
         return
       }
     }
-    const updated = editEvent(series.id, editSeriesPatch(series, occurrence, changes))
-    meetingInvites.moveInvites({ series, updated, occurrence, scope })
+    editEvent(series.id, editSeriesPatch(series, occurrence, changes))
     if ('recurrence' in changes && !changes.recurrence) moveTasks({ kind: 'toSingle', eventId: series.id })
     else moveTasks({ kind: 'shift', eventId: series.id, dayDelta: seriesDayDelta(series, occurrence, changes) })
   }
@@ -436,12 +401,11 @@ export default function App() {
   // "Pendientes": reuniones de los próximos 60 días con participantes que no pueden.
   const unavailableMeetings = useMemo(() => meetingsWithUnavailable(rawEvents, contacts, now), [rawEvents, contacts, now])
 
-  // "Buscar otro hueco" para una reunión que ya existe: misma duración, participantes y tipo;
+  // "Buscar otro hueco" para una reunión que ya existe: misma duración y participantes;
   // al elegir un hueco se mueve la reunión (en una serie, preguntando a qué días).
   const findSlotToReschedule = (occurrence) =>
     setFindSlot({
       participants: { participantIds: occurrence.participantIds || [], guests: occurrence.guests || [] },
-      meetingType: { category: occurrence.category || null, tags: occurrence.tags || [] },
       durationMinutes: Math.round((new Date(occurrence.end) - new Date(occurrence.start)) / 60000),
       notAttending: !!occurrence.notAttending,
       reschedule: occurrence,
@@ -462,20 +426,7 @@ export default function App() {
   const openEvent = (event, { focusNotes = false } = {}) => {
     setSelectedEvent(event)
     setNotesFocus(focusNotes)
-    setInvitesFor(null)
     setConvocationFor(null)
-  }
-
-  // "Reenviar enlaces" en el aviso de cambio de hora: abre la reunión con "Pedir confirmación".
-  const handleOpenInviteNotice = (notice) => {
-    meetingInvites.dismissNotice(notice)
-    const occurrence = occurrenceForInvite(rawEvents.find((ev) => ev.id === notice.eventId), notice.key)
-    if (!occurrence) return
-    setSection('calendar')
-    setCurrentDate(new Date(occurrence.start))
-    setSelectedEvent(occurrence)
-    setNotesFocus(false)
-    setInvitesFor(occurrence.id)
   }
 
   // Guarda la agenda y el acta de la ocurrencia ({ notes, agenda, decisions }, solo lo que cambia):
@@ -558,27 +509,6 @@ export default function App() {
     reloadGroups()
   }
 
-  const handleCreateProject = (data) => {
-    projectsStore.create(data)
-    reloadProjects()
-  }
-
-  const handleUpdateProject = (id, patch) => {
-    projectsStore.update(id, patch)
-    reloadProjects()
-  }
-
-  // Al borrar un proyecto sus reuniones (y propuestas) se conservan, sin proyecto.
-  const handleDeleteProject = (id) => {
-    const { eventPatches, proposalIds } = unlinkProject(id, rawEvents, proposals)
-    for (const { id: eventId, patch } of eventPatches) editEvent(eventId, patch)
-    for (const proposalId of proposalIds) proposalsStore.update(proposalId, { projectId: null })
-    projectsStore.remove(id)
-    reloadProjects()
-    reloadProposals()
-    if (calendarFilter.project === id) setCalendarFilter({ ...calendarFilter, project: null })
-  }
-
   // ---------------------------------------------------------------------------
   // Vacantes y candidatos
   // ---------------------------------------------------------------------------
@@ -632,7 +562,7 @@ export default function App() {
     editContact(contact.id, candidacyPatch(contact, candidacyId, (c) => withStatus(c, status)))
 
   const handleFindInterviewSlot = (contact) =>
-    setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, meetingType: INTERVIEW_TYPE })
+    setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, interview: true })
 
   // Candidato → miembro del equipo: perfil con el nuevo rol en su trayectoria (si ya era del equipo,
   // se ha preguntado si se suma o sustituye), vacante cubierta y, si quedan otros candidatos, se
@@ -749,8 +679,6 @@ export default function App() {
     const ownParticipants = series?.recurrence && 'guests' in (exceptionOf(series, occurrenceKeyOf(event)) || {})
     if (ownParticipants) editEvent(series.id, editOccurrencePatch(series, event, fields))
     else editEvent(event.seriesId, fields)
-    // Conserva su enlace de confirmación (y su respuesta).
-    meetingInvites.moveGuestToContact(event.seriesId, guest, contact.id, ownParticipants ? occurrenceKeyOf(event) : null)
     setSelectedEvent((ev) => (ev ? { ...ev, ...fields } : ev))
   }
 
@@ -818,7 +746,7 @@ export default function App() {
     applyOccurrenceChange(event, { start: newStart, end: newEnd, acceptedUnavailable: acceptedUnavailableFor(moved) }, scope)
   }
 
-  const handleFindSlotPick = (slot, meetingType, participants, { notAttending = false } = {}) => {
+  const handleFindSlotPick = (slot, participants, { notAttending = false, interview = false } = {}) => {
     const reschedule = findSlot?.reschedule
     setFindSlot(null)
     if (reschedule) {
@@ -830,8 +758,7 @@ export default function App() {
       prefill.participantIds = participants.participantIds
       prefill.guests = participants.guests
     }
-    if (meetingType?.category) prefill.category = meetingType.category
-    if (meetingType?.tags?.length) prefill.tags = meetingType.tags
+    if (interview) prefill.interview = true
     if (notAttending) prefill.notAttending = true
     setFormModal({ mode: 'meeting', editingEvent: null, prefill })
   }
@@ -860,7 +787,6 @@ export default function App() {
       if (occurrence) {
         setSelectedEvent(occurrence)
         setNotesFocus(false)
-        setInvitesFor(null)
         setConvocationFor(occurrence.id)
       }
     }
@@ -884,7 +810,7 @@ export default function App() {
   const handleToday = () => setCurrentDate(new Date())
 
   return (
-    <AppProviders scheduling={scheduling} invites={meetingInvites}>
+    <SchedulingContext.Provider value={scheduling}>
       <div className="app">
         <Sidebar
           summary={summary}
@@ -1040,7 +966,6 @@ export default function App() {
                 weeklyAvailability={weeklyAvailability}
                 contacts={contacts}
                 groups={groups}
-                projects={projects}
                 now={now}
                 onOpenEvent={openEvent}
               />
@@ -1060,18 +985,13 @@ export default function App() {
               onNewMeeting={handleNewMeeting}
               onFindSlot={() => setFindSlot({})}
               onOpenWeekAvailability={() => setWeekModalKey(weekKeyOf(currentDate))}
-              filter={calendarFilter}
-              onFilterChange={setCalendarFilter}
-              rawEvents={rawEvents}
-              projects={projects}
-              onManageProjects={() => setProjectsOpen(true)}
             />
 
             <div className="app-calendar-body">
               {view === 'month' && (
                 <MonthView
                   currentDate={currentDate}
-                  events={visibleEvents}
+                  events={events}
                   onSelectEvent={openEvent}
                   onMoveEvent={handleMoveOrResize}
                   onSelectDay={(day) => {
@@ -1084,7 +1004,7 @@ export default function App() {
                 <WeekView
                   currentDate={currentDate}
                   compact={compactWeek}
-                  events={visibleEvents}
+                  events={events}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
@@ -1094,7 +1014,7 @@ export default function App() {
               {view === 'day' && (
                 <DayView
                   currentDate={currentDate}
-                  events={visibleEvents}
+                  events={events}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
@@ -1119,11 +1039,9 @@ export default function App() {
           onOpenTask={handleOpenTask}
           onToggleTask={handleToggleTask}
           onOpenTaskSource={handleOpenTaskSource}
-          openInvites={!!selectedEvent && invitesFor === selectedEvent.id}
           openConvocation={!!selectedEvent && convocationFor === selectedEvent.id}
           onClose={() => {
             setSelectedEvent(null)
-            setInvitesFor(null)
             setConvocationFor(null)
           }}
           onOpenContact={handleOpenContact}
@@ -1168,7 +1086,7 @@ export default function App() {
           <FindSlotModal
             initialDurationMinutes={findSlot.durationMinutes || 60}
             initialParticipants={findSlot.participants}
-            initialMeetingType={findSlot.meetingType}
+            initialInterview={!!findSlot.interview}
             initialNotAttending={!!findSlot.notAttending}
             onPick={handleFindSlotPick}
             onCreateProposal={handleCreateProposal}
@@ -1205,7 +1123,6 @@ export default function App() {
             />
           </Suspense>
         )}
-
 
         {departmentsOpen && (
           <Suspense fallback={null}>
@@ -1247,21 +1164,7 @@ export default function App() {
           />
         )}
 
-        {projectsOpen && (
-          <Suspense fallback={null}>
-            <ProjectsModal
-              projects={projects}
-              rawEvents={rawEvents}
-              onCreate={handleCreateProject}
-              onUpdate={handleUpdateProject}
-              onDelete={handleDeleteProject}
-              onClose={() => setProjectsOpen(false)}
-            />
-          </Suspense>
-        )}
-
-        <InviteNotice notices={meetingInvites.notices} onOpen={handleOpenInviteNotice} onDismiss={meetingInvites.dismissNotice} />
       </div>
-    </AppProviders>
+    </SchedulingContext.Provider>
   )
 }

@@ -152,14 +152,9 @@ describe('mensaje de convocatoria', () => {
     expect(text).toContain('Hora local: Luis, a las 08:00 en')
   })
 
-  it('incluye los enlaces de confirmación que ya existen', () => {
-    const invites = [
-      { event_id: 'm1', occurrence_key: '', participant_key: 'contact:ana', token: 'tokAna', revoked: false },
-      { event_id: 'm1', occurrence_key: '', participant_key: 'contact:luis', token: 'tokLuis', revoked: false },
-    ]
-    const share = convocationShareData(occurrence, contacts, { invites, myZone: 'Europe/Madrid' })
-    expect(share.text).toMatch(/Cada uno tiene su enlace para responder:\n- Ana: .*\/confirmar\/tokAna\n- Luis: .*\/confirmar\/tokLuis/)
-    expect(share.hasLinks).toBe(true)
+  it('datos para compartir: texto, emails de todos y asunto', () => {
+    const share = convocationShareData(occurrence, contacts, { myZone: 'Europe/Madrid' })
+    expect(share.text).toBe(convocationMessage(occurrence, contacts, { myZone: 'Europe/Madrid' }))
     expect(share.email).toBe('ana@example.com,luis@example.com')
     expect(share.phone).toBe('') // varias personas: WhatsApp sin destinatario
     expect(share.subject).toBe('Convocatoria: Revisión del presupuesto (miércoles 23 de septiembre)')

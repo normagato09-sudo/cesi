@@ -105,7 +105,7 @@ describe('"Copiar la semana anterior"', () => {
 describe('horas libres con semana declarada', () => {
   it('el resumen semanal usa la semana declarada y la anterior con el habitual', () => {
     const events = [
-      { id: 'm1', title: 'Reunión', category: 'Reunión', start: d(9, 30, 10).toISOString(), end: d(9, 30, 11).toISOString(), recurrence: null },
+      { id: 'm1', title: 'Reunión', start: d(9, 30, 10).toISOString(), end: d(9, 30, 11).toISOString(), recurrence: null },
     ]
     const report = computeWeeklyReport(events, { weekStart: d(9, 28), workingHours: HABITUAL, weeklyAvailability: weeks })
     // Declarada: 2 + 2 + 2 + 1 = 7 h, menos la reunión de 1 h del miércoles.

@@ -1,17 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { format, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { X, Search, CalendarClock, Send, ArrowLeft, CircleCheck } from 'lucide-react'
-import TagInput from './TagInput.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
 import ProposalShare from './ProposalShare.jsx'
-import ProjectSelect from './ProjectSelect.jsx'
 import { ParticipantList } from './Participant.jsx'
 import { MAX_OPTIONS, MIN_OPTIONS, proposalShareData } from '../lib/proposals'
 import { explainNoSlots, findFirstSlot, findBestSlot, findMultipleSlots } from '../lib/findSlots'
 import { hasAvailability } from '../lib/contactAvailability'
-import { CATEGORY_OPTIONS } from '../lib/eventStyle'
-import { allTags } from '../lib/tags'
+import { hasCandidateParticipant } from '../lib/vacancies'
 import { useScheduling } from '../lib/schedulingContext'
 import { scheduleSourceText } from '../lib/weeklyAvailability'
 import './FindSlotModal.css'
@@ -24,7 +21,6 @@ function firstName(contact) {
   return contact.name.split(' ')[0] || contact.name
 }
 
-
 const slotKey = (slot) => slot.start.toISOString()
 
 function slotLabel(slot) {
@@ -33,15 +29,16 @@ function slotLabel(slot) {
 
 export default function FindSlotModal({
   initialDurationMinutes,
-  initialMeetingType,
+  // Entrevista de candidato ("Buscar hueco para entrevista" en Vacantes): la reunión o la
+  // propuesta se crean marcadas como entrevista.
+  initialInterview = false,
   initialParticipants,
   initialNotAttending = false,
   onPick,
   onCreateProposal,
   onClose,
 }) {
-  const { rawEvents, workingHours, weeklyAvailability, contacts, addContact, projects = [], onManageProjects } =
-    useScheduling()
+  const { rawEvents, workingHours, weeklyAvailability, contacts, addContact } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
@@ -49,9 +46,7 @@ export default function FindSlotModal({
   // Filtro horario opcional, además del horario habitual.
   const [minTime, setMinTime] = useState('')
   const [maxTime, setMaxTime] = useState('')
-  // Tipo de reunión: categoría y etiquetas con las que se crea la reunión o la propuesta.
-  const [category, setCategory] = useState(initialMeetingType?.category || '')
-  const [tags, setTags] = useState(initialMeetingType?.tags || [])
+  const [interview, setInterview] = useState(!!initialInterview)
   const [participantSelection, setParticipantSelection] = useState(
     initialParticipants || { participantIds: [], guests: [] },
   )
@@ -61,16 +56,15 @@ export default function FindSlotModal({
   const [notAttending, setNotAttending] = useState(!!initialNotAttending)
   const [results, setResults] = useState(null)
   const [searchError, setSearchError] = useState(null)
-  // Proponer varias opciones: 'search' → 'propose' (título, participantes, tipo) → 'share' (mensaje).
+  // Proponer varias opciones: 'search' → 'propose' (título y participantes) → 'share' (mensaje).
   const [step, setStep] = useState('search')
   const [picked, setPicked] = useState([])
   const [proposalTitle, setProposalTitle] = useState('')
-  const [proposalProjectId, setProposalProjectId] = useState(null)
   const [proposalError, setProposalError] = useState(null)
   const [created, setCreated] = useState(null)
 
-  const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
-  const meetingType = category || tags.length ? { category: category || null, tags } : null
+  // Como en el formulario de reunión: la casilla se ofrece si participa algún candidato.
+  const showInterview = initialInterview || interview || hasCandidateParticipant(participantSelection.participantIds, contacts)
   const people = participantSelection.participantIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean)
   // ¿Alguna semana del rango tiene la disponibilidad declarada?
   const scheduleNote =
@@ -148,9 +142,7 @@ export default function FindSlotModal({
     const result = onCreateProposal({
       title: proposalTitle.trim(),
       durationMinutes,
-      category: category || CATEGORY_OPTIONS[0],
-      tags,
-      projectId: projects.some((p) => p.id === proposalProjectId) ? proposalProjectId : null,
+      interview: showInterview && interview,
       participantIds: participantSelection.participantIds,
       guests: participantSelection.guests,
       notAttending,
@@ -218,30 +210,12 @@ export default function FindSlotModal({
                 onCreateContact={addContact}
               />
             </div>
-            <div className="find-slot-row">
-              <label className="find-slot-field">
-                <span>Categoría</span>
-                <select value={category || CATEGORY_OPTIONS[0]} onChange={(e) => setCategory(e.target.value)}>
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+            {showInterview && (
+              <label className="find-slot-checkbox">
+                <input type="checkbox" checked={interview} onChange={(e) => setInterview(e.target.checked)} />
+                <span>Entrevista de candidato</span>
               </label>
-            </div>
-            <ProjectSelect
-              id="find-slot-proposal-project"
-              className="find-slot-field"
-              projects={projects}
-              value={proposalProjectId}
-              onChange={setProposalProjectId}
-              onManage={onManageProjects}
-            />
-            <div className="find-slot-field">
-              <span id="find-slot-proposal-tags">Etiquetas</span>
-              <TagInput labelId="find-slot-proposal-tags" value={tags} onChange={setTags} suggestions={tagSuggestions} />
-            </div>
+            )}
             {proposalError && <div className="find-slot-error">{proposalError}</div>}
             <div className="find-slot-actions">
               <button type="button" className="find-slot-action-btn" onClick={() => setStep('search')}>
@@ -304,25 +278,6 @@ export default function FindSlotModal({
             </label>
           </div>
 
-          <fieldset className="find-slot-type">
-            <legend>Tipo de reunión (opcional)</legend>
-            <label className="find-slot-field">
-              <span>Categoría</span>
-              <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="">Sin especificar</option>
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="find-slot-field">
-              <span id="find-slot-tags-label">Etiquetas</span>
-              <TagInput labelId="find-slot-tags-label" value={tags} onChange={setTags} suggestions={tagSuggestions} />
-            </div>
-          </fieldset>
-
           <div className="find-slot-field">
             <span id="find-slot-participants-label">Participantes (opcional)</span>
             <ParticipantPicker
@@ -348,6 +303,13 @@ export default function FindSlotModal({
               </p>
             )}
           </div>
+
+          {showInterview && (
+            <label className="find-slot-checkbox">
+              <input type="checkbox" checked={interview} onChange={(e) => setInterview(e.target.checked)} />
+              <span>Entrevista de candidato</span>
+            </label>
+          )}
 
           <label className="not-attending-option">
             <input
@@ -442,7 +404,7 @@ export default function FindSlotModal({
                       <button
                         type="button"
                         className="find-slot-result-btn"
-                        onClick={() => onPick(slot, meetingType, participantSelection, { notAttending })}
+                        onClick={() => onPick(slot, participantSelection, { notAttending, interview: showInterview && interview })}
                       >
                         <CalendarClock size={15} strokeWidth={1.75} />
                         <span className="find-slot-result-main">

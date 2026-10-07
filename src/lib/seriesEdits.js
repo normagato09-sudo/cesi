@@ -15,7 +15,8 @@ export const SCOPES = {
   ALL: 'all',
 }
 
-// Campos que puede cambiar un solo día (además de la hora).
+// Campos que puede cambiar un solo día (además de la hora). category, tags, projectId y reminder
+// ya no se editan (se quitaron de la app), pero siguen aquí para conservar lo guardado en un día.
 export const EXCEPTION_FIELDS = [
   'title',
   'category',
@@ -29,6 +30,7 @@ export const EXCEPTION_FIELDS = [
   'allDay',
   'reminder',
   'acceptedUnavailable',
+  'interview',
 ]
 
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)

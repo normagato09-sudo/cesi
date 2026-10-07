@@ -1,21 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { format, addDays, addMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, CalendarPlus, Ban, Search, Send } from 'lucide-react'
+import { X, CalendarPlus, Ban, Search } from 'lucide-react'
 import FindSlotModal from './FindSlotModal.jsx'
-import MeetingInvitesModal from './MeetingInvitesModal.jsx'
 import ParticipantPicker from './ParticipantPicker.jsx'
-import TagInput from './TagInput.jsx'
-import ProjectSelect from './ProjectSelect.jsx'
-import { CATEGORY_OPTIONS } from '../lib/eventStyle'
 import { participantFields, participantsOf } from '../lib/contacts'
-import { allTags } from '../lib/tags'
 import { MeetingWarningError } from '../lib/meetingWarnings'
-import { useScheduling } from '../lib/schedulingContext'
 import { SCOPES } from '../lib/seriesEdits'
+import { hasCandidateParticipant, isInterview } from '../lib/vacancies'
 import MeetingWarning from './MeetingWarning.jsx'
-import { useInvites } from '../lib/invitesContext'
-import { canAskConfirmation } from '../lib/meetingInvites'
 import './EventFormModal.css'
 
 const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
@@ -80,8 +73,6 @@ export default function EventFormModal({
   onClose,
   onSubmit,
 }) {
-  const { rawEvents, projects, onManageProjects } = useScheduling()
-  const tagSuggestions = useMemo(() => allTags(rawEvents), [rawEvents])
   const isEditing = !!initialEvent
   // Solo se duplica si el prefill es un evento existente (no un hueco o un participante preseleccionado).
   const isDuplicating = !isEditing && !!prefill?.id
@@ -101,9 +92,9 @@ export default function EventFormModal({
     isUnavailable && initialReason === 'Otro' && seed.title ? seed.title.replace(/^No disponible: /, '') : ''
 
   const [title, setTitle] = useState(!isUnavailable ? seed.title || '' : '')
-  const [category, setCategory] = useState(seed.category || CATEGORY_OPTIONS[0])
-  const [tags, setTags] = useState(Array.isArray(seed.tags) ? seed.tags : [])
-  const [projectId, setProjectId] = useState(seed.projectId || null)
+  // "Entrevista de candidato" (ver isInterview): la reunión cuenta en Vacantes y en el Inicio.
+  const initialInterview = !seed.isUnavailable && isInterview(seed)
+  const [interview, setInterview] = useState(initialInterview)
   const [reason, setReason] = useState(initialReason)
   const [customReason, setCustomReason] = useState(initialCustomReason)
   const [description, setDescription] = useState(seed.description || '')
@@ -132,16 +123,6 @@ export default function EventFormModal({
   )
 
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
-  const [invitesOpen, setInvitesOpen] = useState(false)
-  const { enabled: invitesEnabled } = useInvites()
-  // "Pedir confirmación" en una reunión ya guardada (con sus datos guardados, no los del formulario).
-  const [openedAt] = useState(() => new Date())
-  const savedParticipants = initialEvent ? participantsOf(initialEvent, contacts) : null
-  const canAskInvites =
-    invitesEnabled &&
-    !!initialEvent &&
-    savedParticipants.contacts.length + savedParticipants.guests.length > 0 &&
-    canAskConfirmation(initialEvent, openedAt)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
   const [saveWarning, setSaveWarning] = useState(null)
@@ -168,9 +149,16 @@ export default function EventFormModal({
     }
   }
 
-  const handleSlotPicked = (slot, _meetingType, participants, options = {}) => {
+  // La casilla se ofrece si participa algún candidato (o si ya estaba marcada, para poder quitarla).
+  const showInterview =
+    !isUnavailable && (initialInterview || interview || hasCandidateParticipant(participantSelection.participantIds, contacts))
+  // Al editar solo se guarda si cambia: así un día de una serie no queda "cambiado" sin motivo.
+  const interviewField = showInterview && (!isEditing || interview !== initialInterview) ? { interview } : {}
+
+  const handleSlotPicked = (slot, participants, options = {}) => {
     if (participants) setParticipantSelection(participants)
     if ('notAttending' in options) setNotAttending(!!options.notAttending)
+    if ('interview' in options) setInterview(!!options.interview)
     setDate(toDateInputValue(slot.start))
     setStartTime(toTimeInputValue(slot.start))
     setEndTime(toTimeInputValue(slot.end))
@@ -260,10 +248,8 @@ export default function EventFormModal({
           )),
       meetLink: isUnavailable ? '' : meetLink.trim(),
       notAttending: !isUnavailable && notAttending,
-      category: isUnavailable ? 'No disponible' : category,
-      tags: isUnavailable ? [] : tags,
-      // Si el proyecto se ha borrado mientras tanto, la reunión se queda sin proyecto.
-      projectId: isUnavailable || !projects.some((p) => p.id === projectId) ? null : projectId,
+      // category, tags y projectId ya no se editan: lo guardado en la reunión se conserva.
+      ...interviewField,
       isUnavailable,
       allDay: isUnavailable ? allDay : false,
       start,
@@ -335,36 +321,6 @@ export default function EventFormModal({
                 autoFocus
               />
             </label>
-          )}
-
-          {!isUnavailable && (
-            <label className="event-form-field">
-              <span>Categoría</span>
-              <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {!isUnavailable && (
-            <div className="event-form-field">
-              <span id="event-form-tags-label">Etiquetas (opcional)</span>
-              <TagInput labelId="event-form-tags-label" value={tags} onChange={setTags} suggestions={tagSuggestions} />
-            </div>
-          )}
-
-          {!isUnavailable && (
-            <ProjectSelect
-              id="event-form-project"
-              projects={projects}
-              value={projectId}
-              onChange={setProjectId}
-              onManage={onManageProjects}
-            />
           )}
 
           {!isUnavailable && scope !== SCOPES.THIS && (
@@ -497,6 +453,13 @@ export default function EventFormModal({
             </div>
           )}
 
+          {showInterview && (
+            <label className="event-form-checkbox">
+              <input type="checkbox" checked={interview} onChange={(e) => setInterview(e.target.checked)} />
+              <span>Entrevista de candidato</span>
+            </label>
+          )}
+
           {!isUnavailable && (
             <label className="event-form-field">
               <span>Enlace de la reunión (opcional)</span>
@@ -538,12 +501,6 @@ export default function EventFormModal({
         </div>
 
         <div className="event-form-footer">
-          {canAskInvites && (
-            <button type="button" className="event-form-cancel event-form-invites" onClick={() => setInvitesOpen(true)} disabled={submitting}>
-              <Send size={14} strokeWidth={1.75} />
-              Pedir confirmación
-            </button>
-          )}
           <button type="button" className="event-form-cancel" onClick={onClose} disabled={submitting}>
             Cancelar
           </button>
@@ -553,12 +510,10 @@ export default function EventFormModal({
         </div>
       </form>
 
-      {invitesOpen && <MeetingInvitesModal occurrence={initialEvent} contacts={contacts} onClose={() => setInvitesOpen(false)} />}
-
       {slotFinderOpen && (
         <FindSlotModal
           initialDurationMinutes={effectiveDurationMinutes}
-          initialMeetingType={{ category, tags }}
+          initialInterview={showInterview && interview}
           initialParticipants={participantSelection}
           initialNotAttending={!isUnavailable && notAttending}
           onPick={handleSlotPicked}

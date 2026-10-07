@@ -77,7 +77,7 @@ function ColumnChart({ items, highlight = [], ariaLabel, dense = false }) {
   )
 }
 
-// Reparto (categoría, departamento, etiqueta, grupo…): barras horizontales en un solo tono.
+// Reparto (departamento, grupo…): barras horizontales en un solo tono.
 function Breakdown({ title, rows, empty, dotColor, note }) {
   const total = Math.max(0, ...rows.map((r) => r.ms))
   return (
@@ -140,7 +140,7 @@ function PeriodPicker({ kind, custom, error, onKind, onCustom }) {
   )
 }
 
-export default function ReportView({ rawEvents, workingHours, weeklyAvailability = [], contacts, groups, projects = [], now, onOpenEvent }) {
+export default function ReportView({ rawEvents, workingHours, weeklyAvailability = [], contacts, groups, now, onOpenEvent }) {
   const [period, setPeriod] = useState(() => periodOf('week', now))
   // Fechas del periodo personalizado mientras se eligen (se aplican cuando son válidas).
   const [custom, setCustom] = useState(() => ({ from: dateKey(period.start), to: dateKey(new Date(period.end.getTime() - 1)) }))
@@ -149,8 +149,8 @@ export default function ReportView({ rawEvents, workingHours, weeklyAvailability
   const [showMeetings, setShowMeetings] = useState(false)
 
   const report = useMemo(
-    () => computeReport(rawEvents, { ...period, workingHours, weeklyAvailability, contacts, groups, projects }),
-    [rawEvents, period, workingHours, weeklyAvailability, contacts, groups, projects],
+    () => computeReport(rawEvents, { ...period, workingHours, weeklyAvailability, contacts, groups }),
+    [rawEvents, period, workingHours, weeklyAvailability, contacts, groups],
   )
   const unit = EVOLUTION_UNITS.find((u) => u.id === evolutionUnit)
   // Termina en la semana (o el mes) del último día del periodo elegido.
@@ -326,15 +326,12 @@ export default function ReportView({ rawEvents, workingHours, weeklyAvailability
         </section>
 
         <div className="report-grid">
-          <Breakdown title="Por categoría" rows={report.byCategory} empty="Sin reuniones." dotColor={(r) => colorForEvent({ category: r.key })} />
           <Breakdown
             title="Por departamento"
             rows={report.byDepartment}
             empty="Sin reuniones."
             note="Una reunión con varios departamentos cuenta en cada uno, así que la suma puede superar el total."
           />
-          <Breakdown title="Por proyecto" rows={report.byProject} empty="Sin reuniones." dotColor={(r) => r.color || '#9aa1ac'} />
-          <Breakdown title="Por etiqueta" rows={report.byTag} empty="Ninguna reunión con etiquetas." />
           <Breakdown title="Por grupo de contactos" rows={report.byGroup} empty="Ninguna reunión con contactos de un grupo." dotColor={(r) => r.color} />
           <section className="report-card">
             <h2 className="report-card-title">Por persona</h2>

@@ -5,9 +5,6 @@ import { Ban } from 'lucide-react'
 import { ParticipantList } from '../Participant.jsx'
 import { colorForEvent } from '../../lib/eventStyle'
 import { useScheduling } from '../../lib/schedulingContext'
-import { useInvites } from '../../lib/invitesContext'
-import { occurrenceSummary } from '../../lib/meetingInvites'
-import { InviteSummary } from '../InviteStatus.jsx'
 import './EventPreview.css'
 import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
 
@@ -18,7 +15,6 @@ const WIDTH = 280
 // ni quedar bajo el dedo.
 export default function EventPreview({ preview }) {
   const { contacts = [] } = useScheduling() || {}
-  const { invites } = useInvites()
   if (!preview) return null
   const { event, rect, touch } = preview
   const width = Math.min(WIDTH, window.innerWidth - 16)
@@ -53,7 +49,6 @@ export default function EventPreview({ preview }) {
         {event.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
       </p>
       <p className="event-preview-when">{when}</p>
-      {!event.isUnavailable && <InviteSummary text={occurrenceSummary(invites, event, contacts)} compact />}
       {!event.isUnavailable && (
         <ParticipantList
           item={event}

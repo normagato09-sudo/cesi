@@ -1,6 +1,5 @@
 import { addMonths, parseISO } from 'date-fns'
 import { createCollection, makeId } from './store'
-import { eventHasTag } from './tags'
 import { emptyTeamProfile, todayKey } from './team'
 
 // Vacantes y candidatos.
@@ -45,9 +44,6 @@ export const CANDIDATE_STATUS = {
 }
 
 export const CANDIDATE_STATUS_ORDER = ['new', 'interview', 'accepted', 'discarded']
-
-// Tipo de reunión de las entrevistas.
-export const INTERVIEW_TYPE = { category: 'Entrevista', tags: ['entrevista'] }
 
 // Meses tras el descarte a partir de los cuales se ofrece borrar los datos del candidato.
 export const RETENTION_MONTHS = 6
@@ -198,9 +194,27 @@ export function withStatus(candidacy, status, now = new Date()) {
   }
 }
 
-// ¿Es una entrevista? (categoría "Entrevista" o etiqueta "entrevista").
+// Clave para comparar sin distinguir mayúsculas ni acentos.
+const plainKey = (text) =>
+  String(text || '')
+    .trim()
+    .toLocaleLowerCase('es')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+
+// ¿Es una entrevista de candidato? Lo dice `interview` (casilla "Entrevista de candidato", que
+// "Buscar hueco para entrevista" marca sola). Las reuniones anteriores, sin ese campo, lo eran si
+// tenían la categoría "Entrevista" o la etiqueta "entrevista" (ya no se usan, pero se conservan).
 export function isInterview(meeting) {
-  return meeting.category === INTERVIEW_TYPE.category || eventHasTag(meeting, 'entrevista')
+  if (typeof meeting?.interview === 'boolean') return meeting.interview
+  return plainKey(meeting?.category) === 'entrevista' || (meeting?.tags || []).some((t) => plainKey(t) === 'entrevista')
+}
+
+// ¿Participa algún candidato (contacto con alguna candidatura)? Entonces el formulario ofrece
+// la casilla "Entrevista de candidato".
+export function hasCandidateParticipant(participantIds, contacts) {
+  const ids = new Set(participantIds || [])
+  return contacts.some((c) => ids.has(c.id) && isCandidate(c))
 }
 
 // Al crear una entrevista, los candidatos que participan y tenían una candidatura en "nuevo"

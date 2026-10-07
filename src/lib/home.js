@@ -60,7 +60,7 @@ export function dueTasks(tasks, today, days = UPCOMING_TASK_DAYS) {
   }
 }
 
-// Entrevistas (categoría o etiqueta "Entrevista") que aún no han terminado, de los próximos 14 días.
+// Entrevistas de candidatos (ver isInterview) que aún no han terminado, de los próximos 14 días.
 export function upcomingInterviews(rawEvents, now, days = UPCOMING_INTERVIEW_DAYS) {
   return expandEvents(rawEvents.filter(isMyMeeting).filter(isInterview), now, addDays(now, days))
     .filter((ev) => ev.end > now)

@@ -6,7 +6,7 @@ import {
   Clock,
   Users,
   Video,
-  Tag,
+  Briefcase,
   Pencil,
   Trash2,
   Copy,
@@ -16,7 +16,6 @@ import {
   CalendarCheck,
   Check,
   Undo2,
-  Send,
   ListTodo,
   Megaphone,
 } from 'lucide-react'
@@ -25,20 +24,15 @@ import ContactCountryStep from './ContactCountryStep.jsx'
 import MeetingSession from './MeetingSession.jsx'
 import TaskItem from './TaskItem.jsx'
 import { pendingForMeeting, sourceOccurrence, tasksOfSession } from '../lib/tasks'
-import MeetingInvitesModal from './MeetingInvitesModal.jsx'
 import ConvocationModal from './ConvocationModal.jsx'
 import { NOT_ATTENDING_LABEL, isNotAttending } from '../lib/notAttending'
-import { InviteBadge, InviteSummary } from './InviteStatus.jsx'
-import { useInvites } from '../lib/invitesContext'
-import { canAskConfirmation, invitesOf, occurrenceSummary, participantKeyOf } from '../lib/meetingInvites'
+import { isInterview } from '../lib/vacancies'
 import { RECURRENCE_LABELS, dateKey } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
 import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
 import { copyText } from '../lib/clipboard'
 import { useScheduling } from '../lib/schedulingContext'
-import { projectOf } from '../lib/projects'
-import './ProjectsModal.css'
 import './EventModal.css'
 
 function formatRange(event) {
@@ -58,8 +52,6 @@ export default function EventModal({
   contacts,
   now,
   focusNotes = false,
-  // Abrir directamente "Pedir confirmación" (desde el aviso de cambio de hora).
-  openInvites = false,
   // Abrir directamente el mensaje de convocatoria (al crear una reunión en la que no asisto).
   openConvocation = false,
   onSaveSession,
@@ -79,14 +71,12 @@ export default function EventModal({
   onConfirmOption,
   onCancelProposal,
 }) {
-  const { rawEvents, proposals, projects = [] } = useScheduling()
+  const { rawEvents, proposals } = useScheduling()
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const [copied, setCopied] = useState(false)
   const [savingGuest, setSavingGuest] = useState(null) // invitado que se está guardando como contacto
-  const [invitesOpen, setInvitesOpen] = useState(openInvites)
   const [convocationOpen, setConvocationOpen] = useState(openConvocation)
-  const { enabled: invitesEnabled, invites } = useInvites()
 
   if (!event) return null
 
@@ -95,18 +85,13 @@ export default function EventModal({
 
   // Se resuelven en vivo: si se renombra un contacto, aquí aparece ya con el nombre nuevo.
   const { contacts: people, guests } = participantsOf(event, contacts)
-  const project = projectOf(event, projects)
 
   // Reunión provisional: opción de una propuesta pendiente.
   const proposal = isProvisional(event) ? proposals.find((p) => p.id === event.proposalId) : null
   const options = proposal ? optionsOf(proposal, rawEvents) : []
   const optionIndex = options.findIndex((o) => o.id === event.seriesId)
 
-  // Confirmación de asistencia: respuestas de cada participante y resumen.
   const hasParticipants = people.length > 0 || guests.length > 0
-  const inviteByKey = invitesOf(invites, event)
-  const inviteSummary = occurrenceSummary(invites, event, contacts)
-  const canAsk = invitesEnabled && hasParticipants && canAskConfirmation(event, now)
   const organized = isNotAttending(event)
 
   const handleCopyMessage = async () => {
@@ -186,22 +171,10 @@ export default function EventModal({
         </div>
 
         <div className="event-modal-body">
-          {!event.isUnavailable && (
+          {!event.isUnavailable && isInterview(event) && (
             <div className="event-modal-row">
-              <Tag size={16} strokeWidth={1.75} />
-              <span className="event-modal-tags">
-                <span>{event.category}</span>
-                {project && (
-                  <span className="project-chip" style={{ '--project-color': project.color }} title="Proyecto">
-                    {project.name}
-                  </span>
-                )}
-                {(event.tags || []).map((t) => (
-                  <span key={t} className="event-modal-tag">
-                    {t}
-                  </span>
-                ))}
-              </span>
+              <Briefcase size={16} strokeWidth={1.75} />
+              <span>Entrevista de candidato</span>
             </div>
           )}
 
@@ -218,7 +191,6 @@ export default function EventModal({
             <div className="event-modal-row align-top">
               <Users size={16} strokeWidth={1.75} />
               <div className="event-modal-participants-block">
-                {inviteSummary && <InviteSummary text={inviteSummary} />}
                 <ParticipantList
                   item={event}
                   contacts={contacts}
@@ -228,7 +200,6 @@ export default function EventModal({
                   className="event-modal-participants"
                   extra={(entry) => (
                     <>
-                      {inviteSummary && <InviteBadge invite={inviteByKey.get(participantKeyOf(entry))} />}
                       {entry.contact ? (
                         entry.contact.email && (
                           <a href={`mailto:${entry.contact.email}`} className="event-modal-attendee-email">
@@ -328,20 +299,9 @@ export default function EventModal({
           )}
 
           {!proposal && organized && hasParticipants && (
-            <button type="button" className="event-modal-action-btn primary event-modal-invites-btn" onClick={() => setConvocationOpen(true)}>
+            <button type="button" className="event-modal-action-btn primary event-modal-convocation-btn" onClick={() => setConvocationOpen(true)}>
               <Megaphone size={14} strokeWidth={1.75} />
               Mensaje de convocatoria
-            </button>
-          )}
-
-          {!proposal && canAsk && (
-            <button
-              type="button"
-              className={`event-modal-action-btn event-modal-invites-btn${organized ? '' : ' primary'}`}
-              onClick={() => setInvitesOpen(true)}
-            >
-              <Send size={14} strokeWidth={1.75} />
-              Pedir confirmación
             </button>
           )}
 
@@ -369,7 +329,6 @@ export default function EventModal({
         </div>
       </div>
 
-      {invitesOpen && <MeetingInvitesModal occurrence={event} contacts={contacts} now={now} onClose={() => setInvitesOpen(false)} />}
       {convocationOpen && organized && (
         <ConvocationModal occurrence={event} contacts={contacts} onClose={() => setConvocationOpen(false)} />
       )}

@@ -60,16 +60,24 @@ describe('reuniones que se repiten: solo este día', () => {
     expect(other.isException).toBeUndefined()
   })
 
-  it('cambia los participantes y el proyecto solo ese día', () => {
+  it('cambia los participantes y si es entrevista solo ese día', () => {
     const occ = occurrenceOn(series, 9, 8)
-    const edited = apply(series, editOccurrencePatch(series, occ, { participantIds: ['ana', 'luis'], participants: ['Ana', 'Luis'], guests: [], projectId: 'radio' }))
-    expect(edited.exceptions['2026-09-08']).toEqual({ participantIds: ['ana', 'luis'], participants: ['Ana', 'Luis'], projectId: 'radio' })
+    const edited = apply(series, editOccurrencePatch(series, occ, { participantIds: ['ana', 'luis'], participants: ['Ana', 'Luis'], guests: [], interview: true }))
+    expect(edited.exceptions['2026-09-08']).toEqual({ participantIds: ['ana', 'luis'], participants: ['Ana', 'Luis'], interview: true })
+    expect(occurrenceOn(edited, 9, 8).interview).toBe(true)
+    expect(occurrenceOn(edited, 9, 15).interview).toBeUndefined()
     expect(occurrenceOn(edited, 9, 8).participantIds).toEqual(['ana', 'luis'])
     expect(occurrenceOn(edited, 9, 15).participantIds).toEqual(['ana'])
     // En la ficha de Luis sale solo ese día.
     const luis = { id: 'luis', name: 'Luis' }
     expect(contactSeries(luis, [edited], [])).toHaveLength(1)
     expect(days(contactOccurrences(luis, all(edited), []))).toEqual(['8/9'])
+  })
+
+  it('al cambiar otra cosa de ese día se conservan su categoría, etiquetas y proyecto guardados', () => {
+    const old = { ...series, exceptions: { '2026-09-08': { category: 'Cliente', tags: ['radio'], projectId: 'prj1' } } }
+    const edited = apply(old, editOccurrencePatch(old, occurrenceOn(old, 9, 8), { title: 'Seguimiento especial' }))
+    expect(edited.exceptions['2026-09-08']).toEqual({ category: 'Cliente', tags: ['radio'], projectId: 'prj1', title: 'Seguimiento especial' })
   })
 
   it('si al final queda igual que la serie, no se guarda excepción', () => {

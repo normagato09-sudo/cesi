@@ -7,9 +7,11 @@ import {
   expiredDiscarded,
   findCandidacy,
   incorporate,
+  hasCandidateParticipant,
   incorporationDraft,
   interviewUpdates,
   isCandidateOnly,
+  isInterview,
   latestCandidacy,
   migrateCandidacy,
   newCandidacy,
@@ -68,10 +70,29 @@ describe('estado de los candidatos', () => {
 
   it('al crear una entrevista, los candidatos en "nuevo" pasan a "entrevista"', () => {
     const contacts = [candidate('a', 'new'), candidate('b', 'accepted'), { id: 'x', name: 'Otro' }]
-    const meeting = { category: 'Entrevista', tags: ['entrevista'], participantIds: ['a', 'b', 'x'] }
+    const meeting = { interview: true, participantIds: ['a', 'b', 'x'] }
     const updates = interviewUpdates(meeting, contacts, now)
     expect(updates.map((u) => [u.id, u.patch.candidacies.map((c) => c.status)])).toEqual([['a', ['interview']]])
-    expect(interviewUpdates({ ...meeting, category: 'Reunión', tags: [] }, contacts, now)).toEqual([])
+    expect(interviewUpdates({ ...meeting, interview: false }, contacts, now)).toEqual([])
+    expect(interviewUpdates({ participantIds: ['a'] }, contacts, now)).toEqual([])
+  })
+
+  it('es entrevista con la casilla; las antiguas, por su categoría o etiqueta guardadas', () => {
+    expect(isInterview({ interview: true })).toBe(true)
+    expect(isInterview({ interview: false })).toBe(false)
+    expect(isInterview({})).toBe(false)
+    expect(isInterview({ category: 'Entrevista' })).toBe(true)
+    expect(isInterview({ category: 'Reunión', tags: ['Entrevísta'] })).toBe(true)
+    expect(isInterview({ category: 'Cliente', tags: ['proyecto X'] })).toBe(false)
+    // Desmarcada después: manda la casilla.
+    expect(isInterview({ category: 'Entrevista', tags: ['entrevista'], interview: false })).toBe(false)
+  })
+
+  it('la casilla se ofrece si participa algún candidato', () => {
+    const contacts = [candidate('a', 'discarded'), { id: 'x', name: 'Otro' }]
+    expect(hasCandidateParticipant(['x', 'a'], contacts)).toBe(true)
+    expect(hasCandidateParticipant(['x'], contacts)).toBe(false)
+    expect(hasCandidateParticipant([], contacts)).toBe(false)
   })
 })
 

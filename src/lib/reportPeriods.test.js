@@ -10,8 +10,6 @@ let n = 0
 const meeting = (start, end, extra = {}) => ({
   id: `m${++n}`,
   title: `Reunión ${n}`,
-  category: 'Reunión',
-  tags: [],
   participantIds: [],
   guests: [],
   recurrence: null,

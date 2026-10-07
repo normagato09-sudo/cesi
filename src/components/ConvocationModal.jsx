@@ -1,20 +1,17 @@
 import { useState } from 'react'
 import { Megaphone, RotateCcw, X } from 'lucide-react'
 import ProposalShare from './ProposalShare.jsx'
-import { useInvites } from '../lib/invitesContext'
 import { convocationShareData } from '../lib/notAttending'
 import './EventFormModal.css'
 import './ProposalShare.css'
 import './ContactLinkModal.css'
-import './MeetingInvites.css'
+import './ConvocationModal.css'
 
 // Convocatoria de una reunión que organizo sin asistir: mensaje generado con una plantilla (sin
-// IA) que se puede editar antes de copiarlo o enviarlo por WhatsApp o email. Si ya existen los
-// enlaces para confirmar asistencia, van en el mensaje.
+// IA) que se puede editar antes de copiarlo o enviarlo por WhatsApp o email.
 export default function ConvocationModal({ occurrence, contacts, onClose }) {
-  const { invites } = useInvites()
-  const share = convocationShareData(occurrence, contacts, { invites })
-  // null = el texto generado (se actualiza solo, p. ej. al crear los enlaces); si no, el editado.
+  const share = convocationShareData(occurrence, contacts)
+  // null = el texto generado; si no, el editado.
   const [edited, setEdited] = useState(null)
   const text = edited ?? share.text
 
@@ -25,8 +22,8 @@ export default function ConvocationModal({ occurrence, contacts, onClose }) {
   }
 
   return (
-    <div className="event-form-backdrop invites-backdrop" onClick={close}>
-      <div className="event-form contact-link-modal invites-modal" onClick={stop} role="dialog" aria-labelledby="convocation-title">
+    <div className="event-form-backdrop convocation-backdrop" onClick={close}>
+      <div className="event-form contact-link-modal convocation-modal" onClick={stop} role="dialog" aria-labelledby="convocation-title">
         <div className="event-form-header">
           <h2 id="convocation-title">
             <Megaphone size={17} strokeWidth={1.75} />
@@ -40,7 +37,6 @@ export default function ConvocationModal({ occurrence, contacts, onClose }) {
         <div className="event-form-body">
           <p className="contact-link-intro">
             Revisa el texto y cámbialo si quieres antes de enviarlo.
-            {!share.hasLinks && ' Si pides confirmación de asistencia, los enlaces se añaden al mensaje.'}
           </p>
           <ProposalShare
             text={text}

@@ -1,6 +1,5 @@
 import { participantsOf } from './contacts'
 import { contactZone } from './contactAvailability'
-import { invitesOf, meetingInviteUrl, participantKeyOf } from './meetingInvites'
 import { meetingWhen } from './meetingWhen'
 import { formatDurationLong } from './proposals'
 import { RECURRENCE_LABELS } from './recurrence'
@@ -10,8 +9,8 @@ import { localTimeZone } from './timezones'
 // Reuniones que organizo para que otras personas se reúnan entre ellas ("Yo no asisto",
 // events.data.notAttending = true). Están en mi calendario, atenuadas y con la etiqueta
 // "Organizada por mí", pero no son tiempo mío: no cuentan en el Resumen ni en el Inicio, no
-// ocupan mis huecos ni chocan con mis reuniones. El acta, las tareas y
-// los enlaces de confirmación funcionan igual que en las demás.
+// ocupan mis huecos ni chocan con mis reuniones. El acta y las tareas funcionan igual que en
+// las demás.
 
 export const NOT_ATTENDING_LABEL = 'Organizada por mí'
 
@@ -60,10 +59,9 @@ const atTime = (time) => `${time.startsWith('01:') ? 'a la' : 'a las'} ${time}`
 
 /**
  * Texto de la convocatoria de una reunión (u ocurrencia, con start/end como fechas):
- * saludo con los nombres, motivo, fecha, hora, duración, enlace o lugar, agenda y, si ya existen,
- * los enlaces para confirmar asistencia (`links`: [{ name, url }]).
+ * saludo con los nombres, motivo, fecha, hora, duración, enlace o lugar y agenda.
  */
-export function convocationMessage(occurrence, contacts, { links = [], myZone = localTimeZone() } = {}) {
+export function convocationMessage(occurrence, contacts, { myZone = localTimeZone() } = {}) {
   const { contacts: people, guests } = participantsOf(occurrence, contacts)
   const names = [...people.map((c) => firstNameOf(c.name)), ...guests.map(firstNameOf)].filter(Boolean)
   const many = people.length + guests.length > 1
@@ -114,47 +112,21 @@ export function convocationMessage(occurrence, contacts, { links = [], myZone = 
     agenda.forEach((text, i) => lines.push(`${i + 1}. ${text}`))
   }
 
-  if (links.length) {
-    lines.push('')
-    if (links.length === 1 && !many) {
-      lines.push(`¿Me confirmas si puedes asistir? Puedes responder aquí: ${links[0].url}`)
-    } else {
-      lines.push('¿Me confirmáis si podéis asistir? Cada uno tiene su enlace para responder:')
-      for (const link of links) lines.push(`- ${link.name}: ${link.url}`)
-    }
-  }
-
   lines.push('')
   lines.push(many ? 'Si tenéis cualquier duda, me decís.' : 'Si tienes cualquier duda, me dices.')
   lines.push('Un saludo.')
   return lines.join('\n')
 }
 
-// Enlaces de confirmación que ya existen para esa ocurrencia, en el orden de los participantes.
-export function existingInviteLinks(occurrence, contacts, invites) {
-  const byKey = invitesOf(invites || [], occurrence)
-  if (byKey.size === 0) return []
-  const { contacts: people, guests } = participantsOf(occurrence, contacts)
-  const entries = [...people.map((contact) => ({ contact, name: contact.name })), ...guests.map((guest) => ({ guest, name: guest }))]
-  return entries
-    .map((entry) => {
-      const invite = byKey.get(participantKeyOf(entry))
-      return invite ? { name: firstNameOf(entry.name) || entry.name, url: meetingInviteUrl(invite.token) } : null
-    })
-    .filter(Boolean)
-}
-
 // Texto, asunto, teléfono (solo si hay un único contacto) y emails de todos para compartir.
-export function convocationShareData(occurrence, contacts, { invites = [], myZone } = {}) {
+export function convocationShareData(occurrence, contacts, { myZone } = {}) {
   const { contacts: people, guests } = participantsOf(occurrence, contacts)
-  const links = existingInviteLinks(occurrence, contacts, invites)
   const emails = [...people.map((c) => (c.email || '').trim()), ...guests.filter((g) => g.includes('@')).map((g) => g.trim())].filter(Boolean)
   const { day } = meetingWhen(new Date(occurrence.start), myZone || localTimeZone())
   return {
-    text: convocationMessage(occurrence, contacts, { links, myZone }),
+    text: convocationMessage(occurrence, contacts, { myZone }),
     subject: `Convocatoria: ${(occurrence.title || '').trim() || 'reunión'} (${day})`,
     phone: people.length === 1 && guests.length === 0 ? people[0].phone || '' : '',
     email: [...new Set(emails)].join(','),
-    hasLinks: links.length > 0,
   }
 }

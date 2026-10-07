@@ -5,7 +5,9 @@ import { SPAIN_ZONE, formatInZone, localTimeZone, sameClock, wallTime } from './
 // provisional del calendario ({ provisional: true, proposalId }), que ocupa su hueco hasta que
 // se confirma una o se cancela la propuesta.
 //
-// Propuesta: { id, title, durationMinutes, category, tags, projectId, participantIds, guests, createdAt, updatedAt }
+// Propuesta: { id, title, durationMinutes, interview (entrevista de candidato), participantIds, guests,
+//   notAttending, createdAt, updatedAt }. Las antiguas pueden llevar category, tags y projectId (ya
+//   no se usan; se conservan).
 
 export const STORAGE_KEY = 'cesi_proposals_v1'
 

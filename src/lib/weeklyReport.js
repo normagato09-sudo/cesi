@@ -4,8 +4,6 @@ import { mergeIntervals, subtractIntervals } from './intervals'
 import { scheduleIntervalsOn } from './weeklyAvailability'
 import { participantsOf } from './contacts'
 import { isMyMeeting } from './notes'
-import { normalizeTag, tagKey } from './tags'
-import { NO_PROJECT, NO_PROJECT_LABEL, projectOf } from './projects'
 import { isTeamMember } from './team'
 
 // Resumen (sección "Resumen") de una semana o de cualquier periodo, comparado con el anterior.
@@ -127,38 +125,12 @@ function busiestIndex(rows) {
  */
 export function computeReport(
   rawEvents,
-  { start, end, prevStart, prevEnd, workingHours, weeklyAvailability = [], contacts = [], groups = [], projects = [] },
+  { start, end, prevStart, prevEnd, workingHours, weeklyAvailability = [], contacts = [], groups = [] },
 ) {
   const current = periodTotals(rawEvents, start, end, workingHours, weeklyAvailability)
   const previous = periodTotals(rawEvents, prevStart, prevEnd, workingHours, weeklyAvailability)
   const { meetings } = current
   const days = current.days.map((d) => ({ date: d.date, meetings: d.meetings, ms: d.ms }))
-
-  const byCategory = tally(meetings.map((m) => ({ key: m.category || 'Sin categoría', label: m.category || 'Sin categoría', ms: durationOf(m) })))
-
-  const byTag = tally(
-    meetings.flatMap((m) => {
-      const seen = new Set()
-      return (m.tags || [])
-        .filter((t) => {
-          const key = tagKey(t)
-          if (!key || seen.has(key)) return false
-          seen.add(key)
-          return true
-        })
-        .map((t) => ({ key: tagKey(t), label: normalizeTag(t), ms: durationOf(m) }))
-    }),
-  )
-
-  // Por proyecto; las reuniones sin proyecto (o de uno borrado) van en "Sin proyecto".
-  const byProject = tally(
-    meetings.map((m) => {
-      const project = projectOf(m, projects)
-      return project
-        ? { key: project.id, label: project.name, ms: durationOf(m), extra: { color: project.color } }
-        : { key: NO_PROJECT, label: NO_PROJECT_LABEL, ms: durationOf(m), extra: { color: null } }
-    }),
-  )
 
   const people = meetings.map((m) => ({ meeting: m, contacts: participantsOf(m, contacts).contacts }))
 
@@ -203,10 +175,7 @@ export function computeReport(
     freeMs: current.freeMs,
     days,
     busiestDayIndex: busiestIndex(days),
-    byCategory,
-    byTag,
     byGroup,
-    byProject,
     byDepartment,
     byPerson,
     topContacts: byPerson.slice(0, TOP_CONTACTS),
