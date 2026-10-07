@@ -133,7 +133,7 @@ describe('áreas y búsqueda', () => {
     expect(getTeamAreas().at(-1)).toBe('Producción')
   })
 
-  it('filtra por estado, área y texto', () => {
+  it('solo los activos (los antiguos miembros no salen en Equipo), por área y texto', () => {
     const contacts = [
       { id: '1', name: 'Ana', teamProfile: { status: 'active', area: 'Radio', role: 'Locutora' } },
       { id: '2', name: 'Bea', teamProfile: { status: 'former', area: 'Radio', role: 'Técnica' } },
@@ -142,7 +142,7 @@ describe('áreas y búsqueda', () => {
     ]
     const names = (f) => filterMembers(contacts, f).map((c) => c.name)
     expect(names({})).toEqual(['Ana', 'Carlos'])
-    expect(names({ status: 'former' })).toEqual(['Bea'])
+    expect(names({ query: 'bea' })).toEqual([])
     expect(names({ area: 'Radio' })).toEqual(['Ana'])
     expect(names({ query: 'director' })).toEqual(['Carlos'])
   })

@@ -8,16 +8,43 @@ import TeamProfileModal from './TeamProfileModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactLinkModal from './ContactLinkModal.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
+import LinkList from './LinkList.jsx'
+import TeamTrajectory from './TeamTrajectory.jsx'
 import { contactMatches, contactSeries } from '../lib/contacts'
 import { contactsInGroup } from '../lib/groups'
 import { countryLabel } from '../lib/timezones'
 import { isTeamMember } from '../lib/team'
+import { isFormerMember } from '../lib/formerMembers'
+import { migrateProfileLinks } from '../lib/links'
+import { dayLong } from '../lib/trajectory'
 import { contactsForList, isCandidate } from '../lib/vacancies'
 import { useSync } from '../lib/sync/syncContext'
 import './ContactsView.css'
+import './TeamView.css'
 
 function subtitleOf(contact) {
   return [contact.role, contact.organization].filter(Boolean).join(' · ')
+}
+
+// Antiguo miembro del equipo (ya no sale en Equipo): en su ficha de contacto, su trayectoria con
+// el tiempo total en CESI y sus enlaces, solo para ver. Se cambian con «Editar perfil de equipo».
+function FormerMemberInfo({ contact, now }) {
+  const p = contact.teamProfile
+  const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)
+  return (
+    <div className="contact-former">
+      <span className="contact-former-badge">Antiguo miembro del equipo{p.leftAt ? ` · salió el ${dayLong(p.leftAt)}` : ''}</span>
+      <TeamTrajectory profile={p} now={now} />
+      {links.length > 0 && (
+        <section className="team-section">
+          <h3>Enlaces</h3>
+          <div className="team-links">
+            <LinkList links={links} />
+          </div>
+        </section>
+      )}
+    </div>
+  )
 }
 
 export default function ContactsView({
@@ -299,7 +326,12 @@ export default function ContactsView({
                   Ver candidatura
                 </button>
               )}
-              {isCandidate(selected) && !isTeamMember(selected) ? null : isTeamMember(selected) ? (
+              {isFormerMember(selected) ? (
+                <button type="button" className="contact-action-btn team" onClick={() => setTeamProfileFor(selected)}>
+                  <BadgeCheck size={14} strokeWidth={1.75} />
+                  Editar perfil de equipo
+                </button>
+              ) : isCandidate(selected) && !isTeamMember(selected) ? null : isTeamMember(selected) ? (
                 <button type="button" className="contact-action-btn team" onClick={() => onOpenTeamMember(selected.id)}>
                   <BadgeCheck size={14} strokeWidth={1.75} />
                   Perfil de equipo
@@ -316,6 +348,8 @@ export default function ContactsView({
               </button>
             </div>
 
+
+            {isFormerMember(selected) && <FormerMemberInfo contact={selected} now={now} />}
 
             <ContactFields contact={selected} />
 
@@ -338,8 +372,8 @@ export default function ContactsView({
           contact={teamProfileFor}
           areas={areas}
           groups={groups}
-          title={`${teamProfileFor.name}: miembro del equipo`}
-          saveLabel="Guardar en el equipo"
+          title={isTeamMember(teamProfileFor) ? `Perfil de equipo de ${teamProfileFor.name}` : `${teamProfileFor.name}: miembro del equipo`}
+          saveLabel={isTeamMember(teamProfileFor) ? 'Guardar perfil' : 'Guardar en el equipo'}
           onAddArea={onAddArea}
           onSave={(data) => {
             onSaveTeamProfile(teamProfileFor.id, data)

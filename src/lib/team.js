@@ -11,7 +11,8 @@ export { calendarSpan }
 
 // Equipo. Cada miembro es un contacto con `teamProfile` (no se duplican sus datos):
 // {
-//   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null,
+//   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null (ver formerMembers.js: los antiguos
+//           miembros no salen en Equipo; formerGroupHandled y keepActive son de ahí),
 //   role, area (el departamento): copia del rol principal de `roles`,
 //   roles: trayectoria en CESI, el historial de roles (ver trajectory.js),
 //   joinedAt: 'AAAA-MM-DD' fecha de incorporación (la de versiones anteriores; se ofrece como
@@ -168,11 +169,11 @@ export const MEMBER_SORTS = { name: 'Nombre', tenure: 'Antigüedad' }
 
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })
 
+// Miembros de la sección Equipo: solo los activos (los antiguos miembros están en Contactos).
 // sort: 'name' o 'tenure' (más tiempo en CESI primero; quien no tiene ningún rol con fecha, al final).
-export function filterMembers(contacts, { query = '', area = '', status = 'active', sort = 'name', now = new Date() } = {}) {
+export function filterMembers(contacts, { query = '', area = '', sort = 'name', now = new Date() } = {}) {
   const list = contacts
-    .filter(isTeamMember)
-    .filter((c) => (status === 'former' ? c.teamProfile.status === 'former' : c.teamProfile.status !== 'former'))
+    .filter(isActiveMember)
     .filter((c) => !area || memberInArea(c, area))
     .filter((c) => memberMatches(c, query))
   if (sort !== 'tenure') return list.sort(byName)

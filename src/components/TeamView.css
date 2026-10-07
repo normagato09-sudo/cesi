@@ -133,17 +133,6 @@
   font-size: 13px;
   color: var(--text-secondary);
 }
-.team-former-badge {
-  align-self: flex-start;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--surface-hover);
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-}
-
 .team-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -282,9 +271,6 @@
   .team-detail-hero-text {
     align-items: center;
   }
-  .team-former-badge {
-    align-self: center;
-  }
 }
 
 .team-section .contact-fields {
@@ -314,4 +300,89 @@
   font-style: italic;
   line-height: 1.5;
   color: var(--text-secondary);
+}
+
+/* Aviso para ordenar a los antiguos miembros (grupo «Antiguos miembros» y roles terminados). */
+.team-former-review {
+  margin: 20px 28px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.team-former-review-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.team-former-review-block + .team-former-review-block {
+  padding-top: 14px;
+  border-top: 1px solid var(--accent-soft-strong);
+}
+.team-former-review p {
+  margin: 0;
+}
+.team-former-review ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.team-former-review li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.team-former-review-name,
+.team-former-review-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.team-former-review-name,
+.team-former-review-name-text {
+  font-weight: 600;
+  color: var(--text);
+}
+.team-former-review-name:hover {
+  text-decoration: underline;
+}
+.team-former-review-date {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+.team-former-review-link {
+  color: var(--accent);
+  font-size: 12.5px;
+}
+.team-former-review-link:hover {
+  text-decoration: underline;
+}
+.team-former-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .team-former-review {
+    margin: 12px 12px 0;
+  }
+  .team-former-review-actions {
+    margin-left: 0;
+  }
 }

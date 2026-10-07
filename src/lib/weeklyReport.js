@@ -5,6 +5,7 @@ import { scheduleIntervalsOn } from './weeklyAvailability'
 import { participantsOf } from './contacts'
 import { isMyMeeting } from './notes'
 import { isTeamMember } from './team'
+import { areasOn } from './formerMembers'
 
 // Resumen (sección "Resumen") de una semana o de cualquier periodo, comparado con el anterior.
 // Semanas de lunes a domingo. Solo cuentan las reuniones: no los bloques "No disponible" ni las
@@ -142,13 +143,14 @@ export function computeReport(
     ),
   )
 
-  // Por departamento de los miembros del equipo que participan: una reunión con varios
-  // departamentos cuenta en cada uno; sin nadie del equipo, en "Sin miembros del equipo".
+  // Por departamento de los miembros del equipo que participan, el que tenían el día de la reunión
+  // según su trayectoria (un antiguo miembro no cuenta después de su fecha de salida): una reunión
+  // con varios departamentos cuenta en cada uno; sin nadie del equipo, en "Sin miembros del equipo".
   const byDepartment = tally(
     people.flatMap(({ meeting, contacts: list }) => {
-      const members = list.filter(isTeamMember)
-      if (members.length === 0) return [{ key: NO_DEPARTMENT, label: NO_DEPARTMENT_LABEL, ms: durationOf(meeting) }]
-      const areas = [...new Set(members.map((c) => (c.teamProfile.area || '').trim()))]
+      const areaLists = list.filter(isTeamMember).map((c) => areasOn(c.teamProfile, meeting.start)).filter(Boolean)
+      if (areaLists.length === 0) return [{ key: NO_DEPARTMENT, label: NO_DEPARTMENT_LABEL, ms: durationOf(meeting) }]
+      const areas = [...new Set(areaLists.flat())]
       return areas.map((area) => ({ key: area || NO_AREA_LABEL, label: area || NO_AREA_LABEL, ms: durationOf(meeting) }))
     }),
   )

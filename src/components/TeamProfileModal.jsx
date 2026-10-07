@@ -6,7 +6,8 @@ import { useContactDraft } from '../hooks/useContactDraft'
 import { QUOTE_MAX_LENGTH, emptyTeamProfile, milestonesToBio, normalizeQuote, teamProfileDefaults, todayKey, validateQuote } from '../lib/team'
 import { cleanLinks, migrateProfileLinks, validateUrl } from '../lib/links'
 import { departmentKey } from '../lib/departments'
-import { applyLeaving, newRoleId, rolesOf, withRoles } from '../lib/trajectory'
+import { applyLeaving, dayLong, newRoleId, rolesOf, withRoles } from '../lib/trajectory'
+import { FORMER_GROUP_NAME, reopenRoles } from '../lib/formerMembers'
 import './EventFormModal.css'
 import './TeamProfileModal.css'
 
@@ -89,7 +90,9 @@ export default function TeamProfileModal({
       if (problem) return setError(`Enlaces: ${problem}`)
     }
 
-    const roles = isNew ? [{ id: newRoleId(), role: role.trim(), area, start: joinedAt || null, end: null }] : rolesOf(seed)
+    const saved = isNew ? [{ id: newRoleId(), role: role.trim(), area, start: joinedAt || null, end: null }] : rolesOf(seed)
+    // Vuelve al equipo: los roles que se cerraron con su fecha de salida vuelven a ser actuales.
+    const roles = returning ? reopenRoles(saved, seed.leftAt) : saved
     const teamProfile = withRoles(
       {
         // Lo que no se edita aquí (p. ej. la copia de la trayectoria antigua) se conserva.
@@ -114,6 +117,7 @@ export default function TeamProfileModal({
   }
 
   const areaOptions = area && !areas.includes(area) ? [...areas, area] : areas
+  const returning = seed.status === 'former' && status === 'active'
 
   return (
     <div className="event-form-backdrop" onClick={onClose}>
@@ -129,7 +133,7 @@ export default function TeamProfileModal({
         </div>
 
         <div className="event-form-body">
-          {!isNew && (
+          {!isNew && seed.status !== 'former' && (
             <p className="team-fieldset-hint">
               El cargo y el departamento se cambian en «Trayectoria en CESI», en su ficha del equipo.
             </p>
@@ -211,11 +215,22 @@ export default function TeamProfileModal({
               </select>
             </label>
           </div>
+          {returning && (
+            <p className="team-fieldset-hint">
+              Vuelve al equipo: sale del grupo «{FORMER_GROUP_NAME}»
+              {seed.leftAt ? ` y los roles que terminaron el ${dayLong(seed.leftAt)} vuelven a ser actuales` : ''}.
+            </p>
+          )}
           {status === 'former' && (
             <label className="event-form-field">
               <span>Fecha de salida</span>
               <input type="date" value={leftAt} onChange={(e) => setLeftAt(e.target.value)} />
-              {seed.status !== 'former' && <em className="team-fieldset-hint">Sus roles actuales se cerrarán con esta fecha.</em>}
+              {seed.status !== 'former' && (
+                <em className="team-fieldset-hint">
+                  Sus roles actuales se cerrarán con esta fecha. Dejará de salir en Equipo (seguirá en Contactos) y se añadirá
+                  al grupo «{FORMER_GROUP_NAME}».
+                </em>
+              )}
             </label>
           )}
 

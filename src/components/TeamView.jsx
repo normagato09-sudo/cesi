@@ -17,7 +17,8 @@ import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import LinkList from './LinkList.jsx'
 import TeamTrajectory from './TeamTrajectory.jsx'
-import { MEMBER_SORTS, filterMembers, isTeamMember, milestonesToBio, quoteDisplay } from '../lib/team'
+import { MEMBER_SORTS, filterMembers, isActiveMember, milestonesToBio, quoteDisplay } from '../lib/team'
+import { FORMER_GROUP_NAME, formerReview } from '../lib/formerMembers'
 import { currentRoles, dayLong, roleLabel, tenure, tenureText, withRoles } from '../lib/trajectory'
 import { migrateProfileLinks } from '../lib/links'
 import './TeamView.css'
@@ -83,9 +84,6 @@ function MemberDetail({
           {quoteDisplay(p.quote) && <p className="team-detail-quote">{quoteDisplay(p.quote)}</p>}
           {roleLine(p) && <p className="team-detail-role">{roleLine(p)}</p>}
           {seniority && <p className="team-detail-seniority">{seniority}</p>}
-          {p.status === 'former' && (
-            <span className="team-former-badge">Antiguo miembro{p.leftAt ? ` · salió el ${dayLong(p.leftAt)}` : ''}</span>
-          )}
           <GroupChips contact={contact} groups={groups} />
         </div>
       </div>
@@ -161,6 +159,77 @@ function MemberDetail({
   )
 }
 
+/**
+ * Aviso para ordenar a los antiguos miembros: los que aún no están en el grupo «Antiguos miembros»
+ * (se añaden todos de una vez o se descarta uno) y, aparte, los activos con todos sus roles
+ * terminados (uno a uno: marcarlo como antiguo con la fecha de su último rol o dejarlo en el equipo).
+ */
+function FormerReview({ contacts, groups, onOpenContact, onAddToGroup, onSkip, onMarkFormer, onKeepActive }) {
+  const { outsideGroup, allRolesEnded } = formerReview(contacts, groups)
+  if (outsideGroup.length === 0 && allRolesEnded.length === 0) return null
+  const n = outsideGroup.length
+  return (
+    <section className="team-former-review" aria-label="Antiguos miembros">
+      {n > 0 && (
+        <div className="team-former-review-block">
+          <p>
+            {n === 1 ? 'Hay 1 antiguo miembro' : `Hay ${n} antiguos miembros`} fuera del grupo «{FORMER_GROUP_NAME}». Ya no salen
+            en Equipo, pero siguen en Contactos.
+          </p>
+          <ul>
+            {outsideGroup.map((c) => (
+              <li key={c.id}>
+                <button type="button" className="team-former-review-name" onClick={() => onOpenContact(c.id)}>
+                  {c.name}
+                </button>
+                {c.teamProfile.leftAt && <span className="team-former-review-date">salió el {dayLong(c.teamProfile.leftAt)}</span>}
+                <button type="button" className="team-former-review-link" onClick={() => onSkip(c)}>
+                  No añadir
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="contact-action-btn primary" onClick={() => onAddToGroup(outsideGroup)}>
+            <UsersRound size={14} strokeWidth={1.75} />
+            Añadirlos al grupo
+          </button>
+        </div>
+      )}
+      {allRolesEnded.length > 0 && (
+        <div className="team-former-review-block">
+          <p>Siguen como activos pero tienen todos sus roles terminados:</p>
+          <ul>
+            {allRolesEnded.map(({ contact: c, leftAt }) => (
+              <li key={c.id}>
+                <span className="team-former-review-name-text">{c.name}</span>
+                {leftAt && <span className="team-former-review-date">último rol hasta el {dayLong(leftAt)}</span>}
+                <span className="team-former-review-actions">
+                  <button
+                    type="button"
+                    className="contact-action-btn"
+                    disabled={!leftAt}
+                    onClick={() => {
+                      if (window.confirm(`¿Marcar a ${c.name} como antiguo miembro, con fecha de salida el ${dayLong(leftAt)}? Dejará de salir en Equipo y pasará al grupo «${FORMER_GROUP_NAME}».`)) {
+                        onMarkFormer(c, leftAt)
+                      }
+                    }}
+                  >
+                    <UserMinus size={14} strokeWidth={1.75} />
+                    Marcar como antiguo
+                  </button>
+                  <button type="button" className="team-former-review-link" onClick={() => onKeepActive(c)}>
+                    Sigue en el equipo
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function TeamView({
   contacts,
   groups,
@@ -170,6 +239,10 @@ export default function TeamView({
   selectedMemberId,
   onSelectMember,
   onSaveProfile,
+  onAddFormersToGroup,
+  onSkipFormerGroup,
+  onMarkFormer,
+  onKeepActive,
   onRemoveFromTeam,
   onAddArea,
   onManageDepartments,
@@ -180,17 +253,13 @@ export default function TeamView({
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
-  const [status, setStatus] = useState('active')
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(false)
 
-  const members = useMemo(() => filterMembers(contacts, { query, area, status, sort, now }), [contacts, query, area, status, sort, now])
-  const counts = useMemo(() => {
-    const all = contacts.filter(isTeamMember)
-    const former = all.filter((c) => c.teamProfile.status === 'former').length
-    return { active: all.length - former, former }
-  }, [contacts])
-  const selected = contacts.find((c) => c.id === selectedMemberId && isTeamMember(c)) || null
+  // Solo los miembros activos: los antiguos miembros están en Contactos.
+  const members = useMemo(() => filterMembers(contacts, { query, area, sort, now }), [contacts, query, area, sort, now])
+  const activeCount = useMemo(() => contacts.filter(isActiveMember).length, [contacts])
+  const selected = contacts.find((c) => c.id === selectedMemberId && isActiveMember(c)) || null
 
   if (selected) {
     return (
@@ -267,18 +336,20 @@ export default function TeamView({
             <Building2 size={14} strokeWidth={1.75} />
             Departamentos
           </button>
-          <div className="view-switch team-status-switch" role="group" aria-label="Estado">
-            <button type="button" className={`view-switch-btn ${status === 'active' ? 'active' : ''}`} onClick={() => setStatus('active')}>
-              Activos ({counts.active})
-            </button>
-            <button type="button" className={`view-switch-btn ${status === 'former' ? 'active' : ''}`} onClick={() => setStatus('former')}>
-              Antiguos ({counts.former})
-            </button>
-          </div>
         </div>
       </div>
 
-      {counts.active + counts.former === 0 ? (
+      <FormerReview
+        contacts={contacts}
+        groups={groups}
+        onOpenContact={onOpenContact}
+        onAddToGroup={onAddFormersToGroup}
+        onSkip={onSkipFormerGroup}
+        onMarkFormer={onMarkFormer}
+        onKeepActive={onKeepActive}
+      />
+
+      {activeCount === 0 ? (
         <div className="contacts-empty team-empty-state">
           <UsersRound size={32} strokeWidth={1.5} />
           <p className="contacts-empty-title">Todavía no hay nadie en el equipo</p>
@@ -286,7 +357,7 @@ export default function TeamView({
         </div>
       ) : members.length === 0 ? (
         <div className="contacts-empty team-empty-state">
-          <p>{status === 'former' ? 'No hay antiguos miembros' : 'No hay miembros activos'} que coincidan con la búsqueda.</p>
+          <p>No hay miembros que coincidan con la búsqueda.</p>
         </div>
       ) : (
         <ul className="team-grid">

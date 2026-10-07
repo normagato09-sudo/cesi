@@ -94,6 +94,26 @@ describe('resumen de un periodo', () => {
     ])
   })
 
+  it('departamento del día de la reunión según la trayectoria; un antiguo miembro, solo hasta su salida', () => {
+    const roles = [
+      { id: 'r1', role: 'Locutora', area: 'Radio', start: '2025-01-01', end: '2026-09-10' },
+      { id: 'r2', role: 'Editora', area: 'Media', start: '2026-09-11', end: '2026-09-20' },
+    ]
+    const team = [{ id: 'bea', name: 'Bea', teamProfile: { status: 'former', leftAt: '2026-09-20', area: 'Media', roles } }]
+    const list = [
+      meeting(d(9, 8, 9), d(9, 8, 10), { participantIds: ['bea'] }), // Radio
+      meeting(d(9, 15, 9), d(9, 15, 10), { participantIds: ['bea'] }), // Media
+      meeting(d(9, 24, 9), d(9, 24, 10), { participantIds: ['bea'] }), // ya había salido
+    ]
+    const r = computeReport(list, { ...period, workingHours, contacts: team })
+    expect(r.byDepartment.map((row) => [row.label, row.count])).toEqual([
+      ['Media', 1],
+      ['Radio', 1],
+      [NO_DEPARTMENT_LABEL, 1],
+    ])
+    expect(r.byPerson.map((row) => [row.label, row.count])).toEqual([['Bea', 3]])
+  })
+
   it('todas las personas, no solo las 5 primeras', () => {
     expect(report.byPerson.map((r) => [r.label, r.count])).toEqual([
       ['Ana', 2],

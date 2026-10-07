@@ -45,6 +45,7 @@ import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { deleteFile } from './lib/files/files.js'
 import { planCandidacy } from './lib/applications.js'
 import { AREAS_KEY, getStoredTeamAreas, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
+import { becomesFormer, findFormerGroup, markFormerProfile, newFormerGroup, statusChangePatch } from './lib/formerMembers.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
@@ -569,7 +570,7 @@ export default function App() {
   // ofrece descartarlos.
   const handleIncorporate = (contact, candidacyId, vacancy, { contactPatch, teamProfile }) => {
     const result = incorporate({ contact, candidacyId, vacancy, teamProfile, contacts })
-    editContact(contact.id, { ...contactPatch, ...result.contactPatch })
+    editContact(contact.id, withFormerGroup(contact, { ...contactPatch, ...result.contactPatch }))
     vacanciesStore.update(vacancy.id, result.vacancyPatch)
     reloadVacancies()
     const n = result.remaining.length
@@ -640,10 +641,45 @@ export default function App() {
     reloadTeamAreas()
   }
 
+  // Pasar a antiguo miembro o volver al equipo cambia también el grupo «Antiguos miembros» (que se
+  // crea al hacer falta). Devuelve el cambio del contacto completo (ver formerMembers.js).
+  const withFormerGroup = (contact, patch) => {
+    let group = findFormerGroup(getAllGroups())
+    if (!group && becomesFormer(contact.teamProfile, patch.teamProfile)) {
+      group = groupsStore.create(newFormerGroup(getAllGroups()))
+      reloadGroups()
+    }
+    const groupIds = patch.groupIds ?? contact.groupIds ?? []
+    return { ...patch, ...statusChangePatch({ before: contact.teamProfile, after: patch.teamProfile, groupIds, formerGroup: group }) }
+  }
+
   // Perfil de equipo: los datos de contacto (foto, email, teléfono) se guardan en el propio contacto.
   const handleSaveTeamProfile = (contactId, { contactPatch, teamProfile }) => {
-    editContact(contactId, { ...contactPatch, teamProfile })
+    const contact = contacts.find((c) => c.id === contactId)
+    editContact(contactId, contact ? withFormerGroup(contact, { ...contactPatch, teamProfile }) : { ...contactPatch, teamProfile })
   }
+
+  // Aviso de Equipo: antiguos miembros que aún no están en el grupo.
+  const handleAddFormersToGroup = (list) => {
+    let group = findFormerGroup(getAllGroups())
+    if (!group) {
+      group = groupsStore.create(newFormerGroup(getAllGroups()))
+      reloadGroups()
+    }
+    for (const c of list) {
+      const groupIds = (c.groupIds || []).includes(group.id) ? c.groupIds : [...(c.groupIds || []), group.id]
+      editContact(c.id, { groupIds, teamProfile: { ...c.teamProfile, formerGroupHandled: true } })
+    }
+  }
+
+  // "No añadir": no se le mete en el grupo y el aviso no lo vuelve a proponer.
+  const handleSkipFormerGroup = (contact) => editContact(contact.id, { teamProfile: { ...contact.teamProfile, formerGroupHandled: true } })
+
+  // Activos con todos sus roles terminados: pasa a antiguo miembro (con la fecha de su último rol) o sigue en el equipo.
+  const handleMarkFormer = (contact, leftAt) =>
+    editContact(contact.id, withFormerGroup(contact, { teamProfile: markFormerProfile(contact.teamProfile, leftAt) }))
+
+  const handleKeepActive = (contact) => editContact(contact.id, { teamProfile: { ...contact.teamProfile, keepActive: true } })
 
   const handleOpenTeamMember = (contactId) => {
     setSelectedEvent(null)
@@ -906,6 +942,10 @@ export default function App() {
                 selectedMemberId={selectedMemberId}
                 onSelectMember={setSelectedMemberId}
                 onSaveProfile={handleSaveTeamProfile}
+                onAddFormersToGroup={handleAddFormersToGroup}
+                onSkipFormerGroup={handleSkipFormerGroup}
+                onMarkFormer={handleMarkFormer}
+                onKeepActive={handleKeepActive}
                 onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
                 onAddArea={handleAddArea}
                 onManageDepartments={() => setDepartmentsOpen(true)}

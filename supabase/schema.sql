@@ -47,6 +47,8 @@ create table if not exists public.events (
 --         groupIds: ids de los grupos a los que pertenece (tabla groups),
 --         photo: referencia de la foto en Storage { store: 'cloud', path } o null,
 --         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt,
+--           formerGroupHandled (ya se le metió en el grupo «Antiguos miembros» o se decidió no hacerlo),
+--           keepActive (sigue en el equipo aunque tenga todos sus roles terminados),
 --           roles: trayectoria en CESI [{ id, role, area, start, end }] (end null = rol actual),
 --           role, area (copia del rol principal), joinedAt (fecha de incorporación antigua),
 --           bio («Sobre esta persona», texto libre), quote (frase personal, hasta 150), links: [{ id, label, url }] (una sola
