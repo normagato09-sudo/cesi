@@ -1,7 +1,8 @@
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Ban } from 'lucide-react'
+import UnavailableIcon from '../UnavailableIcon.jsx'
+import { allDayRangeText } from '../../lib/unavailableKinds'
 import { ParticipantList } from '../Participant.jsx'
 import { colorForEvent } from '../../lib/eventStyle'
 import { useScheduling } from '../../lib/schedulingContext'
@@ -37,13 +38,13 @@ export default function EventPreview({ preview }) {
     el.style.top = `${y}px`
   }
   const when = event.allDay
-    ? format(event.start, "EEEE d 'de' MMMM", { locale: es })
+    ? allDayRangeText(event)
     : `${format(event.start, "EEEE d 'de' MMMM", { locale: es })} · ${format(event.start, 'HH:mm')}–${format(event.end, 'HH:mm')}`
 
   return createPortal(
     <div ref={placeTouch} className="event-preview" role="tooltip" style={{ left, top, width, '--event-color': colorForEvent(event) }}>
       <p className="event-preview-title">
-        {event.isUnavailable && <Ban size={12} strokeWidth={2} />}
+        {event.isUnavailable && <UnavailableIcon event={event} size={12} />}
         {event.title}
         {event.provisional && <span className="event-preview-badge">Provisional</span>}
         {event.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}

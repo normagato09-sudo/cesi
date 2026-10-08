@@ -5,6 +5,8 @@ import { NotebookPen } from 'lucide-react'
 import { getMonthGridDays, isSameDay, isSameMonth } from '../../lib/dateHelpers'
 import { isEventOnDay } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
+import { isMarkedDayOff, kindLabel, unavailableKindOf } from '../../lib/unavailableKinds'
+import UnavailableIcon from '../UnavailableIcon.jsx'
 import { hasNotes } from '../../lib/notes'
 import { dragThresholdFor } from '../../lib/dragThreshold'
 import { cellIndexFromPoint } from '../../lib/monthGrid'
@@ -137,8 +139,11 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
           const isToday = isSameDay(day, today)
           const inMonth = isSameMonth(day, currentDate)
           const hasEvents = dayEvents.length > 0
-          const visible = dayEvents.slice(0, MAX_VISIBLE_DOTS)
-          const extra = dayEvents.length - visible.length
+          // Vacaciones o festivo: con su texto en vez de un punto.
+          const dayOff = dayEvents.find(isMarkedDayOff) || null
+          const dotEvents = dayOff ? dayEvents.filter((ev) => ev !== dayOff) : dayEvents
+          const visible = dotEvents.slice(0, MAX_VISIBLE_DOTS)
+          const extra = dotEvents.length - visible.length
 
           return (
             <div
@@ -159,6 +164,18 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                 {format(day, 'd')}
               </button>
               <div className="month-cell-events">
+                {dayOff && (
+                  <button
+                    type="button"
+                    className="month-day-off"
+                    title={dayOff.title}
+                    {...bindPreview(dayOff)}
+                    onClick={(e) => handleEventClick(e, dayOff)}
+                  >
+                    <UnavailableIcon event={dayOff} size={10} />
+                    <span>{kindLabel(unavailableKindOf(dayOff))}</span>
+                  </button>
+                )}
                 {visible.length > 0 && (
                   <div className="month-day-dots">
                     {visible.map((ev) => (

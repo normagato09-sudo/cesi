@@ -67,6 +67,15 @@ describe('findSlots estricto', () => {
     const allDay = { id: 'x', start: at(WED, 0).toISOString(), end: at(new Date(2026, 8, 24), 0).toISOString(), allDay: true, isUnavailable: true, recurrence: null }
     expect(findSlots({ ...base, events: [allDay] })).toEqual([])
   })
+
+  it('una franja de todo el día de varios días bloquea todos sus días, no solo el primero', () => {
+    const mon = new Date(2026, 8, 21)
+    const fri = new Date(2026, 8, 25)
+    // Vacaciones del lunes 21 al jueves 24 (incluido): termina el viernes 25 a las 00:00.
+    const vacation = { id: 'v', start: at(mon, 0).toISOString(), end: at(fri, 0).toISOString(), allDay: true, isUnavailable: true, unavailableKind: 'vacation', recurrence: null }
+    const slots = findSlots({ ...base, fromDate: mon, toDate: fri, now: at(mon, 0), events: [vacation] })
+    expect([...new Set(slots.map((s) => s.start.getDate()))]).toEqual([25])
+  })
 })
 
 describe('findSlots: sin margen entre reuniones', () => {

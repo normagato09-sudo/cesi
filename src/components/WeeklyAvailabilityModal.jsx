@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { addWeeks, format } from 'date-fns'
-import { X, CalendarRange, ChevronLeft, ChevronRight, Copy, RotateCcw } from 'lucide-react'
+import { X, CalendarCheck, CalendarRange, ChevronLeft, ChevronRight, Copy, RotateCcw } from 'lucide-react'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
 import { cleanWeek, validateWeek } from '../lib/weeklySchedule'
 import {
@@ -19,8 +19,9 @@ function shiftKey(key, weeks) {
 }
 
 // "Disponibilidad de la semana": declarar el horario concreto de una semana (lunes a domingo).
-// Si la semana no está declarada, el editor parte del horario habitual.
-export default function WeeklyAvailabilityModal({ initialKey, workingHours, weeks, onSave, onRevert, onClose }) {
+// Si la semana no está declarada, el editor parte del horario habitual. Con `onOpenBookingLink`
+// (sincronización configurada), acceso al "Enlace de reservas", que ofrece las semanas declaradas.
+export default function WeeklyAvailabilityModal({ initialKey, workingHours, weeks, onSave, onRevert, onClose, onOpenBookingLink = null }) {
   const [key, setKey] = useState(initialKey)
   const draftFor = (k) => declaredWeekFor(weekStartFromKey(k), weeks) || workingHours
   const [draft, setDraft] = useState(() => draftFor(initialKey))
@@ -57,6 +58,12 @@ export default function WeeklyAvailabilityModal({ initialKey, workingHours, week
     }
     onSave(key, cleanWeek(draft))
     onClose()
+  }
+
+  const handleOpenBookingLink = () => {
+    if (dirty && !window.confirm('Tienes cambios sin guardar en esta semana. ¿Descartarlos?')) return
+    onClose()
+    onOpenBookingLink()
   }
 
   const handleRevert = () => {
@@ -115,6 +122,15 @@ export default function WeeklyAvailabilityModal({ initialKey, workingHours, week
             </div>
             {notice && <p className="week-modal-notice">{notice} Guarda para aplicarlo.</p>}
             <WeeklyScheduleEditor value={draft} onChange={(week) => edit(week)} />
+            {onOpenBookingLink && (
+              <div className="week-modal-booking">
+                <p className="availability-hint">Tu enlace de reservas ofrece los huecos libres de las semanas declaradas.</p>
+                <button type="button" className="week-modal-copy-btn" onClick={handleOpenBookingLink}>
+                  <CalendarCheck size={13} strokeWidth={1.75} />
+                  Enlace de reservas
+                </button>
+              </div>
+            )}
           </section>
 
           {error && <div className="availability-error">{error}</div>}

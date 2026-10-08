@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Briefcase, CalendarDays, ChevronRight, ListTodo, NotebookPen, Send } from 'lucide-react'
+import { Briefcase, CalendarCheck, CalendarDays, Check, ChevronRight, ListTodo, NotebookPen, Send, X } from 'lucide-react'
 import TaskItem from './TaskItem.jsx'
 import { colorForEvent } from '../lib/eventStyle'
 import {
@@ -14,6 +14,8 @@ import {
   vacancyProgressText,
 } from '../lib/home'
 import { VACANCY_STATUS } from '../lib/vacancies'
+import { requestMinutes } from '../lib/bookings'
+import { formatDurationLong } from '../lib/proposals'
 import './Tasks.css'
 import './HomeView.css'
 
@@ -104,6 +106,42 @@ function TaskGroup({ title, tasks, className = '', ...itemProps }) {
   )
 }
 
+// Solicitudes del enlace de reservas pendientes: quién, cuándo (en mi hora), duración y motivo,
+// con Aceptar y Rechazar. Hasta que se responden, su hueco sale ocupado en el enlace.
+function BookingRequests({ requests, onAccept, onReject }) {
+  if (requests.length === 0) return <Empty>No tienes solicitudes pendientes.</Empty>
+  return (
+    <ul className="home-list">
+      {requests.map((r) => {
+        const start = new Date(r.starts_at)
+        return (
+          <li key={r.id} className="home-booking">
+            <span className="home-meeting-main">
+              <span className="home-meeting-title">{r.name}</span>
+              <span className="home-meeting-people">
+                {format(start, "EEE d 'de' MMM · HH:mm", { locale: es })} · {formatDurationLong(requestMinutes(r))}
+              </span>
+              <span className="home-booking-reason" title={r.reason}>
+                {r.reason}
+              </span>
+            </span>
+            <span className="home-booking-actions">
+              <button type="button" className="home-booking-btn primary" onClick={() => onAccept(r)}>
+                <Check size={14} strokeWidth={2} />
+                Aceptar
+              </button>
+              <button type="button" className="home-booking-btn" onClick={() => onReject(r)}>
+                <X size={14} strokeWidth={2} />
+                Rechazar
+              </button>
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 /**
  * Inicio: lo primero que se ve al abrir la app. Reuniones de hoy y mañana, tareas que vencen,
  * reuniones sin acta, entrevistas y vacantes, y propuestas pendientes. Cada bloque lleva a su sección.
@@ -124,6 +162,8 @@ export default function HomeView({
   onOpenTask,
   onOpenVacancy,
   onOpenProposal,
+  // Enlace de reservas (solo con la sincronización configurada): null si no se usa.
+  bookings = null,
 }) {
   const meetings = meetingsTodayAndTomorrow(rawEvents, now)
   const due = dueTasks(tasks, today)
@@ -148,6 +188,19 @@ export default function HomeView({
       </header>
 
       <div className="home-grid">
+        {bookings && (
+          <HomeCard
+            Icon={CalendarCheck}
+            title="Solicitudes pendientes"
+            count={bookings.requests.length}
+            linkLabel="Enlace de reservas"
+            onLink={bookings.onOpenLink}
+            className={bookings.requests.length > 0 ? 'home-card-attention' : ''}
+          >
+            <BookingRequests requests={bookings.requests} onAccept={bookings.onAccept} onReject={bookings.onReject} />
+          </HomeCard>
+        )}
+
         <HomeCard
           Icon={CalendarDays}
           title="Reuniones"

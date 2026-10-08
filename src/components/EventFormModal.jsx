@@ -8,6 +8,7 @@ import { participantFields, participantsOf } from '../lib/contacts'
 import { MeetingWarningError } from '../lib/meetingWarnings'
 import { SCOPES } from '../lib/seriesEdits'
 import { hasCandidateParticipant, isInterview } from '../lib/vacancies'
+import { UNAVAILABLE_KINDS, allDaySpanDays, dayOffTitle, unavailableKindOf } from '../lib/unavailableKinds'
 import MeetingWarning from './MeetingWarning.jsx'
 import './EventFormModal.css'
 
@@ -84,12 +85,14 @@ export default function EventFormModal({
   const baseStart = seed.start ? new Date(seed.start) : defaultDate
   const baseEnd = seed.end ? new Date(seed.end) : new Date(baseStart.getTime() + 60 * 60 * 1000)
 
-  const initialReason = isUnavailable
+  // Franja de todo el día: Vacaciones, Festivo u Otro (las antiguas, Otro), con su nota.
+  const initialKind = seed.isUnavailable ? unavailableKindOf(seed) : 'other'
+  const initialReason = isUnavailable && initialKind === 'other'
     ? UNAVAILABLE_REASONS.find((r) => seed.title === `No disponible: ${r}`) ||
       (seed.title && seed.title !== 'No disponible' ? 'Otro' : 'No disponible')
     : UNAVAILABLE_REASONS[0]
   const initialCustomReason =
-    isUnavailable && initialReason === 'Otro' && seed.title ? seed.title.replace(/^No disponible: /, '') : ''
+    isUnavailable && initialKind === 'other' && initialReason === 'Otro' && seed.title ? seed.title.replace(/^No disponible: /, '') : ''
 
   const [title, setTitle] = useState(!isUnavailable ? seed.title || '' : '')
   // "Entrevista de candidato" (ver isInterview): la reunión cuenta en Vacantes y en el Inicio.
@@ -107,6 +110,12 @@ export default function EventFormModal({
   const [notAttending, setNotAttending] = useState(!!seed.notAttending)
   const [allDay, setAllDay] = useState(!!seed.allDay)
   const [date, setDate] = useState(toDateInputValue(baseStart))
+  // Último día (incluido) de una franja de todo el día de varios días.
+  const [endDate, setEndDate] = useState(
+    toDateInputValue(seed.allDay && seed.end ? addDays(baseStart, allDaySpanDays(seed) - 1) : baseStart),
+  )
+  const [kind, setKind] = useState(initialKind)
+  const [note, setNote] = useState(initialKind !== 'other' ? seed.unavailableNote || '' : '')
   const [startTime, setStartTime] = useState(toTimeInputValue(baseStart))
   const [endTime, setEndTime] = useState(toTimeInputValue(baseEnd))
 
@@ -189,6 +198,8 @@ export default function EventFormModal({
           ? 'Cambia toda la serie.'
           : null
 
+  const isDayOff = isUnavailable && allDay && kind !== 'other'
+
   const heading = isEditing
     ? isUnavailable
       ? 'Editar franja no disponible'
@@ -209,7 +220,7 @@ export default function EventFormModal({
       setFormError('El título es obligatorio.')
       return
     }
-    if (isUnavailable && reason === 'Otro' && !customReason.trim()) {
+    if (isUnavailable && !isDayOff && reason === 'Otro' && !customReason.trim()) {
       setFormError('Indica un motivo.')
       return
     }
@@ -221,8 +232,12 @@ export default function EventFormModal({
     let start
     let end
     if (allDay) {
+      if (isUnavailable && endDate && endDate < date) {
+        setFormError('El último día es anterior al primero.')
+        return
+      }
       start = startOfDateInput(date)
-      end = addDays(start, 1)
+      end = addDays(isUnavailable && endDate ? startOfDateInput(endDate) : start, 1)
     } else {
       start = combineDateAndTime(date, startTime)
       end = combineDateAndTime(date, endTime)
@@ -233,7 +248,9 @@ export default function EventFormModal({
     }
 
     const payload = {
-      title: isUnavailable
+      title: isDayOff
+        ? dayOffTitle(kind, note)
+        : isUnavailable
         ? reason === 'No disponible'
           ? 'No disponible'
           : `No disponible: ${reason === 'Otro' ? customReason.trim() : reason}`
@@ -252,6 +269,8 @@ export default function EventFormModal({
       ...interviewField,
       isUnavailable,
       allDay: isUnavailable ? allDay : false,
+      // Tipo de la franja de todo el día (ver unavailableKinds.js); la nota solo en vacaciones y festivos.
+      ...(isUnavailable && allDay ? { unavailableKind: kind, unavailableNote: isDayOff ? note.replace(/s+/g, ' ').trim() : '' } : {}),
       start,
       end,
       recurrence: repeatFreq ? { freq: repeatFreq, until: new Date(`${repeatUntil}T23:59:59`).toISOString() } : null,
@@ -337,36 +356,79 @@ export default function EventFormModal({
           )}
 
           {isUnavailable && (
-            <label className="event-form-field">
-              <span>Motivo</span>
-              <select value={reason} onChange={(e) => setReason(e.target.value)}>
-                {UNAVAILABLE_REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {isUnavailable && reason === 'Otro' && (
-            <label className="event-form-field">
-              <span>Especifica el motivo</span>
-              <input type="text" value={customReason} onChange={(e) => setCustomReason(e.target.value)} placeholder="Motivo" />
-            </label>
-          )}
-
-          {isUnavailable && (
             <label className="event-form-checkbox">
               <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
               <span>Todo el día</span>
             </label>
           )}
 
-          <label className="event-form-field">
-            <span>Fecha</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
+          {isUnavailable && allDay && (
+            <label className="event-form-field">
+              <span>Tipo</span>
+              <select value={kind} onChange={(e) => setKind(e.target.value)}>
+                {UNAVAILABLE_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {isDayOff ? (
+            <label className="event-form-field">
+              <span>Nota (opcional)</span>
+              <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Navidad" maxLength={80} />
+              <em className="event-form-hint">Solo la ves tú: en tu enlace de reservas sale «{kind === 'vacation' ? 'No disponible: vacaciones' : 'Festivo'}».</em>
+            </label>
+          ) : (
+            isUnavailable && (
+              <label className="event-form-field">
+                <span>Motivo</span>
+                <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                  {UNAVAILABLE_REASONS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          )}
+
+          {isUnavailable && !isDayOff && reason === 'Otro' && (
+            <label className="event-form-field">
+              <span>Especifica el motivo</span>
+              <input type="text" value={customReason} onChange={(e) => setCustomReason(e.target.value)} placeholder="Motivo" />
+            </label>
+          )}
+
+          {isUnavailable && allDay ? (
+            <div className="event-form-row">
+              <label className="event-form-field">
+                <span>Desde</span>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Si el fin queda antes del inicio, se mueve con él.
+                    if (value && endDate < value) setEndDate(value)
+                    setDate(value)
+                  }}
+                />
+              </label>
+              <label className="event-form-field">
+                <span>Hasta (incluido)</span>
+                <input type="date" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} />
+              </label>
+            </div>
+          ) : (
+            <label className="event-form-field">
+              <span>Fecha</span>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+          )}
 
           {!allDay && (
             <>

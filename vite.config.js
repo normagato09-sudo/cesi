@@ -4,11 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // Páginas públicas, aparte de la app: /ficha/<token> (un contacto rellena sus datos, ficha.html)
 // y /confirmar/<token> (confirmar.html: solo un aviso "Este enlace ya no está activo", porque la
-// confirmación de asistencia se quitó y aún puede haber enlaces enviados). En Vercel las
+// confirmación de asistencia se quitó y aún puede haber enlaces enviados) y /reservar/<token>
+// (reservar.html: pedir una reunión en un hueco libre, ver src/lib/bookings.js). En Vercel las
 // rutas las sirve vercel.json; aquí, lo mismo para `npm run dev` y `npm run preview`.
 const PUBLIC_PAGES = [
   { route: /^\/ficha\/[^/?#]+\/?(\?.*)?$/, file: 'ficha.html' },
   { route: /^\/confirmar\/[^/?#]+\/?(\?.*)?$/, file: 'confirmar.html' },
+  { route: /^\/reservar\/[^/?#]+\/?(\?.*)?$/, file: 'reservar.html' },
 ]
 function publicPages() {
   const rewrite = (req, _res, next) => {
@@ -56,7 +58,7 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', ficha: 'ficha.html', confirmar: 'confirmar.html' },
+      input: { main: 'index.html', ficha: 'ficha.html', confirmar: 'confirmar.html', reservar: 'reservar.html' },
     },
   },
   plugins: [
@@ -67,13 +69,13 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       // La fuente de las banderas (woff2) también se guarda para usar la app sin conexión.
-      // /ficha/<token> y /confirmar/<token> son páginas públicas, no la app: el service worker no las sustituye.
+      // /ficha/<token>, /confirmar/<token> y /reservar/<token> son páginas públicas, no la app: el service worker no las sustituye.
       workbox: {
         // Con injectRegister: false el plugin ya no los activa solo: la versión nueva toma el control al instalarse.
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,woff2}'],
-        navigateFallbackDenylist: [/^\/ficha\//, /^\/confirmar\//],
+        navigateFallbackDenylist: [/^\/ficha\//, /^\/confirmar\//, /^\/reservar\//],
       },
       manifest: {
         name: 'CESI',

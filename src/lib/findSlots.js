@@ -1,4 +1,4 @@
-import { addDays, startOfDay, endOfDay, isSameDay, startOfWeek } from 'date-fns'
+import { addDays, startOfDay, endOfDay, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
 import { timeToMinutes } from './weeklySchedule'
@@ -16,10 +16,10 @@ function atMinutes(day, minutes) {
   return d
 }
 
+// ¿Hay una franja "No disponible" de todo el día que cubre `day` (00:00)? También las de varios
+// días (vacaciones del 22/12 al 06/01): todos sus días, no solo el primero.
 function isDayFullyUnavailable(occurrences, day) {
-  return occurrences.some(
-    (ev) => ev.isUnavailable && ev.allDay && isSameDay(ev.start, day) && ev.start <= day && ev.end >= day,
-  )
+  return occurrences.some((ev) => ev.isUnavailable && ev.allDay && ev.start <= day && ev.end > day)
 }
 
 // Redondea hacia arriba al siguiente cuarto de hora (10:07 → 10:15).

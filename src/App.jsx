@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, format, subDays, subMonths, subWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { CalendarCheck } from 'lucide-react'
 import Sidebar from './components/Sidebar.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import HomeView from './components/HomeView.jsx'
@@ -87,6 +88,8 @@ import {
   weekKeyOf,
 } from './lib/weeklyAvailability.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
+import { useBookings } from './hooks/useBookings.js'
+import { bookingContactData, bookingLinkUrl, decideRequest, matchContact, requestDescription, requestTitle } from './lib/bookings.js'
 import './App.css'
 
 // Las secciones y los modales que no hacen falta al abrir el calendario se cargan aparte,
@@ -101,6 +104,8 @@ const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
 const WeeklyAvailabilityModal = lazy(() => import('./components/WeeklyAvailabilityModal.jsx'))
 const DepartmentsModal = lazy(() => import('./components/DepartmentsModal.jsx'))
+const BookingLinkModal = lazy(() => import('./components/BookingLinkModal.jsx'))
+const BookingDecisionModal = lazy(() => import('./components/BookingDecisionModal.jsx'))
 
 // Mientras llega el código de una sección: un aviso discreto que solo se ve si tarda.
 function SectionLoading() {
@@ -148,6 +153,9 @@ export default function App() {
   // si los hay (interview: true desde "Buscar hueco para entrevista").
   const [findSlot, setFindSlot] = useState(null)
   const [backupOpen, setBackupOpen] = useState(false)
+  // Enlace de reservas: modal del enlace y solicitud que se está aceptando o rechazando ({ request, decision }).
+  const [bookingLinkOpen, setBookingLinkOpen] = useState(false)
+  const [bookingDecision, setBookingDecision] = useState(null)
   const [proposalModalId, setProposalModalId] = useState(null)
   // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
   const [weekModalKey, setWeekModalKey] = useState(null)
@@ -219,6 +227,35 @@ export default function App() {
   const sync = useSync()
   const syncStatus = useSyncStatus()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
+  // Enlace de reservas: con sesión iniciada (ya pasada la primera sincronización).
+  const bookingsActive = !!sync && ['syncing', 'synced', 'offline', 'error'].includes(syncStatus.status)
+  const bookings = useBookings({ active: bookingsActive, rawEvents, weeklyAvailability, now })
+
+  // Aceptar (se crea la reunión, vinculada al contacto si coincide o al nuevo si se guarda) o
+  // rechazar una solicitud. Devuelve un aviso si la hora ya se solapa con algo del calendario.
+  const handleBookingDecision = async ({ saveContact }) => {
+    const { request, decision } = bookingDecision
+    await decideRequest(request.id, decision)
+    bookings.setRequests((list) => list.filter((r) => r.id !== request.id))
+    if (decision !== 'accepted') return null
+    const start = new Date(request.starts_at)
+    const end = new Date(request.ends_at)
+    let contact = matchContact(request, contacts)
+    if (!contact && saveContact) contact = addContact(bookingContactData(request))
+    const conflict = checkConflict(start, end)
+    addEvent({
+      title: requestTitle(request),
+      description: requestDescription(request),
+      ...participantFields(contact ? [contact] : [], contact ? [] : [request.name]),
+      isUnavailable: false,
+      allDay: false,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      recurrence: null,
+      bookingRequestId: request.id,
+    })
+    return conflict ? 'Ojo: a esa hora ya tienes otra cosa en el calendario (se ha creado igualmente).' : null
+  }
 
   useEffect(() => {
     if (!canSaveDepartments) return
@@ -854,6 +891,7 @@ export default function App() {
           section={section}
           onSectionChange={setSection}
           onOpenBackup={() => setBackupOpen(true)}
+          onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
           proposals={proposalItems}
           onOpenProposal={setProposalModalId}
           missingNotes={missingNotes}
@@ -976,6 +1014,16 @@ export default function App() {
               onOpenTask={handleOpenTask}
               onOpenVacancy={handleOpenVacancy}
               onOpenProposal={setProposalModalId}
+              bookings={
+                sync
+                  ? {
+                      requests: bookings.requests,
+                      onOpenLink: () => setBookingLinkOpen(true),
+                      onAccept: (request) => setBookingDecision({ request, decision: 'accepted' }),
+                      onReject: (request) => setBookingDecision({ request, decision: 'rejected' }),
+                    }
+                  : null
+              }
             />
           </div>
         )}
@@ -1065,7 +1113,11 @@ export default function App() {
           </div>
         )}
 
-        <MobileNav section={section} onSectionChange={setSection} />
+        <MobileNav
+          section={section}
+          onSectionChange={setSection}
+          actions={sync ? [{ id: 'booking-link', label: 'Enlace de reservas', Icon: CalendarCheck, onClick: () => setBookingLinkOpen(true) }] : []}
+        />
 
         <EventModal
           key={selectedEvent?.id || 'none'}
@@ -1145,6 +1197,33 @@ export default function App() {
           </Suspense>
         )}
 
+        {bookingLinkOpen && (
+          <Suspense fallback={null}>
+            <BookingLinkModal
+              key={bookings.link === undefined ? 'cargando' : bookings.link?.token || 'sin-enlace'}
+              syncActive={bookingsActive}
+              link={bookingsActive ? bookings.link : null}
+              onLinkChange={bookings.onLinkChange}
+              rawEvents={rawEvents}
+              weeklyAvailability={weeklyAvailability}
+              onClose={() => setBookingLinkOpen(false)}
+            />
+          </Suspense>
+        )}
+
+        {bookingDecision && (
+          <Suspense fallback={null}>
+            <BookingDecisionModal
+              request={bookingDecision.request}
+              decision={bookingDecision.decision}
+              contacts={contacts}
+              linkUrl={bookings.link ? bookingLinkUrl(bookings.link.token) : ''}
+              onDecide={handleBookingDecision}
+              onClose={() => setBookingDecision(null)}
+            />
+          </Suspense>
+        )}
+
         {backupOpen && (
           <Suspense fallback={null}>
             <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />
@@ -1160,6 +1239,7 @@ export default function App() {
               onSave={handleDeclareWeek}
               onRevert={handleRevertWeek}
               onClose={() => setWeekModalKey(null)}
+              onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
             />
           </Suspense>
         )}

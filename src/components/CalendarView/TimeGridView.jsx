@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { format, addDays, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Ban, NotebookPen } from 'lucide-react'
+import UnavailableIcon from '../UnavailableIcon.jsx'
 import { hasNotes } from '../../lib/notes'
 import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
@@ -190,7 +191,7 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                     {...bindPreview(ev)}
                     onClick={() => onSelectEvent(ev)}
                   >
-                    {ev.isUnavailable && <Ban size={11} strokeWidth={2} />}
+                    {ev.isUnavailable && <UnavailableIcon event={ev} size={11} />}
                     {ev.title}
                   </button>
                 ))}

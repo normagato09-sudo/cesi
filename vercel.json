@@ -1,7 +1,8 @@
 {
   "rewrites": [
     { "source": "/ficha/:token", "destination": "/ficha.html" },
-    { "source": "/confirmar/:token", "destination": "/confirmar.html" }
+    { "source": "/confirmar/:token", "destination": "/confirmar.html" },
+    { "source": "/reservar/:token", "destination": "/reservar.html" }
   ],
   "headers": [
     { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
@@ -18,6 +19,14 @@
     },
     {
       "source": "/confirmar/:token",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/reservar/:token",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
         { "key": "Referrer-Policy", "value": "no-referrer" },

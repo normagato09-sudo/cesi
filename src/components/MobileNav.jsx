@@ -4,8 +4,9 @@ import { MAIN_SECTIONS, MORE_SECTIONS } from './sections.js'
 import './MobileNav.css'
 
 // Barra inferior del móvil: Inicio, Calendario, Tareas, Contactos y "Más" (Equipo, Vacantes y
-// Resumen). En el ordenador no se ve: están todas en la barra lateral.
-export default function MobileNav({ section, onSectionChange }) {
+// Resumen, y debajo `actions`: [{ id, label, Icon, onClick }], p. ej. "Enlace de reservas").
+// En el ordenador no se ve: están todas en la barra lateral.
+export default function MobileNav({ section, onSectionChange, actions = [] }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const ref = useRef(null)
   const inMore = MORE_SECTIONS.some((s) => s.id === section)
@@ -63,6 +64,21 @@ export default function MobileNav({ section, onSectionChange }) {
               className={`mobile-nav-more-item${section === id ? ' active' : ''}`}
               aria-current={section === id ? 'page' : undefined}
               onClick={() => go(id)}
+            >
+              <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+          {actions.map(({ id, label, Icon, onClick }) => (
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              className="mobile-nav-more-item"
+              onClick={() => {
+                setMoreOpen(false)
+                onClick()
+              }}
             >
               <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
               {label}

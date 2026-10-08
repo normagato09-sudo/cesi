@@ -27,6 +27,8 @@ import { pendingForMeeting, sourceOccurrence, tasksOfSession } from '../lib/task
 import ConvocationModal from './ConvocationModal.jsx'
 import { NOT_ATTENDING_LABEL, isNotAttending } from '../lib/notAttending'
 import { isInterview } from '../lib/vacancies'
+import { allDayRangeText, isMarkedDayOff, kindLabel, unavailableKindOf } from '../lib/unavailableKinds'
+import UnavailableIcon from './UnavailableIcon.jsx'
 import { RECURRENCE_LABELS, dateKey } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
@@ -36,9 +38,7 @@ import { useScheduling } from '../lib/schedulingContext'
 import './EventModal.css'
 
 function formatRange(event) {
-  if (event.allDay) {
-    return format(event.start, "EEEE, d 'de' MMMM", { locale: es })
-  }
+  if (event.allDay) return allDayRangeText(event)
   const sameDay = isSameDay(event.start, event.end)
   const datePart = format(event.start, "EEEE, d 'de' MMMM", { locale: es })
   const timePart = sameDay
@@ -171,6 +171,16 @@ export default function EventModal({
         </div>
 
         <div className="event-modal-body">
+          {isMarkedDayOff(event) && (
+            <div className="event-modal-row">
+              <UnavailableIcon event={event} size={16} />
+              <span>
+                {kindLabel(unavailableKindOf(event))}
+                {event.unavailableNote && ` · ${event.unavailableNote}`}
+              </span>
+            </div>
+          )}
+
           {!event.isUnavailable && isInterview(event) && (
             <div className="event-modal-row">
               <Briefcase size={16} strokeWidth={1.75} />

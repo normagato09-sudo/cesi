@@ -1,6 +1,7 @@
 import { format, differenceInMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X, Clock, Ban, ChevronRight, NotebookPen } from 'lucide-react'
+import { X, Clock, ChevronRight, NotebookPen } from 'lucide-react'
+import UnavailableIcon from './UnavailableIcon.jsx'
 import { ParticipantList } from './Participant.jsx'
 import { hasNotes } from '../lib/notes'
 import { colorForEvent } from '../lib/eventStyle'
@@ -53,7 +54,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
               <span className="day-events-modal-item-mark" />
               <span className="day-events-modal-item-main">
                 <span className="day-events-modal-item-title">
-                  {ev.isUnavailable && <Ban size={13} strokeWidth={2} />}
+                  {ev.isUnavailable && <UnavailableIcon event={ev} size={13} />}
                   {ev.title}
                   {ev.provisional && <span className="day-events-modal-provisional">Provisional</span>}
                   {ev.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
