@@ -84,13 +84,26 @@ export function departmentUsage(name, contacts, vacancies) {
   return { members: membersIn(name, contacts).length, vacancies: vacanciesIn(name, vacancies).length }
 }
 
+// Posición en el orden del departamento (teamProfile.order, ver teamOrder.js) al pasar de `from`
+// a `to`: al renombrar (`keep`) se conserva; al pasar a otro departamento, que ya tiene su orden,
+// se quita y la persona va al final.
+function movedOrder(order, from, to, keep) {
+  if (!order || !(from in order)) return order
+  const next = { ...order }
+  const value = next[from]
+  delete next[from]
+  if (keep && !(to in next)) next[to] = value
+  return next
+}
+
 // Cambios en miembros y vacantes para pasar de `from` a `to` ('' = sin departamento).
-function reassign(from, to, contacts, vacancies) {
+function reassign(from, to, contacts, vacancies, keepOrder = false) {
   return {
     contactPatches: membersIn(from, contacts).map((c) => {
       const p = c.teamProfile
       const next = { ...p, area: p.area === from ? to : p.area }
       if (Array.isArray(p.roles)) next.roles = p.roles.map((r) => (r.area === from ? { ...r, area: to } : r))
+      if (p.order) next.order = movedOrder(p.order, from, to, keepOrder)
       return { id: c.id, patch: { teamProfile: next } }
     }),
     vacancyPatches: vacanciesIn(from, vacancies).map((v) => ({ id: v.id, patch: { area: to } })),
@@ -107,7 +120,7 @@ export function renameDepartment(list, oldName, newName, contacts, vacancies) {
   if (error) return { error }
   return {
     list: list.map((d) => (d === oldName ? clean : d)),
-    ...reassign(oldName, clean, contacts, vacancies),
+    ...reassign(oldName, clean, contacts, vacancies, true),
   }
 }
 

@@ -46,6 +46,7 @@ import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { deleteFile } from './lib/files/files.js'
 import { planCandidacy } from './lib/applications.js'
 import { AREAS_KEY, getStoredTeamAreas, isActiveMember, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
+import { orderPatches } from './lib/teamOrder.js'
 import { becomesFormer, findFormerGroup, markFormerProfile, newFormerGroup, statusChangePatch } from './lib/formerMembers.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -718,6 +719,11 @@ export default function App() {
 
   const handleKeepActive = (contact) => editContact(contact.id, { teamProfile: { ...contact.teamProfile, keepActive: true } })
 
+  // Orden de las personas de un departamento (ver teamOrder.js): solo cambian las que se mueven.
+  const handleReorderDepartment = (area, ordered) => {
+    for (const { id, patch } of orderPatches(ordered, area)) editContact(id, patch)
+  }
+
   const handleOpenTeamMember = (contactId) => {
     setSelectedEvent(null)
     setSelectedMemberId(contactId)
@@ -1003,6 +1009,7 @@ export default function App() {
                 onToggleTask={handleToggleTask}
                 onOpenTask={handleOpenTask}
                 onOpenTaskSource={handleOpenTaskSource}
+                onReorder={handleReorderDepartment}
               />
             </Suspense>
           </div>

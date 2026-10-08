@@ -11,6 +11,7 @@ import {
   UserMinus,
   Building2,
   Briefcase,
+  Crown,
   Link2,
   UserCheck,
   UsersRound,
@@ -26,7 +27,9 @@ import ContactLinkModal from './ContactLinkModal.jsx'
 import { pendingTasksOf } from '../lib/tasks'
 import { isCandidate } from '../lib/vacancies'
 import { useSync } from '../lib/sync/syncContext'
-import { MEMBER_SORTS, filterMembers, isActiveMember, milestonesToBio, quoteDisplay } from '../lib/team'
+import { isActiveMember, milestonesToBio, quoteDisplay } from '../lib/team'
+import { headAreas, teamGroups } from '../lib/teamOrder'
+import TeamGroups, { HEAD_LABEL } from './TeamGroups.jsx'
 import { FORMER_GROUP_NAME, formerReview } from '../lib/formerMembers'
 import { currentRoles, dayLong, roleLabel, tenure, tenureText, withRoles } from '../lib/trajectory'
 import { migrateProfileLinks } from '../lib/links'
@@ -36,27 +39,6 @@ import './TeamView.css'
 function roleLine(profile) {
   const current = currentRoles(profile).map(roleLabel).filter(Boolean)
   return current.length > 0 ? current.join(' / ') : [profile.role, profile.area].filter(Boolean).join(' · ')
-}
-
-function MemberCard({ contact, now, onOpen }) {
-  const p = contact.teamProfile
-  const seniority = tenureText(tenure(p, now))
-  return (
-    <li>
-      <button type="button" className="team-card" onClick={() => onOpen(contact.id)}>
-        <ContactAvatar name={contact.name} photo={contact.photo} size="xl" />
-        <span className="team-card-name">{contact.name}</span>
-        {p.role && <span className="team-card-role">{p.role}</span>}
-        {quoteDisplay(p.quote) && (
-          <span className="team-card-quote" title={quoteDisplay(p.quote)}>
-            {quoteDisplay(p.quote)}
-          </span>
-        )}
-        {p.area && <span className="team-card-area">{p.area}</span>}
-        {seniority && <span className="team-card-seniority">{seniority}</span>}
-      </button>
-    </li>
-  )
 }
 
 function MemberDetail({
@@ -87,6 +69,7 @@ function MemberDetail({
   const departments = [...new Set(currentRoles(p).map((r) => r.area).filter(Boolean))]
   if (departments.length === 0 && p.area) departments.push(p.area)
   const pending = useMemo(() => pendingTasksOf(tasks, contact.id), [tasks, contact.id])
+  const heads = headAreas(contact, contacts)
 
   return (
     <div className="team-detail">
@@ -105,6 +88,12 @@ function MemberDetail({
             <p className="team-detail-departments">
               <Building2 size={13} strokeWidth={1.75} aria-hidden="true" />
               {departments.join(' · ')}
+            </p>
+          )}
+          {heads.length > 0 && (
+            <p className="team-detail-head">
+              <Crown size={13} strokeWidth={2} aria-hidden="true" />
+              {HEAD_LABEL}: {heads.join(' · ')}
             </p>
           )}
           {seniority && <p className="team-detail-seniority">{seniority}</p>}
@@ -305,16 +294,17 @@ export default function TeamView({
   onToggleTask,
   onOpenTask,
   onOpenTaskSource,
+  onReorder,
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
-  const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const syncActive = !!useSync()
 
-  // Solo los miembros activos: los antiguos miembros están en Contactos.
-  const members = useMemo(() => filterMembers(contacts, { query, area, sort, now }), [contacts, query, area, sort, now])
+  // Solo los miembros activos (los antiguos miembros están en Contactos), agrupados por
+  // departamento en el orden que yo decido (ver teamOrder.js).
+  const groupsView = useMemo(() => teamGroups(contacts, areas, { query, area }), [contacts, areas, query, area])
   const activeCount = useMemo(() => contacts.filter(isActiveMember).length, [contacts])
   const selected = contacts.find((c) => c.id === selectedMemberId && isActiveMember(c)) || null
 
@@ -391,13 +381,6 @@ export default function TeamView({
               </option>
             ))}
           </select>
-          <select className="team-area-filter" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Ordenar">
-            {Object.entries(MEMBER_SORTS).map(([value, label]) => (
-              <option key={value} value={value}>
-                Ordenar por {label.toLocaleLowerCase('es')}
-              </option>
-            ))}
-          </select>
           <button type="button" className="departments-btn" onClick={onManageDepartments} title="Añadir, renombrar, ordenar o borrar departamentos">
             <Building2 size={14} strokeWidth={1.75} />
             Departamentos
@@ -421,16 +404,12 @@ export default function TeamView({
           <p className="contacts-empty-title">Todavía no hay nadie en el equipo</p>
           <p>Abre un contacto en Contactos y pulsa «Marcar como miembro del equipo»: pasará a estar aquí (y dejará de salir en Contactos).</p>
         </div>
-      ) : members.length === 0 ? (
+      ) : groupsView.length === 0 ? (
         <div className="contacts-empty team-empty-state">
           <p>No hay miembros que coincidan con la búsqueda.</p>
         </div>
       ) : (
-        <ul className="team-grid">
-          {members.map((c) => (
-            <MemberCard key={c.id} contact={c} now={now} onOpen={onSelectMember} />
-          ))}
-        </ul>
+        <TeamGroups groups={groupsView} now={now} canReorder={!query.trim()} onOpen={onSelectMember} onReorder={onReorder} />
       )}
     </div>
   )
