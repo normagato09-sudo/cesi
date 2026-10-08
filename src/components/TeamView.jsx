@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
   CalendarPlus,
@@ -8,7 +10,9 @@ import {
   Search,
   UserMinus,
   Building2,
-  UserRound,
+  Briefcase,
+  Link2,
+  UserCheck,
   UsersRound,
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
@@ -17,6 +21,11 @@ import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import LinkList from './LinkList.jsx'
 import TeamTrajectory from './TeamTrajectory.jsx'
+import TaskItem from './TaskItem.jsx'
+import ContactLinkModal from './ContactLinkModal.jsx'
+import { pendingTasksOf } from '../lib/tasks'
+import { isCandidate } from '../lib/vacancies'
+import { useSync } from '../lib/sync/syncContext'
 import { MEMBER_SORTS, filterMembers, isActiveMember, milestonesToBio, quoteDisplay } from '../lib/team'
 import { FORMER_GROUP_NAME, formerReview } from '../lib/formerMembers'
 import { currentRoles, dayLong, roleLabel, tenure, tenureText, withRoles } from '../lib/trajectory'
@@ -55,20 +64,29 @@ function MemberDetail({
   contacts,
   groups,
   rawEvents,
+  tasks,
+  today,
   now,
   areas,
   onBack,
   onEdit,
+  onSendLink,
   onRemove,
   onSaveRoles,
   onOpenEvent,
   onFindSlot,
   onNewMeeting,
-  onOpenContact,
+  onOpenCandidate,
+  onToggleTask,
+  onOpenTask,
+  onOpenTaskSource,
 }) {
   const p = milestonesToBio(contact.teamProfile)
   const seniority = tenureText(tenure(p, now))
   const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)
+  const departments = [...new Set(currentRoles(p).map((r) => r.area).filter(Boolean))]
+  if (departments.length === 0 && p.area) departments.push(p.area)
+  const pending = useMemo(() => pendingTasksOf(tasks, contact.id), [tasks, contact.id])
 
   return (
     <div className="team-detail">
@@ -83,12 +101,24 @@ function MemberDetail({
           <h2>{contact.name}</h2>
           {quoteDisplay(p.quote) && <p className="team-detail-quote">{quoteDisplay(p.quote)}</p>}
           {roleLine(p) && <p className="team-detail-role">{roleLine(p)}</p>}
+          {departments.length > 0 && (
+            <p className="team-detail-departments">
+              <Building2 size={13} strokeWidth={1.75} aria-hidden="true" />
+              {departments.join(' · ')}
+            </p>
+          )}
           {seniority && <p className="team-detail-seniority">{seniority}</p>}
           <GroupChips contact={contact} groups={groups} />
+          {contact.selfUpdatedAt && (
+            <span className="contact-self-updated">
+              <UserCheck size={13} strokeWidth={2} />
+              Actualizado por la persona el {format(new Date(contact.selfUpdatedAt), "d MMM yyyy 'a las' HH:mm", { locale: es })}
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="contact-detail-actions">
+      <div className="contact-detail-actions team-detail-actions">
         <button type="button" className="contact-action-btn primary" onClick={() => onFindSlot(contact)}>
           <Search size={14} strokeWidth={1.75} />
           Buscar hueco con esta persona
@@ -99,24 +129,23 @@ function MemberDetail({
         </button>
         <button type="button" className="contact-action-btn" onClick={onEdit}>
           <Pencil size={14} strokeWidth={1.75} />
-          Editar perfil
+          Editar
         </button>
-        <button type="button" className="contact-action-btn" onClick={() => onOpenContact(contact.id)}>
-          <UserRound size={14} strokeWidth={1.75} />
-          Ficha de contacto
+        <button type="button" className="contact-action-btn" onClick={onSendLink}>
+          <Link2 size={14} strokeWidth={1.75} />
+          Enviar link para que lo rellene
         </button>
+        {isCandidate(contact) && (
+          <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(contact.id)}>
+            <Briefcase size={14} strokeWidth={1.75} />
+            Ver candidatura
+          </button>
+        )}
         <button type="button" className="contact-action-btn danger" onClick={onRemove}>
           <UserMinus size={14} strokeWidth={1.75} />
           Quitar del equipo
         </button>
       </div>
-
-      <TeamTrajectory profile={p} now={now} areas={areas} joinedAt={p.joinedAt || ''} onChange={onSaveRoles} />
-
-      <section className="team-section">
-        <h3>Sobre esta persona</h3>
-        {p.bio ? <p className="team-bio">{p.bio}</p> : <p className="team-empty">Todavía no has escrito nada sobre esta persona.</p>}
-      </section>
 
       <section className="team-section">
         <h3>Contacto</h3>
@@ -138,20 +167,40 @@ function MemberDetail({
               <CvLink cv={p.cv} />
             </li>
           )}
-          {!contact.email && !contact.phone && links.length === 0 && !p.cv && (
-            <li className="team-empty">Sin datos de contacto.</li>
-          )}
+          {!contact.email && !contact.phone && !p.cv && <li className="team-empty">Sin email ni teléfono.</li>}
         </ul>
-        {links.length > 0 && (
+        <ContactFields contact={contact} skip={['email', 'phone', 'role', 'links']} />
+      </section>
+
+      <TeamTrajectory profile={p} now={now} areas={areas} joinedAt={p.joinedAt || ''} onChange={onSaveRoles} />
+
+      {links.length > 0 && (
+        <section className="team-section">
+          <h3>Enlaces</h3>
           <div className="team-links">
             <LinkList links={links} />
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
+      {p.bio && (
+        <section className="team-section">
+          <h3>Sobre esta persona</h3>
+          <p className="team-bio">{p.bio}</p>
+        </section>
+      )}
 
       <section className="team-section">
-        <h3>Datos del contacto</h3>
-        <ContactFields contact={contact} skip={['email', 'phone', 'role', 'links']} />
+        <h3>Tareas pendientes</h3>
+        {pending.length === 0 ? (
+          <p className="team-empty">No tiene tareas pendientes.</p>
+        ) : (
+          <ul className="task-list team-tasks">
+            {pending.map((t) => (
+              <TaskItem key={t.id} task={t} contacts={contacts} today={today} onToggle={onToggleTask} onOpen={onOpenTask} onOpenSource={onOpenTaskSource} />
+            ))}
+          </ul>
+        )}
       </section>
 
       <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />
@@ -250,11 +299,19 @@ export default function TeamView({
   onFindSlot,
   onNewMeeting,
   onOpenContact,
+  onOpenCandidate,
+  tasks = [],
+  today,
+  onToggleTask,
+  onOpenTask,
+  onOpenTaskSource,
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
   const [sort, setSort] = useState('name')
   const [editing, setEditing] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const syncActive = !!useSync()
 
   // Solo los miembros activos: los antiguos miembros están en Contactos.
   const members = useMemo(() => filterMembers(contacts, { query, area, sort, now }), [contacts, query, area, sort, now])
@@ -269,10 +326,13 @@ export default function TeamView({
           contacts={contacts}
           groups={groups}
           rawEvents={rawEvents}
+          tasks={tasks}
+          today={today}
           now={now}
           areas={areas}
           onBack={() => onSelectMember(null)}
           onEdit={() => setEditing(true)}
+          onSendLink={() => setLinkOpen(true)}
           onSaveRoles={(roles) => onSaveProfile(selected.id, { contactPatch: {}, teamProfile: withRoles(selected.teamProfile, roles) })}
           onRemove={() => {
             if (window.confirm(`¿Quitar a ${selected.name} del equipo? Se borra su perfil de equipo (cargo, departamento, trayectoria); el contacto con todos sus datos, sus enlaces y sus reuniones se conserva. Si ya no está en el equipo, mejor márcalo como antiguo miembro.`)) {
@@ -283,11 +343,17 @@ export default function TeamView({
           onOpenEvent={onOpenEvent}
           onFindSlot={onFindSlot}
           onNewMeeting={onNewMeeting}
-          onOpenContact={onOpenContact}
+          onOpenCandidate={onOpenCandidate}
+          onToggleTask={onToggleTask}
+          onOpenTask={onOpenTask}
+          onOpenTaskSource={onOpenTaskSource}
         />
+        {linkOpen && <ContactLinkModal contact={selected} syncActive={syncActive} onClose={() => setLinkOpen(false)} />}
         {editing && (
           <TeamProfileModal
             contact={selected}
+            title={`Editar a ${selected.name}`}
+            saveLabel="Guardar"
             areas={areas}
             groups={groups}
             onAddArea={onAddArea}
@@ -353,7 +419,7 @@ export default function TeamView({
         <div className="contacts-empty team-empty-state">
           <UsersRound size={32} strokeWidth={1.5} />
           <p className="contacts-empty-title">Todavía no hay nadie en el equipo</p>
-          <p>Abre un contacto en Contactos y pulsa «Marcar como miembro del equipo» para crear su perfil.</p>
+          <p>Abre un contacto en Contactos y pulsa «Marcar como miembro del equipo»: pasará a estar aquí (y dejará de salir en Contactos).</p>
         </div>
       ) : members.length === 0 ? (
         <div className="contacts-empty team-empty-state">

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_AREAS,
   addArea,
+  contactsSection,
   filterMembers,
   getTeamAreas,
   saveTeamAreas,
@@ -145,5 +146,25 @@ describe('áreas y búsqueda', () => {
     expect(names({ query: 'bea' })).toEqual([])
     expect(names({ area: 'Radio' })).toEqual(['Ana'])
     expect(names({ query: 'director' })).toEqual(['Carlos'])
+  })
+})
+
+describe('contactsSection', () => {
+  it('quita a los miembros activos y deja a los antiguos, los candidatos y el resto', () => {
+    const contacts = [
+      { id: 'a', name: 'Activa', teamProfile: { status: 'active' } },
+      { id: 'f', name: 'Antiguo', teamProfile: { status: 'former', leftAt: '2026-01-31' } },
+      { id: 'c', name: 'Candidata', candidacies: [{ id: 'k', vacancyId: 'v', status: 'new' }] },
+      { id: 'x', name: 'Contacto' },
+    ]
+    expect(contactsSection(contacts).map((c) => c.id)).toEqual(['f', 'c', 'x'])
+  })
+
+  it('al pasar a antiguo miembro aparece; al volver, desaparece', () => {
+    const member = { id: 'm', name: 'Marta', teamProfile: { status: 'active' } }
+    expect(contactsSection([member])).toEqual([])
+    const former = { ...member, teamProfile: { status: 'former', leftAt: '2026-05-01' } }
+    expect(contactsSection([former])).toEqual([former])
+    expect(contactsSection([{ ...former, teamProfile: { status: 'active' } }])).toEqual([])
   })
 })

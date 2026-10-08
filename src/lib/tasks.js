@@ -154,6 +154,11 @@ export function assigneesOf(tasks, contacts) {
     .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
 }
 
+// Tareas pendientes de las que es responsable un contacto (las vencidas y con fecha primero).
+export function pendingTasksOf(tasks, contactId) {
+  return sortTasks(tasks.filter((t) => t.assignee === contactId && t.status !== 'done'))
+}
+
 export function assigneeName(task, contacts) {
   if (!task.assignee || task.assignee === ME) return 'Yo'
   return contacts.find((c) => c.id === task.assignee)?.name || 'Contacto borrado'

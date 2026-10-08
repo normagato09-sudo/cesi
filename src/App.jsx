@@ -45,7 +45,7 @@ import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { deleteFile } from './lib/files/files.js'
 import { planCandidacy } from './lib/applications.js'
-import { AREAS_KEY, getStoredTeamAreas, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
+import { AREAS_KEY, getStoredTeamAreas, isActiveMember, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
 import { becomesFormer, findFormerGroup, markFormerProfile, newFormerGroup, statusChangePatch } from './lib/formerMembers.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -730,8 +730,14 @@ export default function App() {
     setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participantIds: [contact.id], guests: [] } })
 
   const handleOpenContact = (contactId) => {
-    if (isCandidateOnly(contacts.find((c) => c.id === contactId))) {
+    const contact = contacts.find((c) => c.id === contactId)
+    if (isCandidateOnly(contact)) {
       handleOpenCandidate(contactId)
+      return
+    }
+    // Los miembros activos del equipo no están en Contactos: su ficha es la de Equipo.
+    if (isActiveMember(contact)) {
+      handleOpenTeamMember(contactId)
       return
     }
     setSelectedEvent(null)
@@ -991,6 +997,12 @@ export default function App() {
                 onFindSlot={handleFindSlotWithContact}
                 onNewMeeting={handleNewMeetingWithContact}
                 onOpenContact={handleOpenContact}
+                onOpenCandidate={handleOpenCandidate}
+                tasks={tasks}
+                today={today}
+                onToggleTask={handleToggleTask}
+                onOpenTask={handleOpenTask}
+                onOpenTaskSource={handleOpenTaskSource}
               />
             </Suspense>
           </div>

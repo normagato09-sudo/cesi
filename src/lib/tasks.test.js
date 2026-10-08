@@ -6,6 +6,7 @@ import {
   assigneesOf,
   filterTasks,
   isOverdue,
+  pendingTasksOf,
   pendingForMeeting,
   sourceOccurrence,
   sourceOf,
@@ -199,5 +200,18 @@ describe('las tareas siguen a su sesión cuando cambia la reunión', () => {
       { id: loose.id, patch: { source: src('s', '2026-09-03') } },
     ])
     expect(taskSourcePatches([t8], { kind: 'toSingle', eventId: 'w' })).toEqual([{ id: t8.id, patch: { source: src('w', null) } }])
+  })
+})
+
+describe('pendingTasksOf', () => {
+  it('solo las pendientes de esa persona, primero las que tienen fecha', () => {
+    const tasks = [
+      { id: '1', title: 'Sin fecha', assignee: 'ana', status: 'pending', createdAt: '2026-01-01' },
+      { id: '2', title: 'Hecha', assignee: 'ana', status: 'done', dueDate: '2026-02-01' },
+      { id: '3', title: 'Con fecha', assignee: 'ana', status: 'pending', dueDate: '2026-03-01' },
+      { id: '4', title: 'De otro', assignee: 'luis', status: 'pending' },
+      { id: '5', title: 'Mía', assignee: ME, status: 'pending' },
+    ]
+    expect(pendingTasksOf(tasks, 'ana').map((t) => t.id)).toEqual(['3', '1'])
   })
 })

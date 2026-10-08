@@ -386,3 +386,29 @@
     margin-left: 0;
   }
 }
+
+/* Ficha del miembro: departamentos, tareas y botones cómodos de pulsar en el móvil. */
+.team-detail-departments {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.team-section .team-contact-list + .contact-fields {
+  margin-top: 12px;
+}
+.team-tasks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 640px) {
+  .team-detail-actions .contact-action-btn {
+    min-height: 44px;
+  }
+  .team-detail-actions .contact-action-btn.primary {
+    flex-basis: 100%;
+  }
+}

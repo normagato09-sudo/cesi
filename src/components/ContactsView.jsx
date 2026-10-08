@@ -13,7 +13,7 @@ import TeamTrajectory from './TeamTrajectory.jsx'
 import { contactMatches, contactSeries } from '../lib/contacts'
 import { contactsInGroup } from '../lib/groups'
 import { countryLabel } from '../lib/timezones'
-import { isTeamMember } from '../lib/team'
+import { contactsSection, isActiveMember, isTeamMember } from '../lib/team'
 import { isFormerMember } from '../lib/formerMembers'
 import { migrateProfileLinks } from '../lib/links'
 import { dayLong } from '../lib/trajectory'
@@ -80,12 +80,14 @@ export default function ContactsView({
   // El enlace para que el contacto rellene sus datos necesita la sincronización (los datos van por
   // Supabase). El botón se ve siempre; sin ella, el modal explica qué falta.
   const syncActive = !!useSync()
+  // Los miembros activos del equipo solo salen en Equipo (ver contactsSection).
+  const people = useMemo(() => contactsSection(contacts), [contacts])
   // Los candidatos (Vacantes) solo se ven con el filtro "Candidatos".
   const [showCandidates, setShowCandidates] = useState(false)
-  const candidateCount = contacts.filter(isCandidate).length
-  const listed = useMemo(() => contactsForList(contacts, showCandidates && candidateCount > 0), [contacts, showCandidates, candidateCount])
+  const candidateCount = people.filter(isCandidate).length
+  const listed = useMemo(() => contactsForList(people, showCandidates && candidateCount > 0), [people, showCandidates, candidateCount])
 
-  const unreviewedCount = contacts.filter((c) => c.countryUnreviewed).length
+  const unreviewedCount = people.filter((c) => c.countryUnreviewed).length
   const showOnlyUnreviewed = onlyUnreviewed && unreviewedCount > 0
   // Si se borra el grupo del filtro, se vuelve a ver a todos.
   const activeGroup = groups.find((g) => g.id === groupFilter) || null
@@ -99,7 +101,7 @@ export default function ContactsView({
       ),
     [listed, query, showOnlyUnreviewed, activeGroup],
   )
-  const selected = contacts.find((c) => c.id === selectedContactId) || null
+  const selected = people.find((c) => c.id === selectedContactId) || null
 
 
   // Reuniones (series) en las que aparece el contacto seleccionado, para el aviso al borrarlo.
@@ -172,7 +174,7 @@ export default function ContactsView({
                 onClick={() => setGroupFilter(activeGroup?.id === g.id ? null : g.id)}
                 aria-pressed={activeGroup?.id === g.id}
               >
-                {g.name} ({contactsInGroup(g.id, contacts).length})
+                {g.name} ({contactsInGroup(g.id, people).length})
               </button>
             ))}
             {candidateCount > 0 && (
@@ -211,7 +213,7 @@ export default function ContactsView({
           )}
         </div>
 
-        {contacts.length === 0 ? (
+        {people.length === 0 ? (
           <div className="contacts-empty">
             <Users size={32} strokeWidth={1.5} />
             <p className="contacts-empty-title">Todavía no tienes contactos</p>
@@ -331,12 +333,7 @@ export default function ContactsView({
                   <BadgeCheck size={14} strokeWidth={1.75} />
                   Editar perfil de equipo
                 </button>
-              ) : isCandidate(selected) && !isTeamMember(selected) ? null : isTeamMember(selected) ? (
-                <button type="button" className="contact-action-btn team" onClick={() => onOpenTeamMember(selected.id)}>
-                  <BadgeCheck size={14} strokeWidth={1.75} />
-                  Perfil de equipo
-                </button>
-              ) : (
+              ) : isCandidate(selected) && !isTeamMember(selected) ? null : (
                 <button type="button" className="contact-action-btn" onClick={() => setTeamProfileFor(selected)}>
                   <BadgeCheck size={14} strokeWidth={1.75} />
                   Marcar como miembro del equipo
@@ -378,6 +375,8 @@ export default function ContactsView({
           onSave={(data) => {
             onSaveTeamProfile(teamProfileFor.id, data)
             setTeamProfileFor(null)
+            // Si queda como miembro activo, ya no está en Contactos: se abre su ficha en Equipo.
+            if (isActiveMember({ teamProfile: data.teamProfile })) onOpenTeamMember(teamProfileFor.id)
           }}
           onClose={() => setTeamProfileFor(null)}
         />
