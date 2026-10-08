@@ -3,9 +3,9 @@ import { CalendarCheck, Check, Copy, Link2, Link2Off, Mail, MessageCircle, Refre
 import { copyText } from '../lib/clipboard'
 import { SYNC_ENABLED } from '../lib/sync/client'
 import { mailtoUrl, whatsappUrl } from '../lib/proposals'
-import { weekRangeLabel } from '../lib/weeklyAvailability'
 import {
   DURATION_OPTIONS,
+  HORIZON_OPTIONS,
   NOTICE_OPTIONS,
   bookingAvailability,
   bookingLinkUrl,
@@ -22,6 +22,7 @@ import './ContactLinkModal.css'
 import './BookingModals.css'
 
 const noticeLabel = (h) => (h === 0 ? 'Sin antelación mínima' : h < 24 || h % 24 ? `${h} horas` : h === 24 ? '24 horas' : `${h / 24} días`)
+const horizonLabel = (w) => (w === 1 ? '1 semana' : `${w} semanas`)
 
 function Header({ onClose }) {
   return (
@@ -40,10 +41,10 @@ function Header({ onClose }) {
 /**
  * Enlace público /reservar/<token> para que otras personas me pidan una reunión en un hueco libre
  * (ver lib/bookings.js): copiarlo o enviarlo, regenerarlo o desactivarlo, y sus ajustes (nombre
- * que se muestra, duraciones y antelación mínima). `link`: el activo, null si no hay o undefined
- * mientras se carga.
+ * que se muestra, duraciones, antelación mínima y hasta cuándo se puede reservar). `link`: el
+ * activo, null si no hay o undefined mientras se carga.
  */
-export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEvents, weeklyAvailability, onClose }) {
+export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEvents, workingHours, onClose }) {
   const [settings, setSettings] = useState(() => linkSettings(link))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -68,7 +69,7 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
     )
   }
 
-  const published = bookingAvailability({ rawEvents, weeklyAvailability })
+  const published = bookingAvailability({ rawEvents, workingHours, horizonWeeks: settings.horizonWeeks })
   const url = link ? bookingLinkUrl(link.token) : ''
   const message = `Hola. Puedes reservar una reunión conmigo en este enlace, eligiendo el hueco que mejor te venga: ${url}`
 
@@ -123,10 +124,10 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
   const toggleDuration = (m) =>
     setSettings((s) => ({ ...s, durations: s.durations.includes(m) ? s.durations.filter((d) => d !== m) : [...s.durations, m].sort((a, b) => a - b) }))
 
-  const weeksText =
-    published.weeks.length === 0
-      ? 'Ahora mismo no tienes ninguna semana declarada, así que el enlace no mostrará huecos. Decláralas en «Disponibilidad de la semana».'
-      : `Se ofrecen huecos de ${published.weeks.length === 1 ? 'la semana' : 'las semanas'} ${published.weeks.map(weekRangeLabel).join(', ')}.`
+  const hasSchedule = workingHours.some((d) => d.enabled && d.slots.length > 0)
+  const weeksText = hasSchedule
+    ? `Se ofrecen los huecos libres de tu horario desde hoy hasta dentro de ${horizonLabel(settings.horizonWeeks)}; la ventana avanza sola cada día.`
+    : 'Ahora mismo tu horario está vacío, así que el enlace no mostrará huecos. Rellénalo en «Mi horario».'
 
   return (
     <div className="event-form-backdrop" onClick={onClose}>
@@ -135,8 +136,8 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
 
         <div className="event-form-body">
           <p className="contact-link-intro">
-            Quien abra el enlace verá solo tus huecos libres de las semanas en las que has declarado tu disponibilidad (nunca tus
-            reuniones), elegirá uno y te dejará su nombre, su email o teléfono y el motivo. La solicitud te llega a Inicio para
+            Quien abra el enlace verá solo tus huecos libres dentro de tu horario (nunca tus reuniones ni tus franjas No
+            disponible), elegirá uno y te dejará su nombre, su email o teléfono y el motivo. La solicitud te llega a Inicio para
             aceptarla o rechazarla.
           </p>
           <p className="contact-link-muted">{weeksText}</p>
@@ -203,6 +204,17 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="event-form-field">
+                <span>Se puede reservar hasta</span>
+                <select value={settings.horizonWeeks} onChange={(e) => setSettings((s) => ({ ...s, horizonWeeks: Number(e.target.value) }))}>
+                  {HORIZON_OPTIONS.map((w) => (
+                    <option key={w} value={w}>
+                      {horizonLabel(w)}
+                    </option>
+                  ))}
+                </select>
+                <em className="event-form-hint">Contando desde hoy. La ventana avanza sola cada día.</em>
               </label>
               {link && (
                 <button type="button" className="proposal-share-btn" onClick={handleSaveSettings}>

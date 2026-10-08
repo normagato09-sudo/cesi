@@ -1,24 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { bookingAvailability, bookingContactData, decisionMessage, matchContact, requestDescription, requestTitle } from './bookings'
+import { bookingAvailability, bookingContactData, decisionMessage, linkSettings, matchContact, requestDescription, requestTitle } from './bookings'
 import { emptyWeek } from './weeklySchedule'
 
 const d = (month, day, h = 0, m = 0) => new Date(2026, month - 1, day, h, m)
 const iso = (date) => date.toISOString()
-// Semana declarada: lunes a viernes de 9:00 a 13:00.
+// Mi horario: lunes a viernes de 9:00 a 13:00.
 const morning = emptyWeek().map((e) => (e.day >= 1 && e.day <= 5 ? { ...e, enabled: true, slots: [{ start: '09:00', end: '13:00' }] } : e))
-const declared = (key) => ({ id: `wk_${key}`, weekStart: key, week: morning, dismissed: false })
 const ev = (id, start, end, extra = {}) => ({ id, title: `Secreto ${id}`, start: iso(start), end: iso(end), recurrence: null, participantIds: ['x'], ...extra })
 
 describe('huecos que se publican', () => {
   const now = d(10, 7, 10) // miércoles 7/10/2026
-  const weeklyAvailability = [
-    declared('2026-10-05'),
-    declared('2026-10-12'),
-    declared('2026-09-28'), // ya pasó
-    { id: 'wk_2026-10-19', weekStart: '2026-10-19', week: null, dismissed: true }, // horario habitual: no cuenta
-  ]
-
-  it('solo las semanas declaradas desde la actual, sin mis reuniones ni franjas, y nada más', () => {
+  it('mi horario desde hoy hasta las semanas elegidas + 2, sin mis reuniones ni franjas, y nada más', () => {
     const rawEvents = [
       ev('a', d(10, 8, 10), d(10, 8, 11)),
       ev('b', d(10, 9, 9), d(10, 9, 13), { isUnavailable: true }),
@@ -26,14 +18,17 @@ describe('huecos que se publican', () => {
       ev('p', d(10, 14, 12, 50), d(10, 14, 13), { provisional: true, proposalId: 'p1' }),
       ev('v', d(10, 15), d(10, 17), { isUnavailable: true, allDay: true, unavailableKind: 'vacation', unavailableNote: 'Puente' }),
     ]
-    const pub = bookingAvailability({ rawEvents, weeklyAvailability, now, timeZone: 'Europe/Madrid' })
-    expect(pub.weeks).toEqual(['2026-10-05', '2026-10-12'])
-    expect(pub.horizonEnd).toBe(iso(d(10, 19)))
+    const pub = bookingAvailability({ rawEvents, workingHours: morning, horizonWeeks: 1, now, timeZone: 'Europe/Madrid' })
+    // 1 semana + 2 de margen desde hoy (Supabase recorta a la semana que se puede reservar).
+    expect(pub.horizonEnd).toBe(iso(d(10, 28)))
     expect(pub.daysOff).toEqual([
       { date: '2026-10-15', kind: 'vacation' },
       { date: '2026-10-16', kind: 'vacation' },
     ])
     const free = pub.free.map(([s, e]) => [new Date(s), new Date(e)])
+    expect(free[0]).toEqual([d(10, 7, 9), d(10, 7, 13)]) // hoy, desde el principio del día
+    expect(free[free.length - 1]).toEqual([d(10, 27, 9), d(10, 27, 13)])
+    expect(free.some(([s]) => s.getDay() === 0 || s.getDay() === 6)).toBe(false)
     expect(free).toContainEqual([d(10, 8, 9), d(10, 8, 10)])
     expect(free).toContainEqual([d(10, 8, 11), d(10, 8, 13)])
     expect(free.some(([s]) => s.getDate() === 9)).toBe(false)
@@ -43,14 +38,18 @@ describe('huecos que se publican', () => {
     expect(JSON.stringify(pub)).not.toMatch(/Secreto|Puente|title|participant/)
   })
 
-  it('sin semanas declaradas no hay nada que reservar', () => {
-    expect(bookingAvailability({ rawEvents: [], weeklyAvailability: [], now, timeZone: 'Europe/Madrid' })).toEqual({
+  it('con el horario vacío no hay nada que reservar', () => {
+    expect(bookingAvailability({ rawEvents: [], workingHours: emptyWeek(), now, timeZone: 'Europe/Madrid' })).toEqual({
       free: [],
-      weeks: [],
       daysOff: [],
-      horizonEnd: null,
+      horizonEnd: iso(d(11, 18)),
       timeZone: 'Europe/Madrid',
     })
+  })
+
+  it('"Se puede reservar hasta": 4 semanas por defecto', () => {
+    expect(linkSettings(null).horizonWeeks).toBe(4)
+    expect(linkSettings({ horizon_weeks: 8 }).horizonWeeks).toBe(8)
   })
 })
 

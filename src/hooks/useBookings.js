@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { bookingAvailability, getBookingLink, getPendingRequests, publishAvailability, watchRequests } from '../lib/bookings'
+import { bookingAvailability, getBookingLink, getPendingRequests, linkSettings, publishAvailability, watchRequests } from '../lib/bookings'
 
 const REFRESH_MS = 60 * 1000
 const PUBLISH_DELAY_MS = 1500
+const NO_REQUESTS = []
 
 /**
  * Enlace de reservas (ver lib/bookings.js), solo con la sincronización en marcha (`active`):
  * - link: el enlace activo (null si no hay; undefined mientras no se sabe);
  * - requests: solicitudes pendientes que aún no han empezado (las de hora pasada han caducado);
- * - publica los huecos libres cada vez que cambian mis reuniones o mi disponibilidad.
+ * - publica los huecos libres cada vez que cambian mi horario, mis reuniones o mis franjas "No
+ *   disponible" (están entre las reuniones), los ajustes del enlace y, una vez al día, la fecha.
  */
-export function useBookings({ active, rawEvents, weeklyAvailability, now }) {
+export function useBookings({ active, rawEvents, workingHours, now }) {
   const [link, setLink] = useState(undefined)
   const [requests, setRequests] = useState([])
   const [error, setError] = useState(null)
@@ -50,12 +52,12 @@ export function useBookings({ active, rawEvents, weeklyAvailability, now }) {
     }
   }, [active, reloadRequests])
 
-  // Lo que hay que publicar cambia con las reuniones, la disponibilidad y, una vez al día, con la
-  // fecha (al empezar una semana, la anterior deja de publicarse).
+  // Una vez al día cambia la fecha y la ventana publicada avanza un día.
   const today = (now || new Date()).toDateString()
+  const horizonWeeks = link ? linkSettings(link).horizonWeeks : null
   const published = useMemo(
-    () => (active && link ? bookingAvailability({ rawEvents, weeklyAvailability, now: new Date(today) }) : null),
-    [active, link, rawEvents, weeklyAvailability, today],
+    () => (active && horizonWeeks ? bookingAvailability({ rawEvents, workingHours, horizonWeeks, now: new Date(today) }) : null),
+    [active, horizonWeeks, rawEvents, workingHours, today],
   )
 
   useEffect(() => {
@@ -80,5 +82,5 @@ export function useBookings({ active, rawEvents, weeklyAvailability, now }) {
 
   const visibleRequests = useMemo(() => requests.filter((r) => !now || new Date(r.starts_at) > now), [requests, now])
 
-  return { link: active ? link : null, requests: active ? visibleRequests : [], error, reloadRequests, onLinkChange, setRequests }
+  return { link: active ? link : null, requests: active ? visibleRequests : NO_REQUESTS, error, reloadRequests, onLinkChange, setRequests }
 }

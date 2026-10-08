@@ -136,6 +136,15 @@
   background: var(--surface-hover);
 }
 
+/* Franjas de mi horario: fondo suave, sin tapar los clics en las horas. */
+.time-grid-schedule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  pointer-events: none;
+}
+
 .time-grid-now-line {
   position: absolute;
   left: 0;

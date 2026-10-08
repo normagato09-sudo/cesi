@@ -1,7 +1,7 @@
-import { addDays, format, parseISO, startOfWeek } from 'date-fns'
+import { addDays, startOfDay } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { mergeIntervals, subtractIntervals } from './intervals'
-import { scheduleIntervalsOn, weekKeyOf } from './weeklyAvailability'
+import { slotIntervalsOn } from './weeklySchedule'
 import { isNotAttending } from './notAttending'
 import { daysOff } from './unavailableKinds'
 import { meetingWhen } from './meetingWhen'
@@ -12,9 +12,10 @@ import { getSupabase } from './sync/client'
 
 // Enlace de reservas (página pública /reservar/<token>, tipo Calendly). Ver la sección del mismo
 // nombre en supabase/schema.sql.
-// - La app calcula los huecos libres de las semanas declaradas (sin mis reuniones, franjas "No
-//   disponible" ni opciones provisionales) y los publica en booking_links.published, solo como
-//   intervalos de tiempo: nada de títulos, participantes ni notas.
+// - La app calcula los huecos libres de mi horario (sin mis reuniones, franjas "No disponible" ni
+//   opciones provisionales) y los publica en booking_links.published, solo como intervalos de
+//   tiempo: nada de títulos, participantes ni notas. Supabase los recorta a "Se puede reservar
+//   hasta" (horizon_weeks) desde hoy y les resta las solicitudes pendientes y aceptadas.
 // - Quien abre el enlace pide una reunión; la solicitud (booking_requests) me llega pendiente y la
 //   acepto (se crea la reunión) o la rechazo, con un mensaje de plantilla para avisarle.
 // Necesita la sincronización con Supabase.
@@ -24,40 +25,37 @@ export const DEFAULT_DURATIONS = [30, 60]
 export const NOTICE_OPTIONS = [0, 2, 12, 24, 48, 72]
 export const DEFAULT_NOTICE_HOURS = 24
 export const MIN_FREE_MINUTES = 15
-
-const WEEK_OPTS = { weekStartsOn: 1 }
+export const HORIZON_OPTIONS = [1, 2, 3, 4, 6, 8, 12]
+export const DEFAULT_HORIZON_WEEKS = 4
+// Se publican 2 semanas más de las que se pueden reservar: así la ventana avanza sola cada día
+// (Supabase la recorta) aunque la app pase días sin abrirse.
+export const PUBLISH_EXTRA_WEEKS = 2
 
 /**
- * Lo que se publica para el enlace: { free: [[inicio, fin]] (ISO), weeks: ['AAAA-MM-DD'] (lunes de
- * las semanas declaradas, desde la actual), daysOff: [{ date, kind }] (vacaciones y festivos de
- * esas semanas), horizonEnd (ISO, fin de la última semana declarada) o null, timeZone }.
- * Solo cuentan las semanas declaradas expresamente (no el horario habitual). Ocupan el tiempo
- * todas mis reuniones y franjas, salvo las que organizo sin asistir.
+ * Lo que se publica para el enlace: { free: [[inicio, fin]] (ISO), daysOff: [{ date, kind }]
+ * (vacaciones y festivos), horizonEnd (ISO), timeZone }, desde hoy hasta `horizonWeeks` +
+ * PUBLISH_EXTRA_WEEKS semanas. Huecos = mi horario menos todas mis reuniones y franjas (también
+ * las de todo el día y las provisionales), salvo las que organizo sin asistir.
  */
-export function bookingAvailability({ rawEvents, weeklyAvailability = [], now = new Date(), timeZone = localTimeZone() }) {
-  const firstWeek = startOfWeek(now, WEEK_OPTS)
-  const firstKey = format(firstWeek, 'yyyy-MM-dd')
-  const weeks = [
-    ...new Set(weeklyAvailability.filter((d) => Array.isArray(d.week) && d.weekStart >= firstKey).map((d) => d.weekStart)),
-  ].sort()
-  if (weeks.length === 0) return { free: [], weeks: [], daysOff: [], horizonEnd: null, timeZone }
-
-  const horizonEnd = addDays(parseISO(weeks[weeks.length - 1]), 7)
-  const occurrences = expandEvents(rawEvents, firstWeek, horizonEnd)
+export function bookingAvailability({
+  rawEvents,
+  workingHours,
+  horizonWeeks = DEFAULT_HORIZON_WEEKS,
+  now = new Date(),
+  timeZone = localTimeZone(),
+}) {
+  const from = startOfDay(now)
+  const horizonEnd = addDays(from, (horizonWeeks + PUBLISH_EXTRA_WEEKS) * 7)
+  const occurrences = expandEvents(rawEvents, from, horizonEnd)
   const busy = mergeIntervals(occurrences.filter((ev) => !isNotAttending(ev)).map((ev) => ({ start: ev.start, end: ev.end })))
 
   const windows = []
-  for (const key of weeks) {
-    const monday = parseISO(key)
-    for (let i = 0; i < 7; i++) windows.push(...scheduleIntervalsOn(addDays(monday, i), null, weeklyAvailability))
-  }
+  for (let day = from; day < horizonEnd; day = addDays(day, 1)) windows.push(...slotIntervalsOn(workingHours, day))
   const free = subtractIntervals(mergeIntervals(windows), busy)
     .filter((r) => r.end - r.start >= MIN_FREE_MINUTES * 60000)
     .map((r) => [r.start.toISOString(), r.end.toISOString()])
 
-  const declared = new Set(weeks)
-  const off = daysOff(occurrences, firstWeek, addDays(horizonEnd, -1)).filter((d) => declared.has(weekKeyOf(parseISO(d.date))))
-  return { free, weeks, daysOff: off, horizonEnd: horizonEnd.toISOString(), timeZone }
+  return { free, daysOff: daysOff(occurrences, from, addDays(horizonEnd, -1)), horizonEnd: horizonEnd.toISOString(), timeZone }
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +80,7 @@ function check({ data, error }) {
   throw new Error(error.message || 'No se pudo conectar con Supabase.')
 }
 
-const LINK_FIELDS = 'token, display_name, durations, min_notice_hours, step_minutes, published_at, created_at'
+const LINK_FIELDS = 'token, display_name, durations, min_notice_hours, step_minutes, horizon_weeks, published_at, created_at'
 
 // Ajustes del enlace tal como los usa la app.
 export function linkSettings(row) {
@@ -90,14 +88,16 @@ export function linkSettings(row) {
     displayName: row?.display_name || '',
     durations: Array.isArray(row?.durations) && row.durations.length ? [...row.durations].sort((a, b) => a - b) : DEFAULT_DURATIONS,
     minNoticeHours: row?.min_notice_hours ?? DEFAULT_NOTICE_HOURS,
+    horizonWeeks: row?.horizon_weeks ?? DEFAULT_HORIZON_WEEKS,
   }
 }
 
-function settingsRow({ displayName = '', durations = DEFAULT_DURATIONS, minNoticeHours = DEFAULT_NOTICE_HOURS }) {
+function settingsRow({ displayName = '', durations = DEFAULT_DURATIONS, minNoticeHours = DEFAULT_NOTICE_HOURS, horizonWeeks = DEFAULT_HORIZON_WEEKS }) {
   return {
     display_name: displayName.replace(/\s+/g, ' ').trim().slice(0, 80),
     durations: [...new Set(durations)].filter((d) => DURATION_OPTIONS.includes(d)).sort((a, b) => a - b),
     min_notice_hours: minNoticeHours,
+    horizon_weeks: HORIZON_OPTIONS.includes(horizonWeeks) ? horizonWeeks : DEFAULT_HORIZON_WEEKS,
   }
 }
 

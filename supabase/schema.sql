@@ -139,7 +139,8 @@ create table if not exists public.proposals (
 -- id = 'wk_' + lunes de la semana (p. ej. 'wk_2026-09-28'), uno por semana.
 -- data: { weekStart: 'AAAA-MM-DD' (lunes), week: horario semanal con varias franjas por día
 --         o null (se usa el horario habitual), dismissed: true si elegí el horario habitual }
--- Si una semana está declarada, sustituye al horario habitual esos 7 días.
+-- Ya no se usa (ahora hay un solo horario fijo, "Mi horario": settings 'working_hours'); se
+-- conserva con lo que hubiera.
 -- ---------------------------------------------------------------------------
 create table if not exists public.weekly_availability (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -881,8 +882,8 @@ grant execute on function public.cesi_meeting_invite_respond(text, text, text) t
 -- ---------------------------------------------------------------------------
 -- Enlace de reservas (página pública /reservar/<token>, tipo Calendly)
 -- ---------------------------------------------------------------------------
--- Quien tiene el enlace lo abre sin iniciar sesión, ve solo los huecos libres de las semanas en
--- las que he declarado mi disponibilidad, y pide una reunión (nombre, email o teléfono y motivo).
+-- Quien tiene el enlace lo abre sin iniciar sesión, ve solo los huecos libres de mi horario desde
+-- hoy hasta horizon_weeks semanas, y pide una reunión (nombre, email o teléfono y motivo).
 -- La solicitud me llega como pendiente; hasta que la acepto o la rechazo, su hueco sale ocupado
 -- para los demás. Al llegar su hora sin respuesta, caduca y el hueco se libera.
 --
@@ -891,15 +892,18 @@ grant execute on function public.cesi_meeting_invite_respond(text, text, text) t
 -- calcula la app y los publica en booking_links.published (solo intervalos de tiempo, sin títulos,
 -- participantes ni nada más):
 --   published = { free: [[inicio, fin], ...] (ISO, UTC),
---                 weeks: ['AAAA-MM-DD', ...] (lunes de las semanas declaradas),
 --                 daysOff: [{ date: 'AAAA-MM-DD', kind: 'vacation' | 'holiday' }],
---                 horizonEnd: ISO (fin de la última semana declarada), timeZone (la mía) }
--- Las funciones restan las solicitudes pendientes (y aceptadas) y la antelación mínima.
+--                 horizonEnd: ISO (hasta dónde llega lo publicado), timeZone (la mía) }
+--   (las versiones anteriores publicaban también weeks: ['AAAA-MM-DD'], las semanas declaradas)
+-- La app publica 2 semanas más de las que se pueden reservar; las funciones recortan a hoy +
+-- horizon_weeks (así la ventana avanza sola cada día) y restan las solicitudes pendientes (y
+-- aceptadas) y la antelación mínima.
 --   token          32 bytes aleatorios en base64url (lo genera la app)
 --   display_name   «Reserva una reunión con <display_name>» (vacío: «Reserva una reunión»)
 --   durations      duraciones que se pueden elegir, en minutos (30 y 60 por defecto)
 --   min_notice_hours  antelación mínima (24 h por defecto)
 --   step_minutes   cada cuánto empiezan los huecos (30 min por defecto)
+--   horizon_weeks  "Se puede reservar hasta": semanas desde hoy (4 por defecto)
 --   revoked        true al regenerar o desactivar el enlace (como mucho uno activo por usuario)
 create table if not exists public.booking_links (
   token text primary key check (length(token) between 32 and 100),
@@ -909,11 +913,16 @@ create table if not exists public.booking_links (
     check (cardinality(durations) between 1 and 6 and durations <@ '{15,30,45,60,90,120}'::int[]),
   min_notice_hours int not null default 24 check (min_notice_hours between 0 and 720),
   step_minutes int not null default 30 check (step_minutes in (15, 30, 60)),
+  horizon_weeks int not null default 4 check (horizon_weeks between 1 and 12),
   published jsonb not null default '{}'::jsonb,
   published_at timestamptz,
   revoked boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Para los enlaces creados antes de que existiera "Se puede reservar hasta".
+alter table public.booking_links add column if not exists horizon_weeks int not null default 4
+  check (horizon_weeks between 1 and 12);
 
 create unique index if not exists booking_links_active_idx on public.booking_links (user_id) where not revoked;
 
@@ -977,9 +986,40 @@ exception
 end;
 $$;
 
+-- Mi zona horaria (la publicada) o UTC si no es válida. Interna.
+create or replace function public.cesi_booking_zone(p_link public.booking_links)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_zone text := p_link.published ->> 'timeZone';
+begin
+  if v_zone is null or not exists (select 1 from pg_catalog.pg_timezone_names where name = v_zone) then
+    return 'UTC';
+  end if;
+  return v_zone;
+end;
+$$;
+
+-- Último día que se puede reservar, en mi zona horaria: hoy + horizon_weeks semanas - 1 día
+-- (4 semanas un jueves 8: hasta el miércoles 4 del mes siguiente). Interna.
+create or replace function public.cesi_booking_until(p_link public.booking_links)
+returns date
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (now() at time zone public.cesi_booking_zone(p_link))::date + 7 * p_link.horizon_weeks - 1;
+$$;
+
 -- Huecos libres de un enlace: lo publicado por la app, desde ahora + la antelación mínima hasta el
--- fin de la última semana declarada, menos las solicitudes pendientes que aún no han empezado y
--- las aceptadas que aún no han terminado. Interna (no la puede llamar nadie desde fuera).
+-- fin del último día que se puede reservar (sin pasar de lo publicado), menos las solicitudes
+-- pendientes que aún no han empezado y las aceptadas que aún no han terminado. Interna (no la
+-- puede llamar nadie desde fuera).
 create or replace function public.cesi_booking_free(p_link public.booking_links)
 returns tstzmultirange
 language plpgsql
@@ -994,7 +1034,8 @@ declare
   v_to timestamptz;
 begin
   begin
-    v_to := (p_link.published ->> 'horizonEnd')::timestamptz;
+    v_to := ((public.cesi_booking_until(p_link) + 1)::timestamp at time zone public.cesi_booking_zone(p_link));
+    v_to := least(v_to, (p_link.published ->> 'horizonEnd')::timestamptz);
     select range_agg(tstzrange((e ->> 0)::timestamptz, (e ->> 1)::timestamptz))
       into v_free
     from jsonb_array_elements(
@@ -1016,8 +1057,9 @@ begin
 end;
 $$;
 
--- Lo que ve la página: nombre, duraciones, huecos libres, semanas y días de vacaciones o festivo
--- (solo la fecha y el tipo). null si el enlace no existe o está desactivado.
+-- Lo que ve la página: nombre, duraciones, huecos libres, último día que se puede reservar
+-- (until), días de vacaciones o festivo (solo la fecha y el tipo) y, por compatibilidad, las
+-- semanas que publicaban las versiones anteriores. null si el enlace no existe o está desactivado.
 create or replace function public.cesi_booking_get(p_token text)
 returns jsonb
 language plpgsql
@@ -1075,6 +1117,7 @@ begin
     'minNoticeHours', v_link.min_notice_hours,
     'free', v_free,
     'weeks', v_weeks,
+    'until', public.cesi_booking_until(v_link),
     'daysOff', v_days,
     'timeZone', v_zone
   );
@@ -1180,7 +1223,9 @@ begin
 end;
 $$;
 
--- Solo la página pública (anon) y la app pueden llamar a estas dos; la de los huecos es interna.
+-- Solo la página pública (anon) y la app pueden llamar a estas dos; las demás son internas.
+revoke all on function public.cesi_booking_zone(public.booking_links) from public, anon, authenticated;
+revoke all on function public.cesi_booking_until(public.booking_links) from public, anon, authenticated;
 revoke all on function public.cesi_booking_free(public.booking_links) from public, anon, authenticated;
 revoke all on function public.cesi_booking_get(text) from public;
 revoke all on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text) from public;

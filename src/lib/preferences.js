@@ -4,8 +4,10 @@ const STORAGE_KEY = 'cesi_preferences_v1'
 
 const BUFFER_OPTIONS = [0, 5, 10, 15, 30]
 
-// Ya no hay preferencias que se usen; se conservan las guardadas (en la sincronización y las
-// copias) para no perderlas:
+// fixedScheduleSaved: true desde que guardé "Mi horario" (deja de partir de la última semana
+// declarada).
+// Preferencias que ya no se usan; se conservan las guardadas (en la sincronización y las copias)
+// para no perderlas:
 // bufferMinutes: margen entre reuniones (ya no se aplica).
 // reminders: aviso por defecto de los recordatorios, que ya no existen ({ defaultMinutes, timeZone }).
 export function defaultPreferences() {

@@ -76,6 +76,23 @@ describe('findSlots estricto', () => {
     const slots = findSlots({ ...base, fromDate: mon, toDate: fri, now: at(mon, 0), events: [vacation] })
     expect([...new Set(slots.map((s) => s.start.getDate()))]).toEqual([25])
   })
+
+  it('bloquean: "No disponible" de unas horas, reuniones (también provisionales y de todo el día) y solicitudes pendientes', () => {
+    const day = { ...base, durationMinutes: 30, minTime: '09:00', maxTime: '13:00' }
+    const events = [
+      ev('nd', WED, 9, 10, { isUnavailable: true, unavailableKind: 'other' }),
+      ev('m', WED, 10, 10.5),
+      ev('p', WED, 11, 11.5, { provisional: true, proposalId: 'p1' }),
+      ev('yo-no', WED, 12, 13, { notAttending: true, participantIds: ['c1'] }), // no ocupa mi tiempo
+    ]
+    const requests = [{ start: at(WED, 10, 30).toISOString(), end: at(WED, 11).toISOString() }]
+    const slots = findSlots({ ...day, events, requests })
+    expect(slots.map((s) => hhmm(s.start))).toEqual(['11:30'])
+    const allDayMeeting = { id: 'ad', title: 'Congreso', start: at(WED, 0).toISOString(), end: at(new Date(2026, 8, 24), 0).toISOString(), allDay: true, recurrence: null }
+    expect(findSlots({ ...base, events: [allDayMeeting] })).toEqual([])
+    const otherAllDay = { ...allDayMeeting, isUnavailable: true, unavailableKind: 'other' }
+    expect(findSlots({ ...base, events: [otherAllDay] })).toEqual([])
+  })
 })
 
 describe('findSlots: sin margen entre reuniones', () => {

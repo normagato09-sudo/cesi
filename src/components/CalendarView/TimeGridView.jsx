@@ -14,6 +14,7 @@ import { useEventPreview } from '../../hooks/useEventPreview'
 import EventPreview from './EventPreview.jsx'
 import './TimeGridView.css'
 import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
+import { slotsForDay, timeToMinutes } from '../../lib/weeklySchedule'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SNAP_MINUTES = 15
@@ -26,7 +27,8 @@ function snap(minutes) {
   return Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES
 }
 
-export default function TimeGridView({ days, events, onSelectEvent, onSlotClick, onMoveEvent, onResizeEvent }) {
+// `workingHours`: mi horario; sus franjas se pintan con un fondo suave en cada día.
+export default function TimeGridView({ days, events, workingHours = null, onSelectEvent, onSlotClick, onMoveEvent, onResizeEvent }) {
   const isMobile = useMediaQuery('(max-width: 640px)')
   const HOUR_HEIGHT = isMobile ? 64 : 56
   const scrollRef = useRef(null)
@@ -225,6 +227,19 @@ export default function TimeGridView({ days, events, onSelectEvent, onSlotClick,
                   onClick={() => onSlotClick?.(day, hour)}
                 />
               ))}
+
+              {workingHours &&
+                slotsForDay(workingHours, day.getDay()).map((slot) => (
+                  <div
+                    key={slot.start}
+                    className="time-grid-schedule"
+                    style={{
+                      top: timeToMinutes(slot.start) * (HOUR_HEIGHT / 60),
+                      height: (timeToMinutes(slot.end) - timeToMinutes(slot.start)) * (HOUR_HEIGHT / 60),
+                    }}
+                    aria-hidden="true"
+                  />
+                ))}
 
               {isToday && (
                 <div className="time-grid-now-line" style={{ top: nowTop }}>

@@ -1,8 +1,7 @@
 import { addDays, startOfDay, endOfDay, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
-import { timeToMinutes } from './weeklySchedule'
-import { scheduleIntervalsOn } from './weeklyAvailability'
+import { slotIntervalsOn, timeToMinutes } from './weeklySchedule'
 import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
 import { blockingMessage, commonAvailability, hasAvailability } from './contactAvailability'
 import { involvesAttendees, isNotAttending } from './notAttending'
@@ -37,9 +36,11 @@ function scoreCandidate(slotEnd, gap) {
 
 /**
  * Busca huecos libres de `durationMinutes` entre fromDate y toDate (incl.).
- * Es estricto: solo propone huecos dentro de las franjas del horario de cada día (el de su semana
- * declarada en `weeklyAvailability` o, si no está declarada, el habitual), y además
- * dentro de [minTime, maxTime) si se indican.
+ * Es estricto: solo propone huecos dentro de las franjas de mi horario (`workingHours`, el mismo
+ * todas las semanas), y además dentro de [minTime, maxTime) si se indican.
+ * Bloquean: las franjas "No disponible" (las de todo el día, el día entero), mis reuniones (también
+ * las de todo el día y las opciones provisionales) y `requests`, las solicitudes del enlace de
+ * reservas pendientes ([{ start, end }]).
  * Devuelve un candidato por hueco libre, al principio del hueco (alineado a 15 min).
  *
  * Con `notAttending` ("Yo no asisto") no cuentan ni mi horario ni mis reuniones: solo la
@@ -55,7 +56,7 @@ export function findSlots({
   maxTime = '24:00',
   events,
   workingHours = getWorkingHours(),
-  weeklyAvailability = [],
+  requests = [],
   participants = [],
   notAttending = false,
   attendees = null,
@@ -70,7 +71,8 @@ export function findSlots({
   const blocking = notAttending
     ? occurrences.filter((ev) => involvesAttendees(ev, attendees, contacts))
     : occurrences.filter((ev) => !(ev.allDay && ev.isUnavailable) && !isNotAttending(ev))
-  const busy = mergeIntervals(blocking.map((ev) => ({ start: ev.start, end: ev.end })))
+  const requested = notAttending ? [] : requests.map((r) => ({ start: new Date(r.start), end: new Date(r.end) }))
+  const busy = mergeIntervals([...blocking.map((ev) => ({ start: ev.start, end: ev.end })), ...requested])
 
   const candidates = []
 
@@ -79,7 +81,7 @@ export function findSlots({
 
     const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(maxTime)) }]
     const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
-    const mine = notAttending ? [{ start: day, end: addDays(day, 1) }] : scheduleIntervalsOn(day, workingHours, weeklyAvailability)
+    const mine = notAttending ? [{ start: day, end: addDays(day, 1) }] : slotIntervalsOn(workingHours, day)
     let windows = intersectIntervals(intersectIntervals(mine, filter), future)
     // Disponibilidad de los participantes, convertida desde su zona horaria a la mía.
     const theirs = commonAvailability(participants, day, addDays(day, 1))

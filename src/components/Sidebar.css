@@ -99,7 +99,6 @@
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'brand footer'
-      'week week'
       'pending pending'
       'summary summary'
       'proposals proposals'
@@ -154,11 +153,6 @@
     min-width: 0;
   }
 
-  .sidebar .week-notice {
-    grid-area: week;
-    min-width: 0;
-  }
-
   .sidebar .pending-panel {
     grid-area: pending;
     min-width: 0;
@@ -168,8 +162,7 @@
   .sidebar:not(.section-calendar) .summary-panel,
   .sidebar:not(.section-calendar) .proposals-panel,
   .sidebar:not(.section-calendar) .missing-notes-panel,
-  .sidebar:not(.section-calendar) .pending-panel,
-  .sidebar:not(.section-calendar) .week-notice {
+  .sidebar:not(.section-calendar) .pending-panel {
     display: none;
   }
 

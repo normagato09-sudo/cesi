@@ -1,5 +1,6 @@
-import { Plus, X } from 'lucide-react'
-import { WEEKDAY_DISPLAY_ORDER, WEEKDAY_LABELS, minutesToTime, timeToMinutes } from '../lib/weeklySchedule'
+import { useState } from 'react'
+import { Copy, Plus, X } from 'lucide-react'
+import { WEEKDAY_DISPLAY_ORDER, WEEKDAY_LABELS, copyDay, minutesToTime, timeToMinutes } from '../lib/weeklySchedule'
 import './WeeklyScheduleEditor.css'
 
 const DEFAULT_SLOT = { start: '09:00', end: '18:00' }
@@ -12,9 +13,21 @@ function nextSlotAfter(slots) {
   return { start: minutesToTime(start), end: minutesToTime(Math.min(start + 120, 23 * 60 + 59)) }
 }
 
+const WORKDAYS = [1, 2, 3, 4, 5]
+
 // Editor de horario semanal con varias franjas por día (mi horario y la disponibilidad de contactos).
-export default function WeeklyScheduleEditor({ value, onChange }) {
+// Con `copyable`, cada día activo tiene "Copiar a…" para llevar sus franjas a otros días.
+export default function WeeklyScheduleEditor({ value, onChange, copyable = false }) {
+  const [copying, setCopying] = useState(null) // { from: día, to: [días] }
   const updateDay = (day, updater) => onChange(value.map((entry) => (entry.day === day ? updater(entry) : entry)))
+
+  const toggleTarget = (day) =>
+    setCopying((c) => ({ ...c, to: c.to.includes(day) ? c.to.filter((d) => d !== day) : [...c.to, day] }))
+
+  const applyCopy = () => {
+    onChange(copyDay(value, copying.from, copying.to))
+    setCopying(null)
+  }
 
   const toggleDay = (day, enabled) =>
     updateDay(day, (entry) => ({
@@ -75,10 +88,49 @@ export default function WeeklyScheduleEditor({ value, onChange }) {
                   </div>
                 ))}
               {entry.enabled && (
-                <button type="button" className="weekly-editor-add" onClick={() => addSlot(day)}>
-                  <Plus size={13} strokeWidth={2} />
-                  Añadir franja
-                </button>
+                <div className="weekly-editor-row-actions">
+                  <button type="button" className="weekly-editor-add" onClick={() => addSlot(day)}>
+                    <Plus size={13} strokeWidth={2} />
+                    Añadir franja
+                  </button>
+                  {copyable && copying?.from !== day && (
+                    <button type="button" className="weekly-editor-add" onClick={() => setCopying({ from: day, to: [] })}>
+                      <Copy size={13} strokeWidth={1.75} />
+                      Copiar a…
+                    </button>
+                  )}
+                </div>
+              )}
+              {copyable && copying?.from === day && (
+                <div className="weekly-editor-copy" role="group" aria-label={`Copiar el ${WEEKDAY_LABELS[day].toLowerCase()} a otros días`}>
+                  <div className="weekly-editor-copy-days">
+                    {WEEKDAY_DISPLAY_ORDER.filter((d) => d !== day).map((d) => (
+                      <label key={d} className={`weekly-editor-copy-day${copying.to.includes(d) ? ' active' : ''}`}>
+                        <input type="checkbox" checked={copying.to.includes(d)} onChange={() => toggleTarget(d)} />
+                        {WEEKDAY_LABELS[d].slice(0, 3)}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="weekly-editor-copy-actions">
+                    <button
+                      type="button"
+                      className="weekly-editor-add"
+                      onClick={() => setCopying((c) => ({ ...c, to: WORKDAYS.filter((d) => d !== day) }))}
+                    >
+                      De lunes a viernes
+                    </button>
+                    <button type="button" className="weekly-editor-add" onClick={() => setCopying((c) => ({ ...c, to: WEEKDAY_DISPLAY_ORDER.filter((d) => d !== day) }))}>
+                      Todos
+                    </button>
+                    <span className="weekly-editor-copy-spacer" />
+                    <button type="button" className="weekly-editor-copy-cancel" onClick={() => setCopying(null)}>
+                      Cancelar
+                    </button>
+                    <button type="button" className="weekly-editor-copy-apply" onClick={applyCopy} disabled={copying.to.length === 0}>
+                      Copiar
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

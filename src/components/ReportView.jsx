@@ -140,7 +140,7 @@ function PeriodPicker({ kind, custom, error, onKind, onCustom }) {
   )
 }
 
-export default function ReportView({ rawEvents, workingHours, weeklyAvailability = [], contacts, groups, now, onOpenEvent }) {
+export default function ReportView({ rawEvents, workingHours, contacts, groups, now, onOpenEvent }) {
   const [period, setPeriod] = useState(() => periodOf('week', now))
   // Fechas del periodo personalizado mientras se eligen (se aplican cuando son válidas).
   const [custom, setCustom] = useState(() => ({ from: dateKey(period.start), to: dateKey(new Date(period.end.getTime() - 1)) }))
@@ -149,8 +149,8 @@ export default function ReportView({ rawEvents, workingHours, weeklyAvailability
   const [showMeetings, setShowMeetings] = useState(false)
 
   const report = useMemo(
-    () => computeReport(rawEvents, { ...period, workingHours, weeklyAvailability, contacts, groups }),
-    [rawEvents, period, workingHours, weeklyAvailability, contacts, groups],
+    () => computeReport(rawEvents, { ...period, workingHours, contacts, groups }),
+    [rawEvents, period, workingHours, contacts, groups],
   )
   const unit = EVOLUTION_UNITS.find((u) => u.id === evolutionUnit)
   // Termina en la semana (o el mes) del último día del periodo elegido.

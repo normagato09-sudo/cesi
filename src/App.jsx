@@ -80,15 +80,8 @@ import {
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
-import {
-  STORAGE_KEY as WEEKLY_AVAILABILITY_KEY,
-  declareWeek,
-  getAllWeeklyAvailability,
-  pendingDeclaration,
-  revertToHabitual,
-  saveWeeklyAvailability,
-  weekKeyOf,
-} from './lib/weeklyAvailability.js'
+import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability } from './lib/weeklyAvailability.js'
+import { getPreferences, savePreferences } from './lib/preferences.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
 import { useBookings } from './hooks/useBookings.js'
 import { bookingContactData, bookingLinkUrl, decideRequest, matchContact, requestDescription, requestTitle } from './lib/bookings.js'
@@ -104,7 +97,7 @@ const TasksView = lazy(() => import('./components/TasksView.jsx'))
 const TaskFormModal = lazy(() => import('./components/TaskFormModal.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
-const WeeklyAvailabilityModal = lazy(() => import('./components/WeeklyAvailabilityModal.jsx'))
+const MyScheduleModal = lazy(() => import('./components/MyScheduleModal.jsx'))
 const DepartmentsModal = lazy(() => import('./components/DepartmentsModal.jsx'))
 const BookingLinkModal = lazy(() => import('./components/BookingLinkModal.jsx'))
 const BookingDecisionModal = lazy(() => import('./components/BookingDecisionModal.jsx'))
@@ -159,8 +152,7 @@ export default function App() {
   const [bookingLinkOpen, setBookingLinkOpen] = useState(false)
   const [bookingDecision, setBookingDecision] = useState(null)
   const [proposalModalId, setProposalModalId] = useState(null)
-  // Semana abierta en "Disponibilidad de la semana" ('AAAA-MM-DD' del lunes) o null.
-  const [weekModalKey, setWeekModalKey] = useState(null)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const [departmentsOpen, setDepartmentsOpen] = useState(false)
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
@@ -187,6 +179,7 @@ export default function App() {
     rawEvents,
     events,
     workingHours,
+    setWorkingHours,
     checkConflict,
     addEvent,
     editEvent,
@@ -231,7 +224,9 @@ export default function App() {
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
   // Enlace de reservas: con sesión iniciada (ya pasada la primera sincronización).
   const bookingsActive = !!sync && ['syncing', 'synced', 'offline', 'error'].includes(syncStatus.status)
-  const bookings = useBookings({ active: bookingsActive, rawEvents, weeklyAvailability, now })
+  const bookings = useBookings({ active: bookingsActive, rawEvents, workingHours, now })
+  // Las solicitudes pendientes ocupan su hueco también en "Buscar hueco".
+  const bookingRequests = useMemo(() => bookings.requests.map((r) => ({ start: r.starts_at, end: r.ends_at })), [bookings.requests])
 
   // Aceptar (se crea la reunión, vinculada al contacto si coincide o al nuevo si se guarda) o
   // rechazar una solicitud. Devuelve un aviso si la hora ya se solapa con algo del calendario.
@@ -278,13 +273,13 @@ export default function App() {
     () => ({
       rawEvents,
       workingHours,
-      weeklyAvailability,
+      bookingRequests,
       contacts,
       addContact,
       proposals,
       groups,
     }),
-    [rawEvents, workingHours, weeklyAvailability, contacts, addContact, proposals, groups],
+    [rawEvents, workingHours, bookingRequests, contacts, addContact, proposals, groups],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -515,21 +510,14 @@ export default function App() {
   }
 
   const summary = useMemo(
-    () => computeSummary(rawEvents, workingHours, now, weeklyAvailability),
-    [rawEvents, workingHours, now, weeklyAvailability],
+    () => computeSummary(rawEvents, workingHours, now),
+    [rawEvents, workingHours, now],
   )
 
-  const pendingWeek = useMemo(() => pendingDeclaration(now, weeklyAvailability), [now, weeklyAvailability])
-
-  const handleDeclareWeek = (key, week) => {
-    saveWeeklyAvailability(declareWeek(getAllWeeklyAvailability(), key, week))
-    reloadWeeklyAvailability()
-  }
-
-  // "Volver al horario habitual" y "Usar mi horario habitual" (descartar el aviso de esa semana).
-  const handleRevertWeek = (key) => {
-    saveWeeklyAvailability(revertToHabitual(getAllWeeklyAvailability(), key))
-    reloadWeeklyAvailability()
+  // "Mi horario": se guarda como horario fijo y deja de partir de la última semana declarada.
+  const handleSaveSchedule = (week) => {
+    setWorkingHours(week)
+    savePreferences({ ...getPreferences(), fixedScheduleSaved: true })
   }
 
   const handleCreateGroup = (data) => {
@@ -933,9 +921,6 @@ export default function App() {
           onRescheduleUnavailable={(item) => findSlotToReschedule(item.occurrence)}
           onKeepUnavailable={handleKeepUnavailable}
           onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
-          pendingWeek={pendingWeek}
-          onDeclareWeek={setWeekModalKey}
-          onDismissWeek={handleRevertWeek}
         />
 
         {section === 'contacts' && (
@@ -1093,7 +1078,6 @@ export default function App() {
               <ReportView
                 rawEvents={rawEvents}
                 workingHours={workingHours}
-                weeklyAvailability={weeklyAvailability}
                 contacts={contacts}
                 groups={groups}
                 now={now}
@@ -1114,7 +1098,7 @@ export default function App() {
               onToday={handleToday}
               onNewMeeting={handleNewMeeting}
               onFindSlot={() => setFindSlot({})}
-              onOpenWeekAvailability={() => setWeekModalKey(weekKeyOf(currentDate))}
+              onOpenSchedule={() => setScheduleOpen(true)}
             />
 
             <div className="app-calendar-body">
@@ -1135,6 +1119,7 @@ export default function App() {
                   currentDate={currentDate}
                   compact={compactWeek}
                   events={events}
+                  workingHours={workingHours}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
@@ -1145,6 +1130,7 @@ export default function App() {
                 <DayView
                   currentDate={currentDate}
                   events={events}
+                  workingHours={workingHours}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
                   onMoveEvent={handleMoveOrResize}
@@ -1247,7 +1233,7 @@ export default function App() {
               link={bookingsActive ? bookings.link : null}
               onLinkChange={bookings.onLinkChange}
               rawEvents={rawEvents}
-              weeklyAvailability={weeklyAvailability}
+              workingHours={workingHours}
               onClose={() => setBookingLinkOpen(false)}
             />
           </Suspense>
@@ -1272,15 +1258,14 @@ export default function App() {
           </Suspense>
         )}
 
-        {weekModalKey && (
+        {scheduleOpen && (
           <Suspense fallback={null}>
-            <WeeklyAvailabilityModal
-              initialKey={weekModalKey}
+            <MyScheduleModal
               workingHours={workingHours}
-              weeks={weeklyAvailability}
-              onSave={handleDeclareWeek}
-              onRevert={handleRevertWeek}
-              onClose={() => setWeekModalKey(null)}
+              weeklyAvailability={weeklyAvailability}
+              saved={!!getPreferences().fixedScheduleSaved}
+              onSave={handleSaveSchedule}
+              onClose={() => setScheduleOpen(false)}
               onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
             />
           </Suspense>

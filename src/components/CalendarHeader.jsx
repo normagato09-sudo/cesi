@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CalendarPlus, Search, CalendarRange } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarPlus, Search, Clock } from 'lucide-react'
 import './CalendarHeader.css'
 
 const VIEWS = [
@@ -16,7 +16,7 @@ export default function CalendarHeader({
   onToday,
   onNewMeeting,
   onFindSlot,
-  onOpenWeekAvailability,
+  onOpenSchedule,
 }) {
   return (
     <header className="calendar-header">
@@ -75,11 +75,11 @@ export default function CalendarHeader({
         <button
           type="button"
           className="header-icon-btn"
-          onClick={onOpenWeekAvailability}
-          aria-label="Disponibilidad de la semana"
-          title="Disponibilidad de la semana"
+          onClick={onOpenSchedule}
+          aria-label="Mi horario"
+          title="Mi horario"
         >
-          <CalendarRange size={16} strokeWidth={1.75} />
+          <Clock size={16} strokeWidth={1.75} />
         </button>
       </div>
     </header>

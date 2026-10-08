@@ -16,9 +16,9 @@ describe('página /reservar', () => {
     expect(slotStarts(free, 30, 30).map((s) => s.toISOString().slice(11, 16))).toEqual(['07:30', '08:00', '08:30'])
   })
 
-  it('días de las semanas declaradas en la zona de quien reserva, con vacaciones y festivos sin huecos', () => {
+  it('días desde hoy hasta el último que se puede reservar, en la zona de quien reserva, con vacaciones y festivos sin huecos', () => {
     const days = bookingDays({
-      weeks: ['2026-10-12'],
+      until: '2026-10-18',
       free: [
         ['2026-10-13T07:00:00Z', '2026-10-13T08:00:00Z'],
         ['2026-10-14T07:00:00Z', '2026-10-14T08:00:00Z'],
@@ -38,7 +38,6 @@ describe('página /reservar', () => {
 
   it('en otra zona horaria cambian las horas y el día', () => {
     const days = bookingDays({
-      weeks: [],
       free: [['2026-10-13T03:00:00Z', '2026-10-13T03:30:00Z']],
       minutes: 30,
       tz: 'America/Mexico_City',

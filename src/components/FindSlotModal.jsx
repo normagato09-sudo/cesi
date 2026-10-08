@@ -10,7 +10,6 @@ import { explainNoSlots, findFirstSlot, findBestSlot, findMultipleSlots } from '
 import { hasAvailability } from '../lib/contactAvailability'
 import { hasCandidateParticipant } from '../lib/vacancies'
 import { useScheduling } from '../lib/schedulingContext'
-import { scheduleSourceText } from '../lib/weeklyAvailability'
 import './FindSlotModal.css'
 
 function toDateInputValue(date) {
@@ -38,12 +37,12 @@ export default function FindSlotModal({
   onCreateProposal,
   onClose,
 }) {
-  const { rawEvents, workingHours, weeklyAvailability, contacts, addContact } = useScheduling()
+  const { rawEvents, workingHours, bookingRequests = [], contacts, addContact } = useScheduling()
   const now = new Date()
   const [durationMinutes, setDurationMinutes] = useState(initialDurationMinutes || 60)
   const [fromDate, setFromDate] = useState(toDateInputValue(now))
   const [toDate, setToDate] = useState(toDateInputValue(addDays(now, 7)))
-  // Filtro horario opcional, además del horario habitual.
+  // Filtro horario opcional, además de mi horario.
   const [minTime, setMinTime] = useState('')
   const [maxTime, setMaxTime] = useState('')
   const [interview, setInterview] = useState(!!initialInterview)
@@ -66,11 +65,6 @@ export default function FindSlotModal({
   // Como en el formulario de reunión: la casilla se ofrece si participa algún candidato.
   const showInterview = initialInterview || interview || hasCandidateParticipant(participantSelection.participantIds, contacts)
   const people = participantSelection.participantIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean)
-  // ¿Alguna semana del rango tiene la disponibilidad declarada?
-  const scheduleNote =
-    fromDate && toDate && toDate >= fromDate
-      ? scheduleSourceText(new Date(`${fromDate}T00:00:00`), new Date(`${toDate}T00:00:00`), weeklyAvailability)
-      : null
   const constrainedBy = people.filter((c) => hasAvailability(c) && !ignoredIds.includes(c.id))
 
   const buildParams = (ignored = ignoredIds) => ({
@@ -81,7 +75,7 @@ export default function FindSlotModal({
     maxTime: maxTime || '24:00',
     events: rawEvents,
     workingHours,
-    weeklyAvailability,
+    requests: bookingRequests,
     participants: people.filter((c) => !ignored.includes(c.id)),
     notAttending,
     attendees: participantSelection,
@@ -327,8 +321,6 @@ export default function FindSlotModal({
             </span>
           </label>
 
-          {!notAttending && scheduleNote && <p className="find-slot-schedule-note">{scheduleNote}</p>}
-
           {notAttending ? (
             <p className="find-slot-hint">
               Solo se proponen huecos en los que todos los participantes con disponibilidad apuntada pueden y no tienen
@@ -336,8 +328,8 @@ export default function FindSlotModal({
             </p>
           ) : (
             <p className="find-slot-hint">
-              Solo se proponen huecos dentro de tu horario{scheduleNote ? '' : ' habitual'}. Puedes cambiar tu horario
-              de cada semana en "Disponibilidad de la semana".
+              Solo se proponen huecos dentro de tu horario, sin franjas "No disponible", reuniones ni solicitudes de
+              reserva pendientes. Puedes cambiar tu horario en "Mi horario".
             </p>
           )}
 

@@ -1,4 +1,4 @@
-// Horario semanal con varias franjas por día. Se usa para mi horario habitual y para la
+// Horario semanal con varias franjas por día. Se usa para "Mi horario" y para la
 // disponibilidad de los contactos. Formato:
 //   [{ day: 0..6 (como Date#getDay, 0 = domingo), enabled: boolean, slots: [{ start: 'HH:mm', end: 'HH:mm' }] }]
 
@@ -81,4 +81,11 @@ export function slotIntervalsOn(week, date) {
     end.setHours(0, timeToMinutes(slot.end), 0, 0)
     return { start, end }
   })
+}
+
+// Copia las franjas del día `from` a los días `to` (activa o desactiva igual que el original).
+export function copyDay(week, from, to) {
+  const source = week.find((e) => e.day === from)
+  if (!source) return week
+  return week.map((e) => (to.includes(e.day) && e.day !== from ? { ...e, enabled: source.enabled, slots: source.slots.map((s) => ({ ...s })) } : e))
 }

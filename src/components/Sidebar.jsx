@@ -3,7 +3,6 @@ import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
 import PendingPanel from './PendingPanel.jsx'
-import WeeklyAvailabilityPanel from './WeeklyAvailabilityPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
 import { SECTIONS } from './sections.js'
 import './Sidebar.css'
@@ -23,9 +22,6 @@ export default function Sidebar({
   onOpenProposal,
   missingNotes = [],
   onOpenMissingNotes,
-  pendingWeek = null,
-  onDeclareWeek,
-  onDismissWeek,
 }) {
   // En Inicio, las propuestas y las reuniones sin acta ya están en el panel.
   const onHome = section === 'home'
@@ -50,8 +46,6 @@ export default function Sidebar({
           </button>
         ))}
       </nav>
-
-      <WeeklyAvailabilityPanel pending={pendingWeek} onDeclare={onDeclareWeek} onDismiss={onDismissWeek} />
 
       <PendingPanel items={unavailableMeetings} onOpen={onOpenUnavailable} onReschedule={onRescheduleUnavailable} onKeep={onKeepUnavailable} />
 

@@ -62,21 +62,16 @@ export function slotStarts(free, minutes, stepMinutes) {
 export const DAY_OFF_TEXT = { vacation: 'No disponible: vacaciones', holiday: 'Festivo' }
 
 /**
- * Días que se muestran: todos los de las semanas declaradas desde hoy (en la zona de quien
- * reserva), cada uno con sus huecos para esa duración ([] si no hay) y, si es de vacaciones o
- * festivo, `off` ('vacation' | 'holiday'), que se muestra sin huecos.
+ * Días que se muestran: todos desde hoy (en la zona de quien reserva) hasta `until` ('AAAA-MM-DD',
+ * último día que se puede reservar), cada uno con sus huecos para esa duración ([] si no hay) y,
+ * si es de vacaciones o festivo, `off` ('vacation' | 'holiday'), que se muestra sin huecos.
  * [{ key, label, off, slots: [{ start: Date, time: 'HH:mm' }] }]
  */
-export function bookingDays({ weeks = [], free = [], daysOff = [], minutes, stepMinutes = 30, tz, now = new Date() }) {
+export function bookingDays({ until = null, free = [], daysOff = [], minutes, stepMinutes = 30, tz, now = new Date() }) {
   const today = dayKeyIn(now, tz)
   const off = new Map(daysOff.map((d) => [d.date, d.kind]))
   const days = new Map()
-  for (const monday of weeks) {
-    for (let i = 0; i < 7; i++) {
-      const key = addDaysKey(monday, i)
-      if (key >= today) days.set(key, [])
-    }
-  }
+  if (until) for (let key = today; key <= until; key = addDaysKey(key, 1)) days.set(key, [])
   for (const start of slotStarts(free, minutes, stepMinutes)) {
     const key = dayKeyIn(start, tz)
     if (!days.has(key)) days.set(key, [])

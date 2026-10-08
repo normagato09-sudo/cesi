@@ -1,7 +1,7 @@
 import { addDays, addMonths, addWeeks, differenceInCalendarDays, getDay, startOfMonth, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { mergeIntervals, subtractIntervals } from './intervals'
-import { scheduleIntervalsOn } from './weeklyAvailability'
+import { slotIntervalsOn } from './weeklySchedule'
 import { participantsOf } from './contacts'
 import { isMyMeeting } from './notes'
 import { isTeamMember } from './team'
@@ -61,7 +61,7 @@ function meetingsIn(rawEvents, start, end) {
 
 // Datos básicos de un periodo [start, end): reuniones, tiempo en reuniones (en total y por día) y
 // tiempo libre dentro del horario.
-function periodTotals(rawEvents, start, end, workingHours, weeklyAvailability) {
+function periodTotals(rawEvents, start, end, workingHours) {
   const occurrences = meetingsIn(rawEvents, start, end)
   const meetings = occurrences.filter(isMyMeeting).sort((a, b) => a.start - b.start)
 
@@ -72,10 +72,10 @@ function periodTotals(rawEvents, start, end, workingHours, weeklyAvailability) {
     return { date, meetings: ofDay.length, ms: meetingTime(ofDay, date, next), ofDay }
   })
 
-  // Libre = mi horario (el declarado para esa semana o, si no, el habitual) menos las reuniones y
+  // Libre = mi horario (el mismo todas las semanas) menos las reuniones y
   // los bloques "No disponible" (las opciones provisionales no ocupan: aún no están confirmadas).
   const busy = occurrences.filter((ev) => !ev.provisional).map((ev) => ({ start: ev.start, end: ev.end }))
-  const windows = days.flatMap((d) => scheduleIntervalsOn(d.date, workingHours, weeklyAvailability))
+  const windows = days.flatMap((d) => slotIntervalsOn(workingHours, d.date))
   const freeMs = totalMs(subtractIntervals(windows, busy))
 
   return { start, end, meetings, days, meetingMs: meetingTime(meetings, start, end), freeMs }
@@ -126,10 +126,10 @@ function busiestIndex(rows) {
  */
 export function computeReport(
   rawEvents,
-  { start, end, prevStart, prevEnd, workingHours, weeklyAvailability = [], contacts = [], groups = [] },
+  { start, end, prevStart, prevEnd, workingHours, contacts = [], groups = [] },
 ) {
-  const current = periodTotals(rawEvents, start, end, workingHours, weeklyAvailability)
-  const previous = periodTotals(rawEvents, prevStart, prevEnd, workingHours, weeklyAvailability)
+  const current = periodTotals(rawEvents, start, end, workingHours)
+  const previous = periodTotals(rawEvents, prevStart, prevEnd, workingHours)
   const { meetings } = current
   const days = current.days.map((d) => ({ date: d.date, meetings: d.meetings, ms: d.ms }))
 

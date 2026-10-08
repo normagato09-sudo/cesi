@@ -5,7 +5,7 @@ import { SyncEngine } from './engine'
 import { loadQueue } from './queue'
 import { createEvent, deleteEvent, getAllEvents, updateEvent } from '../localEvents'
 import { getPreferences, savePreferences } from '../preferences'
-import { declareWeek, getAllWeeklyAvailability, saveWeeklyAvailability } from '../weeklyAvailability'
+import { getAllWeeklyAvailability, saveWeeklyAvailability } from '../weeklyAvailability'
 import { getAllProjects, projectsStore } from '../projects'
 import { getAllVacancies, newVacancy, vacanciesStore } from '../vacancies'
 import { getAllTasks, taskData, tasksStore } from '../tasks'
@@ -193,7 +193,7 @@ describe('sincronización entre dispositivos', () => {
     await pc.start()
     await phone.start()
 
-    await pc.save(() => saveWeeklyAvailability(declareWeek([], '2026-09-28', emptyWeek())))
+    await pc.save(() => saveWeeklyAvailability([{ id: 'wk_2026-09-28', weekStart: '2026-09-28', week: emptyWeek(), dismissed: false }]))
     const project = await pc.save(() => projectsStore.create({ name: 'Curso de radio', color: '#16a34a' }))
     expect(server.row('weekly_availability', 'wk_2026-09-28').data.weekStart).toBe('2026-09-28')
     expect(phone.run(() => getAllWeeklyAvailability()).map((w) => w.id)).toEqual(['wk_2026-09-28'])
