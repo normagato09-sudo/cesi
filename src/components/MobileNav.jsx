@@ -3,8 +3,8 @@ import { Ellipsis } from 'lucide-react'
 import { MAIN_SECTIONS, MORE_SECTIONS } from './sections.js'
 import './MobileNav.css'
 
-// Barra inferior del móvil: Inicio, Calendario, Tareas, Contactos y "Más" (Equipo, Vacantes y
-// Resumen, y debajo `actions`: [{ id, label, Icon, onClick }], p. ej. "Enlace de reservas").
+// Barra inferior del móvil: Inicio, Calendario, Tareas, Contactos y "Más" (Equipo y Resumen,
+// y debajo `actions`: [{ id, label, Icon, onClick }], p. ej. "Enlace de reservas").
 // En el ordenador no se ve: están todas en la barra lateral.
 export default function MobileNav({ section, onSectionChange, actions = [] }) {
   const [moreOpen, setMoreOpen] = useState(false)

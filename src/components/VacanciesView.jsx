@@ -1,19 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
   BadgeCheck,
-  Briefcase,
-  Building2,
   FileText,
   Pencil,
-  Plus,
   Search,
-  ShieldAlert,
   Trash2,
   UserPlus,
-  UserRound,
 } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import CvLink from './CvLink.jsx'
@@ -31,12 +26,9 @@ import {
   candidatesByStatus,
   candidaciesOf,
   candidatesOf,
-  expiredDiscarded,
-  filterVacancies,
   findCandidacy,
   incorporationDraft,
   isCandidateOnly,
-  vacancyCountsText,
 } from '../lib/vacancies'
 import { memberSummary } from '../lib/trajectory'
 import './TeamView.css'
@@ -46,48 +38,6 @@ function formatDay(value) {
   if (!value) return ''
   const date = value.length > 10 ? new Date(value) : parseISO(value)
   return format(date, "d 'de' MMM yyyy", { locale: es })
-}
-
-function StatusBadge({ status }) {
-  return <span className={`vacancy-status ${status}`}>{VACANCY_STATUS[status] || status}</span>
-}
-
-// Aviso de protección de datos: descartados hace más de 6 meses.
-function RetentionNotice({ expired, onErase }) {
-  if (expired.length === 0) return null
-  const n = expired.length
-  return (
-    <div className="vacancy-retention" role="status">
-      <ShieldAlert size={16} strokeWidth={1.75} />
-      <div>
-        <p>
-          <strong>
-            {n === 1 ? '1 candidato descartado' : `${n} candidatos descartados`} hace más de {RETENTION_MONTHS} meses.
-          </strong>{' '}
-          Por protección de datos, puedes borrar sus datos personales (el contacto, su CV y sus notas). En cada vacante
-          quedará solo un registro anónimo.
-        </p>
-        <button
-          type="button"
-          className="contact-action-btn danger"
-          onClick={() => {
-            const names = expired.map((e) => `• ${e.contact.name}`).join('\n')
-            if (
-              window.confirm(
-                `Se borrarán definitivamente los datos personales de:\n${names}\n\n` +
-                  'Se borran el contacto, su CV y sus notas, y se quitan de sus reuniones. No se puede deshacer. ¿Continuar?',
-              )
-            ) {
-              onErase(expired)
-            }
-          }}
-        >
-          <Trash2 size={14} strokeWidth={1.75} />
-          Borrar sus datos
-        </button>
-      </div>
-    </div>
-  )
 }
 
 function CandidateCard({ contact, candidacy: c, onOpen }) {
@@ -116,7 +66,7 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
     <div className="vacancy-detail">
       <button type="button" className="contact-back-btn team-back" onClick={onBack}>
         <ArrowLeft size={16} strokeWidth={1.75} />
-        Vacantes
+        Equipo
       </button>
 
       <div className="vacancy-detail-head">
@@ -224,7 +174,7 @@ function CandidateDetail({
     <div className="vacancy-detail">
       <button type="button" className="contact-back-btn team-back" onClick={onBack}>
         <ArrowLeft size={16} strokeWidth={1.75} />
-        {vacancy ? vacancy.title : 'Vacantes'}
+        {vacancy ? vacancy.title : 'Equipo'}
       </button>
 
       <div className="team-detail-hero">
@@ -331,7 +281,6 @@ export default function VacanciesView({
   areas,
   groups = [],
   onAddArea,
-  onManageDepartments,
   selectedVacancyId,
   onSelectVacancy,
   selectedCandidacyId,
@@ -345,18 +294,14 @@ export default function VacanciesView({
   onCandidateStatus,
   onFindInterviewSlot,
   onIncorporate,
-  onEraseExpired,
   onOpenEvent,
   onOpenTeamMember,
 }) {
-  const [statusFilter, setStatusFilter] = useState('')
   const [vacancyForm, setVacancyForm] = useState(null) // { vacancy } (null = nueva)
   const [candidateForm, setCandidateForm] = useState(null) // { entry: { contact, candidacy } } (entry null = nueva)
   const [incorporating, setIncorporating] = useState(null) // { contact, candidacy }
   const [hired, setHired] = useState(null) // contacto recién incorporado
 
-  const expired = useMemo(() => expiredDiscarded(contacts, now), [contacts, now])
-  const list = filterVacancies(vacancies, statusFilter)
   const selectedVacancy = vacancies.find((v) => v.id === selectedVacancyId) || null
   const selected = selectedCandidacyId ? findCandidacy(contacts, selectedCandidacyId) : null // { contact, candidacy }
   const candidateVacancy = selected ? vacancies.find((v) => v.id === selected.candidacy.vacancyId) || null : null
@@ -366,8 +311,6 @@ export default function VacanciesView({
     if (found) onSelectVacancy(found.candidacy.vacancyId)
     onSelectCandidacy(id)
   }
-
-  const countByStatus = (status) => vacancies.filter((v) => v.status === status).length
 
   const handleIncorporated = (data) => {
     const { contact, candidacy } = incorporating
@@ -436,79 +379,7 @@ export default function VacanciesView({
         onStatusChange={(status) => onUpdateVacancy(selectedVacancy.id, { status })}
       />
     )
-  } else {
-    content = (
-      <>
-        <div className="team-header">
-          <div className="vacancies-title-row">
-            <h1 className="contacts-title">Vacantes</h1>
-            <button type="button" className="contacts-new-btn" onClick={() => setVacancyForm({ vacancy: null })}>
-              <Plus size={15} strokeWidth={1.75} />
-              <span>Nueva vacante</span>
-            </button>
-          </div>
-          <div className="vacancies-filters">
-          <div className="view-switch vacancies-filter" role="group" aria-label="Filtrar por estado">
-            <button type="button" className={`view-switch-btn ${statusFilter === '' ? 'active' : ''}`} onClick={() => setStatusFilter('')}>
-              Todas ({vacancies.length})
-            </button>
-            {Object.entries(VACANCY_STATUS).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`view-switch-btn ${statusFilter === value ? 'active' : ''}`}
-                onClick={() => setStatusFilter(value)}
-              >
-                {label} ({countByStatus(value)})
-              </button>
-            ))}
-          </div>
-          <button type="button" className="departments-btn" onClick={onManageDepartments} title="Añadir, renombrar, ordenar o borrar departamentos">
-            <Building2 size={14} strokeWidth={1.75} />
-            Departamentos
-          </button>
-          </div>
-        </div>
-
-        <div className="vacancies-body">
-          <RetentionNotice expired={expired} onErase={onEraseExpired} />
-
-          {vacancies.length === 0 ? (
-            <div className="contacts-empty team-empty-state">
-              <Briefcase size={32} strokeWidth={1.5} />
-              <p className="contacts-empty-title">Todavía no hay vacantes</p>
-              <p>Crea una vacante y apunta a sus candidatos para seguir el proceso, buscar hueco para las entrevistas e incorporarlos al equipo.</p>
-            </div>
-          ) : list.length === 0 ? (
-            <div className="contacts-empty team-empty-state">
-              <p>No hay vacantes en ese estado.</p>
-            </div>
-          ) : (
-            <ul className="vacancy-list">
-              {list.map((v) => (
-                <li key={v.id}>
-                  <button type="button" className="vacancy-card" onClick={() => onSelectVacancy(v.id)}>
-                    <span className="vacancy-card-head">
-                      <span className="vacancy-card-title">{v.title}</span>
-                      <StatusBadge status={v.status} />
-                    </span>
-                    <span className="vacancy-card-meta">
-                      {[v.area, `Abierta el ${formatDay(v.openedAt)}`].filter(Boolean).join(' · ')}
-                    </span>
-                    <span className="vacancy-card-count">
-                      <UserRound size={13} strokeWidth={1.75} />
-                      {vacancyCountsText(v, contacts)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </>
-    )
   }
-
   return (
     <div className="team-view vacancies-view">
       {hired && (

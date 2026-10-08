@@ -9,8 +9,9 @@ const NEW_AREA = '__new__'
 
 // Crear o editar una vacante: título, departamento (la lista de Equipo), descripción, requisitos,
 // fecha de apertura y estado.
-export default function VacancyFormModal({ initialVacancy = null, areas, onAddArea, onSubmit, onClose }) {
-  const seed = initialVacancy || newVacancy()
+// `defaultArea`: departamento de una vacante nueva («Nueva vacante» de un departamento en Equipo).
+export default function VacancyFormModal({ initialVacancy = null, defaultArea = '', areas, onAddArea, onSubmit, onClose }) {
+  const seed = initialVacancy || newVacancy({ area: defaultArea })
   const [title, setTitle] = useState(seed.title)
   const [area, setArea] = useState(seed.area)
   const [addingArea, setAddingArea] = useState(false)

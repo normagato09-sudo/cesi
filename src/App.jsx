@@ -56,6 +56,7 @@ import {
   STORAGE_KEY as VACANCIES_KEY,
   candidacyPatch,
   candidatesOf,
+  findCandidacy,
   getAllVacancies,
   incorporate,
   interviewUpdates,
@@ -641,13 +642,26 @@ export default function App() {
     setSelectedEvent(null)
     setSelectedVacancyId(candidacy?.vacancyId || null)
     setSelectedCandidacyId(candidacy?.id || null)
-    setSection('vacancies')
+    setSelectedMemberId(null)
+    setSection('team')
   }
 
+  // Las vacantes están en Equipo, en su departamento.
   const handleOpenVacancy = (vacancyId) => {
     setSelectedVacancyId(vacancyId)
     setSelectedCandidacyId(null)
-    setSection('vacancies')
+    setSelectedMemberId(null)
+    setSection('team')
+  }
+
+  // Ir a una sección; Equipo se abre en la lista (sin persona, vacante ni candidato abiertos).
+  const goToSection = (id) => {
+    if (id === 'team') {
+      setSelectedMemberId(null)
+      setSelectedVacancyId(null)
+      setSelectedCandidacyId(null)
+    }
+    setSection(id)
   }
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
@@ -720,12 +734,19 @@ export default function App() {
   const handleKeepActive = (contact) => editContact(contact.id, { teamProfile: { ...contact.teamProfile, keepActive: true } })
 
   // Orden de las personas de un departamento (ver teamOrder.js): solo cambian las que se mueven.
+  // En Equipo, con una vacante o un candidato abiertos se ve su detalle (VacanciesView).
+  const vacancyOpen =
+    (!!selectedCandidacyId && !!findCandidacy(contacts, selectedCandidacyId)) ||
+    (!!selectedVacancyId && vacancies.some((v) => v.id === selectedVacancyId))
+
   const handleReorderDepartment = (area, ordered) => {
     for (const { id, patch } of orderPatches(ordered, area)) editContact(id, patch)
   }
 
   const handleOpenTeamMember = (contactId) => {
     setSelectedEvent(null)
+    setSelectedVacancyId(null)
+    setSelectedCandidacyId(null)
     setSelectedMemberId(contactId)
     setSection('team')
   }
@@ -901,7 +922,7 @@ export default function App() {
           summary={summary}
           now={now}
           section={section}
-          onSectionChange={setSection}
+          onSectionChange={goToSection}
           onOpenBackup={() => setBackupOpen(true)}
           onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
           proposals={proposalItems}
@@ -947,7 +968,7 @@ export default function App() {
           </div>
         )}
 
-        {section === 'vacancies' && (
+        {section === 'team' && vacancyOpen && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <VacanciesView
@@ -958,7 +979,6 @@ export default function App() {
                 areas={teamAreas}
                 groups={groups}
                 onAddArea={handleAddArea}
-                onManageDepartments={() => setDepartmentsOpen(true)}
                 selectedVacancyId={selectedVacancyId}
                 onSelectVacancy={setSelectedVacancyId}
                 selectedCandidacyId={selectedCandidacyId}
@@ -972,7 +992,6 @@ export default function App() {
                 onCandidateStatus={handleCandidateStatus}
                 onFindInterviewSlot={handleFindInterviewSlot}
                 onIncorporate={handleIncorporate}
-                onEraseExpired={handleEraseExpired}
                 onOpenEvent={openEvent}
                 onOpenTeamMember={handleOpenTeamMember}
               />
@@ -980,7 +999,7 @@ export default function App() {
           </div>
         )}
 
-        {section === 'team' && (
+        {section === 'team' && !vacancyOpen && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <TeamView
@@ -1010,6 +1029,10 @@ export default function App() {
                 onOpenTask={handleOpenTask}
                 onOpenTaskSource={handleOpenTaskSource}
                 onReorder={handleReorderDepartment}
+                vacancies={vacancies}
+                onOpenVacancy={handleOpenVacancy}
+                onCreateVacancy={handleCreateVacancy}
+                onEraseExpired={handleEraseExpired}
               />
             </Suspense>
           </div>
@@ -1026,7 +1049,7 @@ export default function App() {
               vacancies={vacancies}
               proposals={proposalItems}
               missingNotes={missingNotes}
-              onGoTo={setSection}
+              onGoTo={goToSection}
               onOpenEvent={openEvent}
               onOpenEventNotes={(ev) => openEvent(ev, { focusNotes: true })}
               onToggleTask={handleToggleTask}
@@ -1134,7 +1157,7 @@ export default function App() {
 
         <MobileNav
           section={section}
-          onSectionChange={setSection}
+          onSectionChange={goToSection}
           actions={sync ? [{ id: 'booking-link', label: 'Enlace de reservas', Icon: CalendarCheck, onClick: () => setBookingLinkOpen(true) }] : []}
         />
 

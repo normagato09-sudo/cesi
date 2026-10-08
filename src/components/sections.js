@@ -1,7 +1,7 @@
-import { BadgeCheck, BarChart3, Briefcase, CalendarDays, House, ListTodo, Users } from 'lucide-react'
+import { BadgeCheck, BarChart3, CalendarDays, House, ListTodo, Users } from 'lucide-react'
 
 // Secciones de la app. En el ordenador, todas en la barra lateral; en el móvil, las principales en
-// la barra inferior y el resto dentro de "Más".
+// la barra inferior y el resto dentro de "Más". Las vacantes están dentro de Equipo, en cada departamento.
 export const MAIN_SECTIONS = [
   { id: 'home', label: 'Inicio', Icon: House },
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
@@ -11,7 +11,6 @@ export const MAIN_SECTIONS = [
 
 export const MORE_SECTIONS = [
   { id: 'team', label: 'Equipo', Icon: BadgeCheck },
-  { id: 'vacancies', label: 'Vacantes', Icon: Briefcase },
   { id: 'report', label: 'Resumen', Icon: BarChart3 },
 ]
 

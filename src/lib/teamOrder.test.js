@@ -95,3 +95,26 @@ describe('departamentos y orden', () => {
     expect(contactPatches[0].patch.teamProfile.order).toEqual({ Radio: 0 })
   })
 })
+
+describe('teamGroups con vacantes', () => {
+  const vacancies = [
+    { id: 'v1', title: 'Moderador/a', area: 'Moderación', status: 'open', openedAt: '2026-09-01' },
+    { id: 'v2', title: 'Locutor/a', area: 'Radio', status: 'filled', openedAt: '2026-08-01' },
+    { id: 'v3', title: 'Sin área', area: '', status: 'in_progress', openedAt: '2026-07-01' },
+    { id: 'v4', title: 'Moderador/a de noche', area: 'Moderación', status: 'in_progress', openedAt: '2026-10-01' },
+  ]
+
+  it('cada departamento lleva sus vacantes (las más recientes primero) y sale «Sin departamento» si hay alguna', () => {
+    const groups = teamGroups([ana], ['Moderación', 'Radio'], { vacancies })
+    expect(groups.map((g) => [g.label, g.vacancies.map((v) => v.id)])).toEqual([
+      ['Moderación', ['v4', 'v1']],
+      ['Radio', ['v2']],
+      ['Sin departamento', ['v3']],
+    ])
+  })
+
+  it('con búsqueda, también las vacantes por su título', () => {
+    const groups = teamGroups([ana], ['Moderación', 'Radio'], { vacancies, query: 'locutor' })
+    expect(groups.map((g) => [g.area, g.members.length, g.vacancies.map((v) => v.id)])).toEqual([['Radio', 0, ['v2']]])
+  })
+})

@@ -30,6 +30,9 @@ import { useSync } from '../lib/sync/syncContext'
 import { isActiveMember, milestonesToBio, quoteDisplay } from '../lib/team'
 import { headAreas, teamGroups } from '../lib/teamOrder'
 import TeamGroups, { HEAD_LABEL } from './TeamGroups.jsx'
+import VacancyFormModal from './VacancyFormModal.jsx'
+import { DepartmentVacancies, RetentionNotice } from './TeamVacancies.jsx'
+import { expiredDiscarded } from '../lib/vacancies'
 import { FORMER_GROUP_NAME, formerReview } from '../lib/formerMembers'
 import { currentRoles, dayLong, roleLabel, tenure, tenureText, withRoles } from '../lib/trajectory'
 import { migrateProfileLinks } from '../lib/links'
@@ -295,16 +298,23 @@ export default function TeamView({
   onOpenTask,
   onOpenTaskSource,
   onReorder,
+  vacancies = [],
+  onOpenVacancy,
+  onCreateVacancy,
+  onEraseExpired,
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
+  const [newVacancyArea, setNewVacancyArea] = useState(null) // departamento de la vacante nueva
   const [editing, setEditing] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const syncActive = !!useSync()
 
   // Solo los miembros activos (los antiguos miembros están en Contactos), agrupados por
   // departamento en el orden que yo decido (ver teamOrder.js).
-  const groupsView = useMemo(() => teamGroups(contacts, areas, { query, area }), [contacts, areas, query, area])
+  // Debajo de las personas de cada departamento, sus vacantes.
+  const groupsView = useMemo(() => teamGroups(contacts, areas, { query, area, vacancies }), [contacts, areas, query, area, vacancies])
+  const expired = useMemo(() => expiredDiscarded(contacts, now), [contacts, now])
   const activeCount = useMemo(() => contacts.filter(isActiveMember).length, [contacts])
   const selected = contacts.find((c) => c.id === selectedMemberId && isActiveMember(c)) || null
 
@@ -398,18 +408,47 @@ export default function TeamView({
         onKeepActive={onKeepActive}
       />
 
-      {activeCount === 0 ? (
+      <div className="team-retention">
+        <RetentionNotice expired={expired} onErase={onEraseExpired} />
+      </div>
+
+      {activeCount === 0 && vacancies.length === 0 ? (
         <div className="contacts-empty team-empty-state">
           <UsersRound size={32} strokeWidth={1.5} />
           <p className="contacts-empty-title">Todavía no hay nadie en el equipo</p>
-          <p>Abre un contacto en Contactos y pulsa «Marcar como miembro del equipo»: pasará a estar aquí (y dejará de salir en Contactos).</p>
+          <p>Abre un contacto en Contactos y pulsa «Marcar como miembro del equipo»: pasará a estar aquí (y dejará de salir en Contactos). Las vacantes también se crean aquí, en su departamento.</p>
         </div>
       ) : groupsView.length === 0 ? (
         <div className="contacts-empty team-empty-state">
           <p>No hay miembros que coincidan con la búsqueda.</p>
         </div>
       ) : (
-        <TeamGroups groups={groupsView} now={now} canReorder={!query.trim()} onOpen={onSelectMember} onReorder={onReorder} />
+        <TeamGroups
+          groups={groupsView}
+          now={now}
+          canReorder={!query.trim()}
+          onOpen={onSelectMember}
+          onReorder={onReorder}
+          renderAfter={(group) => (
+            <DepartmentVacancies
+              group={group}
+              contacts={contacts}
+              canCreate={!query.trim()}
+              onOpen={onOpenVacancy}
+              onCreate={setNewVacancyArea}
+            />
+          )}
+        />
+      )}
+
+      {newVacancyArea !== null && (
+        <VacancyFormModal
+          defaultArea={newVacancyArea}
+          areas={areas}
+          onAddArea={onAddArea}
+          onSubmit={(data) => onOpenVacancy(onCreateVacancy(data).id)}
+          onClose={() => setNewVacancyArea(null)}
+        />
       )}
     </div>
   )

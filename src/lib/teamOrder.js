@@ -43,13 +43,21 @@ export function roleIn(contact, area) {
   return role?.role || p.role || ''
 }
 
+const plain = (text) =>
+  String(text || '')
+    .toLocaleLowerCase('es')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+
 /**
- * Vista agrupada de Equipo: [{ area, label, members }] en el orden de la lista de departamentos,
- * más los que usan los miembros y no están en la lista, y «Sin departamento» al final si hay
- * alguien. `area`: solo ese departamento. Con `query`, solo los grupos con alguien que coincide
+ * Vista agrupada de Equipo: [{ area, label, members, vacancies }] en el orden de la lista de
+ * departamentos, más los que usan los miembros o las vacantes y no están en la lista, y «Sin
+ * departamento» al final si hay alguien o alguna vacante. `vacancies`: todas (cada grupo lleva
+ * las suyas, en cualquier estado, por fecha de apertura). `area`: solo ese departamento. Con
+ * `query`, solo las personas y vacantes (por título) que coinciden, y solo los grupos con alguna
  * (sin búsqueda ni filtro, también los departamentos vacíos).
  */
-export function teamGroups(contacts, areas, { query = '', area = '' } = {}) {
+export function teamGroups(contacts, areas, { query = '', area = '', vacancies = [] } = {}) {
   const members = contacts.filter(isActiveMember)
   const byArea = new Map()
   for (const c of members) {
@@ -58,17 +66,22 @@ export function teamGroups(contacts, areas, { query = '', area = '' } = {}) {
       byArea.get(a).push(c)
     }
   }
-  const names = [...areas, ...[...byArea.keys()].filter((a) => a && !areas.includes(a))]
-  if (byArea.has('')) names.push('')
-  const searching = !!query.trim()
+  const vacancyArea = (v) => (v.area || '').trim()
+  const used = [...byArea.keys(), ...vacancies.map(vacancyArea)]
+  const names = [...areas, ...new Set(used.filter((a) => a && !areas.includes(a)))]
+  if (used.includes('')) names.push('')
+  const q = plain(query).trim()
   return names
     .filter((name) => !area || name === area)
     .map((name) => ({
       area: name,
       label: name || NO_DEPARTMENT_LABEL,
       members: sortByPosition(byArea.get(name) || [], name).filter((c) => memberMatches(c, query)),
+      vacancies: vacancies
+        .filter((v) => vacancyArea(v) === name && (!q || plain(v.title).includes(q)))
+        .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || '')),
     }))
-    .filter((g) => !searching || g.members.length > 0)
+    .filter((g) => !q || g.members.length > 0 || g.vacancies.length > 0)
 }
 
 // ¿Dirige ese departamento? La primera de la lista, si ya se ha ordenado (tiene posición).

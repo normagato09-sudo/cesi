@@ -255,8 +255,8 @@ export default function HomeView({
           Icon={Briefcase}
           title="Entrevistas y vacantes"
           count={interviews.length}
-          linkLabel="Vacantes"
-          onLink={() => onGoTo('vacancies')}
+          linkLabel="Equipo"
+          onLink={() => onGoTo('team')}
         >
           <MeetingList
             title="Próximas entrevistas"
