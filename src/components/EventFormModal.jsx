@@ -8,11 +8,10 @@ import { participantFields, participantsOf } from '../lib/contacts'
 import { MeetingWarningError } from '../lib/meetingWarnings'
 import { SCOPES } from '../lib/seriesEdits'
 import { hasCandidateParticipant, isInterview } from '../lib/vacancies'
-import { UNAVAILABLE_KINDS, allDaySpanDays, dayOffTitle, unavailableKindOf } from '../lib/unavailableKinds'
+import { UNAVAILABLE_KINDS, allDaySpanDays, cleanNote, unavailableKindOf, unavailableNoteOf, unavailableTitle } from '../lib/unavailableKinds'
 import MeetingWarning from './MeetingWarning.jsx'
 import './EventFormModal.css'
 
-const UNAVAILABLE_REASONS = ['No disponible', 'Comida', 'Asunto personal', 'Estudio', 'Fuera de horario', 'Otro']
 
 const DURATION_OPTIONS = [
   { value: '30', label: '30 minutos' },
@@ -85,21 +84,14 @@ export default function EventFormModal({
   const baseStart = seed.start ? new Date(seed.start) : defaultDate
   const baseEnd = seed.end ? new Date(seed.end) : new Date(baseStart.getTime() + 60 * 60 * 1000)
 
-  // Franja de todo el día: Vacaciones, Festivo u Otro (las antiguas, Otro), con su nota.
+  // Franja de todo el día: Vacaciones, Festivo u Otro (las antiguas, Otro). Todas con su nota (en
+  // las antiguas, su motivo; ver unavailableNoteOf).
   const initialKind = seed.isUnavailable ? unavailableKindOf(seed) : 'other'
-  const initialReason = isUnavailable && initialKind === 'other'
-    ? UNAVAILABLE_REASONS.find((r) => seed.title === `No disponible: ${r}`) ||
-      (seed.title && seed.title !== 'No disponible' ? 'Otro' : 'No disponible')
-    : UNAVAILABLE_REASONS[0]
-  const initialCustomReason =
-    isUnavailable && initialKind === 'other' && initialReason === 'Otro' && seed.title ? seed.title.replace(/^No disponible: /, '') : ''
 
   const [title, setTitle] = useState(!isUnavailable ? seed.title || '' : '')
   // "Entrevista de candidato" (ver isInterview): la reunión cuenta en Vacantes y en el Inicio.
   const initialInterview = !seed.isUnavailable && isInterview(seed)
   const [interview, setInterview] = useState(initialInterview)
-  const [reason, setReason] = useState(initialReason)
-  const [customReason, setCustomReason] = useState(initialCustomReason)
   const [description, setDescription] = useState(seed.description || '')
   const [participantSelection, setParticipantSelection] = useState(() => {
     const resolved = participantsOf(seed, contacts)
@@ -115,7 +107,7 @@ export default function EventFormModal({
     toDateInputValue(seed.allDay && seed.end ? addDays(baseStart, allDaySpanDays(seed) - 1) : baseStart),
   )
   const [kind, setKind] = useState(initialKind)
-  const [note, setNote] = useState(initialKind !== 'other' ? seed.unavailableNote || '' : '')
+  const [note, setNote] = useState(seed.isUnavailable ? unavailableNoteOf(seed) : '')
   const [startTime, setStartTime] = useState(toTimeInputValue(baseStart))
   const [endTime, setEndTime] = useState(toTimeInputValue(baseEnd))
 
@@ -220,10 +212,6 @@ export default function EventFormModal({
       setFormError('El título es obligatorio.')
       return
     }
-    if (isUnavailable && !isDayOff && reason === 'Otro' && !customReason.trim()) {
-      setFormError('Indica un motivo.')
-      return
-    }
     if (repeatFreq && !repeatUntil) {
       setFormError('Indica hasta cuándo se repite.')
       return
@@ -248,13 +236,7 @@ export default function EventFormModal({
     }
 
     const payload = {
-      title: isDayOff
-        ? dayOffTitle(kind, note)
-        : isUnavailable
-        ? reason === 'No disponible'
-          ? 'No disponible'
-          : `No disponible: ${reason === 'Otro' ? customReason.trim() : reason}`
-        : title.trim(),
+      title: isUnavailable ? unavailableTitle(isDayOff ? kind : 'other', note) : title.trim(),
       description: isUnavailable ? '' : description.trim(),
       ...(isUnavailable
         ? participantFields([], [])
@@ -269,8 +251,8 @@ export default function EventFormModal({
       ...interviewField,
       isUnavailable,
       allDay: isUnavailable ? allDay : false,
-      // Tipo de la franja de todo el día (ver unavailableKinds.js); la nota solo en vacaciones y festivos.
-      ...(isUnavailable && allDay ? { unavailableKind: kind, unavailableNote: isDayOff ? note.replace(/s+/g, ' ').trim() : '' } : {}),
+      // Tipo de la franja de todo el día y nota de cualquier franja (ver unavailableKinds.js).
+      ...(isUnavailable ? { unavailableNote: cleanNote(note), ...(allDay ? { unavailableKind: kind } : {}) } : {}),
       start,
       end,
       recurrence: repeatFreq ? { freq: repeatFreq, until: new Date(`${repeatUntil}T23:59:59`).toISOString() } : null,
@@ -375,31 +357,21 @@ export default function EventFormModal({
             </label>
           )}
 
-          {isDayOff ? (
+          {isUnavailable && (
             <label className="event-form-field">
               <span>Nota (opcional)</span>
-              <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Navidad" maxLength={80} />
-              <em className="event-form-hint">Solo la ves tú: en tu enlace de reservas sale «{kind === 'vacation' ? 'No disponible: vacaciones' : 'Festivo'}».</em>
-            </label>
-          ) : (
-            isUnavailable && (
-              <label className="event-form-field">
-                <span>Motivo</span>
-                <select value={reason} onChange={(e) => setReason(e.target.value)}>
-                  {UNAVAILABLE_REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )
-          )}
-
-          {isUnavailable && !isDayOff && reason === 'Otro' && (
-            <label className="event-form-field">
-              <span>Especifica el motivo</span>
-              <input type="text" value={customReason} onChange={(e) => setCustomReason(e.target.value)} placeholder="Motivo" />
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={isDayOff ? 'Navidad' : 'Comida, médico…'}
+                maxLength={80}
+              />
+              <em className="event-form-hint">
+                {isDayOff
+                  ? `Solo la ves tú: en tu enlace de reservas sale «${kind === 'vacation' ? 'No disponible: vacaciones' : 'Festivo'}».`
+                  : 'Solo la ves tú: en tu enlace de reservas, ese tiempo simplemente no tiene huecos.'}
+              </em>
             </label>
           )}
 

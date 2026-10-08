@@ -27,7 +27,7 @@ import { pendingForMeeting, sourceOccurrence, tasksOfSession } from '../lib/task
 import ConvocationModal from './ConvocationModal.jsx'
 import { NOT_ATTENDING_LABEL, isNotAttending } from '../lib/notAttending'
 import { isInterview } from '../lib/vacancies'
-import { allDayRangeText, isMarkedDayOff, kindLabel, unavailableKindOf } from '../lib/unavailableKinds'
+import { allDayRangeText, isMarkedDayOff, kindLabel, unavailableKindOf, unavailableNoteOf } from '../lib/unavailableKinds'
 import UnavailableIcon from './UnavailableIcon.jsx'
 import { RECURRENCE_LABELS, dateKey } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
@@ -171,12 +171,13 @@ export default function EventModal({
         </div>
 
         <div className="event-modal-body">
-          {isMarkedDayOff(event) && (
+          {event.isUnavailable && (isMarkedDayOff(event) || unavailableNoteOf(event)) && (
             <div className="event-modal-row">
               <UnavailableIcon event={event} size={16} />
               <span>
-                {kindLabel(unavailableKindOf(event))}
-                {event.unavailableNote && ` · ${event.unavailableNote}`}
+                {isMarkedDayOff(event)
+                  ? [kindLabel(unavailableKindOf(event)), unavailableNoteOf(event)].filter(Boolean).join(' · ')
+                  : `Nota: ${unavailableNoteOf(event)}`}
               </span>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { allDayRangeText, allDaySpanDays, dayOffTitle, daysOff, isMarkedDayOff, unavailableKindOf } from './unavailableKinds'
+import { unavailableNoteOf, unavailableTitle } from './unavailableKinds'
 
 const day = (m, d) => new Date(2026, m - 1, d)
 const allDay = (from, toExclusive, extra = {}) => ({ id: 'x', isUnavailable: true, allDay: true, start: from, end: toExclusive, ...extra })
@@ -39,5 +40,21 @@ describe('tipos de franja "No disponible"', () => {
       { date: '2026-12-25', kind: 'vacation' },
       { date: '2026-12-28', kind: 'holiday' },
     ])
+  })
+})
+
+describe('nota de las franjas (sin campo Motivo)', () => {
+  it('la nota guardada o, en las antiguas sin nota, su motivo', () => {
+    expect(unavailableNoteOf({ isUnavailable: true, title: 'No disponible: Comida' })).toBe('Comida')
+    expect(unavailableNoteOf({ isUnavailable: true, title: 'No disponible: Comida', unavailableNote: 'Médico' })).toBe('Médico')
+    expect(unavailableNoteOf({ isUnavailable: true, title: 'No disponible' })).toBe('')
+    expect(unavailableNoteOf({ isUnavailable: true, allDay: true, unavailableKind: 'vacation', title: 'Vacaciones' })).toBe('')
+    expect(unavailableNoteOf({ isUnavailable: false, title: 'No disponible: x' })).toBe('')
+  })
+
+  it('el título sale del tipo y la nota', () => {
+    expect(unavailableTitle('other', '  Comida ')).toBe('No disponible: Comida')
+    expect(unavailableTitle('other', '')).toBe('No disponible')
+    expect(unavailableTitle('holiday', 'Navidad')).toBe('Festivo: Navidad')
   })
 })

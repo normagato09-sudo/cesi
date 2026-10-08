@@ -4,8 +4,8 @@ import { es } from 'date-fns/locale'
 // Tipo de una franja "No disponible" de todo el día (events.data.unavailableKind):
 //   'vacation' (Vacaciones), 'holiday' (Festivo) u 'other' (Otro, con los motivos de siempre).
 // Puede durar varios días (del 22/12 al 06/01): una sola franja de start (00:00 del primer día)
-// a end (00:00 del día siguiente al último). Las de vacaciones y festivo llevan una nota opcional
-// (events.data.unavailableNote, p. ej. "Navidad") que solo se ve en la app: la página pública
+// a end (00:00 del día siguiente al último). Todas llevan una nota opcional (events.data.unavailableNote,
+// p. ej. "Navidad" o "Comida"; ver unavailableNoteOf) que solo se ve en la app: la página pública
 // /reservar dice solo "No disponible: vacaciones" o "Festivo". Las franjas antiguas (sin tipo) y
 // las que no son de todo el día cuentan como 'other'. No afecta al Resumen.
 
@@ -31,10 +31,32 @@ export function kindLabel(kind) {
   return LABELS[kind] || 'Otro'
 }
 
+export function cleanNote(note) {
+  return (note || '').replace(/\s+/g, ' ').trim()
+}
+
 // Título de la franja: "Vacaciones" o "Festivo", con la nota si la hay ("Vacaciones: Navidad").
 export function dayOffTitle(kind, note = '') {
-  const clean = (note || '').replace(/\s+/g, ' ').trim()
+  const clean = cleanNote(note)
   return clean ? `${kindLabel(kind)}: ${clean}` : kindLabel(kind)
+}
+
+// Título de cualquier franja "No disponible": la de vacaciones o festivo, o "No disponible" con la
+// nota si la hay ("No disponible: Comida").
+export function unavailableTitle(kind, note = '') {
+  if (LABELS[kind]) return dayOffTitle(kind, note)
+  const clean = cleanNote(note)
+  return clean ? `No disponible: ${clean}` : 'No disponible'
+}
+
+// Nota de una franja "No disponible" (events.data.unavailableNote). Ya no hay campo "Motivo": en
+// las antiguas sin nota, su motivo (lo que va detrás de "No disponible: " en el título) hace de
+// nota. No se cambia nada guardado.
+export function unavailableNoteOf(event) {
+  if (!event?.isUnavailable) return ''
+  if (cleanNote(event.unavailableNote)) return cleanNote(event.unavailableNote)
+  const legacy = /^No disponible:\s*(.+)$/.exec(event.title || '')
+  return legacy ? cleanNote(legacy[1]) : ''
 }
 
 // Número de días que ocupa una franja de todo el día (1 si es de un solo día).
