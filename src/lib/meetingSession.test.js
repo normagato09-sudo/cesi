@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { expandEvents } from './recurrence'
 import {
+  formatElapsed,
   isEmptySession,
   moveItem,
   newAgendaItem,
   pastSessions,
+  sameText,
   sessionOf,
   sessionPatch,
   toSeriesSessionPatch,
@@ -185,5 +187,19 @@ describe('listas', () => {
     const it1 = newAgendaItem('Hola')
     expect(it1).toMatchObject({ text: 'Hola', done: false })
     expect(it1.id).toBeTruthy()
+  })
+})
+
+describe('modo reunión', () => {
+  it('formatElapsed muestra minutos y segundos, y horas si hacen falta', () => {
+    expect(formatElapsed(0)).toBe('00:00')
+    expect(formatElapsed(425000)).toBe('07:05')
+    expect(formatElapsed(3723000)).toBe('1:02:03')
+    expect(formatElapsed(-5000)).toBe('00:00')
+  })
+
+  it('sameText compara sin mayúsculas ni espacios de los extremos', () => {
+    expect(sameText(' Subir precios ', 'subir PRECIOS')).toBe(true)
+    expect(sameText('a', 'b')).toBe(false)
   })
 })

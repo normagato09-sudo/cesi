@@ -97,7 +97,7 @@
   margin-top: 2px;
 }
 
-.session-notes,
+
 .session-item-text,
 .session-add input {
   width: 100%;
@@ -109,7 +109,7 @@
   font-size: 13.5px;
   line-height: 1.45;
 }
-.session-notes:focus,
+
 .session-item-text:focus,
 .session-add input:focus {
   outline: none;
@@ -370,5 +370,276 @@
   .session-history summary,
   .session-history-more {
     min-height: 44px;
+  }
+}
+
+/* Notas ya escritas (sesiones anteriores), con sus listas. */
+.notes-text p {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.notes-text .notes-text-list {
+  margin: 2px 0 0;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+.notes-text .notes-text-list .notes-text-list {
+  margin: 0;
+}
+
+/* Botón "Empezar reunión" */
+.session-start {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.session-start:hover {
+  background: var(--accent-hover);
+}
+.session-start.running {
+  background: #15803d;
+}
+.session-start.running:hover {
+  background: #166534;
+}
+.session-start-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Modo reunión (pantalla completa) */
+.meeting-live {
+  position: fixed;
+  inset: 0;
+  z-index: 115;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.meeting-live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.meeting-live-heading {
+  min-width: 0;
+}
+.meeting-live-heading h2 {
+  margin: 4px 0 2px;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meeting-live-heading p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+.meeting-live-heading p::first-letter {
+  text-transform: uppercase;
+}
+.meeting-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #b91c1c;
+}
+.meeting-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: meeting-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes meeting-live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meeting-live-dot {
+    animation: none;
+  }
+}
+
+.meeting-live-controls {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.meeting-live-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.meeting-live-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: #1f2430;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.meeting-live-end:hover {
+  background: #000;
+}
+
+.meeting-live-tabs {
+  display: none;
+}
+
+.meeting-live-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+.meeting-live-pane {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.meeting-live-pane h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.meeting-live-pane .session-subtitle {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.meeting-live-pane .session-item-text,
+.meeting-live-pane .session-add input {
+  font-size: 15px;
+}
+.meeting-live-notes .notes-textarea {
+  min-height: 46vh;
+  font-size: 16px;
+  line-height: 1.65;
+  resize: none;
+}
+
+/* Móvil: una columna con pestañas (Agenda / Acta). */
+@media (max-width: 760px) {
+  .meeting-live-head {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .meeting-live-heading {
+    flex: 1 1 100%;
+  }
+  .meeting-live-heading h2 {
+    font-size: 18px;
+  }
+  .meeting-live-controls {
+    flex: 1;
+    justify-content: space-between;
+  }
+  .meeting-live-controls .session-status {
+    order: 3;
+    flex: 1 1 100%;
+    display: none;
+  }
+  .meeting-live-clock,
+  .meeting-live-end {
+    min-height: 44px;
+  }
+  .meeting-live-tabs {
+    display: flex;
+    margin: 10px 14px 0;
+  }
+  .meeting-live-tabs button {
+    flex: 1;
+    justify-content: center;
+  }
+  .meeting-live-body {
+    display: block;
+    padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+  }
+  .meeting-live-pane {
+    overflow: visible;
+    padding: 14px;
+    border-radius: var(--radius-md);
+  }
+  .meeting-live-pane h3 {
+    display: none;
+  }
+  .meeting-live-body[data-tab='agenda'] .meeting-live-minutes,
+  .meeting-live-body[data-tab='minutes'] .meeting-live-agenda {
+    display: none;
+  }
+  .meeting-live-notes .notes-textarea {
+    min-height: 40vh;
+  }
+  /* Hueco para la barra del teclado. */
+  .meeting-live-body:has(.notes-editor.focused) {
+    padding-bottom: 72px;
   }
 }

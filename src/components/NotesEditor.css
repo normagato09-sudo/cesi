@@ -1,0 +1,163 @@
+.notes-editor {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.notes-editor.focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft-strong);
+}
+
+/* Barra de formato: arriba de las notas en el ordenador; encima del teclado en el móvil. */
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.notes-toolbar[hidden] {
+  display: none;
+}
+.notes-toolbar-hint {
+  margin-left: auto;
+  padding-right: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notes-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 4px;
+  background: var(--border-strong);
+}
+
+.notes-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.notes-tool:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.notes-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.notes-tool:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.notes-line-action.done {
+  color: #15803d;
+  cursor: default;
+}
+
+.notes-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.notes-textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 110px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.6;
+  resize: vertical;
+  tab-size: 2;
+}
+.notes-textarea:focus {
+  outline: none;
+}
+
+/* Botones de la línea del cursor (ordenador): a la derecha, a la altura de la línea. */
+@media (min-width: 641px) and (pointer: fine) {
+  .notes-editor.focused .notes-textarea {
+    padding-right: 80px;
+  }
+}
+.notes-line-actions {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  pointer-events: auto;
+}
+.notes-line-actions .notes-tool span {
+  display: none;
+}
+.notes-line-actions .notes-tool {
+  height: 28px;
+  font-size: 12.5px;
+}
+
+/* Móvil: texto de 16 px (sin zoom en iOS) y la barra pegada al teclado. */
+@media (max-width: 640px), (pointer: coarse) {
+  .notes-textarea {
+    font-size: 16px;
+  }
+  .notes-toolbar.keyboard {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 125;
+    gap: 4px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-strong);
+    border-bottom: none;
+    border-radius: 0;
+    background: var(--surface);
+    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
+    overflow-x: auto;
+  }
+  .notes-toolbar.keyboard .notes-tool {
+    min-width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .notes-toolbar.keyboard .notes-line-action {
+    padding: 0 10px;
+    background: var(--bg);
+    font-size: 14px;
+  }
+  /* Hueco para que la barra no tape lo último que se escribe. */
+  .notes-editor.focused .notes-textarea {
+    scroll-padding-bottom: 64px;
+  }
+}
