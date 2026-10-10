@@ -1,18 +1,17 @@
 import { format } from 'date-fns'
-import { nextGroupColor } from './groups'
+import { archivePatch, unarchivePatch } from './archive'
 import { isTeamMember } from './team'
 import { applyLeaving, isCurrentRole, rolesOf, withRoles } from './trajectory'
 
 // Antiguos miembros del equipo (teamProfile.status = 'former', con leftAt = fecha de salida).
-// No salen en la sección Equipo, pero siguen en Contactos con toda su información, y van al grupo
-// de contactos "Antiguos miembros":
-// - al pasar a antiguo miembro se añaden al grupo (se crea si no existe);
-// - al volver al equipo salen del grupo;
-// - si se les quita del grupo a mano, no se les vuelve a meter.
-// teamProfile.formerGroupHandled = true: ya se le metió en el grupo (o se decidió no hacerlo), así
-// que el aviso de Equipo no lo vuelve a proponer. Se quita al volver al equipo.
+// No salen en la sección Equipo y, al pasar a antiguo miembro, se archivan (ver archive.js): se
+// conserva todo (trayectoria, candidaturas, notas, reuniones y tareas). Al desarchivarlos siguen
+// siendo antiguos miembros; «Marcar como miembro del equipo» los devuelve a Equipo con su
+// trayectoria anterior (y los desarchiva).
 // teamProfile.keepActive = true: tiene todos sus roles terminados pero sigue en el equipo (se
 // eligió en el aviso); el aviso no lo vuelve a proponer.
+// El antiguo grupo de contactos «Antiguos miembros» ya no se usa (lo quitó la migración
+// formerToArchive2026, ver dataMigrations.js).
 
 export const FORMER_GROUP_NAME = 'Antiguos miembros'
 
@@ -27,13 +26,9 @@ export function isFormerMember(contact) {
   return isTeamMember(contact) && contact.teamProfile.status === 'former'
 }
 
+// El grupo antiguo «Antiguos miembros» (solo para la migración que lo quita).
 export function findFormerGroup(groups) {
   return groups.find((g) => plainKey(g.name) === plainKey(FORMER_GROUP_NAME)) || null
-}
-
-// Datos del grupo "Antiguos miembros" para crearlo.
-export function newFormerGroup(groups) {
-  return { name: FORMER_GROUP_NAME, color: nextGroupColor(groups) }
 }
 
 // Fecha de fin más reciente de sus roles ('AAAA-MM-DD') o null.
@@ -51,21 +46,12 @@ export function hasAllRolesEnded(profile) {
   return !!profile && profile.status !== 'former' && roles.length > 0 && !roles.some(isCurrentRole)
 }
 
-/**
- * Lo que propone el aviso de Equipo:
- * - outsideGroup: antiguos miembros que no están en el grupo y por los que aún no se ha decidido;
- * - allRolesEnded: activos con todos sus roles terminados (se decide uno a uno), con `leftAt`, la
- *   fecha de su último rol.
- */
-export function formerReview(contacts, groups) {
-  const group = findFormerGroup(groups)
-  const outsideGroup = contacts.filter(
-    (c) => isFormerMember(c) && !c.teamProfile.formerGroupHandled && !(group && (c.groupIds || []).includes(group.id)),
-  )
-  const allRolesEnded = contacts
-    .filter((c) => isTeamMember(c) && hasAllRolesEnded(c.teamProfile) && !c.teamProfile.keepActive)
+// Aviso de Equipo: activos con todos sus roles terminados (se decide uno a uno), con `leftAt`, la
+// fecha de su último rol.
+export function formerReview(contacts) {
+  return contacts
+    .filter((c) => isTeamMember(c) && !c.archived && hasAllRolesEnded(c.teamProfile) && !c.teamProfile.keepActive)
     .map((contact) => ({ contact, leftAt: lastRoleEnd(contact.teamProfile) }))
-  return { outsideGroup, allRolesEnded }
 }
 
 // Al volver al equipo, los roles que se cerraron con la fecha de salida vuelven a ser actuales.
@@ -81,30 +67,24 @@ export function markFormerProfile(profile, leftAt) {
 }
 
 /**
- * Cambios del contacto por pasar de activo a antiguo miembro o al revés, para guardarlos junto con
- * el perfil nuevo. `groupIds`: los grupos que se van a guardar (los del formulario, si se han
- * editado). `formerGroup`: el grupo (o null si no existe; al salir del equipo hay que crearlo antes).
- * Devuelve { groupIds, teamProfile } con lo que cambia, o {} si no cambia el estado.
+ * Cambios del contacto por pasar de activo a antiguo miembro (se archiva) o al revés (vuelve a
+ * Equipo y se desarchiva), para guardarlos junto con el perfil nuevo. {} si no cambia el estado.
  */
-export function statusChangePatch({ before, after, groupIds = [], formerGroup }) {
+export function statusChangePatch({ before, after, now = new Date() }) {
   const wasFormer = before?.status === 'former'
   const isFormer = after?.status === 'former'
   if (!after || wasFormer === isFormer) return {}
-  if (isFormer) {
-    const ids = formerGroup && !groupIds.includes(formerGroup.id) ? [...groupIds, formerGroup.id] : groupIds
-    return { groupIds: ids, teamProfile: { ...after, formerGroupHandled: true, keepActive: false } }
-  }
+  if (isFormer) return { teamProfile: { ...after, keepActive: false }, ...archivePatch(now) }
   const rest = { ...after }
   delete rest.formerGroupHandled
-  return {
-    groupIds: formerGroup ? groupIds.filter((id) => id !== formerGroup.id) : groupIds,
-    teamProfile: rest,
-  }
+  return { teamProfile: rest, ...unarchivePatch() }
 }
 
-// ¿Pasa a antiguo miembro? (para crear el grupo antes de guardar).
-export function becomesFormer(before, after) {
-  return before?.status !== 'former' && after?.status === 'former'
+// Perfil de un antiguo miembro que vuelve al equipo: activo, sin fecha de salida y con los roles
+// que se cerraron ese día otra vez actuales.
+export function returnToTeamProfile(profile) {
+  const roles = reopenRoles(rolesOf(profile), profile.leftAt)
+  return withRoles({ ...profile, status: 'active', leftAt: null }, roles)
 }
 
 // Departamentos en los que estaba el día `day` (Date o 'AAAA-MM-DD'), según su trayectoria:

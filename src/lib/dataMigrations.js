@@ -1,4 +1,6 @@
 import { getAllContacts, updateContact } from './contacts'
+import { getAllGroups, groupsStore } from './groups'
+import { formerToArchivePlan } from './archive'
 import { getAllVacancies, vacanciesStore } from './vacancies'
 import { resetDepartments } from './departments'
 import { saveTeamAreas } from './team'
@@ -18,6 +20,15 @@ export function runPendingMigrations(now = new Date()) {
     saveTeamAreas(plan.list)
     markMigrationDone(MIGRATIONS.departments2026, now)
     ran.push(MIGRATIONS.departments2026)
+  }
+
+  // Los antiguos miembros pasan al archivo y se quita el grupo «Antiguos miembros».
+  if (!isMigrationDone(MIGRATIONS.formerToArchive2026)) {
+    const plan = formerToArchivePlan(getAllContacts(), getAllGroups(), now)
+    for (const { id, patch } of plan.contactPatches) updateContact(id, patch)
+    if (plan.groupId) groupsStore.remove(plan.groupId)
+    markMigrationDone(MIGRATIONS.formerToArchive2026, now)
+    ran.push(MIGRATIONS.formerToArchive2026)
   }
 
   return ran

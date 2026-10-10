@@ -7,7 +7,7 @@ import { QUOTE_MAX_LENGTH, emptyTeamProfile, milestonesToBio, normalizeQuote, te
 import { cleanLinks, migrateProfileLinks, validateUrl } from '../lib/links'
 import { departmentKey } from '../lib/departments'
 import { applyLeaving, dayLong, newRoleId, rolesOf, withRoles } from '../lib/trajectory'
-import { FORMER_GROUP_NAME, reopenRoles } from '../lib/formerMembers'
+import { reopenRoles } from '../lib/formerMembers'
 import './EventFormModal.css'
 import './TeamProfileModal.css'
 
@@ -217,7 +217,7 @@ export default function TeamProfileModal({
           </div>
           {returning && (
             <p className="team-fieldset-hint">
-              Vuelve al equipo: sale del grupo «{FORMER_GROUP_NAME}»
+              Vuelve al equipo (y sale de Archivados)
               {seed.leftAt ? ` y los roles que terminaron el ${dayLong(seed.leftAt)} vuelven a ser actuales` : ''}.
             </p>
           )}
@@ -227,8 +227,8 @@ export default function TeamProfileModal({
               <input type="date" value={leftAt} onChange={(e) => setLeftAt(e.target.value)} />
               {seed.status !== 'former' && (
                 <em className="team-fieldset-hint">
-                  Sus roles actuales se cerrarán con esta fecha. Dejará de salir en Equipo (seguirá en Contactos) y se añadirá
-                  al grupo «{FORMER_GROUP_NAME}».
+                  Sus roles actuales se cerrarán con esta fecha. Dejará de salir en Equipo y pasará a Contactos › Archivados
+                  (se conserva todo).
                 </em>
               )}
             </label>

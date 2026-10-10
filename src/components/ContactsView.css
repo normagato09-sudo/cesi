@@ -690,3 +690,34 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+/* Contactos › Archivados */
+.contacts-title svg {
+  vertical-align: -3px;
+  margin-right: 6px;
+  color: var(--text-secondary);
+}
+.contact-back-btn.contacts-archive-back {
+  display: inline-flex;
+  cursor: pointer;
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+.contacts-archive-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.contact-archived-badge {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+}

@@ -40,9 +40,10 @@ export function searchContacts(contacts, query) {
   return contacts
     .filter(
       (c) =>
-        normalizeName(c.name).includes(q) ||
-        normalizeEmail(c.email).includes(q) ||
-        (digits.length >= 3 && (c.phone || '').replace(/\D/g, '').includes(digits)),
+        !c.archived &&
+        (normalizeName(c.name).includes(q) ||
+          normalizeEmail(c.email).includes(q) ||
+          (digits.length >= 3 && (c.phone || '').replace(/\D/g, '').includes(digits))),
     )
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }))
 }

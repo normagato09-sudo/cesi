@@ -1,76 +1,71 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FORMER_GROUP_NAME,
   areasOn,
-  becomesFormer,
   findFormerGroup,
   formerReview,
   hasAllRolesEnded,
   lastRoleEnd,
   markFormerProfile,
-  newFormerGroup,
   reopenRoles,
+  returnToTeamProfile,
   statusChangePatch,
 } from './formerMembers'
 
 const role = (id, area, start, end = null) => ({ id, role: `Rol ${id}`, area, start, end })
 const member = (id, profile, extra = {}) => ({ id, name: id, teamProfile: { status: 'active', leftAt: null, ...profile }, ...extra })
-const group = { id: 'g1', name: 'Antiguos miembros', color: '#2563eb' }
 
-describe('grupo "Antiguos miembros"', () => {
-  it('se encuentra sin distinguir mayúsculas ni acentos y se crea con un color libre', () => {
+const NOW = new Date('2026-10-10T10:00:00Z')
+
+describe('antiguos miembros y archivo', () => {
+  it('el grupo antiguo se encuentra sin distinguir mayúsculas ni acentos (para quitarlo)', () => {
     expect(findFormerGroup([{ id: 'x', name: 'Profesores' }, { id: 'g', name: ' antiguos MIEMBROS ' }]).id).toBe('g')
     expect(findFormerGroup([{ id: 'x', name: 'Profesores' }])).toBeNull()
-    expect(newFormerGroup([{ color: '#2563eb' }])).toEqual({ name: FORMER_GROUP_NAME, color: '#16a34a' })
   })
 
-  it('al pasar a antiguo miembro se añade al grupo y queda como ya revisado', () => {
+  it('al pasar a antiguo miembro se archiva', () => {
     const patch = statusChangePatch({
       before: { status: 'active' },
       after: { status: 'former', leftAt: '2026-09-30', keepActive: true },
-      groupIds: ['prof'],
-      formerGroup: group,
+      now: NOW,
     })
-    expect(patch.groupIds).toEqual(['prof', 'g1'])
-    expect(patch.teamProfile).toMatchObject({ status: 'former', formerGroupHandled: true, keepActive: false })
-    expect(becomesFormer({ status: 'active' }, { status: 'former' })).toBe(true)
-    expect(becomesFormer({ status: 'former' }, { status: 'former' })).toBe(false)
+    expect(patch).toEqual({
+      teamProfile: { status: 'former', leftAt: '2026-09-30', keepActive: false },
+      archived: true,
+      archivedAt: NOW.toISOString(),
+    })
   })
 
-  it('al volver al equipo sale del grupo', () => {
+  it('al volver al equipo se desarchiva', () => {
     const patch = statusChangePatch({
-      before: { status: 'former', leftAt: '2026-09-30', formerGroupHandled: true },
+      before: { status: 'former', leftAt: '2026-09-30' },
       after: { status: 'active', leftAt: null, formerGroupHandled: true },
-      groupIds: ['g1', 'prof'],
-      formerGroup: group,
     })
-    expect(patch.groupIds).toEqual(['prof'])
-    expect(patch.teamProfile).toEqual({ status: 'active', leftAt: null })
+    expect(patch).toEqual({ teamProfile: { status: 'active', leftAt: null }, archived: false, archivedAt: null })
   })
 
-  it('si el estado no cambia, no toca los grupos (se respeta haberlo quitado a mano)', () => {
-    expect(statusChangePatch({ before: { status: 'former' }, after: { status: 'former' }, groupIds: [], formerGroup: group })).toEqual({})
-    expect(statusChangePatch({ before: { status: 'active' }, after: { status: 'active' }, groupIds: ['g1'], formerGroup: group })).toEqual({})
+  it('si el estado no cambia, no se toca el archivo', () => {
+    expect(statusChangePatch({ before: { status: 'former' }, after: { status: 'former' } })).toEqual({})
+    expect(statusChangePatch({ before: { status: 'active' }, after: { status: 'active' } })).toEqual({})
+  })
+
+  it('«Marcar como miembro del equipo» recupera su trayectoria', () => {
+    const p = returnToTeamProfile({ status: 'former', leftAt: '2025-06-30', roles: [role('a', 'Radio', '2024-01-01', '2025-06-30')] })
+    expect(p).toMatchObject({ status: 'active', leftAt: null })
+    expect(p.roles[0].end).toBeNull()
   })
 })
 
 describe('aviso de Equipo', () => {
-  it('antiguos miembros fuera del grupo y activos con todos sus roles terminados', () => {
+  it('activos con todos sus roles terminados', () => {
     const contacts = [
-      member('fuera', { status: 'former', leftAt: '2026-01-31' }),
-      member('dentro', { status: 'former', leftAt: '2026-01-31' }, { groupIds: ['g1'] }),
-      member('quitado a mano', { status: 'former', leftAt: '2026-01-31', formerGroupHandled: true }),
+      member('antiguo', { status: 'former', leftAt: '2026-01-31' }, { archived: true }),
       member('terminados', { roles: [role('a', 'Radio', '2024-01-01', '2025-06-30'), role('b', 'Media', '2025-01-01', '2025-12-31')] }),
       member('sigue', { roles: [role('c', 'Radio', '2024-01-01', '2025-06-30')], keepActive: true }),
       member('activo', { roles: [role('d', 'Radio', '2024-01-01')] }),
       member('sin roles', {}),
       { id: 'contacto', name: 'contacto' },
     ]
-    const review = formerReview(contacts, [group])
-    expect(review.outsideGroup.map((c) => c.id)).toEqual(['fuera'])
-    expect(review.allRolesEnded.map((e) => [e.contact.id, e.leftAt])).toEqual([['terminados', '2025-12-31']])
-    // Sin el grupo, todos los antiguos por los que no se ha decidido están fuera.
-    expect(formerReview(contacts, []).outsideGroup.map((c) => c.id)).toEqual(['fuera', 'dentro'])
+    expect(formerReview(contacts).map((e) => [e.contact.id, e.leftAt])).toEqual([['terminados', '2025-12-31']])
   })
 
   it('roles terminados y fecha del último', () => {

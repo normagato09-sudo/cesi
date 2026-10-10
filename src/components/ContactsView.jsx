@@ -1,7 +1,24 @@
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ArrowLeft, BadgeCheck, Briefcase, CalendarPlus, Link2, Mail, Pencil, Phone, Search, Tags, Trash2, UserCheck, UserPlus, Users } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  BadgeCheck,
+  Briefcase,
+  CalendarPlus,
+  Link2,
+  Mail,
+  Pencil,
+  Phone,
+  Search,
+  Tags,
+  Trash2,
+  UserCheck,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
 import GroupsModal from './GroupsModal.jsx'
 import TeamProfileModal from './TeamProfileModal.jsx'
@@ -15,6 +32,7 @@ import { contactsInGroup } from '../lib/groups'
 import { countryLabel } from '../lib/timezones'
 import { contactsSection, isActiveMember, isTeamMember } from '../lib/team'
 import { isFormerMember } from '../lib/formerMembers'
+import { ARCHIVE_FILTERS, archivedList, isArchived } from '../lib/archive'
 import { migrateProfileLinks } from '../lib/links'
 import { dayLong } from '../lib/trajectory'
 import { contactsForList, isCandidate } from '../lib/vacancies'
@@ -67,6 +85,9 @@ export default function ContactsView({
   areas = [],
   onAddArea,
   onSaveTeamProfile,
+  onArchiveContact,
+  onUnarchiveContact,
+  onReturnToTeam,
   onOpenTeamMember,
   onOpenCandidate,
 }) {
@@ -77,6 +98,10 @@ export default function ContactsView({
   const [groupFilter, setGroupFilter] = useState(null)
   const [teamProfileFor, setTeamProfileFor] = useState(null)
   const [linkFor, setLinkFor] = useState(null)
+  // Contactos › Archivados (con buscador y filtro). Se abre también al abrir un contacto archivado.
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [archiveQuery, setArchiveQuery] = useState('')
+  const [archiveFilter, setArchiveFilter] = useState('')
   // El enlace para que el contacto rellene sus datos necesita la sincronización (los datos van por
   // Supabase). El botón se ve siempre; sin ella, el modal explica qué falta.
   const syncActive = !!useSync()
@@ -101,7 +126,11 @@ export default function ContactsView({
       ),
     [listed, query, showOnlyUnreviewed, activeGroup],
   )
-  const selected = people.find((c) => c.id === selectedContactId) || null
+  const selectedArchived = contacts.find((c) => c.id === selectedContactId && isArchived(c)) || null
+  const showArchive = archiveOpen || !!selectedArchived
+  const archived = useMemo(() => archivedList(contacts, { query: archiveQuery, filter: archiveFilter }), [contacts, archiveQuery, archiveFilter])
+  const archivedCount = useMemo(() => contacts.filter(isArchived).length, [contacts])
+  const selected = showArchive ? selectedArchived : people.find((c) => c.id === selectedContactId) || null
 
 
   // Reuniones (series) en las que aparece el contacto seleccionado, para el aviso al borrarlo.
@@ -114,6 +143,22 @@ export default function ContactsView({
       const created = onAddContact(values)
       onSelectContact(created.id)
     }
+  }
+
+  const handleArchive = () => {
+    if (!window.confirm(`¿Archivar a ${selected.name}? Dejará de salir en Contactos, al elegir participantes y en las búsquedas. Se conserva todo (datos, notas, reuniones y tareas) y puedes desarchivarlo desde «Archivados».`)) return
+    onArchiveContact(selected.id)
+    onSelectContact(null)
+  }
+
+  const handleUnarchive = () => {
+    onUnarchiveContact(selected.id)
+    setArchiveOpen(false)
+  }
+
+  const closeArchive = () => {
+    setArchiveOpen(false)
+    if (selectedArchived) onSelectContact(null)
   }
 
   const handleDelete = () => {
@@ -129,6 +174,71 @@ export default function ContactsView({
 
   return (
     <div className={`contacts-view${selected ? ' has-selection' : ''}`}>
+      {showArchive ? (
+      <div className="contacts-list-pane">
+        <div className="contacts-header">
+          <button type="button" className="contact-back-btn contacts-archive-back" onClick={closeArchive}>
+            <ArrowLeft size={16} strokeWidth={1.75} />
+            Contactos
+          </button>
+          <h1 className="contacts-title">
+            <Archive size={20} strokeWidth={1.75} aria-hidden="true" />
+            Archivados
+          </h1>
+          <div className="contacts-header-actions">
+            <label className="contacts-search">
+              <Search size={15} strokeWidth={1.75} />
+              <input
+                type="search"
+                value={archiveQuery}
+                onChange={(e) => setArchiveQuery(e.target.value)}
+                placeholder="Buscar en archivados..."
+                aria-label="Buscar en archivados"
+              />
+            </label>
+          </div>
+          <div className="contacts-group-filter" role="group" aria-label="Filtrar archivados">
+            {ARCHIVE_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                className={`contacts-group-filter-btn${archiveFilter === f.value ? ' on' : ''}`}
+                onClick={() => setArchiveFilter(f.value)}
+                aria-pressed={archiveFilter === f.value}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <p className="contacts-archive-hint">No salen en Contactos ni al elegir participantes. Se conserva todo; ábrelos para ver su ficha o desarchivarlos.</p>
+        </div>
+        {archived.length === 0 ? (
+          <div className="contacts-empty">
+            <p>{archivedCount === 0 ? 'No hay contactos archivados.' : 'No hay archivados que coincidan.'}</p>
+          </div>
+        ) : (
+          <ul className="contacts-list">
+            {archived.map((c) => (
+              <li key={c.id} className={`contact-row${c.id === selectedContactId ? ' active' : ''}`}>
+                <button type="button" className="contact-row-main" onClick={() => onSelectContact(c.id)}>
+                  <ContactAvatar name={c.name} photo={c.photo} />
+                  <span className="contact-row-text">
+                    <span className="contact-row-name">{c.name}</span>
+                    {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
+                    {isFormerMember(c) && (
+                      <span className="contact-row-team">
+                        Antiguo miembro del equipo{c.teamProfile.leftAt ? ` · salió el ${dayLong(c.teamProfile.leftAt)}` : ''}
+                      </span>
+                    )}
+                    {c.archivedAt && <span className="contact-row-sub">Archivado el {format(new Date(c.archivedAt), "d MMM yyyy", { locale: es })}</span>}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      ) : (
       <div className="contacts-list-pane">
         <div className="contacts-header">
           <h1 className="contacts-title">Contactos</h1>
@@ -197,6 +307,18 @@ export default function ContactsView({
             >
               <Tags size={13} strokeWidth={1.75} />
               {groups.length > 0 ? 'Gestionar grupos' : 'Crear grupos'}
+            </button>
+            <button
+              type="button"
+              className="contacts-groups-btn"
+              onClick={() => {
+                setArchiveOpen(true)
+                onSelectContact(null)
+              }}
+              title="Contactos archivados y antiguos miembros"
+            >
+              <Archive size={13} strokeWidth={1.75} />
+              Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
             </button>
           </div>
           {unreviewedCount > 0 && (
@@ -276,6 +398,7 @@ export default function ContactsView({
           </ul>
         )}
       </div>
+      )}
 
       <div className="contacts-detail-pane">
         {!selected ? (
@@ -286,7 +409,7 @@ export default function ContactsView({
           <div className="contact-detail">
             <button type="button" className="contact-back-btn" onClick={() => onSelectContact(null)}>
               <ArrowLeft size={16} strokeWidth={1.75} />
-              Contactos
+              {showArchive ? 'Archivados' : 'Contactos'}
             </button>
 
             <div className="contact-detail-head">
@@ -304,6 +427,18 @@ export default function ContactsView({
               </div>
             </div>
 
+            {showArchive ? (
+              <div className="contact-detail-actions">
+                <p className="contact-archived-badge">
+                  <Archive size={14} strokeWidth={1.75} aria-hidden="true" />
+                  Archivado{selected.archivedAt ? ` el ${format(new Date(selected.archivedAt), "d 'de' MMMM yyyy", { locale: es })}` : ''}. Solo lectura.
+                </p>
+                <button type="button" className="contact-action-btn primary" onClick={handleUnarchive}>
+                  <ArchiveRestore size={14} strokeWidth={1.75} />
+                  Desarchivar
+                </button>
+              </div>
+            ) : (
             <div className="contact-detail-actions">
               <button type="button" className="contact-action-btn primary" onClick={() => onNewMeetingWithContact(selected)}>
                 <CalendarPlus size={14} strokeWidth={1.75} />
@@ -329,21 +464,38 @@ export default function ContactsView({
                 </button>
               )}
               {isFormerMember(selected) ? (
-                <button type="button" className="contact-action-btn team" onClick={() => setTeamProfileFor(selected)}>
-                  <BadgeCheck size={14} strokeWidth={1.75} />
-                  Editar perfil de equipo
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="contact-action-btn team"
+                    onClick={() => {
+                      if (window.confirm(`¿Volver a poner a ${selected.name} en el equipo? Recupera su trayectoria anterior.`)) onReturnToTeam(selected)
+                    }}
+                  >
+                    <BadgeCheck size={14} strokeWidth={1.75} />
+                    Marcar como miembro del equipo
+                  </button>
+                  <button type="button" className="contact-action-btn" onClick={() => setTeamProfileFor(selected)}>
+                    <Pencil size={14} strokeWidth={1.75} />
+                    Editar perfil de equipo
+                  </button>
+                </>
               ) : isCandidate(selected) && !isTeamMember(selected) ? null : (
                 <button type="button" className="contact-action-btn" onClick={() => setTeamProfileFor(selected)}>
                   <BadgeCheck size={14} strokeWidth={1.75} />
                   Marcar como miembro del equipo
                 </button>
               )}
+              <button type="button" className="contact-action-btn" onClick={handleArchive}>
+                <Archive size={14} strokeWidth={1.75} />
+                Archivar
+              </button>
               <button type="button" className="contact-action-btn danger" onClick={handleDelete}>
                 <Trash2 size={14} strokeWidth={1.75} />
                 Eliminar
               </button>
             </div>
+            )}
 
 
             {isFormerMember(selected) && <FormerMemberInfo contact={selected} now={now} />}

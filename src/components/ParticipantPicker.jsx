@@ -41,7 +41,7 @@ export default function ParticipantPicker({ labelId, contacts, participantIds, g
       members,
     }))
     const list = contacts
-      .filter((c) => contactMatches(c, trimmed))
+      .filter((c) => !c.archived && contactMatches(c, trimmed))
       .map((c) => ({ type: 'contact', key: c.id, contact: c }))
     const exact = contacts.some((c) => sameText(c.name, trimmed) || (c.email && sameText(c.email, trimmed)))
     if (trimmed && !exact) {

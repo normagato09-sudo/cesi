@@ -14,7 +14,8 @@ import {
   vacancyProgressText,
 } from '../lib/home'
 import { VACANCY_STATUS } from '../lib/vacancies'
-import { requestMinutes, requestVisitor } from '../lib/bookings'
+import { matchContact, requestMinutes, requestVisitor } from '../lib/bookings'
+import ArchivedNotice from './ArchivedNotice.jsx'
 import { formatDurationLong } from '../lib/proposals'
 import './Tasks.css'
 import './HomeView.css'
@@ -109,13 +110,15 @@ function TaskGroup({ title, tasks, className = '', ...itemProps }) {
 // Solicitudes del enlace de reservas pendientes: quién, cuándo (en mi hora), duración, su país y
 // su hora local, y motivo,
 // con Aceptar y Rechazar. Hasta que se responden, su hueco sale ocupado en el enlace.
-function BookingRequests({ requests, onAccept, onReject }) {
+function BookingRequests({ requests, contacts = [], onAccept, onReject, onUnarchive }) {
   if (requests.length === 0) return <Empty>No tienes solicitudes pendientes.</Empty>
   return (
     <ul className="home-list">
       {requests.map((r) => {
         const start = new Date(r.starts_at)
         const visitor = requestVisitor(r)
+        // Si coincide con un contacto archivado, se avisa (y se puede desarchivar).
+        const archived = matchContact(r, contacts)?.archived ? matchContact(r, contacts) : null
         return (
           <li key={r.id} className="home-booking">
             <span className="home-meeting-main">
@@ -134,6 +137,7 @@ function BookingRequests({ requests, onAccept, onReject }) {
                   )}
                 </span>
               )}
+              {archived && <ArchivedNotice contact={archived} onUnarchive={onUnarchive} compact />}
               <span className="home-booking-reason" title={r.reason}>
                 {r.reason}
               </span>
@@ -210,7 +214,13 @@ export default function HomeView({
             onLink={bookings.onOpenLink}
             className={bookings.requests.length > 0 ? 'home-card-attention' : ''}
           >
-            <BookingRequests requests={bookings.requests} onAccept={bookings.onAccept} onReject={bookings.onReject} />
+            <BookingRequests
+              requests={bookings.requests}
+              contacts={bookings.contacts}
+              onAccept={bookings.onAccept}
+              onReject={bookings.onReject}
+              onUnarchive={bookings.onUnarchive}
+            />
           </HomeCard>
         )}
 

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
+  Archive,
   ArrowLeft,
   CalendarPlus,
   Mail,
@@ -27,13 +28,13 @@ import ContactLinkModal from './ContactLinkModal.jsx'
 import { pendingTasksOf } from '../lib/tasks'
 import { isCandidate } from '../lib/vacancies'
 import { useSync } from '../lib/sync/syncContext'
-import { isActiveMember, milestonesToBio, quoteDisplay } from '../lib/team'
+import { isActiveMember, milestonesToBio, quoteDisplay, todayKey } from '../lib/team'
 import { headAreas, teamGroups } from '../lib/teamOrder'
 import TeamGroups, { HEAD_LABEL } from './TeamGroups.jsx'
 import VacancyFormModal from './VacancyFormModal.jsx'
 import { DepartmentVacancies, RetentionNotice } from './TeamVacancies.jsx'
 import { expiredDiscarded } from '../lib/vacancies'
-import { FORMER_GROUP_NAME, formerReview } from '../lib/formerMembers'
+import { formerReview } from '../lib/formerMembers'
 import { currentRoles, dayLong, roleLabel, tenure, tenureText, withRoles } from '../lib/trajectory'
 import { migrateProfileLinks } from '../lib/links'
 import './TeamView.css'
@@ -57,6 +58,7 @@ function MemberDetail({
   onEdit,
   onSendLink,
   onRemove,
+  onArchive,
   onSaveRoles,
   onOpenEvent,
   onFindSlot,
@@ -133,6 +135,10 @@ function MemberDetail({
             Ver candidatura
           </button>
         )}
+        <button type="button" className="contact-action-btn" onClick={onArchive}>
+          <Archive size={14} strokeWidth={1.75} />
+          Archivar
+        </button>
         <button type="button" className="contact-action-btn danger" onClick={onRemove}>
           <UserMinus size={14} strokeWidth={1.75} />
           Quitar del equipo
@@ -201,41 +207,14 @@ function MemberDetail({
 }
 
 /**
- * Aviso para ordenar a los antiguos miembros: los que aún no están en el grupo «Antiguos miembros»
- * (se añaden todos de una vez o se descarta uno) y, aparte, los activos con todos sus roles
- * terminados (uno a uno: marcarlo como antiguo con la fecha de su último rol o dejarlo en el equipo).
+ * Aviso de los activos con todos sus roles terminados (uno a uno: marcarlo como antiguo miembro con
+ * la fecha de su último rol, y así se archiva, o dejarlo en el equipo).
  */
-function FormerReview({ contacts, groups, onOpenContact, onAddToGroup, onSkip, onMarkFormer, onKeepActive }) {
-  const { outsideGroup, allRolesEnded } = formerReview(contacts, groups)
-  if (outsideGroup.length === 0 && allRolesEnded.length === 0) return null
-  const n = outsideGroup.length
+function FormerReview({ contacts, onMarkFormer, onKeepActive }) {
+  const allRolesEnded = formerReview(contacts)
+  if (allRolesEnded.length === 0) return null
   return (
     <section className="team-former-review" aria-label="Antiguos miembros">
-      {n > 0 && (
-        <div className="team-former-review-block">
-          <p>
-            {n === 1 ? 'Hay 1 antiguo miembro' : `Hay ${n} antiguos miembros`} fuera del grupo «{FORMER_GROUP_NAME}». Ya no salen
-            en Equipo, pero siguen en Contactos.
-          </p>
-          <ul>
-            {outsideGroup.map((c) => (
-              <li key={c.id}>
-                <button type="button" className="team-former-review-name" onClick={() => onOpenContact(c.id)}>
-                  {c.name}
-                </button>
-                {c.teamProfile.leftAt && <span className="team-former-review-date">salió el {dayLong(c.teamProfile.leftAt)}</span>}
-                <button type="button" className="team-former-review-link" onClick={() => onSkip(c)}>
-                  No añadir
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button type="button" className="contact-action-btn primary" onClick={() => onAddToGroup(outsideGroup)}>
-            <UsersRound size={14} strokeWidth={1.75} />
-            Añadirlos al grupo
-          </button>
-        </div>
-      )}
       {allRolesEnded.length > 0 && (
         <div className="team-former-review-block">
           <p>Siguen como activos pero tienen todos sus roles terminados:</p>
@@ -250,7 +229,7 @@ function FormerReview({ contacts, groups, onOpenContact, onAddToGroup, onSkip, o
                     className="contact-action-btn"
                     disabled={!leftAt}
                     onClick={() => {
-                      if (window.confirm(`¿Marcar a ${c.name} como antiguo miembro, con fecha de salida el ${dayLong(leftAt)}? Dejará de salir en Equipo y pasará al grupo «${FORMER_GROUP_NAME}».`)) {
+                      if (window.confirm(`¿Marcar a ${c.name} como antiguo miembro, con fecha de salida el ${dayLong(leftAt)}? Dejará de salir en Equipo y pasará a Contactos › Archivados.`)) {
                         onMarkFormer(c, leftAt)
                       }
                     }}
@@ -271,6 +250,53 @@ function FormerReview({ contacts, groups, onOpenContact, onAddToGroup, onSkip, o
   )
 }
 
+// Archivar a un miembro activo: pasa a antiguo miembro con la fecha de salida que se elija (por
+// defecto hoy; sus roles actuales se cierran ese día) y se archiva.
+function ArchiveMemberDialog({ contact, onCancel, onConfirm }) {
+  const [leftAt, setLeftAt] = useState(todayKey())
+  return (
+    <div className="availability-backdrop task-modal-backdrop" onClick={onCancel}>
+      <form
+        className="availability-modal team-archive-dialog"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (leftAt) onConfirm(leftAt)
+        }}
+        role="dialog"
+        aria-labelledby="team-archive-title"
+      >
+        <div className="availability-header">
+          <h2 id="team-archive-title">
+            <Archive size={17} strokeWidth={1.75} />
+            ¿Archivar a {contact.name}?
+          </h2>
+        </div>
+        <div className="availability-scroll team-archive-body">
+          <p>
+            Dejará de estar en el equipo: pasa a antiguo miembro y a Contactos › Archivados. Se conserva todo (trayectoria,
+            tiempo en CESI, candidaturas, notas, reuniones y tareas).
+          </p>
+          <label className="event-form-field">
+            <span>Fecha de salida</span>
+            <input type="date" value={leftAt} onChange={(e) => setLeftAt(e.target.value)} required />
+            <em className="team-fieldset-hint">Sus roles actuales se cerrarán con esta fecha.</em>
+          </label>
+          <div className="team-archive-actions">
+            <button type="button" className="contact-action-btn" onClick={onCancel}>
+              Cancelar
+            </button>
+            <button type="submit" className="contact-action-btn primary" disabled={!leftAt}>
+              <Archive size={14} strokeWidth={1.75} />
+              Archivar
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function TeamView({
   contacts,
   groups,
@@ -280,8 +306,6 @@ export default function TeamView({
   selectedMemberId,
   onSelectMember,
   onSaveProfile,
-  onAddFormersToGroup,
-  onSkipFormerGroup,
   onMarkFormer,
   onKeepActive,
   onRemoveFromTeam,
@@ -290,7 +314,6 @@ export default function TeamView({
   onOpenEvent,
   onFindSlot,
   onNewMeeting,
-  onOpenContact,
   onOpenCandidate,
   tasks = [],
   today,
@@ -307,6 +330,7 @@ export default function TeamView({
   const [area, setArea] = useState('')
   const [newVacancyArea, setNewVacancyArea] = useState(null) // departamento de la vacante nueva
   const [editing, setEditing] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const syncActive = !!useSync()
 
@@ -340,6 +364,7 @@ export default function TeamView({
               onSelectMember(null)
             }
           }}
+          onArchive={() => setArchiving(true)}
           onOpenEvent={onOpenEvent}
           onFindSlot={onFindSlot}
           onNewMeeting={onNewMeeting}
@@ -348,6 +373,17 @@ export default function TeamView({
           onOpenTask={onOpenTask}
           onOpenTaskSource={onOpenTaskSource}
         />
+        {archiving && (
+          <ArchiveMemberDialog
+            contact={selected}
+            onCancel={() => setArchiving(false)}
+            onConfirm={(leftAt) => {
+              setArchiving(false)
+              onMarkFormer(selected, leftAt)
+              onSelectMember(null)
+            }}
+          />
+        )}
         {linkOpen && <ContactLinkModal contact={selected} syncActive={syncActive} onClose={() => setLinkOpen(false)} />}
         {editing && (
           <TeamProfileModal
@@ -400,10 +436,6 @@ export default function TeamView({
 
       <FormerReview
         contacts={contacts}
-        groups={groups}
-        onOpenContact={onOpenContact}
-        onAddToGroup={onAddFormersToGroup}
-        onSkip={onSkipFormerGroup}
         onMarkFormer={onMarkFormer}
         onKeepActive={onKeepActive}
       />

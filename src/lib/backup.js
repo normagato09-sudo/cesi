@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { resetDepartments } from './departments'
+import { formerToArchivePlan } from './archive'
 import { removeKey, writeJSON } from './store'
 import { getAllEvents, STORAGE_KEY as EVENTS_KEY } from './localEvents'
 import { getAllContacts, STORAGE_KEY as CONTACTS_KEY } from './contacts'
@@ -32,8 +33,10 @@ import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
 // en candidacy); las copias anteriores se convierten al leer los contactos.
 // La disponibilidad, la zona horaria y los grupos de los contactos van dentro de contacts; la
 // agenda y el acta de las reuniones (notes / notesByDate, agenda / agendaByDate y decisions /
-// decisionsByDate), dentro de events. v16 añade tasks (tareas, sueltas o de una reunión).
-const BACKUP_VERSION = 16
+// decisionsByDate), dentro de events. v16 añade tasks (tareas, sueltas o de una reunión). v17: los
+// contactos pueden estar archivados (archived, archivedAt) y ya no hay grupo «Antiguos miembros»;
+// al importar una copia anterior se archivan sus antiguos miembros y se quita ese grupo.
+const BACKUP_VERSION = 17
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -156,6 +159,16 @@ export function migrateBackupData(data) {
       contacts: out.contacts.map((c) => ({ ...c, ...patchOf(plan.contactPatches, c.id) })),
       ...(out.vacancies ? { vacancies: vacancies.map((v) => ({ ...v, ...patchOf(plan.vacancyPatches, v.id) })) } : {}),
       teamAreas: plan.list,
+    }
+  }
+  if (version < 17 && Array.isArray(out.contacts)) {
+    const groups = Array.isArray(out.groups) ? out.groups : []
+    const plan = formerToArchivePlan(out.contacts, groups)
+    const patchOf = (id) => plan.contactPatches.find((p) => p.id === id)?.patch || {}
+    out = {
+      ...out,
+      contacts: out.contacts.map((c) => ({ ...c, ...patchOf(c.id) })),
+      ...(out.groups ? { groups: groups.filter((g) => g.id !== plan.groupId) } : {}),
     }
   }
   return out

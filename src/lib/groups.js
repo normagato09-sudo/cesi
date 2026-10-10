@@ -46,8 +46,9 @@ export function groupsOfContact(contact, groups) {
   return groups.filter((g) => ids.includes(g.id))
 }
 
+// Contactos del grupo que se ven en la app (los archivados siguen en el grupo, pero no salen).
 export function contactsInGroup(groupId, contacts) {
-  return contacts.filter((c) => (c.groupIds || []).includes(groupId))
+  return contacts.filter((c) => !c.archived && (c.groupIds || []).includes(groupId))
 }
 
 // Añade todos los contactos del grupo a los participantes, sin duplicar los que ya estén.
@@ -70,5 +71,8 @@ export function groupOptions(groups, contacts, query = '') {
 
 // Cambios para quitar el grupo borrado de sus contactos: [{ id, groupIds }].
 export function contactsWithoutGroup(groupId, contacts) {
-  return contactsInGroup(groupId, contacts).map((c) => ({ id: c.id, groupIds: c.groupIds.filter((id) => id !== groupId) }))
+  // También los archivados: el grupo deja de existir para todos.
+  return contacts
+    .filter((c) => (c.groupIds || []).includes(groupId))
+    .map((c) => ({ id: c.id, groupIds: c.groupIds.filter((id) => id !== groupId) }))
 }

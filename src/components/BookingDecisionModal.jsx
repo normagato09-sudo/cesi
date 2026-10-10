@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CalendarCheck, CalendarX, UserCheck, X } from 'lucide-react'
 import ProposalShare from './ProposalShare.jsx'
+import ArchivedNotice from './ArchivedNotice.jsx'
 import { decisionMessage, matchContact, requestMinutes, requestWhenText } from '../lib/bookings'
 import { formatDurationLong } from '../lib/proposals'
 import './EventFormModal.css'
@@ -14,7 +15,7 @@ import './BookingModals.css'
  * después, el mensaje de plantilla para avisar a la persona por WhatsApp o email.
  * onDecide({ saveContact }) hace el cambio y devuelve un aviso opcional (p. ej. si se solapa).
  */
-export default function BookingDecisionModal({ request, decision, contacts, linkUrl, onDecide, onClose }) {
+export default function BookingDecisionModal({ request, decision, contacts, linkUrl, onDecide, onUnarchive, onClose }) {
   const accepting = decision === 'accepted'
   const contact = matchContact(request, contacts)
   const [saveContact, setSaveContact] = useState(true)
@@ -78,6 +79,8 @@ export default function BookingDecisionModal({ request, decision, contacts, link
                 <dt>Motivo</dt>
                 <dd className="booking-request-reason">{request.reason}</dd>
               </dl>
+
+              {contact?.archived && <ArchivedNotice contact={contact} onUnarchive={onUnarchive} />}
 
               {accepting &&
                 (contact ? (

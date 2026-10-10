@@ -18,8 +18,11 @@ export default function TaskFormModal({ task = null, initial = {}, contacts, onS
   const source = start.source || null
 
   const people = useMemo(
-    () => [...contacts].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })),
-    [contacts],
+    () =>
+      contacts
+        .filter((c) => !c.archived || c.id === start.assignee)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })),
+    [contacts, start.assignee],
   )
   const missingAssignee = assignee !== ME && !contacts.some((c) => c.id === assignee)
 

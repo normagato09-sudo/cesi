@@ -52,14 +52,15 @@ export function isTeamMember(contact) {
   return !!contact?.teamProfile
 }
 
+// Miembro activo (sale en Equipo): con perfil de equipo, no antiguo y no archivado.
 export function isActiveMember(contact) {
-  return isTeamMember(contact) && contact.teamProfile.status !== 'former'
+  return isTeamMember(contact) && contact.teamProfile.status !== 'former' && !contact.archived
 }
 
-// Contactos: todos menos los miembros activos del equipo, que solo salen en Equipo. Los antiguos
-// miembros y los candidatos sí están (al pasar a antiguo miembro aparece aquí; si vuelve, se va).
+// Contactos: todos menos los miembros activos del equipo (solo salen en Equipo) y los archivados
+// (ver archive.js; los antiguos miembros se archivan al salir del equipo).
 export function contactsSection(contacts) {
-  return contacts.filter((c) => !isActiveMember(c))
+  return contacts.filter((c) => !isActiveMember(c) && !c.archived)
 }
 
 export function todayKey(now = new Date()) {

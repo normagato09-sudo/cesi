@@ -641,3 +641,25 @@
     min-height: 44px;
   }
 }
+
+/* Archivar a un miembro activo (fecha de salida) */
+.team-archive-dialog {
+  max-width: 440px;
+}
+.team-archive-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 16px;
+}
+.team-archive-body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.team-archive-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
