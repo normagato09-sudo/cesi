@@ -85,8 +85,8 @@ export default function EventFormModal({
   const baseStart = seed.start ? new Date(seed.start) : defaultDate
   const baseEnd = seed.end ? new Date(seed.end) : new Date(baseStart.getTime() + 60 * 60 * 1000)
 
-  // Franja de todo el día: Vacaciones, Festivo u Otro (las antiguas, Otro). Todas con su nota (en
-  // las antiguas, su motivo; ver unavailableNoteOf).
+  // Franja de todo el día: Vacaciones u Otro (las antiguas, Otro; los antiguos festivos, Vacaciones).
+  // Ya no tienen nota: la que tuvieran se conserva tal cual al guardar (ver unavailableNoteOf).
   const initialKind = seed.isUnavailable ? unavailableKindOf(seed) : 'other'
 
   const [title, setTitle] = useState(!isUnavailable ? seed.title || '' : '')
@@ -108,7 +108,7 @@ export default function EventFormModal({
     toDateInputValue(seed.allDay && seed.end ? addDays(baseStart, allDaySpanDays(seed) - 1) : baseStart),
   )
   const [kind, setKind] = useState(initialKind)
-  const [note, setNote] = useState(seed.isUnavailable ? unavailableNoteOf(seed) : '')
+  const savedNote = seed.isUnavailable ? unavailableNoteOf(seed) : ''
   const [startTime, setStartTime] = useState(toTimeInputValue(baseStart))
   const [endTime, setEndTime] = useState(toTimeInputValue(baseEnd))
 
@@ -237,7 +237,7 @@ export default function EventFormModal({
     }
 
     const payload = {
-      title: isUnavailable ? unavailableTitle(isDayOff ? kind : 'other', note) : title.trim(),
+      title: isUnavailable ? unavailableTitle(isDayOff ? kind : 'other') : title.trim(),
       description: isUnavailable ? '' : description.trim(),
       ...(isUnavailable
         ? participantFields([], [])
@@ -252,8 +252,14 @@ export default function EventFormModal({
       ...interviewField,
       isUnavailable,
       allDay: isUnavailable ? allDay : false,
-      // Tipo de la franja de todo el día y nota de cualquier franja (ver unavailableKinds.js).
-      ...(isUnavailable ? { unavailableNote: cleanNote(note), ...(allDay ? { unavailableKind: kind } : {}) } : {}),
+      // Tipo de la franja de todo el día; la nota que tuviera se conserva (ver unavailableKinds.js).
+      // Un antiguo festivo que no se cambia sigue guardado como 'holiday'.
+      ...(isUnavailable
+        ? {
+            unavailableNote: cleanNote(savedNote),
+            ...(allDay ? { unavailableKind: kind === 'vacation' && seed.unavailableKind === 'holiday' ? 'holiday' : kind } : {}),
+          }
+        : {}),
       start,
       end,
       recurrence: repeatFreq ? { freq: repeatFreq, until: new Date(`${repeatUntil}T23:59:59`).toISOString() } : null,
@@ -359,21 +365,11 @@ export default function EventFormModal({
           )}
 
           {isUnavailable && (
-            <label className="event-form-field">
-              <span>Nota (opcional)</span>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={isDayOff ? 'Navidad' : 'Comida, médico…'}
-                maxLength={80}
-              />
-              <em className="event-form-hint">
-                {isDayOff
-                  ? `Solo la ves tú: en tu enlace de reservas sale «${kind === 'vacation' ? 'No disponible: vacaciones' : 'Festivo'}».`
-                  : 'Solo la ves tú: en tu enlace de reservas, ese tiempo simplemente no tiene huecos.'}
-              </em>
-            </label>
+            <p className="event-form-hint">
+              {isDayOff
+                ? 'En tu enlace de reservas, esos días salen como «No disponible: vacaciones».'
+                : 'En tu enlace de reservas, ese tiempo simplemente no tiene huecos.'}
+            </p>
           )}
 
           {isUnavailable && allDay ? (

@@ -8,6 +8,7 @@ import { colorForEvent } from '../lib/eventStyle'
 import { useScheduling } from '../lib/schedulingContext'
 import './DayEventsModal.css'
 import { NOT_ATTENDING_LABEL } from '../lib/notAttending'
+import { eventTitle } from '../lib/unavailableKinds'
 
 function formatDuration(ev) {
   if (ev.allDay) return 'Todo el día'
@@ -55,7 +56,7 @@ export default function DayEventsModal({ day, events, onClose, onSelectEvent }) 
               <span className="day-events-modal-item-main">
                 <span className="day-events-modal-item-title">
                   {ev.isUnavailable && <UnavailableIcon event={ev} size={13} />}
-                  {ev.title}
+                  {eventTitle(ev)}
                   {ev.provisional && <span className="day-events-modal-provisional">Provisional</span>}
                   {ev.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
                   {hasNotes(ev) && (

@@ -15,6 +15,7 @@ import EventPreview from './EventPreview.jsx'
 import './TimeGridView.css'
 import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
 import { slotsForDay, timeToMinutes } from '../../lib/weeklySchedule'
+import { eventTitle } from '../../lib/unavailableKinds'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const SNAP_MINUTES = 15
@@ -194,7 +195,7 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
                     onClick={() => onSelectEvent(ev)}
                   >
                     {ev.isUnavailable && <UnavailableIcon event={ev} size={11} />}
-                    {ev.title}
+                    {eventTitle(ev)}
                   </button>
                 ))}
             </div>
@@ -279,7 +280,7 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
                     onClick={() => handleEventClick(event)}
                   >
                     <span className="time-grid-event-title">
-                      {event.isUnavailable && <Ban size={11} strokeWidth={2} />} {event.title}
+                      {event.isUnavailable && <Ban size={11} strokeWidth={2} />} {eventTitle(event)}
                       {hasNotes(event) && (
                         <NotebookPen size={10} strokeWidth={2} className="time-grid-event-notes" aria-label="Tiene acta" />
                       )}

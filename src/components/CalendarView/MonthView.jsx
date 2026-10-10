@@ -5,7 +5,7 @@ import { NotebookPen } from 'lucide-react'
 import { getMonthGridDays, isSameDay, isSameMonth } from '../../lib/dateHelpers'
 import { isEventOnDay } from '../../lib/eventLayout'
 import { colorForEvent } from '../../lib/eventStyle'
-import { isMarkedDayOff, kindLabel, unavailableKindOf } from '../../lib/unavailableKinds'
+import { eventTitle, isMarkedDayOff, kindLabel, unavailableKindOf } from '../../lib/unavailableKinds'
 import UnavailableIcon from '../UnavailableIcon.jsx'
 import { hasNotes } from '../../lib/notes'
 import { dragThresholdFor } from '../../lib/dragThreshold'
@@ -168,7 +168,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                   <button
                     type="button"
                     className="month-day-off"
-                    title={dayOff.title}
+                    title={eventTitle(dayOff)}
                     {...bindPreview(dayOff)}
                     onClick={(e) => handleEventClick(e, dayOff)}
                   >
@@ -184,7 +184,7 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.notAttending ? `${NOT_ATTENDING_LABEL}: ` : ''}${ev.title}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
+                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.notAttending ? `${NOT_ATTENDING_LABEL}: ` : ''}${eventTitle(ev)}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
                         {...bindPreview(ev)}
                         onPointerDown={(e) => {
                           hidePreview()

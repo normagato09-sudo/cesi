@@ -61,12 +61,13 @@ export function slotStarts(free, minutes, stepMinutes) {
   return starts.sort((a, b) => a - b)
 }
 
-export const DAY_OFF_TEXT = { vacation: 'No disponible: vacaciones', holiday: 'Festivo' }
+// Los días 'holiday' (festivos publicados antes de quitar ese tipo) salen como vacaciones.
+export const DAY_OFF_TEXT = { vacation: 'No disponible: vacaciones', holiday: 'No disponible: vacaciones' }
 
 /**
  * Días que se muestran: todos desde hoy (en la zona de quien reserva) hasta `until` ('AAAA-MM-DD',
  * último día que se puede reservar), cada uno con sus huecos para esa duración ([] si no hay) y,
- * si es de vacaciones o festivo, `off` ('vacation' | 'holiday'), que se muestra sin huecos.
+ * si es de vacaciones, `off` ('vacation'; 'holiday' en lo publicado antes), que se muestra sin huecos.
  * [{ key, label, off, slots: [{ start: Date, time: 'HH:mm' }] }]
  */
 export function bookingDays({ until = null, free = [], daysOff = [], minutes, stepMinutes = 30, tz, now = new Date() }) {

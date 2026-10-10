@@ -27,7 +27,7 @@ import { pendingForMeeting, sourceOccurrence, tasksOfSession } from '../lib/task
 import ConvocationModal from './ConvocationModal.jsx'
 import { NOT_ATTENDING_LABEL, isNotAttending } from '../lib/notAttending'
 import { isInterview } from '../lib/vacancies'
-import { allDayRangeText, isMarkedDayOff, kindLabel, unavailableKindOf, unavailableNoteOf } from '../lib/unavailableKinds'
+import { allDayRangeText, eventTitle, isMarkedDayOff, kindLabel, unavailableKindOf } from '../lib/unavailableKinds'
 import UnavailableIcon from './UnavailableIcon.jsx'
 import { RECURRENCE_LABELS, dateKey } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
@@ -133,7 +133,7 @@ export default function EventModal({
           </button>
           <h2>
             {event.isUnavailable && <Ban size={16} strokeWidth={1.75} className="event-modal-unavailable-icon" />}
-            {event.title}
+            {eventTitle(event)}
           </h2>
           {proposal && (
             <p className="event-modal-provisional">
@@ -171,14 +171,10 @@ export default function EventModal({
         </div>
 
         <div className="event-modal-body">
-          {event.isUnavailable && (isMarkedDayOff(event) || unavailableNoteOf(event)) && (
+          {event.isUnavailable && isMarkedDayOff(event) && (
             <div className="event-modal-row">
               <UnavailableIcon event={event} size={16} />
-              <span>
-                {isMarkedDayOff(event)
-                  ? [kindLabel(unavailableKindOf(event)), unavailableNoteOf(event)].filter(Boolean).join(' · ')
-                  : `Nota: ${unavailableNoteOf(event)}`}
-              </span>
+              <span>{kindLabel(unavailableKindOf(event))}</span>
             </div>
           )}
 

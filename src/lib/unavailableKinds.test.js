@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { allDayRangeText, allDaySpanDays, dayOffTitle, daysOff, isMarkedDayOff, unavailableKindOf } from './unavailableKinds'
+import { UNAVAILABLE_KINDS, allDayRangeText, allDaySpanDays, daysOff, eventTitle, isMarkedDayOff, unavailableKindOf } from './unavailableKinds'
 import { unavailableNoteOf, unavailableTitle } from './unavailableKinds'
 
 const day = (m, d) => new Date(2026, m - 1, d)
 const allDay = (from, toExclusive, extra = {}) => ({ id: 'x', isUnavailable: true, allDay: true, start: from, end: toExclusive, ...extra })
 
 describe('tipos de franja "No disponible"', () => {
-  it('vacaciones y festivo solo en las de todo el día; las antiguas y las de horas, Otro', () => {
+  it('solo Vacaciones y Otro; los antiguos festivos funcionan como vacaciones', () => {
+    expect(UNAVAILABLE_KINDS.map((k) => k.label)).toEqual(['Vacaciones', 'Otro'])
     expect(unavailableKindOf(allDay(day(12, 22), day(12, 23), { unavailableKind: 'vacation' }))).toBe('vacation')
-    expect(unavailableKindOf(allDay(day(12, 25), day(12, 26), { unavailableKind: 'holiday' }))).toBe('holiday')
+    expect(unavailableKindOf(allDay(day(12, 25), day(12, 26), { unavailableKind: 'holiday' }))).toBe('vacation')
     expect(unavailableKindOf(allDay(day(12, 22), day(12, 23)))).toBe('other')
     expect(unavailableKindOf({ isUnavailable: true, allDay: false, unavailableKind: 'vacation' })).toBe('other')
     expect(unavailableKindOf({ title: 'Reunión', unavailableKind: 'vacation' })).toBe('other')
     expect(isMarkedDayOff(allDay(day(12, 25), day(12, 26), { unavailableKind: 'holiday' }))).toBe(true)
   })
 
-  it('título con la nota opcional', () => {
-    expect(dayOffTitle('vacation', '  Navidad ')).toBe('Vacaciones: Navidad')
-    expect(dayOffTitle('holiday', '')).toBe('Festivo')
+  it('el título que se ve sale del tipo, sin nota (lo guardado no cambia)', () => {
+    expect(eventTitle(allDay(day(12, 25), day(12, 26), { unavailableKind: 'holiday', title: 'Festivo: Navidad', unavailableNote: 'Navidad' }))).toBe('Vacaciones')
+    expect(eventTitle({ isUnavailable: true, allDay: false, title: 'No disponible: Comida' })).toBe('No disponible')
+    expect(eventTitle({ title: 'Kickoff' })).toBe('Kickoff')
   })
 
   it('días que ocupa y texto del rango', () => {
@@ -27,7 +29,7 @@ describe('tipos de franja "No disponible"', () => {
     expect(allDayRangeText(allDay(day(12, 25), day(12, 26)))).toBe('viernes, 25 de diciembre')
   })
 
-  it('días de vacaciones o festivo de un periodo, sin título ni nota', () => {
+  it('días de vacaciones (también los antiguos festivos) de un periodo, sin título ni nota', () => {
     const occurrences = [
       allDay(day(12, 22), day(12, 26), { unavailableKind: 'vacation', title: 'Vacaciones: Navidad', unavailableNote: 'Navidad' }),
       allDay(day(12, 25), day(12, 26), { unavailableKind: 'holiday' }),
@@ -38,12 +40,12 @@ describe('tipos de franja "No disponible"', () => {
       { date: '2026-12-23', kind: 'vacation' },
       { date: '2026-12-24', kind: 'vacation' },
       { date: '2026-12-25', kind: 'vacation' },
-      { date: '2026-12-28', kind: 'holiday' },
+      { date: '2026-12-28', kind: 'vacation' },
     ])
   })
 })
 
-describe('nota de las franjas (sin campo Motivo)', () => {
+describe('nota de las franjas (ya no se muestra, pero se conserva)', () => {
   it('la nota guardada o, en las antiguas sin nota, su motivo', () => {
     expect(unavailableNoteOf({ isUnavailable: true, title: 'No disponible: Comida' })).toBe('Comida')
     expect(unavailableNoteOf({ isUnavailable: true, title: 'No disponible: Comida', unavailableNote: 'Médico' })).toBe('Médico')
@@ -52,9 +54,8 @@ describe('nota de las franjas (sin campo Motivo)', () => {
     expect(unavailableNoteOf({ isUnavailable: false, title: 'No disponible: x' })).toBe('')
   })
 
-  it('el título sale del tipo y la nota', () => {
-    expect(unavailableTitle('other', '  Comida ')).toBe('No disponible: Comida')
-    expect(unavailableTitle('other', '')).toBe('No disponible')
-    expect(unavailableTitle('holiday', 'Navidad')).toBe('Festivo: Navidad')
+  it('el título sale solo del tipo', () => {
+    expect(unavailableTitle('other')).toBe('No disponible')
+    expect(unavailableTitle('vacation')).toBe('Vacaciones')
   })
 })
