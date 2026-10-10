@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarCheck, CheckCircle2, Clock, LinkIcon, Loader2 } from 'lucide-react'
+import { CalendarCheck, CheckCircle2, Clock, Globe, LinkIcon, Loader2 } from 'lucide-react'
+import TimeZoneSelect from '../components/TimeZoneSelect.jsx'
 import {
   DAY_OFF_TEXT,
   FIELD_LIMITS,
   bookingDays,
-  dayKeyIn,
-  dayLabel,
   errorText,
   loadBooking,
   minutesLabel,
   sendBooking,
-  timeIn,
   tokenFromPath,
   validateRequest,
-  visitorTimeZone,
+  visitorZone,
+  whenText,
   zoneText,
 } from '../lib/bookingPage'
 import '../ficha/FichaPage.css'
@@ -59,7 +58,9 @@ function Field({ label, optional, children }) {
 // Página pública /reservar/<token>: elegir duración y hueco, y pedir la reunión.
 export default function ReservarPage() {
   const [token] = useState(() => tokenFromPath(window.location.pathname))
-  const [tz] = useState(visitorTimeZone)
+  // País y zona de quien reserva (por defecto, los de su navegador): todas las horas van en esa zona.
+  const [zone, setZone] = useState(visitorZone)
+  const tz = zone.timeZone
   const [state, setState] = useState(token ? 'loading' : 'invalid') // loading | invalid | error | ready | sent
   const [data, setData] = useState(null)
   const [minutes, setMinutes] = useState(null)
@@ -133,7 +134,7 @@ export default function ReservarPage() {
       <Message
         icon={<CheckCircle2 size={30} strokeWidth={1.75} className="reservar-ok" />}
         title="Solicitud enviada"
-        text={`Has pedido una reunión el ${dayLabel(dayKeyIn(sent.start, tz))} a las ${timeIn(sent.start, tz)} (${minutesLabel(sent.minutes)}). Te avisaremos por ${sent.channel} cuando esté confirmada.`}
+        text={`Has pedido una reunión el ${whenText(sent.start, sent.tz)}, de ${minutesLabel(sent.minutes)}. Te avisaremos por ${sent.channel} cuando esté confirmada.`}
       >
         <button type="button" className="reservar-link-btn" onClick={() => window.location.reload()}>
           Pedir otra reunión
@@ -162,7 +163,7 @@ export default function ReservarPage() {
     setSending(true)
     try {
       await sendBooking(token, { start: slot, minutes, ...form, tz }, CONFIG)
-      setSent({ start: slot, minutes, channel: form.email.trim() ? 'email' : 'teléfono o WhatsApp' })
+      setSent({ start: slot, minutes, tz, channel: form.email.trim() ? 'email' : 'teléfono o WhatsApp' })
       setState('sent')
     } catch (err) {
       if (err.code === 'invalid_link') {
@@ -187,6 +188,20 @@ export default function ReservarPage() {
         <p>Elige cuánto tiempo necesitas y un hueco libre. Después cuéntame quién eres y el motivo, y te confirmaré la reunión.</p>
       </header>
 
+      <section className="reservar-section reservar-country" aria-labelledby="reservar-country">
+        <h2 id="reservar-country">
+          <Globe size={16} strokeWidth={1.9} aria-hidden="true" />
+          ¿Desde qué país reservas?
+        </h2>
+        <TimeZoneSelect
+          value={zone}
+          onChange={(next) => {
+            // Con varias zonas, la primera del país hasta que elija otra.
+            if (next?.country) setZone({ country: next.country, timeZone: next.timeZone })
+          }}
+        />
+      </section>
+
       <section className="reservar-section" aria-labelledby="reservar-duration">
         <h2 id="reservar-duration">Duración</h2>
         <div className="reservar-chips" role="radiogroup" aria-labelledby="reservar-duration">
@@ -208,7 +223,10 @@ export default function ReservarPage() {
 
       <section className="reservar-section" aria-labelledby="reservar-days">
         <h2 id="reservar-days">Hueco</h2>
-        <p className="reservar-zone">Horas en tu zona horaria: {zoneText(tz)}</p>
+        <p className="reservar-zone">
+          <Globe size={14} strokeWidth={1.9} aria-hidden="true" />
+          {zoneText(tz)}
+        </p>
         {days.length === 0 || !anySlot ? (
           <p className="reservar-empty">Ahora mismo no hay huecos libres. Vuelve a probar más adelante.</p>
         ) : null}
@@ -251,7 +269,7 @@ export default function ReservarPage() {
           <p className="reservar-summary">
             <CalendarCheck size={18} strokeWidth={1.75} aria-hidden="true" />
             <span>
-              {dayLabel(dayKeyIn(slot, tz))} a las {timeIn(slot, tz)} · {minutesLabel(minutes)}
+              {whenText(slot, tz)} · {minutesLabel(minutes)}
             </span>
           </p>
           <Field label="Nombre y apellidos">

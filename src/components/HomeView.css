@@ -320,6 +320,19 @@
   min-width: 0;
 }
 
+.home-booking-country {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.home-booking-country strong {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .home-booking-reason {
   overflow: hidden;
   text-overflow: ellipsis;

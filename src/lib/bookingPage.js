@@ -1,10 +1,12 @@
 import { callPublicRpc } from './publicRpc'
-import { isValidTimeZone, localTimeZone, pad2, wallTime, zonePlace } from './timezones'
+import { COUNTRIES } from './countries'
+import { SPAIN_ZONE, dayShift, findZone, isValidTimeZone, localTimeZone, pad2, sameClock, wallTime } from './timezones'
 
 // Página pública /reservar/<token>: quien tiene el enlace elige duración y hueco y pide la
 // reunión. Solo llama a cesi_booking_get y cesi_booking_request (ver supabase/schema.sql), que
 // solo dan los huecos libres: nada de mis reuniones, títulos ni participantes.
-// Las horas se muestran en la zona horaria de quien reserva (la de su navegador).
+// Las horas se muestran en el país y la zona que elige quien reserva (por defecto, los de su
+// navegador).
 
 const TOKEN_RE = /^\/reservar\/([A-Za-z0-9_-]{32,100})\/?$/
 
@@ -85,10 +87,42 @@ export function bookingDays({ until = null, free = [], daysOff = [], minutes, st
     })
 }
 
-// "Horas en tu zona horaria: España (Europe/Madrid)"
+// País y zona por defecto de quien reserva: { country, timeZone } según la zona de su navegador.
+// Si el navegador usa un nombre antiguo de la zona ("America/Buenos_Aires"), se busca la de la
+// misma ciudad; si no se reconoce, España.
+export function visitorZone(tz = visitorTimeZone()) {
+  const found = findZone(tz)
+  if (found) return { country: found.country.code, timeZone: tz }
+  const city = tz.split('/').pop()
+  for (const country of COUNTRIES) {
+    const zone = country.zones.find((z) => z.id.split('/').pop() === city)
+    if (zone) return { country: country.code, timeZone: zone.id }
+  }
+  return { country: 'ES', timeZone: SPAIN_ZONE }
+}
+
+// "México (Ciudad de México)", "Japón": el país y, si tiene varias zonas, cuál.
+export function zoneName(tz) {
+  const found = findZone(tz)
+  if (!found) return tz
+  return found.country.zones.length > 1 ? `${found.country.name} (${found.zone.place})` : found.country.name
+}
+
+// "Horas en hora de México (Ciudad de México)"
 export function zoneText(tz) {
-  const place = zonePlace(tz)
-  return place && place !== tz ? `${place} (${tz})` : tz
+  return `Horas en hora de ${zoneName(tz)}`
+}
+
+/**
+ * Cuándo es la reunión para quien reserva, con la hora de España entre paréntesis si es otra:
+ * "martes 14 de octubre a las 10:00, hora de México (Ciudad de México) (18:00 en España)".
+ */
+export function whenText(date, tz) {
+  const base = `${dayLabel(dayKeyIn(date, tz))} a las ${timeIn(date, tz)}, hora de ${zoneName(tz)}`
+  if (sameClock(date, tz, SPAIN_ZONE)) return base
+  const shift = dayShift(date, tz, SPAIN_ZONE)
+  const day = shift === 0 ? '' : shift > 0 ? ' del día siguiente' : ' del día anterior'
+  return `${base} (${timeIn(date, SPAIN_ZONE)}${day} en España)`
 }
 
 // "1 hora", "30 minutos", "1 hora y 30 minutos"

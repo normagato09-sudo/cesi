@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bookingAvailability, bookingContactData, decisionMessage, linkSettings, matchContact, requestDescription, requestTitle } from './bookings'
+import { bookingAvailability, bookingContactData, decisionMessage, linkSettings, matchContact, requestDescription, requestTitle, requestVisitor } from './bookings'
 import { emptyWeek } from './weeklySchedule'
 
 const d = (month, day, h = 0, m = 0) => new Date(2026, month - 1, day, h, m)
@@ -92,5 +92,30 @@ describe('solicitudes', () => {
     const no = decisionMessage(request, 'rejected', { url: 'https://cesi.app/reservar/abc' })
     expect(no.text).toContain('Lo siento, no puedo reunirme el miércoles 14 de octubre a las 02:00')
     expect(no.text).toContain('https://cesi.app/reservar/abc')
+  })
+})
+
+describe('país de quien reserva', () => {
+  const request = { starts_at: '2026-10-14T16:00:00Z', ends_at: '2026-10-14T17:00:00Z', time_zone: 'America/Mexico_City' }
+
+  it('requestVisitor da su país y su hora local', () => {
+    expect(requestVisitor(request, 'Europe/Madrid')).toEqual({ flag: '🇲🇽', place: 'México (Ciudad de México)', time: '10:00', dayNote: '' })
+    expect(requestVisitor({ ...request, time_zone: 'Asia/Tokyo' }, 'Europe/Madrid')).toMatchObject({
+      place: 'Japón',
+      time: '01:00',
+      dayNote: 'día siguiente',
+    })
+  })
+
+  it('sin hora si es la misma que la mía, y null si no se sabe su zona', () => {
+    expect(requestVisitor({ ...request, time_zone: 'Europe/Madrid' }, 'Europe/Madrid')).toMatchObject({ time: null })
+    expect(requestVisitor({ ...request, time_zone: '' })).toBeNull()
+  })
+
+  it('el contacto queda con el país y la zona elegidos', () => {
+    expect(bookingContactData({ name: 'Ana', time_zone: 'America/Argentina/Cordoba' })).toMatchObject({
+      country: 'AR',
+      timeZone: 'America/Argentina/Cordoba',
+    })
   })
 })

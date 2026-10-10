@@ -6,7 +6,7 @@ import { isNotAttending } from './notAttending'
 import { daysOff } from './unavailableKinds'
 import { meetingWhen } from './meetingWhen'
 import { formatDurationLong } from './proposals'
-import { defaultContactZone, findZone, localTimeZone, zonePlace } from './timezones'
+import { countryFlag, dayShift, defaultContactZone, findZone, formatTimeInZone, localTimeZone, sameClock, zonePlace } from './timezones'
 import { newLinkToken, PUBLIC_URL } from './contactLinks'
 import { getSupabase } from './sync/client'
 
@@ -219,6 +219,27 @@ export function requestWhenText(request, fallbackZone = localTimeZone()) {
   const zone = request.time_zone || fallbackZone
   const { day, time } = meetingWhen(new Date(request.starts_at), zone)
   return `${day} a las ${time} (hora de ${zonePlace(zone)})`
+}
+
+/**
+ * País y hora local de quien reserva para la lista de solicitudes:
+ * { flag, place: "México (Ciudad de México)", time: "10:00" | null, dayNote: "" | "día siguiente" | "día anterior" }.
+ * time es null si su hora es la misma que la mía. null si no se sabe su zona.
+ */
+export function requestVisitor(request, myZone = localTimeZone()) {
+  const found = findZone(request.time_zone)
+  if (!found) return null
+  const { country, zone } = found
+  const start = new Date(request.starts_at)
+  const place = country.zones.length > 1 ? `${country.name} (${zone.place})` : country.name
+  const same = sameClock(start, request.time_zone, myZone)
+  const shift = same ? 0 : dayShift(start, myZone, request.time_zone)
+  return {
+    flag: countryFlag(country.code),
+    place,
+    time: same ? null : formatTimeInZone(start, request.time_zone),
+    dayNote: shift > 0 ? 'día siguiente' : shift < 0 ? 'día anterior' : '',
+  }
 }
 
 const firstName = (name) => (name || '').trim().split(/\s+/)[0] || ''

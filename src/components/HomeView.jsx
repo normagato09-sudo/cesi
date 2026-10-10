@@ -14,7 +14,7 @@ import {
   vacancyProgressText,
 } from '../lib/home'
 import { VACANCY_STATUS } from '../lib/vacancies'
-import { requestMinutes } from '../lib/bookings'
+import { requestMinutes, requestVisitor } from '../lib/bookings'
 import { formatDurationLong } from '../lib/proposals'
 import './Tasks.css'
 import './HomeView.css'
@@ -106,7 +106,8 @@ function TaskGroup({ title, tasks, className = '', ...itemProps }) {
   )
 }
 
-// Solicitudes del enlace de reservas pendientes: quién, cuándo (en mi hora), duración y motivo,
+// Solicitudes del enlace de reservas pendientes: quién, cuándo (en mi hora), duración, su país y
+// su hora local, y motivo,
 // con Aceptar y Rechazar. Hasta que se responden, su hueco sale ocupado en el enlace.
 function BookingRequests({ requests, onAccept, onReject }) {
   if (requests.length === 0) return <Empty>No tienes solicitudes pendientes.</Empty>
@@ -114,6 +115,7 @@ function BookingRequests({ requests, onAccept, onReject }) {
     <ul className="home-list">
       {requests.map((r) => {
         const start = new Date(r.starts_at)
+        const visitor = requestVisitor(r)
         return (
           <li key={r.id} className="home-booking">
             <span className="home-meeting-main">
@@ -121,6 +123,17 @@ function BookingRequests({ requests, onAccept, onReject }) {
               <span className="home-meeting-people">
                 {format(start, "EEE d 'de' MMM · HH:mm", { locale: es })} · {formatDurationLong(requestMinutes(r))}
               </span>
+              {visitor && (
+                <span className="home-booking-country">
+                  {visitor.flag} {visitor.place}
+                  {visitor.time && (
+                    <>
+                      {' · '}
+                      <strong>{visitor.time}</strong> su hora{visitor.dayNote && ` (${visitor.dayNote})`}
+                    </>
+                  )}
+                </span>
+              )}
               <span className="home-booking-reason" title={r.reason}>
                 {r.reason}
               </span>

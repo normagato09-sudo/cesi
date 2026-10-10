@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bookingDays, dayKeyIn, minutesLabel, slotStarts, tokenFromPath, validateRequest } from './bookingPage'
+import { bookingDays, dayKeyIn, minutesLabel, slotStarts, tokenFromPath, validateRequest, visitorZone, whenText, zoneText } from './bookingPage'
 
 describe('página /reservar', () => {
   it('token de la dirección', () => {
@@ -58,5 +58,30 @@ describe('página /reservar', () => {
     expect(validateRequest({ ...ok, email: 'mal' })).toBe('El email no parece correcto.')
     expect(validateRequest({ ...ok, reason: '' })).toMatch(/motivo/)
     expect(minutesLabel(90)).toBe('1 hora y 30 minutos')
+  })
+})
+
+describe('país de quien reserva', () => {
+  const date = new Date('2026-10-14T16:00:00Z') // 18:00 en España (verano), 10:00 en Ciudad de México
+
+  it('visitorZone toma el país de la zona del navegador', () => {
+    expect(visitorZone('America/Mexico_City')).toEqual({ country: 'MX', timeZone: 'America/Mexico_City' })
+    expect(visitorZone('America/Buenos_Aires')).toEqual({ country: 'AR', timeZone: 'America/Argentina/Buenos_Aires' })
+    expect(visitorZone('Etc/UTC')).toEqual({ country: 'ES', timeZone: 'Europe/Madrid' })
+  })
+
+  it('zoneText dice el país y, si tiene varias zonas, cuál', () => {
+    expect(zoneText('America/Mexico_City')).toBe('Horas en hora de México (Ciudad de México)')
+    expect(zoneText('Asia/Tokyo')).toBe('Horas en hora de Japón')
+  })
+
+  it('whenText añade la hora de España si es otra', () => {
+    expect(whenText(date, 'America/Mexico_City')).toBe(
+      'miércoles 14 de octubre a las 10:00, hora de México (Ciudad de México) (18:00 en España)',
+    )
+    expect(whenText(date, 'Europe/Madrid')).toBe('miércoles 14 de octubre a las 18:00, hora de España (península y Baleares)')
+    expect(whenText(new Date('2026-10-14T23:30:00Z'), 'America/New_York')).toBe(
+      'miércoles 14 de octubre a las 19:30, hora de Estados Unidos (Nueva York) (01:30 del día siguiente en España)',
+    )
   })
 })
