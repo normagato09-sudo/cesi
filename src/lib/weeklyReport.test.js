@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeWeeklyReport, formatCountDelta, formatHours, formatMsDelta, weekStartOf } from './weeklyReport'
+import { computeWeeklyReport, formatCountDelta, formatHours, formatMsDelta, weekDeltaText, weekStartOf } from './weeklyReport'
 
 // Semana del lunes 21 al domingo 27 de septiembre de 2026.
 const d = (day, hh, mm = 0) => new Date(2026, 8, day, hh, mm)
@@ -100,5 +100,13 @@ describe('resumen semanal', () => {
   it('formatea las horas con coma decimal', () => {
     expect(formatHours(4.5 * H)).toBe('4,5 h')
     expect(formatHours(2 * H)).toBe('2 h')
+  })
+})
+
+describe('Tu semana (Inicio)', () => {
+  it('compara con la semana pasada', () => {
+    expect(weekDeltaText('ms', 3 * 3600000)).toBe('+3 h respecto a la semana pasada')
+    expect(weekDeltaText('count', -2)).toBe('−2 respecto a la semana pasada')
+    expect(weekDeltaText('ms', 0)).toBe('Igual que la semana pasada')
   })
 })

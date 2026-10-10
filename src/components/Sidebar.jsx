@@ -4,7 +4,7 @@ import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
 import PendingPanel from './PendingPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
-import { SECTIONS } from './sections.js'
+import { SECTIONS, sectionActive } from './sections.js'
 import './Sidebar.css'
 
 export default function Sidebar({
@@ -23,7 +23,8 @@ export default function Sidebar({
   missingNotes = [],
   onOpenMissingNotes,
 }) {
-  // En Inicio, las propuestas y las reuniones sin acta ya están en el panel.
+  // En Inicio, las propuestas, las reuniones sin acta y el resumen (próxima reunión, hoy y la semana)
+  // ya están en el panel.
   const onHome = section === 'home'
   return (
     <aside className={`sidebar section-${section}`}>
@@ -37,8 +38,8 @@ export default function Sidebar({
           <button
             key={id}
             type="button"
-            className={`sidebar-nav-item${section === id ? ' active' : ''}`}
-            aria-current={section === id ? 'page' : undefined}
+            className={`sidebar-nav-item${sectionActive(id, section) ? ' active' : ''}`}
+            aria-current={sectionActive(id, section) ? 'page' : undefined}
             onClick={() => onSectionChange(id)}
           >
             <Icon size={17} strokeWidth={1.75} />
@@ -49,7 +50,7 @@ export default function Sidebar({
 
       <PendingPanel items={unavailableMeetings} onOpen={onOpenUnavailable} onReschedule={onRescheduleUnavailable} onKeep={onKeepUnavailable} />
 
-      <SummaryPanel summary={summary} now={now} />
+      {!onHome && <SummaryPanel summary={summary} now={now} />}
 
       {!onHome && <ProposalsPanel items={proposals} onOpen={onOpenProposal} />}
 

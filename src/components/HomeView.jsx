@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Briefcase, CalendarCheck, CalendarDays, Check, ChevronRight, ListTodo, NotebookPen, Send, X } from 'lucide-react'
+import { BarChart3, Briefcase, CalendarCheck, CalendarDays, Check, ChevronRight, ListTodo, NotebookPen, Send, X } from 'lucide-react'
 import TaskItem from './TaskItem.jsx'
 import { colorForEvent } from '../lib/eventStyle'
 import {
@@ -17,6 +17,7 @@ import { VACANCY_STATUS } from '../lib/vacancies'
 import { matchContact, requestMinutes, requestVisitor } from '../lib/bookings'
 import ArchivedNotice from './ArchivedNotice.jsx'
 import { formatDurationLong } from '../lib/proposals'
+import { formatHours, weekDeltaText } from '../lib/weeklyReport'
 import './Tasks.css'
 import './HomeView.css'
 
@@ -159,13 +160,36 @@ function BookingRequests({ requests, contacts = [], onAccept, onReject, onUnarch
   )
 }
 
+// «Tu semana»: reuniones, horas en reuniones y horas libres de esta semana, comparadas con la
+// anterior. `week`: computeWeeklyReport de esta semana. Lleva al informe completo.
+function WeekSummary({ week }) {
+  const stats = [
+    { label: week.count === 1 ? 'reunión' : 'reuniones', value: String(week.count), delta: weekDeltaText('count', week.delta.count) },
+    { label: 'en reuniones', value: formatHours(week.meetingMs), delta: weekDeltaText('ms', week.delta.meetingMs) },
+    { label: 'libres', value: formatHours(week.freeMs), delta: weekDeltaText('ms', week.delta.freeMs) },
+  ]
+  return (
+    <ul className="home-week">
+      {stats.map((s) => (
+        <li key={s.label}>
+          <span className="home-week-value">{s.value}</span>
+          <span className="home-week-label">{s.label}</span>
+          <span className="home-week-delta">{s.delta}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /**
  * Inicio: lo primero que se ve al abrir la app. Reuniones de hoy y mañana, tareas que vencen,
- * reuniones sin acta, entrevistas y vacantes, y propuestas pendientes. Cada bloque lleva a su sección.
+ * reuniones sin acta, entrevistas y vacantes, propuestas pendientes y «Tu semana» (que lleva al
+ * informe completo). Cada bloque lleva a su sección.
  */
 export default function HomeView({
   now,
   today,
+  week = null,
   rawEvents,
   contacts,
   tasks,
@@ -234,6 +258,12 @@ export default function HomeView({
           <MeetingList title="Hoy" meetings={meetings.today} empty="Hoy no tienes reuniones." contacts={contacts} now={now} dimPast onOpen={onOpenEvent} />
           <MeetingList title="Mañana" meetings={meetings.tomorrow} empty="Mañana, sin reuniones." contacts={contacts} now={now} onOpen={onOpenEvent} />
         </HomeCard>
+
+        {week && (
+          <HomeCard Icon={BarChart3} title="Tu semana" linkLabel="Ver informe completo" onLink={() => onGoTo('report')} className="home-card-week">
+            <WeekSummary week={week} />
+          </HomeCard>
+        )}
 
         <HomeCard Icon={ListTodo} title="Tareas" count={dueCount} linkLabel="Ver todas" onLink={() => onGoTo('tasks')}>
           {due.overdue.length === 0 && <Empty>Nada vencido 👌</Empty>}

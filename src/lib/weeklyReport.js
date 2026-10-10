@@ -241,6 +241,13 @@ export function formatMsDelta(ms) {
   return `${minutes > 0 ? '+' : '−'}${text}`
 }
 
+// Comparación con la semana pasada para «Tu semana» de Inicio: "+3 h respecto a la semana pasada",
+// "−2 respecto a la semana pasada" o "Igual que la semana pasada". kind: 'count' | 'ms'.
+export function weekDeltaText(kind, value) {
+  const text = kind === 'ms' ? formatMsDelta(value) : formatCountDelta(value)
+  return text === '=' ? 'Igual que la semana pasada' : `${text} respecto a la semana pasada`
+}
+
 // "3,5 h" (horas con un decimal como mucho)
 export function formatHours(ms) {
   const hours = Math.round((ms / 3600000) * 10) / 10

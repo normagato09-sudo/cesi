@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { BarChart3, ChevronLeft, ChevronRight, NotebookPen, Printer } from 'lucide-react'
+import { ArrowLeft, BarChart3, ChevronLeft, ChevronRight, NotebookPen, Printer } from 'lucide-react'
 import ContactAvatar from './ContactAvatar.jsx'
 import { colorForEvent } from '../lib/eventStyle'
 import { notesOf, notesPreview } from '../lib/notes'
@@ -140,7 +140,7 @@ function PeriodPicker({ kind, custom, error, onKind, onCustom }) {
   )
 }
 
-export default function ReportView({ rawEvents, workingHours, contacts, groups, now, onOpenEvent }) {
+export default function ReportView({ rawEvents, workingHours, contacts, groups, now, onOpenEvent, onBack }) {
   const [period, setPeriod] = useState(() => periodOf('week', now))
   // Fechas del periodo personalizado mientras se eligen (se aplican cuando son válidas).
   const [custom, setCustom] = useState(() => ({ from: dateKey(period.start), to: dateKey(new Date(period.end.getTime() - 1)) }))
@@ -220,6 +220,12 @@ export default function ReportView({ rawEvents, workingHours, contacts, groups, 
     <div className="report-view">
       <header className="report-header">
         <div className="report-header-title">
+          {onBack && (
+            <button type="button" className="report-back" onClick={onBack}>
+              <ArrowLeft size={16} strokeWidth={1.75} />
+              Inicio
+            </button>
+          )}
           <h1>
             <BarChart3 size={18} strokeWidth={1.75} />
             Resumen

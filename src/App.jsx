@@ -81,6 +81,7 @@ import {
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
+import { computeWeeklyReport, weekStartOf } from './lib/weeklyReport.js'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability } from './lib/weeklyAvailability.js'
 import { getPreferences, savePreferences } from './lib/preferences.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
@@ -509,6 +510,12 @@ export default function App() {
     setCurrentDate(new Date(occurrence.start))
     openEvent(occurrence)
   }
+
+  // «Tu semana» en Inicio: esta semana comparada con la anterior (lo mismo que el informe).
+  const weekReport = useMemo(
+    () => computeWeeklyReport(rawEvents, { weekStart: weekStartOf(now), workingHours }),
+    [rawEvents, workingHours, now],
+  )
 
   const summary = useMemo(
     () => computeSummary(rawEvents, workingHours, now),
@@ -1020,6 +1027,7 @@ export default function App() {
             <HomeView
               now={now}
               today={today}
+              week={weekReport}
               rawEvents={rawEvents}
               contacts={contacts}
               tasks={tasks}
@@ -1076,6 +1084,7 @@ export default function App() {
                 groups={groups}
                 now={now}
                 onOpenEvent={openEvent}
+                onBack={() => goToSection('home')}
               />
             </Suspense>
           </div>

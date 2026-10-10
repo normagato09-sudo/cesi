@@ -1,7 +1,7 @@
 import { format, isSameDay, differenceInMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CalendarCheck } from 'lucide-react'
-import { formatDuration, WEEKDAY_SHORT_LABELS } from '../lib/summary'
+import { formatDuration } from '../lib/summary'
 import './SummaryPanel.css'
 
 function countdownLabel(start, now) {
@@ -13,8 +13,10 @@ function countdownLabel(start, now) {
   return `En ${h} h${m ? ` ${m} min` : ''}`
 }
 
+// Barra lateral (fuera de Inicio): la próxima reunión y cómo va el día. La semana está en el
+// bloque «Tu semana» de Inicio.
 export default function SummaryPanel({ summary, now }) {
-  const { today, week, nextMeeting } = summary
+  const { today, nextMeeting } = summary
 
   return (
     <div className="summary-panel">
@@ -50,19 +52,6 @@ export default function SummaryPanel({ summary, now }) {
         </ul>
       </div>
 
-      <div className="summary-card">
-        <span className="summary-card-title">Esta semana</span>
-        <ul className="summary-stats">
-          <li>
-            <strong>{week.meetings}</strong> reuniones
-          </li>
-          <li>{formatDuration(week.occupiedMs)} ocupadas</li>
-          <li>
-            Día más ocupado:{' '}
-            {week.busiestDayIndex !== null ? WEEKDAY_SHORT_LABELS[week.busiestDayIndex] : '—'}
-          </li>
-        </ul>
-      </div>
     </div>
   )
 }
