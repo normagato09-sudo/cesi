@@ -155,6 +155,8 @@ const ERROR_TEXT = {
   reason_required: 'Cuéntame brevemente el motivo de la reunión.',
   too_many: 'Ya tienes varias solicitudes pendientes. Espera a que te responda.',
   invalid_data: 'Revisa los datos: alguno es demasiado largo.',
+  place_required: 'Elige dónde quieres hacer la reunión.',
+  invalid_place: 'Esa opción ya no está disponible. Elige otra.',
   unavailable: 'Las reservas no están disponibles ahora mismo.',
   network: 'No hay conexión. Comprueba tu conexión e inténtalo de nuevo.',
   server: 'No se ha podido enviar. Inténtalo de nuevo en un momento.',
@@ -178,7 +180,9 @@ export function loadBooking(token, config, fetchImpl) {
   return callPublicRpc('cesi_booking_get', { p_token: token }, { ...config, fetchImpl }, { codes: CODES, makeError })
 }
 
-export function sendBooking(token, { start, minutes, name, email, phone, reason, tz }, config, fetchImpl) {
+// `place`: dónde quiere hacer la reunión (ver videoCall.js); solo se envía si el enlace ofrece
+// opciones (versiones de Supabase anteriores no lo conocen).
+export function sendBooking(token, { start, minutes, name, email, phone, reason, tz, place = null }, config, fetchImpl) {
   return callPublicRpc(
     'cesi_booking_request',
     {
@@ -190,6 +194,7 @@ export function sendBooking(token, { start, minutes, name, email, phone, reason,
       p_phone: phone.trim(),
       p_reason: reason.trim(),
       p_time_zone: tz,
+      ...(place ? { p_place: place } : {}),
     },
     { ...config, fetchImpl },
     { codes: CODES, makeError },

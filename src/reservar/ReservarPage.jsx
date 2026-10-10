@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarCheck, CheckCircle2, Clock, Globe, LinkIcon, Loader2 } from 'lucide-react'
 import TimeZoneSelect from '../components/TimeZoneSelect.jsx'
+import PlaceIcon from '../components/PlaceIcon.jsx'
+import { cleanOptions, placeLabel, placeOf } from '../lib/videoCall'
 import {
   DAY_OFF_TEXT,
   FIELD_LIMITS,
@@ -68,6 +70,8 @@ export default function ReservarPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState(null)
   const [sending, setSending] = useState(false)
+  // Dónde hacer la reunión (entre las opciones que ofrece el enlace).
+  const [place, setPlace] = useState(null)
   const [sent, setSent] = useState(null)
   const formRef = useRef(null)
 
@@ -78,6 +82,9 @@ export default function ReservarPage() {
       return
     }
     setData(result)
+    // Si solo hay una opción, ya queda elegida.
+    const options = cleanOptions(result.videoOptions)
+    setPlace((p) => (p && options.includes(p) ? p : options.length === 1 ? options[0] : null))
     setMinutes((m) => (m && result.durations.includes(m) ? m : result.durations[0]))
     setState('ready')
   }, [])
@@ -103,6 +110,8 @@ export default function ReservarPage() {
     [data, minutes, tz],
   )
   const anySlot = days.some((d) => d.slots.length > 0)
+  // Versiones de Supabase anteriores no devuelven opciones: entonces no se pregunta.
+  const placeOptions = data && Array.isArray(data.videoOptions) ? cleanOptions(data.videoOptions) : []
 
   useEffect(() => {
     if (slot) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -134,7 +143,7 @@ export default function ReservarPage() {
       <Message
         icon={<CheckCircle2 size={30} strokeWidth={1.75} className="reservar-ok" />}
         title="Solicitud enviada"
-        text={`Has pedido una reunión el ${whenText(sent.start, sent.tz)}, de ${minutesLabel(sent.minutes)}. Te avisaremos por ${sent.channel} cuando esté confirmada.`}
+        text={`Has pedido una reunión el ${whenText(sent.start, sent.tz)}, de ${minutesLabel(sent.minutes)}${sent.place ? ` (${placeLabel(sent.place)})` : ''}. Te avisaremos por ${sent.channel} cuando esté confirmada${sent.place && sent.place !== 'in_person' ? ', con el enlace de la reunión' : ''}.`}
       >
         <button type="button" className="reservar-link-btn" onClick={() => window.location.reload()}>
           Pedir otra reunión
@@ -155,15 +164,15 @@ export default function ReservarPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-    const problem = validateRequest(form)
+    const problem = placeOptions.length > 0 && !place ? 'Elige dónde quieres hacer la reunión.' : validateRequest(form)
     if (problem) {
       setError(problem)
       return
     }
     setSending(true)
     try {
-      await sendBooking(token, { start: slot, minutes, ...form, tz }, CONFIG)
-      setSent({ start: slot, minutes, tz, channel: form.email.trim() ? 'email' : 'teléfono o WhatsApp' })
+      await sendBooking(token, { start: slot, minutes, ...form, tz, place: placeOptions.length > 0 ? place : null }, CONFIG)
+      setSent({ start: slot, minutes, tz, place: placeOptions.length > 0 ? place : null, channel: form.email.trim() ? 'email' : 'teléfono o WhatsApp' })
       setState('sent')
     } catch (err) {
       if (err.code === 'invalid_link') {
@@ -272,6 +281,31 @@ export default function ReservarPage() {
               {whenText(slot, tz)} · {minutesLabel(minutes)}
             </span>
           </p>
+          {placeOptions.length > 0 && (
+            <div className="reservar-places" role="radiogroup" aria-labelledby="reservar-place-title">
+              <span id="reservar-place-title" className="reservar-places-title">
+                ¿Dónde hacemos la reunión?
+              </span>
+              <div className="reservar-places-list">
+                {placeOptions.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={place === id}
+                    className={`reservar-place${place === id ? ' active' : ''}`}
+                    onClick={() => {
+                      setPlace(id)
+                      setError(null)
+                    }}
+                  >
+                    <PlaceIcon place={id} />
+                    {placeOf(id).label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <Field label="Nombre y apellidos">
             <input type="text" value={form.name} onChange={set('name')} maxLength={FIELD_LIMITS.name} autoComplete="name" required />
           </Field>

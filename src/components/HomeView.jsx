@@ -16,6 +16,8 @@ import {
 import { VACANCY_STATUS } from '../lib/vacancies'
 import { matchContact, requestMinutes, requestVisitor } from '../lib/bookings'
 import ArchivedNotice from './ArchivedNotice.jsx'
+import PlaceIcon from './PlaceIcon.jsx'
+import { placeLabel } from '../lib/videoCall'
 import { formatDurationLong } from '../lib/proposals'
 import { formatHours, weekDeltaText } from '../lib/weeklyReport'
 import './Tasks.css'
@@ -136,6 +138,12 @@ function BookingRequests({ requests, contacts = [], onAccept, onReject, onUnarch
                       <strong>{visitor.time}</strong> su hora{visitor.dayNote && ` (${visitor.dayNote})`}
                     </>
                   )}
+                </span>
+              )}
+              {placeLabel(r.meeting_place) && (
+                <span className="home-booking-place">
+                  <PlaceIcon place={r.meeting_place} size={16} />
+                  {placeLabel(r.meeting_place)}
                 </span>
               )}
               {archived && <ArchivedNotice contact={archived} onUnarchive={onUnarchive} compact />}

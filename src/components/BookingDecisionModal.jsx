@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { CalendarCheck, CalendarX, UserCheck, X } from 'lucide-react'
 import ProposalShare from './ProposalShare.jsx'
 import ArchivedNotice from './ArchivedNotice.jsx'
-import { decisionMessage, matchContact, requestMinutes, requestWhenText } from '../lib/bookings'
+import { decisionMessage, matchContact, needsRoom, requestMinutes, requestWhenText } from '../lib/bookings'
+import { meetingLinkFor, placeLabel } from '../lib/videoCall'
+import PlaceIcon from './PlaceIcon.jsx'
 import { formatDurationLong } from '../lib/proposals'
 import './EventFormModal.css'
 import './ProposalShare.css'
@@ -23,14 +25,16 @@ export default function BookingDecisionModal({ request, decision, contacts, link
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
-  const share = decisionMessage(request, decision, { url: accepting ? '' : linkUrl })
+  // Enlace de la reunión según dónde quiso hacerla (uno nuevo si es Jitsi; se genera una vez).
+  const [meetLink] = useState(() => (accepting ? meetingLinkFor(request.meeting_place) : ''))
+  const share = decisionMessage(request, decision, { url: accepting ? '' : linkUrl, meetLink })
   const [text, setText] = useState(null)
 
   const handleConfirm = async () => {
     setBusy(true)
     setError(null)
     try {
-      setNotice((await onDecide({ saveContact: !contact && saveContact })) || null)
+      setNotice((await onDecide({ saveContact: !contact && saveContact, meetLink })) || null)
       setStep('message')
     } catch (err) {
       setError(err.message)
@@ -76,6 +80,16 @@ export default function BookingDecisionModal({ request, decision, contacts, link
                     <dd>{request.phone}</dd>
                   </>
                 )}
+                {placeLabel(request.meeting_place) && (
+                  <>
+                    <dt>Dónde</dt>
+                    <dd className="booking-request-place">
+                      <PlaceIcon place={request.meeting_place} size={18} />
+                      {placeLabel(request.meeting_place)}
+                      {accepting && meetLink && <span className="booking-request-link">{meetLink}</span>}
+                    </dd>
+                  </>
+                )}
                 <dt>Motivo</dt>
                 <dd className="booking-request-reason">{request.reason}</dd>
               </dl>
@@ -94,6 +108,13 @@ export default function BookingDecisionModal({ request, decision, contacts, link
                     <span>Guardar a {request.name} como contacto nuevo</span>
                   </label>
                 ))}
+
+              {accepting && needsRoom(request.meeting_place) && !meetLink && (
+                <p className="booking-notice">
+                  No tienes guardado el enlace de tu sala de {placeLabel(request.meeting_place)} (Enlace de reservas › Videollamada): la
+                  reunión se creará sin enlace.
+                </p>
+              )}
 
               <p className="contact-link-muted">
                 {accepting

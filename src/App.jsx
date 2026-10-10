@@ -230,9 +230,9 @@ export default function App() {
   // Las solicitudes pendientes ocupan su hueco también en "Buscar hueco".
   const bookingRequests = useMemo(() => bookings.requests.map((r) => ({ start: r.starts_at, end: r.ends_at })), [bookings.requests])
 
-  // Aceptar (se crea la reunión, vinculada al contacto si coincide o al nuevo si se guarda) o
+  // Aceptar (se crea la reunión con su enlace, vinculada al contacto si coincide o al nuevo si se guarda) o
   // rechazar una solicitud. Devuelve un aviso si la hora ya se solapa con algo del calendario.
-  const handleBookingDecision = async ({ saveContact }) => {
+  const handleBookingDecision = async ({ saveContact, meetLink = '' }) => {
     const { request, decision } = bookingDecision
     await decideRequest(request.id, decision)
     bookings.setRequests((list) => list.filter((r) => r.id !== request.id))
@@ -251,6 +251,8 @@ export default function App() {
       start: start.toISOString(),
       end: end.toISOString(),
       recurrence: null,
+      // Según dónde quiso hacerla: mi sala fija, uno nuevo de Jitsi o ninguno (ver videoCall.js).
+      meetLink,
       bookingRequestId: request.id,
     })
     return conflict ? 'Ojo: a esa hora ya tienes otra cosa en el calendario (se ha creado igualmente).' : null

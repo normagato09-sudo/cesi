@@ -904,6 +904,7 @@ grant execute on function public.cesi_meeting_invite_respond(text, text, text) t
 --   min_notice_hours  antelación mínima (24 h por defecto)
 --   step_minutes   cada cuánto empiezan los huecos (30 min por defecto)
 --   horizon_weeks  "Se puede reservar hasta": semanas desde hoy (4 por defecto)
+--   video_options  dónde se puede hacer la reunión (ver src/lib/videoCall.js)
 --   revoked        true al regenerar o desactivar el enlace (como mucho uno activo por usuario)
 create table if not exists public.booking_links (
   token text primary key check (length(token) between 32 and 100),
@@ -923,6 +924,11 @@ create table if not exists public.booking_links (
 -- Para los enlaces creados antes de que existiera "Se puede reservar hasta".
 alter table public.booking_links add column if not exists horizon_weeks int not null default 4
   check (horizon_weeks between 1 and 12);
+
+-- Videollamada: dónde se puede hacer la reunión (zoom, meet, teams, jitsi, in_person). Mis salas
+-- fijas no se guardan aquí (están en mis preferencias): solo qué opciones se ofrecen.
+alter table public.booking_links add column if not exists video_options text[] not null default '{jitsi,in_person}'
+  check (video_options <@ '{zoom,meet,teams,jitsi,in_person}'::text[]);
 
 create unique index if not exists booking_links_active_idx on public.booking_links (user_id) where not revoked;
 
@@ -960,6 +966,10 @@ create table if not exists public.booking_requests (
 );
 
 create index if not exists booking_requests_user_idx on public.booking_requests (user_id, status, starts_at);
+
+-- Dónde quiere hacer la reunión quien reserva ('' en las solicitudes anteriores).
+alter table public.booking_requests add column if not exists meeting_place text not null default ''
+  check (meeting_place in ('', 'zoom', 'meet', 'teams', 'jitsi', 'in_person'));
 
 alter table public.booking_requests enable row level security;
 drop policy if exists "booking_requests: leer los míos" on public.booking_requests;
@@ -1057,7 +1067,7 @@ begin
 end;
 $$;
 
--- Lo que ve la página: nombre, duraciones, huecos libres, último día que se puede reservar
+-- Lo que ve la página: nombre, duraciones, opciones de dónde hacer la reunión (videoOptions), huecos libres, último día que se puede reservar
 -- (until), días de vacaciones o festivo (solo la fecha y el tipo) y, por compatibilidad, las
 -- semanas que publicaban las versiones anteriores. null si el enlace no existe o está desactivado.
 create or replace function public.cesi_booking_get(p_token text)
@@ -1119,7 +1129,8 @@ begin
     'weeks', v_weeks,
     'until', public.cesi_booking_until(v_link),
     'daysOff', v_days,
-    'timeZone', v_zone
+    'timeZone', v_zone,
+    'videoOptions', to_jsonb(v_link.video_options)
   );
 end;
 $$;
@@ -1129,7 +1140,10 @@ $$;
 -- con un bloqueo para que dos personas no reserven el mismo hueco a la vez), datos y límites
 -- antispam (5 pendientes por email o teléfono y 20 en total). Errores (en el mensaje):
 -- invalid_link, invalid_slot, slot_taken, name_required, contact_required, invalid_email,
--- invalid_phone, reason_required, too_many.
+-- invalid_phone, reason_required, too_many, invalid_place (una opción de dónde hacer la reunión que el
+-- enlace no ofrece; '' vale: páginas anteriores que no preguntaban).
+-- La versión anterior (sin p_place) se quita: con dos versiones, las llamadas serían ambiguas.
+drop function if exists public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text);
 create or replace function public.cesi_booking_request(
   p_token text,
   p_start timestamptz,
@@ -1138,7 +1152,8 @@ create or replace function public.cesi_booking_request(
   p_email text,
   p_phone text,
   p_reason text,
-  p_time_zone text
+  p_time_zone text,
+  p_place text default ''
 )
 returns jsonb
 language plpgsql
@@ -1155,6 +1170,7 @@ declare
   v_digits text;
   v_reason text := btrim(coalesce(p_reason, ''));
   v_zone text := btrim(coalesce(p_time_zone, ''));
+  v_place text := btrim(coalesce(p_place, ''));
   v_id uuid;
 begin
   if p_token is null or length(p_token) > 100 then
@@ -1190,6 +1206,9 @@ begin
   if length(v_zone) > 64 then
     v_zone := '';
   end if;
+  if v_place <> '' and not (v_place = any (v_link.video_options)) then
+    raise exception 'invalid_place';
+  end if;
 
   if p_start is null or p_minutes is null or not (p_minutes = any (v_link.durations))
     or mod(extract(epoch from p_start)::bigint, v_link.step_minutes * 60) <> 0 then
@@ -1215,8 +1234,8 @@ begin
     raise exception 'too_many';
   end if;
 
-  insert into public.booking_requests (user_id, link_token, starts_at, ends_at, name, email, phone, reason, time_zone)
-  values (v_link.user_id, v_link.token, p_start, v_end, v_name, v_email, v_phone, v_reason, v_zone)
+  insert into public.booking_requests (user_id, link_token, starts_at, ends_at, name, email, phone, reason, time_zone, meeting_place)
+  values (v_link.user_id, v_link.token, p_start, v_end, v_name, v_email, v_phone, v_reason, v_zone, v_place)
   returning id into v_id;
 
   return jsonb_build_object('ok', true, 'id', v_id, 'start', p_start, 'end', v_end);
@@ -1228,6 +1247,6 @@ revoke all on function public.cesi_booking_zone(public.booking_links) from publi
 revoke all on function public.cesi_booking_until(public.booking_links) from public, anon, authenticated;
 revoke all on function public.cesi_booking_free(public.booking_links) from public, anon, authenticated;
 revoke all on function public.cesi_booking_get(text) from public;
-revoke all on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text) from public;
+revoke all on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text, text) from public;
 grant execute on function public.cesi_booking_get(text) to anon, authenticated;
-grant execute on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text, text) to anon, authenticated;

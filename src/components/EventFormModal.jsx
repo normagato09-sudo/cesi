@@ -10,6 +10,7 @@ import { SCOPES } from '../lib/seriesEdits'
 import { hasCandidateParticipant, isInterview } from '../lib/vacancies'
 import { UNAVAILABLE_KINDS, allDaySpanDays, cleanNote, unavailableKindOf, unavailableNoteOf, unavailableTitle } from '../lib/unavailableKinds'
 import MeetingWarning from './MeetingWarning.jsx'
+import MeetLinkField from './MeetLinkField.jsx'
 import './EventFormModal.css'
 
 
@@ -495,15 +496,7 @@ export default function EventFormModal({
           )}
 
           {!isUnavailable && (
-            <label className="event-form-field">
-              <span>Enlace de la reunión (opcional)</span>
-              <input
-                type="text"
-                value={meetLink}
-                onChange={(e) => setMeetLink(e.target.value)}
-                placeholder="https://meet.google.com/..."
-              />
-            </label>
+            <MeetLinkField value={meetLink} onChange={setMeetLink} />
           )}
 
           {!isUnavailable && (

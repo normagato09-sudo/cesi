@@ -1,0 +1,9 @@
+.place-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--place-color);
+  color: #fff;
+}

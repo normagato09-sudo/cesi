@@ -9,6 +9,7 @@ import { formatDurationLong } from './proposals'
 import { countryFlag, dayShift, defaultContactZone, findZone, formatTimeInZone, localTimeZone, sameClock, zonePlace } from './timezones'
 import { newLinkToken, PUBLIC_URL } from './contactLinks'
 import { getSupabase } from './sync/client'
+import { DEFAULT_VIDEO_OPTIONS, ROOM_PLATFORMS, cleanOptions, placeLabel } from './videoCall'
 
 // Enlace de reservas (página pública /reservar/<token>, tipo Calendly). Ver la sección del mismo
 // nombre en supabase/schema.sql.
@@ -80,7 +81,7 @@ function check({ data, error }) {
   throw new Error(error.message || 'No se pudo conectar con Supabase.')
 }
 
-const LINK_FIELDS = 'token, display_name, durations, min_notice_hours, step_minutes, horizon_weeks, published_at, created_at'
+const LINK_FIELDS = 'token, display_name, durations, min_notice_hours, step_minutes, horizon_weeks, video_options, published_at, created_at'
 
 // Ajustes del enlace tal como los usa la app.
 export function linkSettings(row) {
@@ -89,15 +90,24 @@ export function linkSettings(row) {
     durations: Array.isArray(row?.durations) && row.durations.length ? [...row.durations].sort((a, b) => a - b) : DEFAULT_DURATIONS,
     minNoticeHours: row?.min_notice_hours ?? DEFAULT_NOTICE_HOURS,
     horizonWeeks: row?.horizon_weeks ?? DEFAULT_HORIZON_WEEKS,
+    // Dónde se puede hacer la reunión (ver videoCall.js).
+    videoOptions: Array.isArray(row?.video_options) ? cleanOptions(row.video_options) : DEFAULT_VIDEO_OPTIONS,
   }
 }
 
-function settingsRow({ displayName = '', durations = DEFAULT_DURATIONS, minNoticeHours = DEFAULT_NOTICE_HOURS, horizonWeeks = DEFAULT_HORIZON_WEEKS }) {
+function settingsRow({
+  displayName = '',
+  durations = DEFAULT_DURATIONS,
+  minNoticeHours = DEFAULT_NOTICE_HOURS,
+  horizonWeeks = DEFAULT_HORIZON_WEEKS,
+  videoOptions = DEFAULT_VIDEO_OPTIONS,
+}) {
   return {
     display_name: displayName.replace(/\s+/g, ' ').trim().slice(0, 80),
     durations: [...new Set(durations)].filter((d) => DURATION_OPTIONS.includes(d)).sort((a, b) => a - b),
     min_notice_hours: minNoticeHours,
     horizon_weeks: HORIZON_OPTIONS.includes(horizonWeeks) ? horizonWeeks : DEFAULT_HORIZON_WEEKS,
+    video_options: cleanOptions(videoOptions),
   }
 }
 
@@ -139,7 +149,7 @@ export async function publishAvailability(token, published) {
   check(await supabase.from('booking_links').update({ published, published_at: new Date().toISOString() }).eq('token', token))
 }
 
-const REQUEST_FIELDS = 'id, starts_at, ends_at, name, email, phone, reason, time_zone, status, created_at'
+const REQUEST_FIELDS = 'id, starts_at, ends_at, name, email, phone, reason, time_zone, meeting_place, status, created_at'
 
 // Solicitudes pendientes que aún no han empezado (las demás han caducado: su hueco ya se liberó).
 export async function getPendingRequests(now = new Date()) {
@@ -203,6 +213,7 @@ export function requestTitle(request) {
 // Descripción de la reunión creada al aceptar: el motivo y los datos de contacto.
 export function requestDescription(request) {
   const lines = [`Motivo: ${(request.reason || '').trim()}`]
+  if (placeLabel(request.meeting_place)) lines.push(`Dónde: ${placeLabel(request.meeting_place)}`)
   if (request.email) lines.push(`Email: ${request.email}`)
   if (request.phone) lines.push(`Teléfono: ${request.phone}`)
   lines.push('Reservada desde el enlace de reservas.')
@@ -242,19 +253,35 @@ export function requestVisitor(request, myZone = localTimeZone()) {
   }
 }
 
+// "Será por Zoom: https://…", "Será presencial o por teléfono; te paso los detalles." o ''.
+export function placeLine(place, meetLink = '') {
+  if (place === 'in_person') return 'Será presencial o por teléfono; te paso los detalles.'
+  const label = placeLabel(place)
+  if (!label) return meetLink ? `Enlace de la reunión: ${meetLink}` : ''
+  return meetLink ? `Será por ${label}: ${meetLink}` : `Será por ${label}.`
+}
+
+// ¿La plataforma necesita mi sala fija? (para avisar si no la tengo guardada al aceptar)
+export function needsRoom(place) {
+  return ROOM_PLATFORMS.includes(place)
+}
+
 const firstName = (name) => (name || '').trim().split(/\s+/)[0] || ''
 
 /**
  * Mensaje (plantilla, sin IA) para avisar a quien reservó. `status`: 'accepted' o 'rejected'.
- * Al rechazar se le invita a elegir otro hueco en el mismo enlace (`url`), si lo hay.
+ * Al rechazar se le invita a elegir otro hueco en el mismo enlace (`url`), si lo hay. Al aceptar se
+ * dice dónde será (la plataforma que eligió y `meetLink`, el enlace de la reunión).
  * Devuelve { text, subject, phone, email }.
  */
-export function decisionMessage(request, status, { url = '', fallbackZone } = {}) {
+export function decisionMessage(request, status, { url = '', fallbackZone, meetLink = '' } = {}) {
   const hello = `Hola${firstName(request.name) ? `, ${firstName(request.name)}` : ''}.`
   const when = requestWhenText(request, fallbackZone)
   const lines = [hello, '']
   if (status === 'accepted') {
     lines.push(`Te confirmo la reunión del ${when}, de ${formatDurationLong(requestMinutes(request))}.`)
+    const where = placeLine(request.meeting_place, meetLink)
+    if (where) lines.push(where)
     lines.push('Si al final no puedes, avísame.')
   } else {
     lines.push(`Lo siento, no puedo reunirme el ${when}.`)

@@ -16,6 +16,8 @@ import {
   validateSettings,
 } from '../lib/bookings'
 import { minutesLabel } from '../lib/bookingPage'
+import { PLACES, ROOM_PLACEHOLDERS, ROOM_PLATFORMS, getVideoRooms, saveVideoRooms, validateVideoSettings } from '../lib/videoCall'
+import PlaceIcon from './PlaceIcon.jsx'
 import './EventFormModal.css'
 import './ProposalShare.css'
 import './ContactLinkModal.css'
@@ -46,6 +48,8 @@ function Header({ onClose }) {
  */
 export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEvents, workingHours, onClose }) {
   const [settings, setSettings] = useState(() => linkSettings(link))
+  // Mis salas fijas (se guardan en mis preferencias, no en el enlace público).
+  const [rooms, setRooms] = useState(getVideoRooms)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [savedNote, setSavedNote] = useState(null)
@@ -86,9 +90,12 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
     }
   }
 
+  const check = () => validateSettings(settings) || validateVideoSettings(rooms, settings.videoOptions)
+
   const create = () => {
-    const problem = validateSettings(settings)
+    const problem = check()
     if (problem) return setError(problem)
+    saveVideoRooms(rooms)
     run(async () => onLinkChange(await createBookingLink(settings, published), published))
   }
 
@@ -106,8 +113,9 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
   }
 
   const handleSaveSettings = () => {
-    const problem = validateSettings(settings)
+    const problem = check()
     if (problem) return setError(problem)
+    saveVideoRooms(rooms)
     run(async () => {
       onLinkChange(await updateBookingSettings(link.token, settings))
       setSavedNote('Ajustes guardados.')
@@ -120,6 +128,9 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
       setTimeout(() => setCopied(false), 2000)
     }
   }
+
+  const toggleOption = (id) =>
+    setSettings((s) => ({ ...s, videoOptions: s.videoOptions.includes(id) ? s.videoOptions.filter((o) => o !== id) : [...s.videoOptions, id] }))
 
   const toggleDuration = (m) =>
     setSettings((s) => ({ ...s, durations: s.durations.includes(m) ? s.durations.filter((d) => d !== m) : [...s.durations, m].sort((a, b) => a - b) }))
@@ -216,6 +227,41 @@ export default function BookingLinkModal({ syncActive, link, onLinkChange, rawEv
                 </select>
                 <em className="event-form-hint">Contando desde hoy. La ventana avanza sola cada día.</em>
               </label>
+              <div className="event-form-field booking-video">
+                <span id="booking-video">Videollamada</span>
+                <em className="event-form-hint">
+                  Tus salas fijas (opcionales) y qué opciones se ofrecen. Quien reserva elige una; al aceptar, su reunión lleva tu
+                  enlace de esa plataforma, uno nuevo de Jitsi Meet (no necesita cuenta) o ninguno si es presencial.
+                </em>
+                {ROOM_PLATFORMS.map((p) => (
+                  <label key={p} className="booking-room">
+                    <PlaceIcon place={p} size={20} />
+                    <span className="booking-room-label">{PLACES.find((x) => x.id === p).label}</span>
+                    <input
+                      type="url"
+                      inputMode="url"
+                      value={rooms[p]}
+                      onChange={(e) => setRooms((r) => ({ ...r, [p]: e.target.value }))}
+                      placeholder={ROOM_PLACEHOLDERS[p]}
+                      aria-label={`Enlace de tu sala de ${PLACES.find((x) => x.id === p).label}`}
+                    />
+                  </label>
+                ))}
+                <span className="booking-video-subtitle" id="booking-video-options">Opciones que se ofrecen</span>
+                <div className="booking-durations" role="group" aria-labelledby="booking-video-options">
+                  {PLACES.map((p) => {
+                    const on = settings.videoOptions.includes(p.id)
+                    const noRoom = ROOM_PLATFORMS.includes(p.id) && !rooms[p.id].trim()
+                    return (
+                      <label key={p.id} className={`booking-duration booking-place${on ? ' active' : ''}`} title={noRoom ? 'Añade antes el enlace de tu sala' : undefined}>
+                        <input type="checkbox" checked={on} onChange={() => toggleOption(p.id)} disabled={noRoom && !on} />
+                        <PlaceIcon place={p.id} size={18} />
+                        {p.label}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
               {link && (
                 <button type="button" className="proposal-share-btn" onClick={handleSaveSettings}>
                   Guardar ajustes
