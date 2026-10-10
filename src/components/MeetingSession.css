@@ -643,3 +643,69 @@
     padding-bottom: 72px;
   }
 }
+
+/* Enviar acta */
+.session-send {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.session-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #15803d;
+}
+.session-sent.pending {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.session-send-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.session-send-btn:hover {
+  background: var(--surface-hover);
+}
+.session-send-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.session-send-btn.primary:hover {
+  background: var(--accent-hover);
+}
+.session-ended {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--accent-hover);
+}
+@media (max-width: 640px) {
+  .session-send-btn {
+    min-height: 44px;
+  }
+}

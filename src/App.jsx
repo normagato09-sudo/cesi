@@ -1177,6 +1177,7 @@ export default function App() {
           onDuplicate={handleDuplicateEvent}
           onConfirmOption={handleConfirmOption}
           onCancelProposal={handleCancelProposal}
+          organizerName={bookings.link?.display_name || ''}
         />
 
         {taskModal && (

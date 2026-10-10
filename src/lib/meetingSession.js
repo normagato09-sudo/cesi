@@ -6,10 +6,13 @@ import { makeId } from './store'
 // - Reunión que se repite: agendaByDate, notesByDate y decisionsByDate { 'AAAA-MM-DD': ... },
 //   una entrada por sesión (el día que le toca en la serie, aunque se haya movido).
 // Las notas son las de siempre (notes / notesByDate): el texto del acta.
+// minutesSentAt / minutesSentAtByDate: cuándo se envió el acta de esa sesión (fecha ISO, se pone al
+// descargar su PDF desde «Enviar acta»; '' si no se ha enviado).
 export const SESSION_FIELDS = [
   { field: 'notes', byDate: 'notesByDate', empty: '' },
   { field: 'agenda', byDate: 'agendaByDate', empty: [] },
   { field: 'decisions', byDate: 'decisionsByDate', empty: [] },
+  { field: 'minutesSentAt', byDate: 'minutesSentAtByDate', empty: '' },
 ]
 
 export const BY_DATE_FIELDS = SESSION_FIELDS.map((f) => f.byDate)
@@ -25,7 +28,7 @@ function isEmptyValue(value) {
 }
 
 function normalize(spec, value) {
-  if (spec.field === 'notes') return typeof value === 'string' ? value : ''
+  if (typeof spec.empty === 'string') return typeof value === 'string' ? value : ''
   return Array.isArray(value) ? value.filter((item) => item && typeof item.text === 'string') : []
 }
 

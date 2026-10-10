@@ -1,0 +1,86 @@
+.minutes-send-backdrop {
+  z-index: 118;
+}
+.minutes-send {
+  max-width: 520px;
+}
+.minutes-send .event-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.minutes-send-intro,
+.minutes-send-hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.minutes-send-hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.minutes-send-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #15803d;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.minutes-send textarea {
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.minutes-send-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.minutes-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.minutes-send-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.minutes-send-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.minutes-send-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.minutes-send-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .minutes-send-btn {
+    flex: 1 1 100%;
+    min-height: 46px;
+  }
+  .minutes-send textarea {
+    font-size: 16px;
+  }
+}

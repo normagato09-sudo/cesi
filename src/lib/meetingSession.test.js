@@ -43,12 +43,13 @@ describe('agenda y acta de una reunión única', () => {
       notes: 'Bien',
       agenda: [item('a', 'Presupuesto')],
       decisions: [{ id: 'x', text: 'Sí' }],
+      minutesSentAt: '',
     })
   })
 
   it('una reunión sin agenda ni acta da una sesión vacía', () => {
     const session = sessionOf(occurrenceOn(single, 3))
-    expect(session).toEqual({ notes: '', agenda: [], decisions: [] })
+    expect(session).toEqual({ notes: '', agenda: [], decisions: [], minutesSentAt: '' })
     expect(isEmptySession(session)).toBe(true)
   })
 })
@@ -60,9 +61,9 @@ describe('agenda y acta por sesión en reuniones que se repiten', () => {
     const saved = { ...series, ...sessionPatch(series, second, { agenda: [item('a', 'Revisar plazos')] }) }
     expect(saved.agendaByDate).toEqual({ '2026-09-08': [item('a', 'Revisar plazos')] })
     expect(saved.notesByDate).toEqual({ '2026-09-01': 'Nota antigua' })
-    expect(sessionOf(occurrenceOn(saved, 1))).toEqual({ notes: 'Nota antigua', agenda: [], decisions: [] })
+    expect(sessionOf(occurrenceOn(saved, 1))).toEqual({ notes: 'Nota antigua', agenda: [], decisions: [], minutesSentAt: '' })
     expect(sessionOf(occurrenceOn(saved, 8)).agenda).toEqual([item('a', 'Revisar plazos')])
-    expect(sessionOf(occurrenceOn(saved, 15))).toEqual({ notes: '', agenda: [], decisions: [] })
+    expect(sessionOf(occurrenceOn(saved, 15))).toEqual({ notes: '', agenda: [], decisions: [], minutesSentAt: '' })
   })
 
   it('una sesión que queda vacía se quita del mapa', () => {
@@ -88,7 +89,7 @@ describe('agenda y acta por sesión en reuniones que se repiten', () => {
     }
     const sessions = pastSessions(occurrenceOn(series, 15))
     expect(sessions.map((s) => s.key)).toEqual(['2026-09-08', '2026-09-01'])
-    expect(sessions[0]).toEqual({ key: '2026-09-08', notes: '', agenda: [item('a', 'Punto')], decisions: [{ id: 'x', text: 'Decidido' }] })
+    expect(sessions[0]).toEqual({ key: '2026-09-08', notes: '', agenda: [item('a', 'Punto')], decisions: [{ id: 'x', text: 'Decidido' }], minutesSentAt: '' })
     expect(sessions[1].notes).toBe('Primera')
     expect(pastSessions(occurrenceOn(single, 3))).toEqual([])
   })
@@ -129,6 +130,8 @@ describe('cambios en la serie', () => {
       notesByDate: {},
       agendaByDate: {},
       decisionsByDate: {},
+      minutesSentAt: '',
+      minutesSentAtByDate: {},
     })
   })
 
@@ -170,6 +173,8 @@ describe('una reunión única que pasa a repetirse', () => {
       agendaByDate: {},
       decisions: [],
       decisionsByDate: {},
+      minutesSentAt: '',
+      minutesSentAtByDate: {},
     })
   })
 })
@@ -201,5 +206,15 @@ describe('modo reunión', () => {
   it('sameText compara sin mayúsculas ni espacios de los extremos', () => {
     expect(sameText(' Subir precios ', 'subir PRECIOS')).toBe(true)
     expect(sameText('a', 'b')).toBe(false)
+  })
+})
+
+describe('acta enviada', () => {
+  it('se guarda por sesión en las reuniones que se repiten', () => {
+    const patch = sessionPatch(weekly, occurrenceOn(weekly, 8), { minutesSentAt: '2026-09-08T12:00:00.000Z' })
+    expect(patch).toEqual({ minutesSentAtByDate: { '2026-09-08': '2026-09-08T12:00:00.000Z' } })
+    const saved = { ...weekly, ...patch }
+    expect(sessionOf(occurrenceOn(saved, 8)).minutesSentAt).toBe('2026-09-08T12:00:00.000Z')
+    expect(sessionOf(occurrenceOn(saved, 15)).minutesSentAt).toBe('')
   })
 })

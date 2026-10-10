@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleStop,
+  FileText,
   History,
   ListChecks,
   ListTodo,
@@ -32,6 +33,8 @@ import { sourceOf, taskOfDecision } from '../lib/tasks'
 import TaskItem from './TaskItem.jsx'
 import NotesEditor from './NotesEditor.jsx'
 import NotesText from './NotesText.jsx'
+import MinutesSendModal from './MinutesSendModal.jsx'
+import { minutesSentText } from '../lib/minutes'
 import './MeetingSession.css'
 
 const SAVE_DELAY_MS = 600
@@ -350,6 +353,8 @@ export default function MeetingSession({
   onNewTask,
   onOpenTask,
   onToggleTask,
+  // Mi nombre en el acta («Nombre que se muestra» del enlace de reservas).
+  organizerName = '',
 }) {
   const [session, setSession] = useState(() => sessionOf(event))
   const finished = new Date(event.end) <= now
@@ -357,6 +362,9 @@ export default function MeetingSession({
   const [status, setStatus] = useState('idle') // 'idle' | 'pending' | 'saved'
   const [clockStart, setClockStart] = useState(() => readClock(clockKey(event)))
   const [live, setLive] = useState(false)
+  // «Enviar acta»: el modal, y el aviso que sale al terminar el modo reunión.
+  const [sendOpen, setSendOpen] = useState(false)
+  const [justEnded, setJustEnded] = useState(false)
   const sectionRef = useRef(null)
   const notesRef = useRef(null)
   const timerRef = useRef(null)
@@ -414,6 +422,8 @@ export default function MeetingSession({
     writeClock(clockKey(event), null)
     setClockStart(null)
     setLive(false)
+    setTab('minutes')
+    setJustEnded(true)
   }
 
   const minutesEmpty = !session.notes.trim() && session.decisions.length === 0
@@ -439,6 +449,33 @@ export default function MeetingSession({
 
   const minutesPanel = (
     <>
+      {!live && justEnded && (
+        <div className="session-ended" role="status">
+          <span>Reunión terminada. ¿Envías el acta a los participantes para que la revisen?</span>
+          <button type="button" className="session-send-btn primary" onClick={() => setSendOpen(true)}>
+            <FileText size={15} strokeWidth={1.75} />
+            Enviar acta
+          </button>
+        </div>
+      )}
+      {!live && (
+        <div className="session-send">
+          {session.minutesSentAt ? (
+            <span className="session-sent">
+              <Check size={13} strokeWidth={2} />
+              {minutesSentText(session.minutesSentAt)}
+            </span>
+          ) : (
+            <span className="session-sent pending">Acta sin enviar</span>
+          )}
+          {!justEnded && (
+            <button type="button" className="session-send-btn" onClick={() => setSendOpen(true)}>
+              <FileText size={15} strokeWidth={1.75} />
+              Enviar acta
+            </button>
+          )}
+        </div>
+      )}
       {highlight && <p className="session-prompt">¿Qué se habló en esta reunión?</p>}
       <label className="session-subtitle" htmlFor="session-notes">
         Notas
@@ -559,6 +596,22 @@ export default function MeetingSession({
       </div>
 
       {event.recurrence && <SessionHistory event={event} />}
+
+      {sendOpen && (
+        <MinutesSendModal
+          event={event}
+          session={session}
+          contacts={contacts}
+          tasks={sessionTasks}
+          organizerName={organizerName}
+          sentAt={session.minutesSentAt}
+          onDownloaded={(iso) => {
+            update('minutesSentAt', iso)
+            setJustEnded(false)
+          }}
+          onClose={() => setSendOpen(false)}
+        />
+      )}
 
       {live && clockStart && (
         <MeetingLive

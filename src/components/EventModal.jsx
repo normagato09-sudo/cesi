@@ -70,6 +70,8 @@ export default function EventModal({
   onSaveGuestAsContact,
   onConfirmOption,
   onCancelProposal,
+  // Mi nombre para el acta en PDF («Nombre que se muestra» del enlace de reservas).
+  organizerName = '',
 }) {
   const { rawEvents, proposals } = useScheduling()
   const [deleting, setDeleting] = useState(false)
@@ -279,6 +281,7 @@ export default function EventModal({
               onNewTask={onNewTask}
               onOpenTask={onOpenTask}
               onToggleTask={onToggleTask}
+              organizerName={organizerName}
             />
           )}
         </div>
