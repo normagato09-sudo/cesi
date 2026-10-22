@@ -34,7 +34,7 @@ function Shell({ children }) {
   return (
     <div className="ficha">
       <main className="ficha-card">{children}</main>
-      <p className="ficha-footer">CESI · Solo ves y cambias tus propios datos de contacto.</p>
+      <p className="ficha-footer">CIFA · Solo ves y cambias tus propios datos de contacto.</p>
     </div>
   )
 }
@@ -154,7 +154,7 @@ export default function FichaPage() {
         <h1>Tus datos de contacto</h1>
         <p>
           Hola{greetingName ? `, ${greetingName}` : ''}. Rellena tus datos y tu disponibilidad para que podamos organizar las
-          reuniones de CESI.
+          reuniones de CIFA.
         </p>
       </header>
 

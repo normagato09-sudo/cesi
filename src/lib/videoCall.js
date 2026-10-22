@@ -2,7 +2,7 @@ import { getPreferences, savePreferences } from './preferences'
 
 // Dónde se hace una reunión (sin APIs): mis salas fijas de Zoom, Google Meet y Teams (enlaces que
 // guardo una vez, en preferences.videoRooms, que sincroniza) y Jitsi Meet, que no necesita cuenta:
-// cada reunión tiene su propio enlace https://meet.jit.si/CESI-<aleatorio>. O presencial / por
+// cada reunión tiene su propio enlace https://meet.jit.si/CIFA-<aleatorio>. O presencial / por
 // teléfono, sin enlace.
 // En el enlace de reservas elijo qué opciones se ofrecen (booking_links.video_options) y quien
 // reserva elige una (booking_requests.meeting_place); al aceptar, su reunión lleva el enlace que toca.
@@ -96,11 +96,11 @@ export function validateVideoSettings(rooms, options) {
 
 const ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
-// Enlace único de Jitsi Meet: https://meet.jit.si/CESI-<12 caracteres aleatorios>.
+// Enlace único de Jitsi Meet: https://meet.jit.si/CIFA-<12 caracteres aleatorios>.
 export function jitsiLink(randomValues = (n) => crypto.getRandomValues(new Uint8Array(n))) {
   const bytes = randomValues(12)
   const id = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('')
-  return `https://meet.jit.si/CESI-${id}`
+  return `https://meet.jit.si/CIFA-${id}`
 }
 
 // Enlace de la reunión según dónde se hace: mi sala fija, uno nuevo de Jitsi o '' (presencial, o

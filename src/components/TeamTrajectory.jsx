@@ -15,7 +15,7 @@ import {
 import './EventFormModal.css'
 import './TeamTrajectory.css'
 
-// Total de tiempo en CESI y aviso de las fechas que faltan (arriba del perfil y de la trayectoria).
+// Total de tiempo en CIFA y aviso de las fechas que faltan (arriba del perfil y de la trayectoria).
 export function TenureSummary({ profile, now, className = '' }) {
   const t = tenure(profile, now)
   const total = tenureText(t)
@@ -107,11 +107,11 @@ function RoleForm({ initial, areas, joinedAt, onSave, onCancel }) {
 }
 
 /**
- * Trayectoria en CESI: roles del más reciente al más antiguo, con su duración y el total arriba.
+ * Trayectoria en CIFA: roles del más reciente al más antiguo, con su duración y el total arriba.
  * Con `onChange(roles)` se pueden añadir, editar y borrar entradas; sin él, solo se ve.
  * `joinedAt`: fecha de incorporación antigua, que se ofrece para los roles sin fecha de inicio.
  */
-export default function TeamTrajectory({ profile, now, areas = [], joinedAt = '', onChange = null, title = 'Trayectoria en CESI' }) {
+export default function TeamTrajectory({ profile, now, areas = [], joinedAt = '', onChange = null, title = 'Trayectoria en CIFA' }) {
   const [editing, setEditing] = useState(null) // id del rol, 'new' o null
   const roles = sortRoles(rolesOf(profile))
   const editable = !!onChange

@@ -27,7 +27,7 @@ function Shell({ children }) {
   return (
     <div className="ficha">
       <main className="ficha-card">{children}</main>
-      <p className="ficha-footer">CESI · Solo ves los huecos libres; tus datos solo los recibe quien te envió el enlace.</p>
+      <p className="ficha-footer">CIFA · Solo ves los huecos libres; tus datos solo los recibe quien te envió el enlace.</p>
     </div>
   )
 }

@@ -15,7 +15,7 @@ import {
   saveWorkingHours as storageSaveWorkingHours,
 } from '../lib/availability'
 
-// Fuente de datos propia de CESI (localStorage).
+// Fuente de datos propia de CIFA (localStorage).
 export function useLocalCalendar(range) {
   const [rawEvents, setRawEvents] = useState(() => getAllEvents())
   const [workingHours, setWorkingHoursState] = useState(() => getWorkingHours())

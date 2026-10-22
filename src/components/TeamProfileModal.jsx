@@ -18,7 +18,7 @@ const NEW_AREA = '__new__'
  * mismo; se guardan en el contacto, una sola vez). Debajo, lo propio del equipo: estado, frase,
  * «Sobre esta persona» (texto libre) y enlaces. onSave({ contactPatch, teamProfile }).
  * Al crear el perfil se piden también el cargo, el departamento y la fecha de inicio, que son la
- * primera entrada de su trayectoria en CESI; después se cambian desde la trayectoria, en su ficha.
+ * primera entrada de su trayectoria en CIFA; después se cambian desde la trayectoria, en su ficha.
  * `initialProfile` permite abrirlo ya rellenado (p. ej. al incorporar a un candidato); si no hay
  * perfil, se parte del cargo del contacto, hoy como inicio y sus enlaces.
  */
@@ -135,7 +135,7 @@ export default function TeamProfileModal({
         <div className="event-form-body">
           {!isNew && seed.status !== 'former' && (
             <p className="team-fieldset-hint">
-              El cargo y el departamento se cambian en «Trayectoria en CESI», en su ficha del equipo.
+              El cargo y el departamento se cambian en «Trayectoria en CIFA», en su ficha del equipo.
             </p>
           )}
           {isNew && (

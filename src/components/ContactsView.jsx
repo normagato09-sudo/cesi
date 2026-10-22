@@ -45,7 +45,7 @@ function subtitleOf(contact) {
 }
 
 // Antiguo miembro del equipo (ya no sale en Equipo): en su ficha de contacto, su trayectoria con
-// el tiempo total en CESI y sus enlaces, solo para ver. Se cambian con «Editar perfil de equipo».
+// el tiempo total en CIFA y sus enlaces, solo para ver. Se cambian con «Editar perfil de equipo».
 function FormerMemberInfo({ contact, now }) {
   const p = contact.teamProfile
   const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)

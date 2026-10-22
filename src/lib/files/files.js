@@ -1,7 +1,7 @@
 import { makeId } from '../store'
 import { idbDelete, idbGet, idbKeys, idbPut } from './idb'
 
-// Archivos de CESI (fotos de contactos y CV de candidatos).
+// Archivos de CIFA (fotos de contactos y CV de candidatos).
 //
 // En los documentos solo se guarda una referencia:
 //   { store: 'cloud',  path: '{user_id}/photos/{id}.webp', type, name, size }  → Supabase Storage

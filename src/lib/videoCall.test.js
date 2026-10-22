@@ -40,8 +40,8 @@ describe('videollamada', () => {
 
   it('enlace según dónde se hace la reunión', () => {
     const fixed = () => new Uint8Array(12)
-    expect(jitsiLink(fixed)).toBe('https://meet.jit.si/CESI-aaaaaaaaaaaa')
-    expect(jitsiLink()).toMatch(/^https:\/\/meet\.jit\.si\/CESI-[A-Za-z0-9]{12}$/)
+    expect(jitsiLink(fixed)).toBe('https://meet.jit.si/CIFA-aaaaaaaaaaaa')
+    expect(jitsiLink()).toMatch(/^https:\/\/meet\.jit\.si\/CIFA-[A-Za-z0-9]{12}$/)
     expect(jitsiLink()).not.toBe(jitsiLink())
     expect(meetingLinkFor('zoom', rooms)).toBe(rooms.zoom)
     expect(meetingLinkFor('meet', rooms)).toBe('')
@@ -67,8 +67,8 @@ describe('videollamada', () => {
       reason: 'Hablar',
       meeting_place: 'jitsi',
     }
-    const msg = decisionMessage(request, 'accepted', { meetLink: 'https://meet.jit.si/CESI-x' })
-    expect(msg.text).toContain('Será por Jitsi Meet: https://meet.jit.si/CESI-x')
+    const msg = decisionMessage(request, 'accepted', { meetLink: 'https://meet.jit.si/CIFA-x' })
+    expect(msg.text).toContain('Será por Jitsi Meet: https://meet.jit.si/CIFA-x')
     expect(requestDescription(request)).toContain('Dónde: Jitsi Meet')
   })
 })

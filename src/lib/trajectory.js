@@ -3,13 +3,13 @@ import { es } from 'date-fns/locale'
 import { makeId } from './store'
 import { calendarSpan, spanText } from './duration'
 
-// Trayectoria en CESI: historial de roles de un miembro del equipo, en teamProfile.roles:
+// Trayectoria en CIFA: historial de roles de un miembro del equipo, en teamProfile.roles:
 //   [{ id, role, area (el departamento), start: 'AAAA-MM-DD' | null, end: 'AAAA-MM-DD' | null }]
 // end null = rol actual. Puede haber varios roles actuales a la vez.
 // teamProfile.role y teamProfile.area guardan una copia del rol principal (el actual más
 // reciente) para la búsqueda, las tarjetas y las copias de seguridad; se recalculan con withRoles.
 //
-// Tiempo en CESI: se juntan los periodos de todos los roles (lo que se solapa cuenta una sola
+// Tiempo en CIFA: se juntan los periodos de todos los roles (lo que se solapa cuenta una sola
 // vez, los huecos no cuentan) hasta hoy. Los roles sin fecha de inicio no suman.
 // Solo se ve en la app: ninguna página pública lo usa.
 
@@ -73,14 +73,14 @@ const DATED_LINE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:[–—-]|:)\s*(.+)$/
 
 // Frases que dicen qué rol empezó en esa fecha (el rol, en el grupo 1).
 const ROLE_PHRASES = [
-  /^se (?:incorporó|incorpora|unió|une)(?: al equipo| a cesi)? como (.+)$/i,
+  /^se (?:incorporó|incorpora|unió|une)(?: al equipo| a (?:cesi|cifa))? como (.+)$/i,
   /^(?:empezó|empieza|comenzó|entró) como (.+)$/i,
   /^(?:pasó|pasa) a (?:ser )?(.+)$/i,
   /^(?:ascendió|asciende|ascendid[oa]|promocionó|promocionad[oa]) (?:a|como) (.+)$/i,
   /^(?:nombrad[oa]|nuevo rol:?|nuevo cargo:?|ahora es|cambi(?:ó|o) de rol a|cambio de rol a|rol:) (.+)$/i,
 ]
 // Se incorporó sin decir el rol: vale el cargo de la ficha si es la última línea.
-const JOINED_NO_ROLE = /^se (?:incorporó|incorpora|unió|une) (?:al equipo|a cesi)$/i
+const JOINED_NO_ROLE = /^se (?:incorporó|incorpora|unió|une) (?:al equipo|a (?:cesi|cifa))$/i
 
 function dateKey(d, m, y) {
   const date = new Date(Number(y), Number(m) - 1, Number(d))
@@ -285,7 +285,7 @@ export function mergedRanges(roles, now = new Date()) {
 }
 
 /**
- * Tiempo total en CESI: { span: { months, days } | null, days (para ordenar), missingStart }.
+ * Tiempo total en CIFA: { span: { months, days } | null, days (para ordenar), missingStart }.
  * Cada periodo se mide por calendario y se suman; cada 30 días que sobran cuentan como un mes.
  */
 export function tenure(profile, now = new Date()) {
@@ -307,9 +307,9 @@ export function tenure(profile, now = new Date()) {
   return { span: { months, days }, days: total, missingStart }
 }
 
-// "1 año y 7 meses en CESI" ('' sin ningún rol con fecha).
+// "1 año y 7 meses en CIFA" ('' sin ningún rol con fecha).
 export function tenureText(t) {
-  return t.span ? `${spanText(t.span)} en CESI` : ''
+  return t.span ? `${spanText(t.span)} en CIFA` : ''
 }
 
 // Aviso de los roles sin fecha de inicio ('' si no falta ninguna).
@@ -350,7 +350,7 @@ export function roleDurationText(role, now = new Date()) {
 
 /**
  * Resumen para una candidatura de alguien que ya es (o fue) del equipo, o null:
- * "Ya es del equipo: Moderadora desde el 3 de febrero de 2025 · 1 año y 7 meses en CESI".
+ * "Ya es del equipo: Moderadora desde el 3 de febrero de 2025 · 1 año y 7 meses en CIFA".
  */
 export function memberSummary(contact, now = new Date()) {
   const profile = contact?.teamProfile

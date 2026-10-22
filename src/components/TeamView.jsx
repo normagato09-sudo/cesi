@@ -275,7 +275,7 @@ function ArchiveMemberDialog({ contact, onCancel, onConfirm }) {
         <div className="availability-scroll team-archive-body">
           <p>
             Dejará de estar en el equipo: pasa a antiguo miembro y a Contactos › Archivados. Se conserva todo (trayectoria,
-            tiempo en CESI, candidaturas, notas, reuniones y tareas).
+            tiempo en CIFA, candidaturas, notas, reuniones y tareas).
           </p>
           <label className="event-form-field">
             <span>Fecha de salida</span>

@@ -40,7 +40,7 @@ describe('trayectoria en texto → roles', () => {
       role: 'Jefe de Ciberseguridad',
       bio: '24/2/2026 — Se incorporó como Profesor.\n27/9/2026 — Pasó a ser Jefe de Ciberseguridad.',
     })
-    expect(tenureText(tenure(migrated, now))).toBe('7 meses y 5 días en CESI')
+    expect(tenureText(tenure(migrated, now))).toBe('7 meses y 5 días en CIFA')
     expect(migrated).toMatchObject({ role: 'Jefe de Ciberseguridad', bio: '' })
   })
 
@@ -99,7 +99,7 @@ describe('trayectoria en texto → roles', () => {
     ])
     expect(both).toMatchObject({ role: 'Jefe de Ciberseguridad', area: 'Ciberseguridad' })
     // Lo que se solapa cuenta una sola vez.
-    expect(tenureText(tenure(both, now))).toBe('7 meses y 5 días en CESI')
+    expect(tenureText(tenure(both, now))).toBe('7 meses y 5 días en CIFA')
 
     const replaced = migrateRoles(profile, { areas: { Profesor: 'Profesores' } })
     expect(replaced.roles[1]).toMatchObject({ role: 'Profesor', area: 'Profesores', end: '2026-09-27' })

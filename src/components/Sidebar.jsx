@@ -30,7 +30,7 @@ export default function Sidebar({
     <aside className={`sidebar section-${section}`}>
       <div className="sidebar-brand">
         <span className="sidebar-logo">C</span>
-        <span className="sidebar-title">CESI</span>
+        <span className="sidebar-title">CIFA</span>
       </div>
 
       <nav className="sidebar-nav" aria-label="Secciones">

@@ -1,4 +1,4 @@
-// Utilidades de almacenamiento en localStorage para los datos de CESI.
+// Utilidades de almacenamiento en localStorage para los datos de CIFA.
 
 export function readJSON(key, fallback) {
   try {

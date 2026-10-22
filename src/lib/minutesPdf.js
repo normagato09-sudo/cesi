@@ -1,5 +1,5 @@
 // PDF del acta (ver minutes.js) con jsPDF, que se carga solo al descargarlo. A4, Helvetica (lleva
-// acentos, ñ, ¿ y «»), cabecera con CESI, secciones y pie con el número de página.
+// acentos, ñ, ¿ y «»), cabecera con CIFA, secciones y pie con el número de página.
 
 const PAGE_W = 210
 const PAGE_H = 297
@@ -56,7 +56,7 @@ export async function buildMinutesPdf(data) {
   // Cabecera
   font('bold', 20)
   color(ACCENT)
-  doc.text('CESI', MARGIN, y + 7)
+  doc.text('CIFA', MARGIN, y + 7)
   font('normal', 10)
   color(MUTED)
   doc.text('Acta de reunión', PAGE_W - MARGIN, y + 7, { align: 'right' })
@@ -176,7 +176,7 @@ export async function buildMinutesPdf(data) {
     doc.setDrawColor(...LINE)
     doc.setLineWidth(0.2)
     doc.line(MARGIN, PAGE_H - 14, PAGE_W - MARGIN, PAGE_H - 14)
-    const footer = doc.splitTextToSize(`CESI · Acta de «${data.title}»`, CONTENT_W - 30)[0]
+    const footer = doc.splitTextToSize(`CIFA · Acta de «${data.title}»`, CONTENT_W - 30)[0]
     doc.text(footer, MARGIN, PAGE_H - 9)
     doc.text(`Página ${p} de ${pages}`, PAGE_W - MARGIN, PAGE_H - 9, { align: 'right' })
   }

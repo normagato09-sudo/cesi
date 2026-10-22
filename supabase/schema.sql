@@ -1,4 +1,4 @@
--- Esquema de Supabase para sincronizar CESI entre dispositivos.
+-- Esquema de Supabase para sincronizar CIFA entre dispositivos.
 --
 -- Se ejecuta entero en Supabase → SQL Editor. Se puede volver a ejecutar sin perder datos
 -- (también actualiza una base creada con una versión anterior de este archivo).
@@ -49,7 +49,7 @@ create table if not exists public.events (
 --         teamProfile (miembros del equipo): { status: 'active' | 'former', leftAt,
 --           formerGroupHandled (ya se le metió en el grupo «Antiguos miembros» o se decidió no hacerlo),
 --           keepActive (sigue en el equipo aunque tenga todos sus roles terminados),
---           roles: trayectoria en CESI [{ id, role, area, start, end }] (end null = rol actual),
+--           roles: trayectoria en CIFA [{ id, role, area, start, end }] (end null = rol actual),
 --           role, area (copia del rol principal), joinedAt (fecha de incorporación antigua),
 --           bio («Sobre esta persona», texto libre), quote (frase personal, hasta 150), links: [{ id, label, url }] (una sola
 --           lista, redes incluidas), cv (si vino de una candidatura) },

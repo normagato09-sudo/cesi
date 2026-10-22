@@ -1,6 +1,6 @@
 import { addMonths, differenceInCalendarDays } from 'date-fns'
 
-// Duraciones por calendario (antigüedad, tiempo en CESI y duración de cada rol).
+// Duraciones por calendario (antigüedad, tiempo en CIFA y duración de cada rol).
 
 export function plural(n, one, many) {
   return `${n} ${n === 1 ? one : many}`

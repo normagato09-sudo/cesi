@@ -39,7 +39,7 @@ export default function LoginScreen({ onSignIn }) {
       <form className="login-card" onSubmit={handleSubmit} noValidate data-reload-safe>
         <div className="login-brand">
           <span className="sidebar-logo">C</span>
-          <span className="login-brand-name">CESI</span>
+          <span className="login-brand-name">CIFA</span>
         </div>
         <h1>Iniciar sesión</h1>
         <p className="login-hint">Entra con tu cuenta para tener los mismos datos en el móvil y en el ordenador.</p>

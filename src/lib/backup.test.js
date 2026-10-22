@@ -139,7 +139,7 @@ describe('copia de seguridad', () => {
     expect(getTeamAreas()).toEqual(DEFAULT_AREAS)
   })
 
-  it('rechaza archivos que no son de CESI', () => {
+  it('rechaza archivos que no son de CIFA', () => {
     expect(() => parseBackup('{"app":"otra"}')).toThrow(/no es una copia/)
     expect(() => parseBackup('no json')).toThrow(/JSON/)
   })

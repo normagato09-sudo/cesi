@@ -65,7 +65,7 @@ describe('aceptar a alguien que ya es del equipo', () => {
 describe('trayectoria y candidaturas en pantalla', () => {
   it('la trayectoria muestra los dos roles actuales y el tiempo total sin contar dos veces', () => {
     const html = render(TeamTrajectory, { profile: member.teamProfile, now })
-    expect(html).toContain('7 meses y 5 días en CESI')
+    expect(html).toContain('7 meses y 5 días en CIFA')
     expect(html.match(/trajectory-badge/g)).toHaveLength(2)
   })
 

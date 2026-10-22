@@ -14,7 +14,7 @@ export { calendarSpan }
 //   status: 'active' | 'former', leftAt: 'AAAA-MM-DD' | null (ver formerMembers.js: los antiguos
 //           miembros no salen en Equipo; formerGroupHandled y keepActive son de ahí),
 //   role, area (el departamento): copia del rol principal de `roles`,
-//   roles: trayectoria en CESI, el historial de roles (ver trajectory.js),
+//   roles: trayectoria en CIFA, el historial de roles (ver trajectory.js),
 //   joinedAt: 'AAAA-MM-DD' fecha de incorporación (la de versiones anteriores; se ofrece como
 //             fecha de inicio de los roles que no la tienen),
 //   bio: «Sobre esta persona» (texto libre, con saltos de línea; antes se llamaba trayectoria),
@@ -177,7 +177,7 @@ export const MEMBER_SORTS = { name: 'Nombre', tenure: 'Antigüedad' }
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })
 
 // Miembros de la sección Equipo: solo los activos (los antiguos miembros están en Contactos).
-// sort: 'name' o 'tenure' (más tiempo en CESI primero; quien no tiene ningún rol con fecha, al final).
+// sort: 'name' o 'tenure' (más tiempo en CIFA primero; quien no tiene ningún rol con fecha, al final).
 export function filterMembers(contacts, { query = '', area = '', sort = 'name', now = new Date() } = {}) {
   const list = contacts
     .filter(isActiveMember)

@@ -70,14 +70,14 @@ export function buildBackup() {
   }
 }
 
-// Descarga un JSON cesi-copia-AAAA-MM-DD.json con todos los datos de este navegador.
+// Descarga un JSON cifa-copia-AAAA-MM-DD.json con todos los datos de este navegador.
 export function downloadBackup() {
   const backup = buildBackup()
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `cesi-copia-${format(new Date(), 'yyyy-MM-dd')}.json`
+  link.download = `cifa-copia-${format(new Date(), 'yyyy-MM-dd')}.json`
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -94,7 +94,7 @@ export function parseBackup(text) {
     throw new Error('El archivo no es un JSON válido.')
   }
   if (!data || typeof data !== 'object' || data.app !== 'cesi') {
-    throw new Error('El archivo no es una copia de seguridad de CESI.')
+    throw new Error('El archivo no es una copia de seguridad de CIFA.')
   }
   if (!Array.isArray(data.events) || !Array.isArray(data.contacts)) {
     throw new Error('La copia está incompleta: faltan las reuniones o los contactos.')

@@ -78,9 +78,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/ficha\//, /^\/confirmar\//, /^\/reservar\//],
       },
       manifest: {
-        name: 'CESI',
-        short_name: 'CESI',
-        description: 'Gestión de reuniones y disponibilidad de CESI',
+        name: 'CIFA',
+        short_name: 'CIFA',
+        description: 'Gestión de reuniones y disponibilidad de CIFA',
         theme_color: '#2563eb',
         background_color: '#f7f8fa',
         display: 'standalone',
