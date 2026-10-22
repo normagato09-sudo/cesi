@@ -105,7 +105,15 @@ export default function ReservarPage() {
   const days = useMemo(
     () =>
       data && minutes
-        ? bookingDays({ until: data.until, free: data.free, daysOff: data.daysOff, minutes, stepMinutes: data.stepMinutes, tz })
+        ? bookingDays({
+            until: data.until,
+            free: data.free,
+            daysOff: data.daysOff,
+            minutes,
+            stepMinutes: data.stepMinutes,
+            tz,
+            ownerTz: data.timeZone || null,
+          })
         : [],
     [data, minutes, tz],
   )

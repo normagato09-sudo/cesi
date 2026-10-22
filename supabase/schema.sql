@@ -423,6 +423,8 @@ create policy "contact_links: borrar los míos" on public.contact_links
   for delete to authenticated using ((select auth.uid()) = user_id);
 
 -- ¿Es un horario semanal válido (o null)? [{ day: 0..6, enabled, slots: [{ start: 'HH:mm', end }] }]
+-- Horas de 00:00 a 23:59 (no vale 24:00) y, en los días activos, cada franja termina después de
+-- empezar: ninguna cruza la medianoche.
 create or replace function public.cesi_valid_week(p_week jsonb)
 returns boolean
 language plpgsql
@@ -433,7 +435,7 @@ declare
   e jsonb;
   s jsonb;
   seen int[] := '{}';
-  hhmm constant text := '^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$';
+  hhmm constant text := '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 begin
   if p_week is null or jsonb_typeof(p_week) = 'null' then
     return true;
@@ -469,6 +471,9 @@ begin
       end if;
       if jsonb_typeof(s -> 'start') is distinct from 'string' or jsonb_typeof(s -> 'end') is distinct from 'string'
         or (s ->> 'start') !~ hhmm or (s ->> 'end') !~ hhmm then
+        return false;
+      end if;
+      if (e ->> 'enabled')::boolean and (s ->> 'end')::time <= (s ->> 'start')::time then
         return false;
       end if;
     end loop;
@@ -1137,7 +1142,8 @@ $$;
 
 -- Pide una reunión. Lo vuelve a comprobar todo: enlace activo, duración permitida, inicio en
 -- punto (cada step_minutes), antelación mínima, hueco libre (también frente a otras solicitudes,
--- con un bloqueo para que dos personas no reserven el mismo hueco a la vez), datos y límites
+-- con un bloqueo para que dos personas no reserven el mismo hueco a la vez), que no cruce la
+-- medianoche en mi zona (acaba como muy tarde a las 23:59 del día en que empieza), datos y límites
 -- antispam (5 pendientes por email o teléfono y 20 en total). Errores (en el mensaje):
 -- invalid_link, invalid_slot, slot_taken, name_required, contact_required, invalid_email,
 -- invalid_phone, reason_required, too_many, invalid_place (una opción de dónde hacer la reunión que el
@@ -1171,6 +1177,7 @@ declare
   v_reason text := btrim(coalesce(p_reason, ''));
   v_zone text := btrim(coalesce(p_time_zone, ''));
   v_place text := btrim(coalesce(p_place, ''));
+  v_owner_zone text;
   v_id uuid;
 begin
   if p_token is null or length(p_token) > 100 then
@@ -1215,6 +1222,11 @@ begin
     raise exception 'invalid_slot';
   end if;
   v_end := p_start + make_interval(mins => p_minutes);
+  -- Una reunión que acaba a las 00:00 o más tarde ya es del día siguiente en mi zona.
+  v_owner_zone := public.cesi_booking_zone(v_link);
+  if (p_start at time zone v_owner_zone)::date <> (v_end at time zone v_owner_zone)::date then
+    raise exception 'invalid_slot';
+  end if;
 
   -- Una reserva a la vez por usuario: así dos personas no pueden coger el mismo hueco.
   perform pg_advisory_xact_lock(hashtextextended('cesi_booking:' || v_link.user_id::text, 0));

@@ -1,7 +1,7 @@
 import { addDays, startOfDay, endOfDay, startOfWeek } from 'date-fns'
 import { expandEvents } from './recurrence'
 import { getWorkingHours } from './availability'
-import { slotIntervalsOn, timeToMinutes } from './weeklySchedule'
+import { DAY_END, DAY_END_MINUTES, clampEnd, slotIntervalsOn, timeToMinutes } from './weeklySchedule'
 import { intersectIntervals, mergeIntervals, subtractIntervals } from './intervals'
 import { blockingMessage, commonAvailability, hasAvailability } from './contactAvailability'
 import { involvesAttendees, isNotAttending } from './notAttending'
@@ -37,7 +37,8 @@ function scoreCandidate(slotEnd, gap) {
 /**
  * Busca huecos libres de `durationMinutes` entre fromDate y toDate (incl.).
  * Es estricto: solo propone huecos dentro de las franjas de mi horario (`workingHours`, el mismo
- * todas las semanas), y además dentro de [minTime, maxTime) si se indican.
+ * todas las semanas), y además dentro de [minTime, maxTime) si se indican. Ningún hueco pasa de
+ * las 23:59 de su día (en mi hora): no se proponen reuniones que crucen la medianoche.
  * Bloquean: las franjas "No disponible" (las de todo el día, el día entero), mis reuniones (también
  * las de todo el día y las opciones provisionales) y `requests`, las solicitudes del enlace de
  * reservas pendientes ([{ start, end }]).
@@ -53,7 +54,7 @@ export function findSlots({
   fromDate,
   toDate,
   minTime = '00:00',
-  maxTime = '24:00',
+  maxTime = DAY_END,
   events,
   workingHours = getWorkingHours(),
   requests = [],
@@ -79,9 +80,10 @@ export function findSlots({
   for (let day = startOfDay(fromDate); day <= rangeEnd; day = addDays(day, 1)) {
     if (!notAttending && isDayFullyUnavailable(occurrences, day)) continue
 
-    const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(maxTime)) }]
-    const future = [{ start: now > day ? now : day, end: endOfDay(day) }]
-    const mine = notAttending ? [{ start: day, end: addDays(day, 1) }] : slotIntervalsOn(workingHours, day)
+    const dayEnd = atMinutes(day, DAY_END_MINUTES)
+    const filter = [{ start: atMinutes(day, timeToMinutes(minTime)), end: atMinutes(day, timeToMinutes(clampEnd(maxTime))) }]
+    const future = [{ start: now > day ? now : day, end: dayEnd }]
+    const mine = notAttending ? [{ start: day, end: dayEnd }] : slotIntervalsOn(workingHours, day)
     let windows = intersectIntervals(intersectIntervals(mine, filter), future)
     // Disponibilidad de los participantes, convertida desde su zona horaria a la mía.
     const theirs = commonAvailability(participants, day, addDays(day, 1))

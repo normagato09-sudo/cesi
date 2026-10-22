@@ -9,6 +9,7 @@ import { MeetingWarningError } from '../lib/meetingWarnings'
 import { SCOPES } from '../lib/seriesEdits'
 import { hasCandidateParticipant, isInterview } from '../lib/vacancies'
 import { UNAVAILABLE_KINDS, allDaySpanDays, cleanNote, unavailableKindOf, unavailableNoteOf, unavailableTitle } from '../lib/unavailableKinds'
+import { DAY_END, DAY_END_MINUTES } from '../lib/weeklySchedule'
 import MeetingWarning from './MeetingWarning.jsx'
 import MeetLinkField from './MeetLinkField.jsx'
 import './EventFormModal.css'
@@ -39,6 +40,12 @@ function toTimeInputValue(date) {
   return format(date, 'HH:mm')
 }
 
+// Hora de fin para el formulario. Si la reunión acaba otro día (p. ej. a las 00:00 del siguiente,
+// guardada antes del límite), cuenta como las 23:59 del día en que empieza.
+function toEndTimeInputValue(start, end) {
+  return toDateInputValue(end) === toDateInputValue(start) ? toTimeInputValue(end) : DAY_END
+}
+
 function combineDateAndTime(dateStr, timeStr) {
   const [year, month, day] = dateStr.split('-').map(Number)
   const [hours, minutes] = timeStr.split(':').map(Number)
@@ -50,9 +57,10 @@ function startOfDateInput(dateStr) {
   return new Date(year, month - 1, day, 0, 0, 0, 0)
 }
 
+// Fin a `minutes` del inicio, sin pasar de las 23:59: no da la vuelta al día siguiente.
 function addMinutesToTime(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number)
-  const total = ((h * 60 + m + minutes) % 1440 + 1440) % 1440
+  const total = Math.max(0, Math.min(h * 60 + m + minutes, DAY_END_MINUTES))
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
@@ -110,9 +118,9 @@ export default function EventFormModal({
   const [kind, setKind] = useState(initialKind)
   const savedNote = seed.isUnavailable ? unavailableNoteOf(seed) : ''
   const [startTime, setStartTime] = useState(toTimeInputValue(baseStart))
-  const [endTime, setEndTime] = useState(toTimeInputValue(baseEnd))
+  const [endTime, setEndTime] = useState(toEndTimeInputValue(baseStart, baseEnd))
 
-  const initialDiff = diffMinutes(toTimeInputValue(baseStart), toTimeInputValue(baseEnd))
+  const initialDiff = diffMinutes(toTimeInputValue(baseStart), toEndTimeInputValue(baseStart, baseEnd))
   const presetMatch = DURATION_OPTIONS.find((o) => o.value !== 'custom' && Number(o.value) === initialDiff)
   const [durationChoice, setDurationChoice] = useState(presetMatch ? presetMatch.value : 'custom')
   const [customDuration, setCustomDuration] = useState(initialDiff > 0 ? initialDiff : 60)
@@ -163,7 +171,7 @@ export default function EventFormModal({
     if ('interview' in options) setInterview(!!options.interview)
     setDate(toDateInputValue(slot.start))
     setStartTime(toTimeInputValue(slot.start))
-    setEndTime(toTimeInputValue(slot.end))
+    setEndTime(toEndTimeInputValue(slot.start, slot.end))
     setSlotFinderOpen(false)
   }
 
@@ -232,7 +240,7 @@ export default function EventFormModal({
       end = combineDateAndTime(date, endTime)
     }
     if (end <= start) {
-      setFormError('La hora de finalización debe ser posterior a la de inicio.')
+      setFormError('La hora de fin tiene que ser posterior a la de inicio y como muy tarde las 23:59 del mismo día.')
       return
     }
 
@@ -433,7 +441,7 @@ export default function EventFormModal({
 
               <label className="event-form-field">
                 <span>Hora de fin</span>
-                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <input type="time" value={endTime} max={DAY_END} onChange={(e) => setEndTime(e.target.value)} />
               </label>
 
               {!isUnavailable && (

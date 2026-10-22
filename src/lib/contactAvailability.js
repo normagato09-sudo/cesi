@@ -1,4 +1,4 @@
-import { WEEKDAY_DISPLAY_ORDER, normalizeWeek, timeToMinutes } from './weeklySchedule'
+import { WEEKDAY_DISPLAY_ORDER, clampEnd, normalizeWeek, timeToMinutes } from './weeklySchedule'
 import {
   SPAIN_ZONE,
   wallTime,
@@ -44,7 +44,8 @@ function instant(date, minutes, tz) {
 /**
  * Franjas en las que el contacto está disponible dentro de [from, to), como instantes
  * (Date) listos para compararlos con mi calendario. Convierte cada franja desde la zona del
- * contacto con Intl, así que respeta el horario de verano de los dos países.
+ * contacto con Intl, así que respeta el horario de verano de los dos países. Cada franja acaba
+ * como muy tarde a las 23:59 en la zona del contacto; en mi hora sí puede caer en otro día.
  * Devuelve null si el contacto no tiene disponibilidad (= no restringe).
  */
 export function availabilityIntervals(contact, from, to) {
@@ -56,7 +57,7 @@ export function availabilityIntervals(contact, from, to) {
     const entry = week.find((w) => w.day === date.weekday)
     if (!entry?.enabled) continue
     for (const slot of entry.slots) {
-      intervals.push({ start: instant(date, timeToMinutes(slot.start), tz), end: instant(date, timeToMinutes(slot.end), tz) })
+      intervals.push({ start: instant(date, timeToMinutes(slot.start), tz), end: instant(date, timeToMinutes(clampEnd(slot.end)), tz) })
     }
   }
   return intersectIntervals(mergeIntervals(intervals), [{ start: from, end: to }])

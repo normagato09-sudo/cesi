@@ -84,6 +84,7 @@ import { computeSummary } from './lib/summary.js'
 import { computeWeeklyReport, weekStartOf } from './lib/weeklyReport.js'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability } from './lib/weeklyAvailability.js'
 import { getPreferences, savePreferences } from './lib/preferences.js'
+import { DAY_END_MINUTES } from './lib/weeklySchedule.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
 import { useBookings } from './hooks/useBookings.js'
 import { bookingContactData, bookingLinkUrl, decideRequest, matchContact, requestDescription, requestTitle } from './lib/bookings.js'
@@ -780,7 +781,10 @@ export default function App() {
   const handleSlotClick = (day, hour) => {
     const start = new Date(day)
     start.setHours(hour, 0, 0, 0)
-    const end = new Date(start.getTime() + 60 * 60 * 1000)
+    // 1 hora, sin pasar de las 23:59 (a las 23:00: de 23:00 a 23:59).
+    const dayEnd = new Date(day)
+    dayEnd.setHours(0, DAY_END_MINUTES, 0, 0)
+    const end = new Date(Math.min(start.getTime() + 60 * 60 * 1000, dayEnd.getTime()))
     setFormModal({ mode: 'meeting', editingEvent: null, prefill: { start, end } })
   }
 

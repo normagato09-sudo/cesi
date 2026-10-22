@@ -8,6 +8,7 @@ import { ParticipantList } from './Participant.jsx'
 import { MAX_OPTIONS, MIN_OPTIONS, proposalShareData } from '../lib/proposals'
 import { explainNoSlots, findFirstSlot, findBestSlot, findMultipleSlots } from '../lib/findSlots'
 import { hasAvailability } from '../lib/contactAvailability'
+import { DAY_END } from '../lib/weeklySchedule'
 import { hasCandidateParticipant } from '../lib/vacancies'
 import { useScheduling } from '../lib/schedulingContext'
 import './FindSlotModal.css'
@@ -72,7 +73,7 @@ export default function FindSlotModal({
     fromDate: new Date(`${fromDate}T00:00:00`),
     toDate: new Date(`${toDate}T00:00:00`),
     minTime: minTime || '00:00',
-    maxTime: maxTime || '24:00',
+    maxTime: maxTime || DAY_END,
     events: rawEvents,
     workingHours,
     requests: bookingRequests,
@@ -90,8 +91,8 @@ export default function FindSlotModal({
 
   const runSearch = (mode, ignored = ignoredIds) => {
     setSearchError(null)
-    if (minTime && maxTime && maxTime <= minTime) {
-      setSearchError('La hora máxima debe ser posterior a la mínima.')
+    if (maxTime && maxTime <= (minTime || '00:00')) {
+      setSearchError('La hora «Hasta» tiene que ser posterior a «Solo desde» y como muy tarde las 23:59.')
       setResults(null)
       return
     }
@@ -268,7 +269,7 @@ export default function FindSlotModal({
             </label>
             <label className="find-slot-field">
               <span>Hasta (opcional)</span>
-              <input type="time" value={maxTime} onChange={(e) => setMaxTime(e.target.value)} />
+              <input type="time" value={maxTime} max={DAY_END} onChange={(e) => setMaxTime(e.target.value)} />
             </label>
           </div>
 

@@ -16,7 +16,7 @@ describe('horario semanal', () => {
 
   it('valida franjas solapadas o invertidas', () => {
     expect(validateWeek(week({ 1: [{ start: '09:00', end: '14:00' }, { start: '13:00', end: '18:00' }] }))).toMatch(/se solapan/)
-    expect(validateWeek(week({ 2: [{ start: '12:00', end: '10:00' }] }))).toMatch(/terminar después/)
+    expect(validateWeek(week({ 2: [{ start: '12:00', end: '10:00' }] }))).toMatch(/posterior al inicio/)
     expect(validateWeek(week({ 3: [{ start: '09:00', end: '14:00' }, { start: '16:00', end: '19:00' }] }))).toBeNull()
   })
 

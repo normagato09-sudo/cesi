@@ -227,3 +227,18 @@
     font-size: 14px;
   }
 }
+
+.weekly-editor-slot-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.weekly-editor-slot input[type='time'][aria-invalid='true'] {
+  border-color: #dc2626;
+}
+.weekly-editor-slot-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #b91c1c;
+}

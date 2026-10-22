@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { Copy, Plus, X } from 'lucide-react'
-import { WEEKDAY_DISPLAY_ORDER, WEEKDAY_LABELS, copyDay, minutesToTime, timeToMinutes } from '../lib/weeklySchedule'
+import {
+  DAY_END,
+  DAY_END_MINUTES,
+  SLOT_RULE,
+  WEEKDAY_DISPLAY_ORDER,
+  WEEKDAY_LABELS,
+  copyDay,
+  isValidSlot,
+  minutesToTime,
+  timeToMinutes,
+} from '../lib/weeklySchedule'
 import './WeeklyScheduleEditor.css'
 
 const DEFAULT_SLOT = { start: '09:00', end: '18:00' }
@@ -10,7 +20,7 @@ function nextSlotAfter(slots) {
   if (slots.length === 0) return DEFAULT_SLOT
   const lastEnd = timeToMinutes(slots[slots.length - 1].end)
   const start = Math.min(lastEnd + 60, LAST_START)
-  return { start: minutesToTime(start), end: minutesToTime(Math.min(start + 120, 23 * 60 + 59)) }
+  return { start: minutesToTime(start), end: minutesToTime(Math.min(start + 120, DAY_END_MINUTES)) }
 }
 
 const WORKDAYS = [1, 2, 3, 4, 5]
@@ -61,32 +71,44 @@ export default function WeeklyScheduleEditor({ value, onChange, copyable = false
             <div className="weekly-editor-slots">
               {!entry.enabled && <span className="weekly-editor-off-label">No disponible</span>}
               {entry.enabled &&
-                entry.slots.map((slot, index) => (
-                  <div key={index} className="weekly-editor-slot">
-                    <input
-                      type="time"
-                      value={slot.start}
-                      aria-label={`${WEEKDAY_LABELS[day]}: inicio de la franja ${index + 1}`}
-                      onChange={(e) => updateSlot(day, index, { start: e.target.value })}
-                    />
-                    <span className="weekly-editor-sep">–</span>
-                    <input
-                      type="time"
-                      value={slot.end}
-                      aria-label={`${WEEKDAY_LABELS[day]}: fin de la franja ${index + 1}`}
-                      onChange={(e) => updateSlot(day, index, { end: e.target.value })}
-                    />
-                    <button
-                      type="button"
-                      className="weekly-editor-icon-btn"
-                      onClick={() => removeSlot(day, index)}
-                      aria-label={`Quitar la franja ${slot.start}–${slot.end} del ${WEEKDAY_LABELS[day].toLowerCase()}`}
-                      title="Quitar franja"
-                    >
-                      <X size={14} strokeWidth={1.75} />
-                    </button>
-                  </div>
-                ))}
+                entry.slots.map((slot, index) => {
+                  const invalid = !isValidSlot(slot)
+                  return (
+                    <div key={index} className="weekly-editor-slot-wrap">
+                      <div className="weekly-editor-slot">
+                        <input
+                          type="time"
+                          value={slot.start}
+                          aria-label={`${WEEKDAY_LABELS[day]}: inicio de la franja ${index + 1}`}
+                          onChange={(e) => updateSlot(day, index, { start: e.target.value })}
+                        />
+                        <span className="weekly-editor-sep">–</span>
+                        <input
+                          type="time"
+                          value={slot.end}
+                          max={DAY_END}
+                          aria-invalid={invalid || undefined}
+                          aria-label={`${WEEKDAY_LABELS[day]}: fin de la franja ${index + 1}`}
+                          onChange={(e) => updateSlot(day, index, { end: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="weekly-editor-icon-btn"
+                          onClick={() => removeSlot(day, index)}
+                          aria-label={`Quitar la franja ${slot.start}–${slot.end} del ${WEEKDAY_LABELS[day].toLowerCase()}`}
+                          title="Quitar franja"
+                        >
+                          <X size={14} strokeWidth={1.75} />
+                        </button>
+                      </div>
+                      {invalid && (
+                        <p className="weekly-editor-slot-error" role="alert">
+                          {SLOT_RULE}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
               {entry.enabled && (
                 <div className="weekly-editor-row-actions">
                   <button type="button" className="weekly-editor-add" onClick={() => addSlot(day)}>

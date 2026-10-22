@@ -36,7 +36,8 @@ export const PUBLISH_EXTRA_WEEKS = 2
  * Lo que se publica para el enlace: { free: [[inicio, fin]] (ISO), daysOff: [{ date, kind }]
  * (vacaciones y festivos), horizonEnd (ISO), timeZone }, desde hoy hasta `horizonWeeks` +
  * PUBLISH_EXTRA_WEEKS semanas. Huecos = mi horario menos todas mis reuniones y franjas (también
- * las de todo el día y las provisionales), salvo las que organizo sin asistir.
+ * las de todo el día y las provisionales), salvo las que organizo sin asistir. Como mis franjas
+ * acaban como muy tarde a las 23:59, ningún hueco publicado cruza la medianoche.
  */
 export function bookingAvailability({
   rawEvents,

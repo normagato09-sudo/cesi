@@ -14,7 +14,7 @@ import { useEventPreview } from '../../hooks/useEventPreview'
 import EventPreview from './EventPreview.jsx'
 import './TimeGridView.css'
 import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
-import { slotsForDay, timeToMinutes } from '../../lib/weeklySchedule'
+import { DAY_END_MINUTES, clampEnd, slotsForDay, timeToMinutes } from '../../lib/weeklySchedule'
 import { eventTitle } from '../../lib/unavailableKinds'
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -123,15 +123,17 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
       }
       const dayStart = startOfDay(newStart)
       const durationMin = drag.duration / 60000
-      const minutesInto = Math.min(24 * 60 - durationMin, Math.max(0, (newStart - dayStart) / 60000))
+      // Sin pasar de las 23:59 de ese día.
+      const minutesInto = Math.min(DAY_END_MINUTES - durationMin, Math.max(0, (newStart - dayStart) / 60000))
       newStart = new Date(dayStart.getTime() + minutesInto * 60000)
       const newEnd = new Date(newStart.getTime() + drag.duration)
       setDragPreview({ id: drag.event.id, start: newStart, end: newEnd })
     } else {
-      const dayStart = startOfDay(drag.originalEnd)
+      // Un fin a las 00:00 (reuniones guardadas antes del límite) es del día anterior.
+      const dayStart = startOfDay(new Date(drag.originalEnd.getTime() - 1))
       const startMinutes = (drag.originalStart - dayStart) / 60000
       let endMinutes = (drag.originalEnd - dayStart) / 60000 + deltaMinutes
-      endMinutes = Math.max(startMinutes + SNAP_MINUTES, Math.min(24 * 60, endMinutes))
+      endMinutes = Math.min(DAY_END_MINUTES, Math.max(startMinutes + SNAP_MINUTES, endMinutes))
       const newEnd = new Date(dayStart.getTime() + endMinutes * 60000)
       setDragPreview({ id: drag.event.id, start: drag.originalStart, end: newEnd })
     }
@@ -236,7 +238,7 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
                     className="time-grid-schedule"
                     style={{
                       top: timeToMinutes(slot.start) * (HOUR_HEIGHT / 60),
-                      height: (timeToMinutes(slot.end) - timeToMinutes(slot.start)) * (HOUR_HEIGHT / 60),
+                      height: (timeToMinutes(clampEnd(slot.end)) - timeToMinutes(slot.start)) * (HOUR_HEIGHT / 60),
                     }}
                     aria-hidden="true"
                   />

@@ -48,15 +48,25 @@ function addDaysKey(key, n) {
   return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`
 }
 
+// ¿Acaba la reunión [start, start + minutes) el mismo día en que empieza, en la zona `tz`? Una
+// que acaba justo a las 00:00 ya cuenta como del día siguiente (el límite es las 23:59).
+export function endsSameDay(start, minutes, tz) {
+  return dayKeyIn(start, tz) === dayKeyIn(new Date(start.getTime() + minutes * 60000), tz)
+}
+
 // Inicios posibles (cada `stepMinutes`, en punto) de una reunión de `minutes` dentro de los huecos.
-export function slotStarts(free, minutes, stepMinutes) {
+// Con `ownerTz` (mi zona, la publicada) se quitan las que cruzarían la medianoche allí: así no se
+// ofrecen aunque lo publicado por una versión anterior junte dos días.
+export function slotStarts(free, minutes, stepMinutes, ownerTz = null) {
   const step = stepMinutes * 60000
   const length = minutes * 60000
   const starts = []
   for (const [from, to] of free || []) {
     const s = new Date(from).getTime()
     const e = new Date(to).getTime()
-    for (let t = Math.ceil(s / step) * step; t + length <= e; t += step) starts.push(new Date(t))
+    for (let t = Math.ceil(s / step) * step; t + length <= e; t += step) {
+      if (!ownerTz || endsSameDay(new Date(t), minutes, ownerTz)) starts.push(new Date(t))
+    }
   }
   return starts.sort((a, b) => a - b)
 }
@@ -70,12 +80,12 @@ export const DAY_OFF_TEXT = { vacation: 'No disponible: vacaciones', holiday: 'N
  * si es de vacaciones, `off` ('vacation'; 'holiday' en lo publicado antes), que se muestra sin huecos.
  * [{ key, label, off, slots: [{ start: Date, time: 'HH:mm' }] }]
  */
-export function bookingDays({ until = null, free = [], daysOff = [], minutes, stepMinutes = 30, tz, now = new Date() }) {
+export function bookingDays({ until = null, free = [], daysOff = [], minutes, stepMinutes = 30, tz, ownerTz = null, now = new Date() }) {
   const today = dayKeyIn(now, tz)
   const off = new Map(daysOff.map((d) => [d.date, d.kind]))
   const days = new Map()
   if (until) for (let key = today; key <= until; key = addDaysKey(key, 1)) days.set(key, [])
-  for (const start of slotStarts(free, minutes, stepMinutes)) {
+  for (const start of slotStarts(free, minutes, stepMinutes, ownerTz)) {
     const key = dayKeyIn(start, tz)
     if (!days.has(key)) days.set(key, [])
     days.get(key).push({ start, time: timeIn(start, tz) })
