@@ -1,0 +1,96 @@
+/* Alumnos: lo que no comparte con Contactos (ContactsView.css). */
+
+.students-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.students-country-filter select {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  max-width: 220px;
+}
+
+.students-newsletter-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.student-row-newsletter {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.student-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  font-size: 12.5px;
+}
+
+.student-availability {
+  margin-top: 4px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.student-availability th {
+  padding: 2px 16px 4px 0;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.student-availability td {
+  padding: 2px 16px 2px 0;
+  white-space: nowrap;
+}
+
+/* En mi hora cae en otro día que en la suya. */
+.student-availability td.other-day {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.student-availability-note,
+.student-muted {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.student-form-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.student-form-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.student-form-newsletter {
+  align-self: end;
+  padding-bottom: 8px;
+}

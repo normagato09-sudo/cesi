@@ -203,6 +203,39 @@ create table if not exists public.vacancies (
 );
 
 -- ---------------------------------------------------------------------------
+-- Alumnos (localStorage: cesi_students_v1)
+-- data: { name, email, phone (teléfono / WhatsApp),
+--         country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria),
+--         courseIds: ids de los cursos en los que está (tabla courses; la inscripción solo se guarda aquí),
+--         newsletter: true si está suscrito, notes, enrolledAt: 'AAAA-MM-DD' (fecha de alta),
+--         availability: horario semanal con varias franjas por día, en su zona horaria, o null }
+-- ---------------------------------------------------------------------------
+create table if not exists public.students (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Cursos (localStorage: cesi_courses_v1)
+-- data: { name }. Los inscritos se calculan con students.data.courseIds. Al borrar un curso se
+-- quita de los courseIds de sus alumnos.
+-- ---------------------------------------------------------------------------
+create table if not exists public.courses (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Actualización desde la versión anterior de este archivo
 -- ---------------------------------------------------------------------------
 do $$
@@ -227,7 +260,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks', 'students', 'courses'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
   end loop;
@@ -261,7 +294,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks', 'students', 'courses'] loop
     execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
       'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',

@@ -14,6 +14,8 @@ import { getAllWeeklyAvailability, STORAGE_KEY as WEEKLY_AVAILABILITY_KEY } from
 import { getAllProjects, STORAGE_KEY as PROJECTS_KEY } from './projects'
 import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
+import { getAllStudents, STORAGE_KEY as STUDENTS_KEY } from './students'
+import { getAllCourses, STORAGE_KEY as COURSES_KEY } from './courses'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
 // v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
@@ -35,8 +37,9 @@ import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
 // agenda y el acta de las reuniones (notes / notesByDate, agenda / agendaByDate y decisions /
 // decisionsByDate), dentro de events. v16 añade tasks (tareas, sueltas o de una reunión). v17: los
 // contactos pueden estar archivados (archived, archivedAt) y ya no hay grupo «Antiguos miembros»;
-// al importar una copia anterior se archivan sus antiguos miembros y se quita ese grupo.
-const BACKUP_VERSION = 17
+// al importar una copia anterior se archivan sus antiguos miembros y se quita ese grupo. v18 añade
+// students (alumnos, con sus cursos en courseIds) y courses.
+const BACKUP_VERSION = 18
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -48,6 +51,8 @@ const OPTIONAL_LISTS = [
   { field: 'projects', key: PROJECTS_KEY, label: 'los proyectos' },
   { field: 'vacancies', key: VACANCIES_KEY, label: 'las vacantes' },
   { field: 'tasks', key: TASKS_KEY, label: 'las tareas' },
+  { field: 'students', key: STUDENTS_KEY, label: 'los alumnos' },
+  { field: 'courses', key: COURSES_KEY, label: 'los cursos' },
 ]
 
 export function buildBackup() {
@@ -67,6 +72,8 @@ export function buildBackup() {
     projects: getAllProjects(),
     vacancies: getAllVacancies(),
     tasks: getAllTasks(),
+    students: getAllStudents(),
+    courses: getAllCourses(),
   }
 }
 

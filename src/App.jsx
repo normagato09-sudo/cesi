@@ -53,6 +53,8 @@ import { addDepartment, moveDepartment, removeDepartment, renameDepartment, reso
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
+import { STORAGE_KEY as STUDENTS_KEY, createStudent, deleteStudent, getAllStudents, updateStudent } from './lib/students.js'
+import { STORAGE_KEY as COURSES_KEY, coursesStore, deleteCourse, getAllCourses } from './lib/courses.js'
 import {
   STORAGE_KEY as VACANCIES_KEY,
   candidacyPatch,
@@ -93,6 +95,7 @@ import './App.css'
 // Las secciones y los modales que no hacen falta al abrir el calendario se cargan aparte,
 // la primera vez que se usan (el service worker los guarda para usarlos sin conexión).
 const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
+const StudentsView = lazy(() => import('./components/StudentsView.jsx'))
 const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
 const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
@@ -136,6 +139,7 @@ export default function App() {
   // Se abre en Inicio.
   const [section, setSection] = useState('home')
   const [selectedContactId, setSelectedContactId] = useState(null)
+  const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
@@ -204,6 +208,8 @@ export default function App() {
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
   const [tasks, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
+  const [students, reloadStudents] = useStoredValue(STUDENTS_KEY, getAllStudents)
+  const [courses, reloadCourses] = useStoredValue(COURSES_KEY, getAllCourses)
 
   // Vuelve a leer todos los datos guardados (tras importar una copia o una migración).
   const reloadAllData = () => {
@@ -215,6 +221,8 @@ export default function App() {
     reloadWeeklyAvailability()
     reloadVacancies()
     reloadTasks()
+    reloadStudents()
+    reloadCourses()
   }
 
   // Departamentos (antes "áreas"): la lista guardada, la nueva lista si aún era la de ejemplo, y
@@ -546,6 +554,43 @@ export default function App() {
     for (const { id: contactId, groupIds } of contactsWithoutGroup(id, contacts)) editContact(contactId, { groupIds })
     groupsStore.remove(id)
     reloadGroups()
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alumnos y cursos
+  // ---------------------------------------------------------------------------
+
+  const handleAddStudent = (data) => {
+    const student = createStudent(data)
+    reloadStudents()
+    return student
+  }
+
+  const handleEditStudent = (id, patch) => {
+    updateStudent(id, patch)
+    reloadStudents()
+  }
+
+  const handleRemoveStudent = (id) => {
+    deleteStudent(id)
+    reloadStudents()
+  }
+
+  const handleCreateCourse = (data) => {
+    coursesStore.create(data)
+    reloadCourses()
+  }
+
+  const handleRenameCourse = (id, name) => {
+    coursesStore.update(id, { name })
+    reloadCourses()
+  }
+
+  // Al borrar un curso sus alumnos se conservan: solo se les quita ese curso.
+  const handleDeleteCourse = (id) => {
+    deleteCourse(id)
+    reloadCourses()
+    reloadStudents()
   }
 
   // ---------------------------------------------------------------------------
@@ -956,6 +1001,26 @@ export default function App() {
                 onReturnToTeam={handleReturnToTeam}
                 onOpenTeamMember={handleOpenTeamMember}
                 onOpenCandidate={handleOpenCandidate}
+              />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'students' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <StudentsView
+                students={students}
+                courses={courses}
+                now={now}
+                selectedStudentId={selectedStudentId}
+                onSelectStudent={setSelectedStudentId}
+                onAddStudent={handleAddStudent}
+                onEditStudent={handleEditStudent}
+                onRemoveStudent={handleRemoveStudent}
+                onCreateCourse={handleCreateCourse}
+                onRenameCourse={handleRenameCourse}
+                onDeleteCourse={handleDeleteCourse}
               />
             </Suspense>
           </div>
