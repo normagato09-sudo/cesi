@@ -14,6 +14,7 @@ import { STORAGE_KEY as VACANCIES_KEY } from '../vacancies'
 import { STORAGE_KEY as TASKS_KEY } from '../tasks'
 import { STORAGE_KEY as STUDENTS_KEY } from '../students'
 import { STORAGE_KEY as COURSES_KEY } from '../courses'
+import { ATTENDANCE_KEY, EXTRA_CLASSES_KEY } from '../attendance'
 
 // Qué se sincroniza y dónde vive en cada lado.
 // - Listas (kind 'list'): una fila por documento { id, ... } de la lista guardada en `key`.
@@ -30,6 +31,8 @@ export const LIST_COLLECTIONS = [
   { table: 'tasks', key: TASKS_KEY },
   { table: 'students', key: STUDENTS_KEY },
   { table: 'courses', key: COURSES_KEY },
+  { table: 'attendance', key: ATTENDANCE_KEY },
+  { table: 'extra_classes', key: EXTRA_CLASSES_KEY },
 ]
 
 export const SETTINGS_TABLE = 'settings'

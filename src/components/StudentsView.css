@@ -110,3 +110,217 @@
   width: 120px;
   flex: none;
 }
+
+/* Pestañas Alumnos | Cursos. */
+.students-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+/* Cursos: lista de clases y pase de lista. */
+.course-pending-badge {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+}
+.course-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+.course-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.course-enrolled {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.course-class-list,
+.attendance-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.course-class-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.course-class-row:hover {
+  background: var(--surface-hover);
+}
+.course-class-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.course-class-note {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.course-class-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.course-class-summary.empty {
+  color: #92400e;
+}
+
+.attendance-modal {
+  max-width: 640px;
+}
+.attendance-class {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: 13px;
+}
+.attendance-class p {
+  margin: 0;
+}
+.attendance-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.attendance-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.attendance-row:last-child {
+  border-bottom: none;
+}
+.attendance-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.attendance-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.attendance-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.attendance-status-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.attendance-status-btn.present.on {
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+.attendance-status-btn.late.on {
+  background: #b45309;
+  border-color: #b45309;
+  color: #fff;
+}
+.attendance-status-btn.absent.on {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+}
+.attendance-unmark {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.attendance-unmark:hover {
+  background: var(--surface-hover);
+}
+.attendance-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.attendance-times label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.attendance-times input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.attendance-times input[type='number'] {
+  width: 90px;
+}
+.attendance-times input[aria-invalid='true'] {
+  border-color: #b45309;
+}
+.attendance-error {
+  margin: 0;
+  font-size: 12px;
+  color: #b91c1c;
+}
+.extra-class-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  color: #b91c1c;
+}

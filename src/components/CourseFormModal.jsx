@@ -7,6 +7,7 @@ import {
   normalizeCourse,
   normalizeCourseName,
   scheduleRows,
+  scheduleWithSince,
   sortScheduleSlots,
   teacherOptions,
   teacherStatus,
@@ -69,7 +70,7 @@ export default function CourseFormModal({ course, courses, contacts, onClose, on
       teacherId: teacherId || null,
       classMinutes,
       classesPerWeek,
-      schedule: filled.length ? { timeZone: zone, slots: sortScheduleSlots(filled) } : null,
+      schedule: scheduleWithSince(filled.length ? { timeZone: zone, slots: sortScheduleSlots(filled) } : null, seed.schedule),
     }
     const invalid = validateCourse(data, courses, course.id)
     if (invalid) {

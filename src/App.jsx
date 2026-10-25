@@ -56,6 +56,21 @@ import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsSt
 import { STORAGE_KEY as STUDENTS_KEY, createStudent, deleteStudent, getAllStudents, updateStudent } from './lib/students.js'
 import { STORAGE_KEY as COURSES_KEY, coursesStore, deleteCourse, getAllCourses, validateCourse } from './lib/courses.js'
 import {
+  ATTENDANCE_KEY,
+  EXTRA_CLASSES_KEY,
+  deleteExtraClass,
+  getAllAttendance,
+  getAllExtraClasses,
+  markAllPresent,
+  markAttendance,
+  removeCourseAttendance,
+  removeStudentAttendance,
+  saveExtraClass,
+  setAttendanceTimes,
+  setLateMinutes,
+  unmarkAttendance,
+} from './lib/attendance.js'
+import {
   STORAGE_KEY as VACANCIES_KEY,
   candidacyPatch,
   candidatesOf,
@@ -210,6 +225,8 @@ export default function App() {
   const [tasks, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
   const [students, reloadStudents] = useStoredValue(STUDENTS_KEY, getAllStudents)
   const [courses, reloadCourses] = useStoredValue(COURSES_KEY, getAllCourses)
+  const [attendance, reloadAttendance] = useStoredValue(ATTENDANCE_KEY, getAllAttendance)
+  const [extraClasses, reloadExtraClasses] = useStoredValue(EXTRA_CLASSES_KEY, getAllExtraClasses)
 
   // Vuelve a leer todos los datos guardados (tras importar una copia o una migración).
   const reloadAllData = () => {
@@ -223,6 +240,8 @@ export default function App() {
     reloadTasks()
     reloadStudents()
     reloadCourses()
+    reloadAttendance()
+    reloadExtraClasses()
   }
 
   // Departamentos (antes "áreas"): la lista guardada, la nueva lista si aún era la de ejemplo, y
@@ -571,9 +590,12 @@ export default function App() {
     reloadStudents()
   }
 
+  // Con el alumno se borra su pase de lista.
   const handleRemoveStudent = (id) => {
+    removeStudentAttendance(id)
     deleteStudent(id)
     reloadStudents()
+    reloadAttendance()
   }
 
   const handleCreateCourse = (data) => {
@@ -586,7 +608,6 @@ export default function App() {
     reloadCourses()
   }
 
-  // Al borrar un curso sus alumnos se conservan: solo se les quita ese curso.
   // Profesor, duración, clases por semana y horario (CourseFormModal).
   const handleUpdateCourse = (id, data) => {
     const problem = validateCourse(data, courses, id)
@@ -595,10 +616,50 @@ export default function App() {
     reloadCourses()
   }
 
+  // Al borrar un curso sus alumnos se conservan: solo se les quita ese curso. Su pase de lista y
+  // sus clases sueltas se borran.
   const handleDeleteCourse = (id) => {
+    removeCourseAttendance(id)
     deleteCourse(id)
     reloadCourses()
     reloadStudents()
+    reloadAttendance()
+    reloadExtraClasses()
+  }
+
+  // Pase de lista y clases sueltas (attendance.js): cada cambio se guarda al momento. Los que no
+  // son válidos lanzan un Error con el mensaje para el usuario.
+  const attendanceActions = {
+    mark: (cls, studentId, status) => {
+      markAttendance(cls, studentId, status)
+      reloadAttendance()
+    },
+    unmark: (cls, studentId) => {
+      unmarkAttendance(cls, studentId)
+      reloadAttendance()
+    },
+    setTimes: (cls, studentId, times) => {
+      setAttendanceTimes(cls, studentId, times)
+      reloadAttendance()
+    },
+    setLateMinutes: (cls, studentId, minutes) => {
+      setLateMinutes(cls, studentId, minutes)
+      reloadAttendance()
+    },
+    markAllPresent: (cls) => {
+      markAllPresent(cls, students)
+      reloadAttendance()
+    },
+    saveExtraClass: (courseId, values, timeZone, id) => {
+      saveExtraClass(courseId, values, timeZone, id)
+      reloadExtraClasses()
+      reloadAttendance()
+    },
+    deleteExtraClass: (id) => {
+      deleteExtraClass(id)
+      reloadExtraClasses()
+      reloadAttendance()
+    },
   }
 
   // ---------------------------------------------------------------------------
@@ -1021,6 +1082,9 @@ export default function App() {
                 students={students}
                 courses={courses}
                 contacts={contacts}
+                attendance={attendance}
+                extraClasses={extraClasses}
+                attendanceActions={attendanceActions}
                 now={now}
                 selectedStudentId={selectedStudentId}
                 onSelectStudent={setSelectedStudentId}

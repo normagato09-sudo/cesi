@@ -231,7 +231,8 @@ create table if not exists public.students (
 -- data: { name, description,
 --         teacherId: id del contacto del profesor (un miembro del Equipo) o null,
 --         classMinutes: duración de cada clase, classesPerWeek: clases por semana (1..7),
---         schedule: horario fijo o null: { timeZone, slots: [{ day: 0..6, start: 'HH:mm' }] }
+--         schedule: horario fijo o null: { timeZone, slots: [{ day: 0..6, start: 'HH:mm' }],
+--           since: 'AAAA-MM-DD' desde cuándo vale (si falta, desde que se creó el curso) }
 --           (cada clase acaba como muy tarde a las 23:59 de su día en esa zona) }
 -- Todo menos name es opcional (los cursos guardados antes solo tienen name). Las clases no se
 -- guardan: se calculan con el horario y no salen en el calendario.
@@ -239,6 +240,41 @@ create table if not exists public.students (
 -- courseIds de sus alumnos.
 -- ---------------------------------------------------------------------------
 create table if not exists public.courses (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Pase de lista (localStorage: cesi_attendance_v1). Un registro por alumno y clase.
+-- data: { courseId, studentId,
+--         classKey: 'AAAA-MM-DD_HH:mm' (clase del horario, en su zona) o 'extra:<id>' (clase suelta),
+--         classStart, classEnd, timeZone: la clase copiada (el historial no cambia con el horario),
+--         status: 'present' | 'late' | 'absent', lateMinutes (solo 'late'),
+--         arrivedAt, leftAt: entrada y salida (ISO; solo si vino) }
+-- Sin registro = sin marcar. Las clases no se guardan: salen del horario del curso.
+-- Al borrar un alumno o un curso se borran sus registros.
+-- ---------------------------------------------------------------------------
+create table if not exists public.attendance (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Clases sueltas de los cursos, p. ej. de recuperación (localStorage: cesi_extra_classes_v1)
+-- data: { courseId, start, end (ISO), timeZone, note }
+-- Al borrar la clase o su curso se borran también sus registros de attendance.
+-- ---------------------------------------------------------------------------
+create table if not exists public.extra_classes (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   id text not null,
   data jsonb not null,
@@ -273,7 +309,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks', 'students', 'courses'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks', 'students', 'courses', 'attendance', 'extra_classes'] loop
     execute format('drop trigger if exists %I_touch on public.%I', t, t);
     execute format('alter table public.%I add column if not exists server_updated_at timestamptz not null default now()', t);
   end loop;
@@ -307,7 +343,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks', 'students', 'courses'] loop
+  foreach t in array array['events', 'contacts', 'groups', 'settings', 'rules', 'proposals', 'weekly_availability', 'projects', 'vacancies', 'tasks', 'students', 'courses', 'attendance', 'extra_classes'] loop
     execute format('drop trigger if exists %I_keep_newest on public.%I', t, t);
     execute format(
       'create trigger %I_keep_newest before insert or update on public.%I for each row execute function public.cesi_keep_newest()',

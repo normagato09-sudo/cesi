@@ -16,6 +16,7 @@ import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
 import { getAllStudents, STORAGE_KEY as STUDENTS_KEY } from './students'
 import { coursesStore, STORAGE_KEY as COURSES_KEY } from './courses'
+import { ATTENDANCE_KEY, EXTRA_CLASSES_KEY, getAllAttendance, getAllExtraClasses } from './attendance'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
 // v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
@@ -38,8 +39,9 @@ import { coursesStore, STORAGE_KEY as COURSES_KEY } from './courses'
 // decisionsByDate), dentro de events. v16 añade tasks (tareas, sueltas o de una reunión). v17: los
 // contactos pueden estar archivados (archived, archivedAt) y ya no hay grupo «Antiguos miembros»;
 // al importar una copia anterior se archivan sus antiguos miembros y se quita ese grupo. v18 añade
-// students (alumnos, con sus cursos en courseIds) y courses.
-const BACKUP_VERSION = 18
+// students (alumnos, con sus cursos en courseIds) y courses. v19 añade attendance (pase de lista)
+// y extraClasses (clases sueltas de los cursos); las copias anteriores se importan sin ellas.
+const BACKUP_VERSION = 19
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -53,6 +55,8 @@ const OPTIONAL_LISTS = [
   { field: 'tasks', key: TASKS_KEY, label: 'las tareas' },
   { field: 'students', key: STUDENTS_KEY, label: 'los alumnos' },
   { field: 'courses', key: COURSES_KEY, label: 'los cursos' },
+  { field: 'attendance', key: ATTENDANCE_KEY, label: 'el pase de lista' },
+  { field: 'extraClasses', key: EXTRA_CLASSES_KEY, label: 'las clases sueltas' },
 ]
 
 export function buildBackup() {
@@ -75,6 +79,8 @@ export function buildBackup() {
     students: getAllStudents(),
     // Tal como están guardados (getAllCourses rellena los campos que faltan con su valor por defecto).
     courses: coursesStore.getAll(),
+    attendance: getAllAttendance(),
+    extraClasses: getAllExtraClasses(),
   }
 }
 

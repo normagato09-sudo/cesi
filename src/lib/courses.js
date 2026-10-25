@@ -14,7 +14,8 @@ import { DAY_END_MINUTES, WEEKDAY_DISPLAY_ORDER, WEEKDAY_LABELS, timeToMinutes }
 //   teacherId: id del contacto del profesor (un miembro de Equipo) o null,
 //   classMinutes: duración de cada clase, classesPerWeek: clases por semana (1..7),
 //   schedule: horario fijo de las clases o null:
-//     { timeZone: zona en la que está (la del profesor al guardarlo), slots: [{ day: 0..6, start: 'HH:mm' }] },
+//     { timeZone: zona en la que está (la del profesor al guardarlo), slots: [{ day: 0..6, start: 'HH:mm' }],
+//       since: 'AAAA-MM-DD' desde cuándo vale (en su zona; los horarios guardados antes no lo tienen) },
 //   createdAt, updatedAt
 // }
 // Todos los campos menos el nombre son opcionales: un curso sin ellos se lee con su valor por
@@ -48,7 +49,21 @@ function normalizeSchedule(schedule) {
   const slots = schedule.slots
     .filter((s) => s && Number.isInteger(s.day) && s.day >= 0 && s.day <= 6 && /^\d{2}:\d{2}$/.test(s.start || ''))
     .map((s) => ({ day: s.day, start: s.start }))
-  return slots.length ? { timeZone: schedule.timeZone, slots: sortScheduleSlots(slots) } : null
+  if (!slots.length) return null
+  const since = /^\d{4}-\d{2}-\d{2}$/.test(schedule.since || '') ? schedule.since : null
+  return { timeZone: schedule.timeZone, slots: sortScheduleSlots(slots), ...(since ? { since } : {}) }
+}
+
+// El horario que se guarda, con desde cuándo vale: si no cambia (misma zona y mismas franjas)
+// conserva su since; si cambia, vale desde hoy (en su zona). Así no salen clases pasadas que
+// nunca hubo con ese horario.
+export function scheduleWithSince(next, prev, now = new Date()) {
+  if (!next) return null
+  const slotsKey = (s) => JSON.stringify(sortScheduleSlots(s.slots).map(({ day, start }) => [day, start]))
+  if (prev && prev.timeZone === next.timeZone && slotsKey(prev) === slotsKey(next)) {
+    return prev.since ? { ...next, since: prev.since } : { ...next }
+  }
+  return { ...next, since: dateKeyOf(wallTime(now, next.timeZone)) }
 }
 
 export function sortScheduleSlots(slots) {

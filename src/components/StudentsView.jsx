@@ -22,6 +22,8 @@ import {
 import ContactAvatar from './ContactAvatar.jsx'
 import StudentFormModal from './StudentFormModal.jsx'
 import CoursesModal from './CoursesModal.jsx'
+import CoursesView from './CoursesView.jsx'
+import { attendanceCountOfStudent } from '../lib/attendance'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { coursesOfStudent, studentsInCourse } from '../lib/courses'
 import {
@@ -113,6 +115,9 @@ export default function StudentsView({
   students,
   courses,
   contacts = [],
+  attendance = [],
+  extraClasses = [],
+  attendanceActions,
   now,
   selectedStudentId,
   onSelectStudent,
@@ -127,6 +132,7 @@ export default function StudentsView({
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   const [formModal, setFormModal] = useState(null)
   const [coursesOpen, setCoursesOpen] = useState(false)
+  const [tab, setTab] = useState('students') // 'students' | 'courses'
   const set = (patch) => setFilter((f) => ({ ...f, ...patch }))
 
   // Si se borra el curso del filtro, o ya no queda ningún alumno de ese país, se deja de filtrar.
@@ -150,18 +156,73 @@ export default function StudentsView({
   }
 
   const handleDelete = () => {
-    if (!window.confirm(`¿Eliminar a ${selected.name}? Se borrarán sus datos y su disponibilidad.`)) return
+    const records = attendanceCountOfStudent(selected.id)
+    const also = records ? ` y su pase de lista (${records} registro${records === 1 ? '' : 's'})` : ''
+    if (!window.confirm(`¿Eliminar a ${selected.name}? Se borrarán sus datos, su disponibilidad${also}.`)) return
     onRemoveStudent(selected.id)
     onSelectStudent(null)
   }
 
   const wa = selected ? whatsappUrl(selected.phone) : null
 
+  const tabs = (
+    <div className="students-tabs" role="tablist" aria-label="Alumnos o cursos">
+      {[
+        ['students', 'Alumnos'],
+        ['courses', 'Cursos'],
+      ].map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tab === id}
+          className={`contacts-group-filter-btn${tab === id ? ' on' : ''}`}
+          onClick={() => setTab(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const coursesModal = coursesOpen && (
+    <CoursesModal
+      courses={courses}
+      students={students}
+      contacts={contacts}
+      onCreate={onCreateCourse}
+      onRename={onRenameCourse}
+      onUpdate={onUpdateCourse}
+      onDelete={onDeleteCourse}
+      onClose={() => setCoursesOpen(false)}
+    />
+  )
+
+  if (tab === 'courses') {
+    return (
+      <>
+        <CoursesView
+          tabs={tabs}
+          students={students}
+          courses={courses}
+          contacts={contacts}
+          attendance={attendance}
+          extraClasses={extraClasses}
+          actions={attendanceActions}
+          onManageCourses={() => setCoursesOpen(true)}
+          onUpdateCourse={onUpdateCourse}
+        />
+        {coursesModal}
+      </>
+    )
+  }
+
   return (
     <div className={`contacts-view${selected ? ' has-selection' : ''}`}>
       <div className="contacts-list-pane">
         <div className="contacts-header">
           <h1 className="contacts-title">Alumnos</h1>
+          {tabs}
           <div className="contacts-header-actions">
             <label className="contacts-search">
               <Search size={15} strokeWidth={1.75} />
@@ -395,18 +456,7 @@ export default function StudentsView({
         />
       )}
 
-      {coursesOpen && (
-        <CoursesModal
-          courses={courses}
-          students={students}
-          contacts={contacts}
-          onCreate={onCreateCourse}
-          onRename={onRenameCourse}
-          onUpdate={onUpdateCourse}
-          onDelete={onDeleteCourse}
-          onClose={() => setCoursesOpen(false)}
-        />
-      )}
+      {coursesModal}
     </div>
   )
 }

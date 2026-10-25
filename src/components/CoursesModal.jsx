@@ -3,11 +3,12 @@ import { BookOpen, Pencil, Plus, Trash2, X } from 'lucide-react'
 import CourseFormModal from './CourseFormModal.jsx'
 import { durationLabel, normalizeCourseName, scheduleRows, studentsInCourse, teacherStatus, validateCourseName } from '../lib/courses'
 import { SPAIN_ZONE, zonePlace } from '../lib/timezones'
+import { attendanceCountOfCourse } from '../lib/attendance'
 import './GroupsModal.css'
 import './StudentsView.css'
 
 // Profesor, duración y horario del curso (en la zona del horario y en mi hora).
-function CourseSummary({ course, contacts }) {
+export function CourseSummary({ course, contacts }) {
   const { teacher, problem } = teacherStatus(course, contacts)
   const rows = scheduleRows(course, new Date())
   const zone = course.schedule?.timeZone
@@ -65,7 +66,13 @@ function CourseRow({ course, courses, contacts, count, onRename, onEdit, onDelet
 
   const handleDelete = () => {
     const who = count === 0 ? 'No tiene alumnos.' : `Se quitará de sus ${count} alumno${count === 1 ? '' : 's'}, que se conservan.`
-    if (window.confirm(`¿Borrar el curso «${course.name}»? ${who}`)) onDelete(course.id)
+    const { records, extraClasses } = attendanceCountOfCourse(course.id)
+    const lost = [
+      records && `${records} registro${records === 1 ? '' : 's'} del pase de lista`,
+      extraClasses && `${extraClasses} clase${extraClasses === 1 ? '' : 's'} suelta${extraClasses === 1 ? '' : 's'}`,
+    ].filter(Boolean)
+    const also = lost.length ? ` Se borrarán también ${lost.join(' y ')}.` : ''
+    if (window.confirm(`¿Borrar el curso «${course.name}»? ${who}${also}`)) onDelete(course.id)
   }
 
   return (
