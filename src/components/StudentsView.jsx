@@ -3,7 +3,9 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
+  AtSign,
   BookOpen,
+  Cake,
   CalendarClock,
   CalendarDays,
   GraduationCap,
@@ -24,6 +26,9 @@ import { useMinuteClock } from '../hooks/useMinuteClock'
 import { coursesOfStudent, studentsInCourse } from '../lib/courses'
 import {
   DEFAULT_STUDENT_FILTER,
+  ageLabel,
+  ageOn,
+  birthdayLabel,
   availabilityRows,
   filterStudents,
   hasStudentAvailability,
@@ -162,7 +167,7 @@ export default function StudentsView({
                 type="search"
                 value={filter.query}
                 onChange={(e) => set({ query: e.target.value })}
-                placeholder="Buscar por nombre, email, teléfono..."
+                placeholder="Buscar por nombre, Discord, email, teléfono..."
                 aria-label="Buscar alumnos"
               />
             </label>
@@ -307,6 +312,21 @@ export default function StudentsView({
             </div>
 
             <dl className="contact-fields">
+              {selected.discord && (
+                <div>
+                  <dt><AtSign size={15} strokeWidth={1.75} /><span className="sr-only">Usuario de Discord</span></dt>
+                  <dd>{selected.discord} <span className="student-muted">(Discord)</span></dd>
+                </div>
+              )}
+              {birthdayLabel(selected.birthday) && (
+                <div>
+                  <dt><Cake size={15} strokeWidth={1.75} /><span className="sr-only">Cumpleaños</span></dt>
+                  <dd>
+                    {ageOn(selected.birthday, now) !== null && `${ageLabel(ageOn(selected.birthday, now))} · `}
+                    Cumpleaños: {birthdayLabel(selected.birthday)}
+                  </dd>
+                </div>
+              )}
               {selected.email && (
                 <div>
                   <dt><Mail size={15} strokeWidth={1.75} /><span className="sr-only">Email</span></dt>

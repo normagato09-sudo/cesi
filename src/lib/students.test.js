@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  SELF_SERVICE_FIELDS,
+  ageLabel,
+  ageOn,
   availabilityRows,
+  birthdayLabel,
   createStudent,
   filterStudents,
   getAllStudents,
   hasStudentAvailability,
   studentCountries,
+  normalizeDiscord,
+  selfServicePatch,
   studentMatches,
   updateStudent,
+  validateSelfServiceProfile,
   validateStudent,
   whatsappUrl,
 } from './students'
@@ -123,5 +130,101 @@ describe('disponibilidad en su hora y en la mía', () => {
     expect(hasStudentAvailability({ ...base, availability: emptyWeek() })).toBe(false)
     expect(availabilityRows(base)).toEqual([])
     expect(hasStudentAvailability(mexico)).toBe(true)
+  })
+})
+
+describe('Discord', () => {
+  it('se guarda sin espacios ni la @ del principio, y es opcional', () => {
+    expect(normalizeDiscord('  @ana_ruiz ')).toBe('ana_ruiz')
+    expect(normalizeDiscord('')).toBe('')
+    expect(validateStudent({ ...base, discord: '' })).toBeNull()
+    expect(validateStudent({ ...base, discord: 'x'.repeat(41) })).toBe('El usuario de Discord es demasiado largo.')
+  })
+
+  it('se puede buscar por el usuario de Discord', () => {
+    expect(studentMatches({ name: 'Ana', discord: 'pixel.ana' }, 'PIXEL')).toBe(true)
+  })
+
+  it('los alumnos nuevos empiezan sin Discord ni cumpleaños', () => {
+    expect(createStudent(base)).toMatchObject({ discord: '', birthday: '' })
+  })
+})
+
+describe('cumpleaños y edad', () => {
+  const on = (y, m, d) => new Date(y, m - 1, d, 12)
+
+  it('la edad sube el mismo día del cumpleaños, no el anterior', () => {
+    expect(ageOn('2008-03-12', on(2026, 3, 11))).toBe(17)
+    expect(ageOn('2008-03-12', on(2026, 3, 12))).toBe(18)
+    expect(ageOn('2008-03-12', on(2026, 12, 31))).toBe(18)
+  })
+
+  it('quien nació el 29 de febrero cumple el 28 de febrero en los años no bisiestos', () => {
+    expect(ageOn('2008-02-29', on(2027, 2, 27))).toBe(18)
+    expect(ageOn('2008-02-29', on(2027, 2, 28))).toBe(19)
+    // En los bisiestos, el 29.
+    expect(ageOn('2008-02-29', on(2028, 2, 28))).toBe(19)
+    expect(ageOn('2008-02-29', on(2028, 2, 29))).toBe(20)
+  })
+
+  it('sin fecha (o con una que no existe) no hay edad', () => {
+    expect(ageOn('', on(2026, 1, 1))).toBeNull()
+    expect(ageOn('2007-02-29', on(2026, 1, 1))).toBeNull()
+    expect(ageOn('2030-01-01', on(2026, 1, 1))).toBeNull()
+  })
+
+  it('textos de la ficha', () => {
+    expect(ageLabel(1)).toBe('1 año')
+    expect(ageLabel(17)).toBe('17 años')
+    expect(birthdayLabel('2008-03-12')).toBe('12 de marzo de 2008')
+    expect(birthdayLabel('')).toBe('')
+  })
+
+  it('es opcional, pero si se pone tiene que existir y no ser futura', () => {
+    const today = on(2026, 10, 25)
+    expect(validateStudent({ ...base, birthday: '' }, today)).toBeNull()
+    expect(validateStudent({ ...base, birthday: '2008-02-29' }, today)).toBeNull()
+    expect(validateStudent({ ...base, birthday: '2007-02-29' }, today)).toBe('La fecha de cumpleaños no es válida.')
+    expect(validateStudent({ ...base, birthday: '1899-12-31' }, today)).toBe('La fecha de cumpleaños no es válida.')
+    expect(validateStudent({ ...base, birthday: '2026-10-26' }, today)).toBe('La fecha de cumpleaños no puede ser futura.')
+    expect(validateStudent({ ...base, birthday: '2026-10-25' }, today)).toBeNull()
+  })
+
+  it('un alumno guardado antes (sin Discord ni cumpleaños) sigue siendo válido y se edita igual', () => {
+    const old = createStudent(base)
+    localStorage.setItem('cesi_students_v1', JSON.stringify([{ ...base, id: old.id, courseIds: [] }]))
+    expect(updateStudent(old.id, { birthday: '2008-03-12' })).toMatchObject({ name: base.name, birthday: '2008-03-12' })
+  })
+})
+
+describe('perfil que rellenará el alumno con un enlace (preparado, sin usar)', () => {
+  const courses = [{ id: 'c1', name: 'Locución' }]
+  const profile = { discord: 'ana_ruiz', name: 'Ana', country: 'MX', timeZone: 'America/Mexico_City' }
+
+  it('estos son los campos que podrá tocar, con Discord obligatorio y cumpleaños opcional', () => {
+    expect(SELF_SERVICE_FIELDS.map((f) => f.field)).toEqual([
+      'discord',
+      'name',
+      'birthday',
+      'country',
+      'timeZone',
+      'email',
+      'availability',
+      'requestedCourseIds',
+    ])
+    const required = Object.fromEntries(SELF_SERVICE_FIELDS.map((f) => [f.field, f.required]))
+    expect(required).toMatchObject({ discord: true, name: true, birthday: false, requestedCourseIds: false })
+  })
+
+  it('ignora lo que no puede tocar (cursos en los que está, notas, fecha de alta...)', () => {
+    const patch = selfServicePatch({ ...profile, discord: '@ana_ruiz', courseIds: ['c1'], notes: 'x', enrolledAt: '2026-01-01', requestedCourseIds: ['c1'] })
+    expect(patch).toEqual({ ...profile, requestedCourseIds: ['c1'] })
+  })
+
+  it('valida: Discord obligatorio, sin fecha de alta, y solo cursos que existen', () => {
+    expect(validateSelfServiceProfile(profile, courses)).toBeNull()
+    expect(validateSelfServiceProfile({ ...profile, discord: ' @ ' }, courses)).toBe('El usuario de Discord es obligatorio.')
+    expect(validateSelfServiceProfile({ ...profile, requestedCourseIds: ['c1'] }, courses)).toBeNull()
+    expect(validateSelfServiceProfile({ ...profile, requestedCourseIds: ['borrado'] }, courses)).toBe('Alguno de los cursos elegidos ya no existe.')
   })
 })

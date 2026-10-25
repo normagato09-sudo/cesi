@@ -1,4 +1,5 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { createCollection } from './store'
 import { isEmail, validateContactCountry } from './contacts'
 import { SPAIN_ZONE, countryName, pad2, wallTime, zonedDateTime } from './timezones'
@@ -7,6 +8,8 @@ import { WEEKDAY_DISPLAY_ORDER, clampEnd, normalizeWeek, timeToMinutes, validate
 // Alumnos. Alumno:
 // {
 //   id, name, email, phone (teléfono / WhatsApp),
+//   discord: usuario de Discord ('' si no se sabe),
+//   birthday: fecha de cumpleaños 'AAAA-MM-DD' o '' (la edad se calcula con ageOn),
 //   country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria), igual que los contactos,
 //   courseIds: ids de los cursos en los que está (la inscripción solo se guarda aquí),
 //   notes, enrolledAt: 'AAAA-MM-DD' (fecha de alta),
@@ -19,7 +22,7 @@ export const STORAGE_KEY = 'cesi_students_v1'
 
 export const studentsStore = createCollection(STORAGE_KEY, {
   prefix: 'stu',
-  defaults: { name: '', email: '', phone: '', country: '', timeZone: '', courseIds: [], notes: '', enrolledAt: '', availability: null },
+  defaults: { name: '', email: '', phone: '', discord: '', birthday: '', country: '', timeZone: '', courseIds: [], notes: '', enrolledAt: '', availability: null },
 })
 
 export function todayKey(date = new Date()) {
@@ -30,18 +33,123 @@ export function getAllStudents() {
   return studentsStore.getAll().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }))
 }
 
-// Mensaje de error o null si los datos del alumno son válidos.
-export function validateStudent(data) {
+// ---------------------------------------------------------------------------
+// Discord y cumpleaños
+// ---------------------------------------------------------------------------
+
+export const MAX_DISCORD_LENGTH = 40
+
+// Usuario de Discord tal como se guarda: sin espacios alrededor ni la @ del principio.
+export function normalizeDiscord(text) {
+  return (text || '').trim().replace(/^@+/, '').trim()
+}
+
+// La fecha 'AAAA-MM-DD' como { year, month, day }, o null si no es una fecha que exista.
+function parseDayKey(key) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || '')
+  if (!m) return null
+  const [year, month, day] = m.slice(1).map(Number)
+  const d = new Date(year, month - 1, day)
+  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day ? { year, month, day } : null
+}
+
+const isLeapYear = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+
+// Edad el día `today` (fecha del dispositivo): sube el mismo día del cumpleaños. Quien nació un
+// 29 de febrero cumple el 28 de febrero en los años no bisiestos. null sin fecha (o si es futura).
+export function ageOn(birthday, today = new Date()) {
+  const b = parseDayKey(birthday)
+  if (!b) return null
+  const year = today.getFullYear()
+  const month = today.getMonth() + 1
+  const day = today.getDate()
+  const birthdayThisYear = b.month === 2 && b.day === 29 && !isLeapYear(year) ? 28 : b.day
+  const age = year - b.year - (month < b.month || (month === b.month && day < birthdayThisYear) ? 1 : 0)
+  return age >= 0 ? age : null
+}
+
+export function ageLabel(age) {
+  return age === 1 ? '1 año' : `${age} años`
+}
+
+// "12 de marzo de 2008"
+export function birthdayLabel(birthday) {
+  return parseDayKey(birthday) ? format(parseISO(birthday), "d 'de' MMMM 'de' yyyy", { locale: es }) : ''
+}
+
+function validateBirthday(birthday, today) {
+  if (!birthday) return null
+  const b = parseDayKey(birthday)
+  if (!b || b.year < 1900) return 'La fecha de cumpleaños no es válida.'
+  if (birthday > todayKey(today)) return 'La fecha de cumpleaños no puede ser futura.'
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Validación
+// ---------------------------------------------------------------------------
+
+// Lo que se comprueba igual en mi app y en el futuro enlace del alumno.
+function validateCommon(data, today) {
   if (!(data.name || '').trim()) return 'El nombre es obligatorio.'
   if ((data.email || '').trim() && !isEmail(data.email)) return 'El email no tiene un formato válido.'
   const countryProblem = validateContactCountry(data)
   if (countryProblem) return countryProblem
+  if (normalizeDiscord(data.discord).length > MAX_DISCORD_LENGTH) return 'El usuario de Discord es demasiado largo.'
+  return validateBirthday(data.birthday, today)
+}
+
+function validateAvailability(availability) {
+  if (!availability) return null
+  const problem = validateWeek(normalizeWeek(availability))
+  return problem ? `Disponibilidad: ${problem}` : null
+}
+
+// Mensaje de error o null si los datos del alumno son válidos. Discord y cumpleaños, opcionales.
+export function validateStudent(data, today = new Date()) {
+  const problem = validateCommon(data, today)
+  if (problem) return problem
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.enrolledAt || '')) return 'La fecha de alta es obligatoria.'
-  if (data.availability) {
-    const problem = validateWeek(normalizeWeek(data.availability))
-    if (problem) return `Disponibilidad: ${problem}`
+  return validateAvailability(data.availability)
+}
+
+// ---------------------------------------------------------------------------
+// Perfil que rellenará el propio alumno con un enlace (todavía no existe; ver schema.sql)
+// ---------------------------------------------------------------------------
+
+// Campos que podrá editar el alumno. El resto (courseIds, notes, enrolledAt, phone...) solo los
+// toco yo. Los cursos a los que quiere unirse van en requestedCourseIds y no lo inscriben: pasan
+// a courseIds cuando yo lo apruebe.
+export const SELF_SERVICE_FIELDS = [
+  { field: 'discord', required: true },
+  { field: 'name', required: true },
+  { field: 'birthday', required: false },
+  { field: 'country', required: true },
+  { field: 'timeZone', required: true },
+  { field: 'email', required: false },
+  { field: 'availability', required: false },
+  { field: 'requestedCourseIds', required: false },
+]
+
+// Solo los campos que puede tocar el alumno (lo demás que llegue se ignora).
+export function selfServicePatch(data) {
+  const patch = {}
+  for (const { field } of SELF_SERVICE_FIELDS) if (field in (data || {})) patch[field] = data[field]
+  if ('discord' in patch) patch.discord = normalizeDiscord(patch.discord)
+  return patch
+}
+
+// Mensaje de error o null. Como en mi app, pero con Discord obligatorio y sin fecha de alta.
+// `courses`: los cursos que existen (los que pida tienen que existir).
+export function validateSelfServiceProfile(data, courses = [], today = new Date()) {
+  if (!normalizeDiscord(data.discord)) return 'El usuario de Discord es obligatorio.'
+  const problem = validateCommon(data, today)
+  if (problem) return problem
+  const requested = data.requestedCourseIds || []
+  if (!Array.isArray(requested) || requested.some((id) => !courses.some((c) => c.id === id))) {
+    return 'Alguno de los cursos elegidos ya no existe.'
   }
-  return null
+  return validateAvailability(data.availability)
 }
 
 export function createStudent(data) {
@@ -80,7 +188,7 @@ export function studentMatches(student, query) {
   if (!q) return true
   const digits = q.replace(/\D/g, '')
   return (
-    [student.name, student.email, student.phone].some((field) => normalize(field).includes(q)) ||
+    [student.name, student.email, student.phone, student.discord].some((field) => normalize(field).includes(q)) ||
     (digits.length >= 3 && (student.phone || '').replace(/\D/g, '').includes(digits))
   )
 }

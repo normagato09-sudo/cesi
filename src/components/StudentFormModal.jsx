@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { GraduationCap, X } from 'lucide-react'
 import TimeZoneSelect from './TimeZoneSelect.jsx'
 import WeeklyScheduleEditor from './WeeklyScheduleEditor.jsx'
-import { todayKey, validateStudent } from '../lib/students'
+import { normalizeDiscord, todayKey, validateStudent } from '../lib/students'
 import { defaultContactZone, zonePlace, zoneValue } from '../lib/timezones'
 import { cleanWeek, emptyWeek, normalizeWeek } from '../lib/weeklySchedule'
 import './EventFormModal.css'
@@ -11,13 +11,16 @@ import './StudentsView.css'
 
 const COURSE_COLOR = 'var(--accent)'
 
-// Crear o editar un alumno: datos, país (zona horaria), cursos, alta, disponibilidad y notas.
+// Crear o editar un alumno: datos (con Discord y cumpleaños), país (zona horaria), cursos, alta,
+// disponibilidad y notas.
 export default function StudentFormModal({ initialStudent, courses = [], onManageCourses, onClose, onSubmit }) {
   const isEditing = !!initialStudent
   const seed = initialStudent || {}
   const [name, setName] = useState(seed.name || '')
   const [email, setEmail] = useState(seed.email || '')
   const [phone, setPhone] = useState(seed.phone || '')
+  const [discord, setDiscord] = useState(seed.discord || '')
+  const [birthday, setBirthday] = useState(seed.birthday || '')
   // País obligatorio; los alumnos nuevos empiezan con España, como los contactos.
   const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country) || defaultContactZone())
   // Solo cursos que siguen existiendo.
@@ -36,6 +39,8 @@ export default function StudentFormModal({ initialStudent, courses = [], onManag
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
+      discord: normalizeDiscord(discord),
+      birthday,
       country: zone?.country || '',
       timeZone: zone?.timeZone || '',
       // Por si se ha borrado algún curso con el formulario abierto.
@@ -76,6 +81,25 @@ export default function StudentFormModal({ initialStudent, courses = [], onManag
             <span>Nombre</span>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre y apellidos" autoFocus />
           </label>
+
+          <div className="event-form-row">
+            <label className="event-form-field">
+              <span>Usuario de Discord (opcional)</span>
+              <input
+                type="text"
+                value={discord}
+                onChange={(e) => setDiscord(e.target.value)}
+                placeholder="ana_ruiz"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </label>
+            <label className="event-form-field">
+              <span>Cumpleaños (opcional)</span>
+              <input type="date" value={birthday} min="1900-01-01" max={todayKey()} onChange={(e) => setBirthday(e.target.value)} />
+            </label>
+          </div>
 
           <div className="event-form-row">
             <label className="event-form-field">

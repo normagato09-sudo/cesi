@@ -205,11 +205,16 @@ create table if not exists public.vacancies (
 -- ---------------------------------------------------------------------------
 -- Alumnos (localStorage: cesi_students_v1)
 -- data: { name, email, phone (teléfono / WhatsApp),
+--         discord: usuario de Discord ('' si no se sabe),
+--         birthday: fecha de cumpleaños 'AAAA-MM-DD' o '' (la edad se calcula cada día, no se guarda),
 --         country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria),
 --         courseIds: ids de los cursos en los que está (tabla courses; la inscripción solo se guarda aquí),
 --         notes, enrolledAt: 'AAAA-MM-DD' (fecha de alta),
 --         availability: horario semanal con varias franjas por día, en su zona horaria, o null }
 --       Los alumnos guardados antes pueden tener newsletter (ya no se usa): se conserva tal cual.
+--       Más adelante, el propio alumno podrá rellenar con un enlace (students.js, SELF_SERVICE_FIELDS):
+--       discord (obligatorio), name, birthday, country y timeZone, email, availability y
+--       requestedCourseIds (cursos a los que quiere unirse; pasan a courseIds cuando se aprueban).
 -- ---------------------------------------------------------------------------
 create table if not exists public.students (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
