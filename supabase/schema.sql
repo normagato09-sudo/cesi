@@ -228,8 +228,15 @@ create table if not exists public.students (
 
 -- ---------------------------------------------------------------------------
 -- Cursos (localStorage: cesi_courses_v1)
--- data: { name }. Los inscritos se calculan con students.data.courseIds. Al borrar un curso se
--- quita de los courseIds de sus alumnos.
+-- data: { name, description,
+--         teacherId: id del contacto del profesor (un miembro del Equipo) o null,
+--         classMinutes: duración de cada clase, classesPerWeek: clases por semana (1..7),
+--         schedule: horario fijo o null: { timeZone, slots: [{ day: 0..6, start: 'HH:mm' }] }
+--           (cada clase acaba como muy tarde a las 23:59 de su día en esa zona) }
+-- Todo menos name es opcional (los cursos guardados antes solo tienen name). Las clases no se
+-- guardan: se calculan con el horario y no salen en el calendario.
+-- Los inscritos se calculan con students.data.courseIds. Al borrar un curso se quita de los
+-- courseIds de sus alumnos.
 -- ---------------------------------------------------------------------------
 create table if not exists public.courses (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

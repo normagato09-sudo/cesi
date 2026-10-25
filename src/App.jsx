@@ -54,7 +54,7 @@ import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { STORAGE_KEY as STUDENTS_KEY, createStudent, deleteStudent, getAllStudents, updateStudent } from './lib/students.js'
-import { STORAGE_KEY as COURSES_KEY, coursesStore, deleteCourse, getAllCourses } from './lib/courses.js'
+import { STORAGE_KEY as COURSES_KEY, coursesStore, deleteCourse, getAllCourses, validateCourse } from './lib/courses.js'
 import {
   STORAGE_KEY as VACANCIES_KEY,
   candidacyPatch,
@@ -587,6 +587,14 @@ export default function App() {
   }
 
   // Al borrar un curso sus alumnos se conservan: solo se les quita ese curso.
+  // Profesor, duración, clases por semana y horario (CourseFormModal).
+  const handleUpdateCourse = (id, data) => {
+    const problem = validateCourse(data, courses, id)
+    if (problem) throw new Error(problem)
+    coursesStore.update(id, data)
+    reloadCourses()
+  }
+
   const handleDeleteCourse = (id) => {
     deleteCourse(id)
     reloadCourses()
@@ -1012,6 +1020,7 @@ export default function App() {
               <StudentsView
                 students={students}
                 courses={courses}
+                contacts={contacts}
                 now={now}
                 selectedStudentId={selectedStudentId}
                 onSelectStudent={setSelectedStudentId}
@@ -1020,6 +1029,7 @@ export default function App() {
                 onRemoveStudent={handleRemoveStudent}
                 onCreateCourse={handleCreateCourse}
                 onRenameCourse={handleRenameCourse}
+                onUpdateCourse={handleUpdateCourse}
                 onDeleteCourse={handleDeleteCourse}
               />
             </Suspense>

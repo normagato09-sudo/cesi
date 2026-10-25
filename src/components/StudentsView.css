@@ -73,3 +73,40 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* Cursos: resumen de cada curso y horario. */
+.course-row-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.course-row-summary p {
+  margin: 0;
+}
+.course-schedule-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.course-form-warning {
+  color: #b45309;
+}
+.course-form-slot {
+  display: flex;
+  gap: 8px;
+}
+.course-form-slot select {
+  flex: 1;
+  min-width: 0;
+}
+.course-form-slot input {
+  width: 120px;
+  flex: none;
+}

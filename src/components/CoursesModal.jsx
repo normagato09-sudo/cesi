@@ -1,9 +1,48 @@
 import { useState } from 'react'
-import { BookOpen, Plus, Trash2, X } from 'lucide-react'
-import { normalizeCourseName, studentsInCourse, validateCourseName } from '../lib/courses'
+import { BookOpen, Pencil, Plus, Trash2, X } from 'lucide-react'
+import CourseFormModal from './CourseFormModal.jsx'
+import { durationLabel, normalizeCourseName, scheduleRows, studentsInCourse, teacherStatus, validateCourseName } from '../lib/courses'
+import { SPAIN_ZONE, zonePlace } from '../lib/timezones'
 import './GroupsModal.css'
+import './StudentsView.css'
 
-function CourseRow({ course, courses, count, onRename, onDelete }) {
+// Profesor, duración y horario del curso (en la zona del horario y en mi hora).
+function CourseSummary({ course, contacts }) {
+  const { teacher, problem } = teacherStatus(course, contacts)
+  const rows = scheduleRows(course, new Date())
+  const zone = course.schedule?.timeZone
+  const perWeek = `${course.classesPerWeek} clase${course.classesPerWeek === 1 ? '' : 's'} por semana`
+  return (
+    <div className="course-row-summary">
+      <p>
+        {teacher ? teacher.name : 'Sin profesor'}
+        {problem === 'inactive' && <span className="course-form-warning"> · ya no está en el Equipo</span>}
+        {problem === 'missing' && <span className="course-form-warning"> · el profesor se ha borrado</span>}
+        {' · '}
+        {durationLabel(course.classMinutes)} · {perWeek}
+      </p>
+      {rows.length === 0 ? (
+        <p className="student-muted">Sin horario.</p>
+      ) : (
+        <ul className="course-schedule-list">
+          {rows.map((r) => (
+            <li key={r.key}>
+              {r.own}
+              {zone !== SPAIN_ZONE && (
+                <span className="student-muted">
+                  {' '}
+                  ({zonePlace(zone)}) · en tu hora {r.mine}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function CourseRow({ course, courses, contacts, count, onRename, onEdit, onDelete }) {
   const [name, setName] = useState(course.name)
   const [error, setError] = useState(null)
 
@@ -48,19 +87,25 @@ function CourseRow({ course, courses, count, onRename, onDelete }) {
         <span className="group-row-count">
           {count} alumno{count === 1 ? '' : 's'}
         </span>
+        <button type="button" className="group-row-delete" onClick={() => onEdit(course)} aria-label={`Editar el curso ${course.name}`}>
+          <Pencil size={15} strokeWidth={1.75} />
+        </button>
         <button type="button" className="group-row-delete" onClick={handleDelete} aria-label={`Borrar el curso ${course.name}`}>
           <Trash2 size={15} strokeWidth={1.75} />
         </button>
       </div>
       {error && <p className="group-row-error">{error}</p>}
+      <CourseSummary course={course} contacts={contacts} />
     </li>
   )
 }
 
-// Crear, renombrar y borrar cursos (al borrar uno se quita de sus alumnos).
-export default function CoursesModal({ courses, students, onCreate, onRename, onDelete, onClose }) {
+// Crear, renombrar, editar (profesor, duración y horario) y borrar cursos (al borrar uno se quita
+// de sus alumnos).
+export default function CoursesModal({ courses, students, contacts = [], onCreate, onRename, onUpdate, onDelete, onClose }) {
   const [name, setName] = useState('')
   const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(null)
 
   const handleCreate = (e) => {
     e.preventDefault()
@@ -115,8 +160,10 @@ export default function CoursesModal({ courses, students, onCreate, onRename, on
                   key={`${c.id}-${c.updatedAt}`}
                   course={c}
                   courses={courses}
+                  contacts={contacts}
                   count={studentsInCourse(c.id, students).length}
                   onRename={onRename}
+                  onEdit={setEditing}
                   onDelete={onDelete}
                 />
               ))}
@@ -130,6 +177,15 @@ export default function CoursesModal({ courses, students, onCreate, onRename, on
           </button>
         </div>
       </div>
+      {editing && (
+        <CourseFormModal
+          course={editing}
+          courses={courses}
+          contacts={contacts}
+          onClose={() => setEditing(null)}
+          onSubmit={onUpdate}
+        />
+      )}
     </div>
   )
 }

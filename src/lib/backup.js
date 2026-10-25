@@ -15,7 +15,7 @@ import { getAllProjects, STORAGE_KEY as PROJECTS_KEY } from './projects'
 import { getAllVacancies, STORAGE_KEY as VACANCIES_KEY } from './vacancies'
 import { getAllTasks, STORAGE_KEY as TASKS_KEY } from './tasks'
 import { getAllStudents, STORAGE_KEY as STUDENTS_KEY } from './students'
-import { getAllCourses, STORAGE_KEY as COURSES_KEY } from './courses'
+import { coursesStore, STORAGE_KEY as COURSES_KEY } from './courses'
 
 // v1: events, contacts, workingHours. v2 añade preferences. v3 añade rules. v4 añade proposals.
 // v5 añade groups (y los groupIds de cada contacto). v6: los contactos llevan la referencia de
@@ -73,7 +73,8 @@ export function buildBackup() {
     vacancies: getAllVacancies(),
     tasks: getAllTasks(),
     students: getAllStudents(),
-    courses: getAllCourses(),
+    // Tal como están guardados (getAllCourses rellena los campos que faltan con su valor por defecto).
+    courses: coursesStore.getAll(),
   }
 }
 

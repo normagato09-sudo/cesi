@@ -112,6 +112,7 @@ function enrolledLabel(key) {
 export default function StudentsView({
   students,
   courses,
+  contacts = [],
   now,
   selectedStudentId,
   onSelectStudent,
@@ -120,6 +121,7 @@ export default function StudentsView({
   onRemoveStudent,
   onCreateCourse,
   onRenameCourse,
+  onUpdateCourse,
   onDeleteCourse,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
@@ -397,8 +399,10 @@ export default function StudentsView({
         <CoursesModal
           courses={courses}
           students={students}
+          contacts={contacts}
           onCreate={onCreateCourse}
           onRename={onRenameCourse}
+          onUpdate={onUpdateCourse}
           onDelete={onDeleteCourse}
           onClose={() => setCoursesOpen(false)}
         />
