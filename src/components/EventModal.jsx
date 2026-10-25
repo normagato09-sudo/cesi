@@ -29,7 +29,7 @@ import { NOT_ATTENDING_LABEL, isNotAttending } from '../lib/notAttending'
 import { isInterview } from '../lib/vacancies'
 import { allDayRangeText, eventTitle, isMarkedDayOff, kindLabel, unavailableKindOf } from '../lib/unavailableKinds'
 import UnavailableIcon from './UnavailableIcon.jsx'
-import { RECURRENCE_LABELS, dateKey } from '../lib/recurrence'
+import { dateKey, recurrenceLabel } from '../lib/recurrence'
 import { participantsOf } from '../lib/contacts'
 import { colorForEvent } from '../lib/eventStyle'
 import { isProvisional, optionsOf, proposalShareData } from '../lib/proposals'
@@ -156,7 +156,7 @@ export default function EventModal({
           {event.recurrence && (
             <p className="event-modal-range">
               <Repeat size={14} strokeWidth={1.75} />
-              {RECURRENCE_LABELS[event.recurrence.freq]}
+              {recurrenceLabel(event.recurrence, event.originalStart || event.start)}
               {event.recurrence.until &&
                 ` hasta ${format(new Date(event.recurrence.until), "d 'de' MMMM yyyy", { locale: es })}`}
             </p>

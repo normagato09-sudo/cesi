@@ -391,3 +391,22 @@
   font-size: 12px;
   color: var(--text-secondary);
 }
+
+/* Repetir: "Cada [n] semanas" y el resumen de la repetición. */
+.event-form-repeat-every {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.event-form-repeat-every input {
+  width: 72px;
+  flex: none;
+}
+.event-form-repeat-every span {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+}
+.event-form-repeat-summary {
+  margin: -4px 0 0;
+}

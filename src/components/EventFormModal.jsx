@@ -7,6 +7,7 @@ import ParticipantPicker from './ParticipantPicker.jsx'
 import { participantFields, participantsOf } from '../lib/contacts'
 import { MeetingWarningError } from '../lib/meetingWarnings'
 import { SCOPES } from '../lib/seriesEdits'
+import { ordinal, recurrenceLabel, unitLabel, weekdayName, weekdayPosition } from '../lib/recurrence'
 import { hasCandidateParticipant, isInterview } from '../lib/vacancies'
 import { UNAVAILABLE_KINDS, allDaySpanDays, cleanNote, unavailableKindOf, unavailableNoteOf, unavailableTitle } from '../lib/unavailableKinds'
 import { DAY_END, DAY_END_MINUTES } from '../lib/weeklySchedule'
@@ -26,11 +27,33 @@ const DURATION_OPTIONS = [
 
 const REPEAT_OPTIONS = [
   { value: '', label: 'No repetir' },
-  { value: 'daily', label: 'Cada día' },
-  { value: 'weekly', label: 'Cada semana' },
-  { value: 'monthly', label: 'Cada mes' },
-  { value: 'yearly', label: 'Cada año' },
+  { value: 'daily', label: 'Por días' },
+  { value: 'weekly', label: 'Por semanas' },
+  { value: 'monthly', label: 'Por meses' },
+  { value: 'yearly', label: 'Por años' },
 ]
+
+const INTERVAL_ERROR = 'Indica cada cuántas veces se repite: un número del 1 al 99.'
+
+// "Cada": un número entero del 1 al 99; null si no lo es.
+function parseInterval(value) {
+  const text = String(value).trim()
+  if (!/^\d{1,2}$/.test(text)) return null
+  const n = Number(text)
+  return n >= 1 && n <= 99 ? n : null
+}
+
+// Qué día se repite una serie mensual que empieza en `day`: el mismo día del mes, el mismo día de
+// la semana en su posición (sin 5.º) o el último de ese día de la semana (si lo es).
+function monthlyOptions(day) {
+  const { nth, isLast } = weekdayPosition(day)
+  const weekday = weekdayName(day)
+  return [
+    { value: 'date', label: `El día ${day.getDate()}` },
+    ...(nth <= 4 ? [{ value: 'nth', label: `El ${ordinal(nth)} ${weekday}` }] : []),
+    ...(isLast ? [{ value: 'last', label: `El último ${weekday}` }] : []),
+  ]
+}
 
 function toDateInputValue(date) {
   return format(date, 'yyyy-MM-dd')
@@ -126,11 +149,32 @@ export default function EventFormModal({
   const [customDuration, setCustomDuration] = useState(initialDiff > 0 ? initialDiff : 60)
 
   const [repeatFreq, setRepeatFreq] = useState(initialEvent?.recurrence?.freq || '')
+  const [repeatInterval, setRepeatInterval] = useState(String(initialEvent?.recurrence?.interval || 1))
+  const [repeatMonthlyBy, setRepeatMonthlyBy] = useState(initialEvent?.recurrence?.monthlyBy || 'date')
   const [repeatUntil, setRepeatUntil] = useState(
     initialEvent?.recurrence?.until
       ? toDateInputValue(new Date(initialEvent.recurrence.until))
       : toDateInputValue(addMonths(baseStart, 3)),
   )
+
+  // Lo que se guardaría en `recurrence` (sin `until`) y su resumen.
+  const repeatDay = new Date(`${date}T12:00:00`)
+  const repeatDayValid = !Number.isNaN(repeatDay.getTime())
+  const repeatMonthlyOptions = repeatDayValid ? monthlyOptions(repeatDay) : []
+  const monthlyBy = repeatMonthlyOptions.some((o) => o.value === repeatMonthlyBy) ? repeatMonthlyBy : 'date'
+  const interval = parseInterval(repeatInterval)
+  const repeatRule = repeatFreq
+    ? { freq: repeatFreq, interval, ...(repeatFreq === 'monthly' ? { monthlyBy } : {}) }
+    : null
+  const untilDay = repeatUntil ? new Date(`${repeatUntil}T12:00:00`) : null
+  const repeatSummary =
+    repeatRule && interval && repeatDayValid
+      ? `${recurrenceLabel(repeatRule, repeatDay)}${
+          untilDay && !Number.isNaN(untilDay.getTime())
+            ? ` hasta el ${format(untilDay, "d 'de' MMMM 'de' yyyy", { locale: es })}`
+            : ''
+        }`
+      : ''
 
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -221,6 +265,10 @@ export default function EventFormModal({
       setFormError('El título es obligatorio.')
       return
     }
+    if (repeatFreq && !interval) {
+      setFormError(INTERVAL_ERROR)
+      return
+    }
     if (repeatFreq && !repeatUntil) {
       setFormError('Indica hasta cuándo se repite.')
       return
@@ -270,7 +318,7 @@ export default function EventFormModal({
         : {}),
       start,
       end,
-      recurrence: repeatFreq ? { freq: repeatFreq, until: new Date(`${repeatUntil}T23:59:59`).toISOString() } : null,
+      recurrence: repeatRule ? { ...repeatRule, until: new Date(`${repeatUntil}T23:59:59`).toISOString() } : null,
     }
 
     await save(payload)
@@ -470,11 +518,46 @@ export default function EventFormModal({
             </label>
             {repeatFreq && (
               <label className="event-form-field">
-                <span>Hasta</span>
-                <input type="date" value={repeatUntil} min={date} onChange={(e) => setRepeatUntil(e.target.value)} />
+                <span>Cada</span>
+                <span className="event-form-repeat-every">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={99}
+                    step={1}
+                    value={repeatInterval}
+                    aria-invalid={!interval}
+                    onChange={(e) => setRepeatInterval(e.target.value)}
+                  />
+                  <span>{unitLabel(repeatFreq, interval ?? 2)}</span>
+                </span>
               </label>
             )}
           </div>
+          {repeatFreq && (
+            <div className="event-form-row" hidden={scope === SCOPES.THIS}>
+              {repeatFreq === 'monthly' && (
+                <label className="event-form-field">
+                  <span>Qué día</span>
+                  <select value={monthlyBy} onChange={(e) => setRepeatMonthlyBy(e.target.value)}>
+                    {repeatMonthlyOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="event-form-field">
+                <span>Hasta</span>
+                <input type="date" value={repeatUntil} min={date} onChange={(e) => setRepeatUntil(e.target.value)} />
+              </label>
+            </div>
+          )}
+          {repeatFreq && scope !== SCOPES.THIS && (
+            <p className="event-form-hint event-form-repeat-summary">{repeatSummary || INTERVAL_ERROR}</p>
+          )}
 
           {!isUnavailable && (
             <div className="event-form-field">

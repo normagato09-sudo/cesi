@@ -2,7 +2,7 @@ import { participantsOf } from './contacts'
 import { contactZone } from './contactAvailability'
 import { meetingWhen } from './meetingWhen'
 import { formatDurationLong } from './proposals'
-import { RECURRENCE_LABELS } from './recurrence'
+import { recurrenceLabel } from './recurrence'
 import { sessionOf } from './meetingSession'
 import { localTimeZone } from './timezones'
 
@@ -99,9 +99,8 @@ export function convocationMessage(occurrence, contacts, { myZone = localTimeZon
     if (local.length) lines.push(`Hora local: ${local.join('; ')}`)
     lines.push(`Duración: ${formatDurationLong(Math.max(0, Math.round((end - start) / 60000)))}`)
   }
-  if (occurrence.recurrence?.freq && RECURRENCE_LABELS[occurrence.recurrence.freq]) {
-    lines.push(`Se repite: ${RECURRENCE_LABELS[occurrence.recurrence.freq].toLowerCase()}`)
-  }
+  const repeats = recurrenceLabel(occurrence.recurrence, occurrence.originalStart || occurrence.start)
+  if (repeats) lines.push(`Se repite: ${repeats.toLowerCase()}`)
   const where = (occurrence.meetLink || '').trim()
   if (where) lines.push(`${isUrl(where) ? 'Enlace' : 'Lugar'}: ${where}`)
 
