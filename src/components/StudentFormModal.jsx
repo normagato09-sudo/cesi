@@ -11,7 +11,7 @@ import './StudentsView.css'
 
 const COURSE_COLOR = 'var(--accent)'
 
-// Crear o editar un alumno: datos, país (zona horaria), cursos, newsletter, alta, disponibilidad y notas.
+// Crear o editar un alumno: datos, país (zona horaria), cursos, alta, disponibilidad y notas.
 export default function StudentFormModal({ initialStudent, courses = [], onManageCourses, onClose, onSubmit }) {
   const isEditing = !!initialStudent
   const seed = initialStudent || {}
@@ -22,7 +22,6 @@ export default function StudentFormModal({ initialStudent, courses = [], onManag
   const [zone, setZone] = useState(() => zoneValue(seed.timeZone, seed.country) || defaultContactZone())
   // Solo cursos que siguen existiendo.
   const [courseIds, setCourseIds] = useState(() => (seed.courseIds || []).filter((id) => courses.some((c) => c.id === id)))
-  const [newsletter, setNewsletter] = useState(!!seed.newsletter)
   const [enrolledAt, setEnrolledAt] = useState(seed.enrolledAt || todayKey())
   const [availability, setAvailability] = useState(() => normalizeWeek(seed.availability, emptyWeek()))
   const [notes, setNotes] = useState(seed.notes || '')
@@ -41,7 +40,6 @@ export default function StudentFormModal({ initialStudent, courses = [], onManag
       timeZone: zone?.timeZone || '',
       // Por si se ha borrado algún curso con el formulario abierto.
       courseIds: courseIds.filter((id) => courses.some((c) => c.id === id)),
-      newsletter,
       enrolledAt,
       // Sin ningún día con franjas no hay disponibilidad.
       availability: week.some((d) => d.enabled) ? week : null,
@@ -130,10 +128,6 @@ export default function StudentFormModal({ initialStudent, courses = [], onManag
             <label className="event-form-field">
               <span>Fecha de alta</span>
               <input type="date" value={enrolledAt} onChange={(e) => setEnrolledAt(e.target.value)} />
-            </label>
-            <label className="event-form-checkbox student-form-newsletter">
-              <input type="checkbox" checked={newsletter} onChange={(e) => setNewsletter(e.target.checked)} />
-              <span>Suscrito a la newsletter</span>
             </label>
           </div>
 

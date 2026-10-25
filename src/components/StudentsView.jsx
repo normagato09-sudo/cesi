@@ -10,7 +10,6 @@ import {
   Globe,
   Mail,
   MessageCircle,
-  Newspaper,
   Pencil,
   Phone,
   Search,
@@ -25,7 +24,6 @@ import { useMinuteClock } from '../hooks/useMinuteClock'
 import { coursesOfStudent, studentsInCourse } from '../lib/courses'
 import {
   DEFAULT_STUDENT_FILTER,
-  NEWSLETTER_FILTERS,
   availabilityRows,
   filterStudents,
   hasStudentAvailability,
@@ -132,7 +130,7 @@ export default function StudentsView({
     () => filterStudents(students, { ...filter, courseId: activeCourse?.id || null, country: activeCountry }),
     [students, filter, activeCourse, activeCountry],
   )
-  const filtering = !!(filter.query.trim() || activeCourse || activeCountry || filter.newsletter !== 'all')
+  const filtering = !!(filter.query.trim() || activeCourse || activeCountry)
   const selected = students.find((s) => s.id === selectedStudentId) || null
 
   const handleFormSubmit = (values) => {
@@ -221,20 +219,6 @@ export default function StudentsView({
                 ))}
               </select>
             </label>
-            <div className="students-newsletter-filter" role="group" aria-label="Filtrar por newsletter">
-              <Newspaper size={14} strokeWidth={1.75} aria-hidden="true" />
-              {NEWSLETTER_FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  className={`contacts-group-filter-btn${filter.newsletter === f.value ? ' on' : ''}`}
-                  onClick={() => set({ newsletter: f.value })}
-                  aria-pressed={filter.newsletter === f.value}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -266,10 +250,7 @@ export default function StudentsView({
                   <span className="contact-row-text">
                     <span className="contact-row-name">{s.name}</span>
                     <CourseChips student={s} courses={courses} />
-                    <span className="contact-row-country">
-                      {countryLabel(s.country)}
-                      {s.newsletter && <span className="student-row-newsletter">Newsletter</span>}
-                    </span>
+                    <span className="contact-row-country">{countryLabel(s.country)}</span>
                   </span>
                 </button>
                 {(s.email || s.phone) && (
@@ -355,10 +336,6 @@ export default function StudentsView({
                   </dd>
                 </div>
               )}
-              <div>
-                <dt><Newspaper size={15} strokeWidth={1.75} /><span className="sr-only">Newsletter</span></dt>
-                <dd>{selected.newsletter ? 'Suscrito a la newsletter' : 'No suscrito a la newsletter'}</dd>
-              </div>
               {selected.enrolledAt && (
                 <div>
                   <dt><CalendarDays size={15} strokeWidth={1.75} /><span className="sr-only">Fecha de alta</span></dt>

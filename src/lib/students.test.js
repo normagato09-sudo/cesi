@@ -40,18 +40,24 @@ describe('validación', () => {
   it('no guarda un alumno sin país y sí uno válido, ordenados por nombre', () => {
     expect(() => createStudent({ ...base, country: '' })).toThrow('El país es obligatorio.')
     createStudent({ ...base, name: 'Zoe' })
-    const ana = createStudent({ ...base, name: 'Ana', courseIds: ['c1'], newsletter: true })
+    const ana = createStudent({ ...base, name: 'Ana', courseIds: ['c1'] })
     expect(getAllStudents().map((s) => s.name)).toEqual(['Ana', 'Zoe'])
-    expect(ana).toMatchObject({ courseIds: ['c1'], newsletter: true, notes: '', availability: null })
+    expect(ana).toMatchObject({ courseIds: ['c1'], notes: '', availability: null })
+    expect(ana).not.toHaveProperty('newsletter')
     expect(() => updateStudent(ana.id, { name: '' })).toThrow('El nombre es obligatorio.')
-    expect(updateStudent(ana.id, { newsletter: false }).newsletter).toBe(false)
+  })
+
+  it('un alumno guardado antes conserva su campo newsletter al editarlo', () => {
+    const old = createStudent({ ...base, name: 'Luis', newsletter: true })
+    expect(updateStudent(old.id, { notes: 'Nota' })).toMatchObject({ notes: 'Nota', newsletter: true })
+    expect(getAllStudents().find((s) => s.id === old.id).newsletter).toBe(true)
   })
 })
 
 describe('buscador y filtros', () => {
   const students = [
-    { id: 'a', name: 'Ana Ruiz', email: 'ana@mail.com', phone: '+52 55 1234 5678', country: 'MX', courseIds: ['loc'], newsletter: true },
-    { id: 'b', name: 'Bruno Díaz', email: '', phone: '', country: 'AR', courseIds: ['loc', 'guion'], newsletter: false },
+    { id: 'a', name: 'Ana Ruiz', email: 'ana@mail.com', phone: '+52 55 1234 5678', country: 'MX', courseIds: ['loc'] },
+    { id: 'b', name: 'Bruno Díaz', email: '', phone: '', country: 'AR', courseIds: ['loc', 'guion'] },
     { id: 'c', name: 'Carla Gómez', email: 'carla@mail.com', phone: '', country: 'ES', courseIds: [] },
   ]
   const ids = (list) => list.map((s) => s.id)
@@ -63,13 +69,11 @@ describe('buscador y filtros', () => {
     expect(studentMatches(students[0], 'Bruno')).toBe(false)
   })
 
-  it('combina curso, país y newsletter', () => {
+  it('combina curso y país', () => {
     expect(ids(filterStudents(students, {}))).toEqual(['a', 'b', 'c'])
     expect(ids(filterStudents(students, { courseId: 'loc' }))).toEqual(['a', 'b'])
     expect(ids(filterStudents(students, { courseId: 'loc', country: 'AR' }))).toEqual(['b'])
-    expect(ids(filterStudents(students, { newsletter: 'yes' }))).toEqual(['a'])
-    expect(ids(filterStudents(students, { newsletter: 'no' }))).toEqual(['b', 'c'])
-    expect(ids(filterStudents(students, { query: 'mail', newsletter: 'no' }))).toEqual(['c'])
+    expect(ids(filterStudents(students, { query: 'mail', courseId: 'loc' }))).toEqual(['a'])
   })
 
   it('lista los países de los alumnos sin repetir, por nombre', () => {

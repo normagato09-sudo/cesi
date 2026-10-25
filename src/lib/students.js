@@ -9,17 +9,17 @@ import { WEEKDAY_DISPLAY_ORDER, clampEnd, normalizeWeek, timeToMinutes, validate
 //   id, name, email, phone (teléfono / WhatsApp),
 //   country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria), igual que los contactos,
 //   courseIds: ids de los cursos en los que está (la inscripción solo se guarda aquí),
-//   newsletter: true si está suscrito,
 //   notes, enrolledAt: 'AAAA-MM-DD' (fecha de alta),
 //   availability: horario semanal con varias franjas por día, en su hora local, o null,
 //   createdAt, updatedAt
 // }
+// Los alumnos guardados antes pueden tener `newsletter` (ya no se usa): se conserva tal cual.
 
 export const STORAGE_KEY = 'cesi_students_v1'
 
 export const studentsStore = createCollection(STORAGE_KEY, {
   prefix: 'stu',
-  defaults: { name: '', email: '', phone: '', country: '', timeZone: '', courseIds: [], newsletter: false, notes: '', enrolledAt: '', availability: null },
+  defaults: { name: '', email: '', phone: '', country: '', timeZone: '', courseIds: [], notes: '', enrolledAt: '', availability: null },
 })
 
 export function todayKey(date = new Date()) {
@@ -85,22 +85,15 @@ export function studentMatches(student, query) {
   )
 }
 
-export const NEWSLETTER_FILTERS = [
-  { value: 'all', label: 'Todos' },
-  { value: 'yes', label: 'Suscritos' },
-  { value: 'no', label: 'No suscritos' },
-]
+export const DEFAULT_STUDENT_FILTER = { query: '', courseId: null, country: '' }
 
-export const DEFAULT_STUDENT_FILTER = { query: '', courseId: null, country: '', newsletter: 'all' }
-
-// Alumnos que cumplen el buscador y todos los filtros (curso, país y newsletter).
-export function filterStudents(students, { query = '', courseId = null, country = '', newsletter = 'all' } = {}) {
+// Alumnos que cumplen el buscador y todos los filtros (curso y país).
+export function filterStudents(students, { query = '', courseId = null, country = '' } = {}) {
   return students.filter(
     (s) =>
       studentMatches(s, query) &&
       (!courseId || (s.courseIds || []).includes(courseId)) &&
-      (!country || s.country === country) &&
-      (newsletter === 'all' || !!s.newsletter === (newsletter === 'yes')),
+      (!country || s.country === country),
   )
 }
 

@@ -207,8 +207,9 @@ create table if not exists public.vacancies (
 -- data: { name, email, phone (teléfono / WhatsApp),
 --         country (ISO 3166-1 alfa-2, obligatorio), timeZone (zona IANA, obligatoria),
 --         courseIds: ids de los cursos en los que está (tabla courses; la inscripción solo se guarda aquí),
---         newsletter: true si está suscrito, notes, enrolledAt: 'AAAA-MM-DD' (fecha de alta),
+--         notes, enrolledAt: 'AAAA-MM-DD' (fecha de alta),
 --         availability: horario semanal con varias franjas por día, en su zona horaria, o null }
+--       Los alumnos guardados antes pueden tener newsletter (ya no se usa): se conserva tal cual.
 -- ---------------------------------------------------------------------------
 create table if not exists public.students (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
