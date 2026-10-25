@@ -255,7 +255,8 @@ create table if not exists public.courses (
 --         classKey: 'AAAA-MM-DD_HH:mm' (clase del horario, en su zona) o 'extra:<id>' (clase suelta),
 --         classStart, classEnd, timeZone: la clase copiada (el historial no cambia con el horario),
 --         status: 'present' | 'late' | 'absent', lateMinutes (solo 'late'),
---         arrivedAt, leftAt: entrada y salida (ISO; solo si vino) }
+--         arrivedAt, leftAt: entrada y salida (ISO; solo si vino),
+--         justified: falta o retraso justificado (si falta, no lo está), justification: el motivo }
 -- Sin registro = sin marcar. Las clases no se guardan: salen del horario del curso.
 -- Al borrar un alumno o un curso se borran sus registros.
 -- ---------------------------------------------------------------------------

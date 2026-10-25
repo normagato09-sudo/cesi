@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ClipboardCheck, Pencil, UserCheck, X } from 'lucide-react'
-import { STATUSES, classStudents, classSummary, classWhen, myTime, recordProblem } from '../lib/attendance'
+import { MAX_JUSTIFICATION_LENGTH, STATUSES, classStudents, classSummary, classWhen, isJustified, myTime, recordProblem } from '../lib/attendance'
 import { teacherStatus } from '../lib/courses'
 import { SPAIN_ZONE, zonePlace } from '../lib/timezones'
 import './EventFormModal.css'
@@ -18,6 +18,7 @@ function AttendanceRow({ cls, row, actions }) {
     arrived: came ? myTime(record.arrivedAt) : '',
     left: came ? myTime(record.leftAt) : '',
     minutes: record?.lateMinutes ? String(record.lateMinutes) : '',
+    reason: record?.justification || '',
   }
   const value = (field) => (draft && field in draft ? draft[field] : saved[field])
   const change = (field, v) => setDraft((d) => ({ ...(d || {}), [field]: v }))
@@ -39,6 +40,13 @@ function AttendanceRow({ cls, row, actions }) {
   const commitMinutes = () => {
     if (!draft || !('minutes' in draft)) return
     run(() => actions.setLateMinutes(cls, student.id, value('minutes')))
+  }
+  const canJustify = record?.status === 'late' || record?.status === 'absent'
+  const justified = isJustified(record)
+  const toggleJustified = (on) => run(() => actions.setJustification(cls, student.id, { justified: on, justification: value('reason') }))
+  const commitReason = () => {
+    if (!draft || !('reason' in draft)) return
+    run(() => actions.setJustification(cls, student.id, { justified: true, justification: value('reason') }))
   }
   const inCourseZone = (field) => {
     if (!came || cls.timeZone === SPAIN_ZONE) return null
@@ -101,6 +109,27 @@ function AttendanceRow({ cls, row, actions }) {
                 onBlur={commitMinutes}
               />
             </label>
+          )}
+        </div>
+      )}
+
+      {canJustify && (
+        <div className="attendance-justify">
+          <label className="event-form-checkbox">
+            <input type="checkbox" checked={justified} onChange={(e) => toggleJustified(e.target.checked)} />
+            <span>{record.status === 'late' ? 'Retraso justificado' : 'Falta justificada'}</span>
+          </label>
+          {justified && (
+            <input
+              type="text"
+              value={value('reason')}
+              maxLength={MAX_JUSTIFICATION_LENGTH}
+              placeholder="Motivo (p. ej. cita médica)"
+              aria-label={`Motivo de la justificación de ${student.name}`}
+              aria-invalid={!(record.justification || '').trim()}
+              onChange={(e) => change('reason', e.target.value)}
+              onBlur={commitReason}
+            />
           )}
         </div>
       )}

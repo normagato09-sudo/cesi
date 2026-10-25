@@ -67,6 +67,7 @@ import {
   removeStudentAttendance,
   saveExtraClass,
   setAttendanceTimes,
+  setJustification,
   setLateMinutes,
   unmarkAttendance,
 } from './lib/attendance.js'
@@ -644,6 +645,10 @@ export default function App() {
     },
     setLateMinutes: (cls, studentId, minutes) => {
       setLateMinutes(cls, studentId, minutes)
+      reloadAttendance()
+    },
+    setJustification: (cls, studentId, justification) => {
+      setJustification(cls, studentId, justification)
       reloadAttendance()
     },
     markAllPresent: (cls) => {

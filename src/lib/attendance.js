@@ -13,8 +13,10 @@ import { DAY_END_MINUTES, timeToMinutes } from './weeklySchedule'
 //   status: 'present' | 'late' | 'absent',
 //   lateMinutes: minutos de retraso (solo 'late'; null si aún no se han puesto),
 //   arrivedAt, leftAt: entrada y salida (ISO; solo si vino),
+//   justified: true si la falta o el retraso está justificado, justification: el motivo,
 //   createdAt, updatedAt
 // }
+// Los registros guardados antes de las justificaciones no tienen justified: no están justificados.
 // La clase va copiada en el registro para que el historial no cambie si cambia el horario. Sin
 // registro, el alumno está sin marcar: no cuenta como falta.
 //
@@ -36,6 +38,7 @@ export const WEEKS_AHEAD = 4
 // Entrada y salida: como mucho 3 h antes del inicio y 3 h después del fin de la clase.
 export const MARGIN_MINUTES = 180
 export const MAX_LATE_MINUTES = 600
+export const MAX_JUSTIFICATION_LENGTH = 500
 
 const MINUTE = 60000
 const DAY_MS = 86400000
@@ -201,10 +204,18 @@ export function classStudents(cls, students, records) {
     .filter((row) => row.enrolled || row.record)
 }
 
-// { present, late, absent, unmarked } de la clase.
+// ¿Es una falta o un retraso justificado?
+export function isJustified(record) {
+  return !!record && (record.status === 'late' || record.status === 'absent') && record.justified === true
+}
+
+// { present, late, absent, unmarked, justifiedLate, justifiedAbsent } de la clase.
 export function classSummary(cls, students, records) {
-  const out = { present: 0, late: 0, absent: 0, unmarked: 0 }
-  for (const { record } of classStudents(cls, students, records)) out[record ? record.status : 'unmarked']++
+  const out = { present: 0, late: 0, absent: 0, unmarked: 0, justifiedLate: 0, justifiedAbsent: 0 }
+  for (const { record } of classStudents(cls, students, records)) {
+    out[record ? record.status : 'unmarked']++
+    if (isJustified(record)) out[record.status === 'late' ? 'justifiedLate' : 'justifiedAbsent']++
+  }
   return out
 }
 
@@ -258,7 +269,9 @@ export function validateLateMinutes(minutes) {
 
 // Aviso de un registro incompleto (se guarda igual), o null.
 export function recordProblem(record) {
-  return record?.status === 'late' && !record.lateMinutes ? 'Faltan los minutos de retraso.' : null
+  if (record?.status === 'late' && !record.lateMinutes) return 'Faltan los minutos de retraso.'
+  if (isJustified(record) && !(record.justification || '').trim()) return 'Falta el motivo de la justificación.'
+  return null
 }
 
 function findRecord(cls, studentId) {
@@ -286,12 +299,13 @@ function saveRecord(cls, studentId, patch) {
  */
 export function markAttendance(cls, studentId, status) {
   if (!STATUSES.some((s) => s.value === status)) throw new Error('Estado de asistencia no válido.')
+  // Entre falta y retraso la justificación se conserva; si vino a la hora, se quita.
   if (status === 'absent') return saveRecord(cls, studentId, { status, lateMinutes: null, arrivedAt: null, leftAt: null })
   const current = findRecord(cls, studentId)
   const arrivedAt = current?.arrivedAt || cls.start.toISOString()
   const leftAt = current?.leftAt || cls.end.toISOString()
-  let lateMinutes = null
-  if (status === 'late') lateMinutes = (current?.status === 'late' && current.lateMinutes) || lateMinutesFor(arrivedAt, cls) || null
+  if (status === 'present') return saveRecord(cls, studentId, { status, lateMinutes: null, arrivedAt, leftAt, justified: false, justification: '' })
+  const lateMinutes = (current?.status === 'late' && current.lateMinutes) || lateMinutesFor(arrivedAt, cls) || null
   return saveRecord(cls, studentId, { status, lateMinutes, arrivedAt, leftAt })
 }
 
@@ -322,6 +336,18 @@ export function setLateMinutes(cls, studentId, minutes) {
     if (!validateTimes(cls, arrivedAt, current.leftAt)) patch.arrivedAt = arrivedAt.toISOString()
   }
   return saveRecord(cls, studentId, patch)
+}
+
+/**
+ * Marca la falta o el retraso como justificado (o no) y guarda el motivo. Al quitar la
+ * justificación se borra el motivo. Lanza un Error si no hay falta ni retraso o el motivo es muy largo.
+ */
+export function setJustification(cls, studentId, { justified, justification = '' }) {
+  const current = findRecord(cls, studentId)
+  if (!current || (current.status !== 'late' && current.status !== 'absent')) throw new Error('Solo se justifica una falta o un retraso.')
+  const reason = (justification || '').trim()
+  if (reason.length > MAX_JUSTIFICATION_LENGTH) throw new Error(`El motivo puede tener como mucho ${MAX_JUSTIFICATION_LENGTH} caracteres.`)
+  return saveRecord(cls, studentId, justified ? { justified: true, justification: reason } : { justified: false, justification: '' })
 }
 
 // Vuelve a dejar al alumno sin marcar.

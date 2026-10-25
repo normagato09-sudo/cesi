@@ -13,6 +13,7 @@ import {
   getAllExtraClasses,
   groupClasses,
   instantForClass,
+  isJustified,
   markAllPresent,
   markAttendance,
   myTime,
@@ -22,6 +23,7 @@ import {
   saveExtraClass,
   scheduleSince,
   setAttendanceTimes,
+  setJustification,
   setLateMinutes,
   unmarkAttendance,
   validateExtraClass,
@@ -149,9 +151,9 @@ describe('pase de lista', () => {
   it('sin marcar no cuenta como falta; «todos presentes» solo marca a los inscritos sin marcar', () => {
     const c = cls()
     markAttendance(c, 'ana', 'absent')
-    expect(classSummary(c, students, getAllAttendance())).toEqual({ present: 0, late: 0, absent: 1, unmarked: 1 })
+    expect(classSummary(c, students, getAllAttendance())).toMatchObject({ present: 0, late: 0, absent: 1, unmarked: 1 })
     expect(markAllPresent(c, students)).toBe(1)
-    expect(classSummary(c, students, getAllAttendance())).toEqual({ present: 1, late: 0, absent: 1, unmarked: 0 })
+    expect(classSummary(c, students, getAllAttendance())).toMatchObject({ present: 1, late: 0, absent: 1, unmarked: 0 })
   })
 
   it('salen los inscritos y los que tienen pase de lista aunque ya no estén en el curso', () => {
@@ -162,6 +164,49 @@ describe('pase de lista', () => {
       ['bruno', true, null],
       ['carla', false, 'present'],
     ])
+  })
+})
+
+describe('justificaciones', () => {
+  const cls = () => classAt('2026-10-26_18:00')
+
+  it('una falta o un retraso se marca como justificado con su motivo', () => {
+    markAttendance(cls(), 'ana', 'absent')
+    let r = setJustification(cls(), 'ana', { justified: true, justification: '  Cita médica ' })
+    expect([r.justified, r.justification, isJustified(r), recordProblem(r)]).toEqual([true, 'Cita médica', true, null])
+
+    markAttendance(cls(), 'bruno', 'late')
+    setLateMinutes(cls(), 'bruno', 15)
+    r = setJustification(cls(), 'bruno', { justified: true, justification: 'Problema de conexión' })
+    expect(isJustified(r)).toBe(true)
+    expect(classSummary(cls(), students, getAllAttendance())).toMatchObject({ late: 1, absent: 1, justifiedLate: 1, justifiedAbsent: 1 })
+  })
+
+  it('sin motivo se guarda igual pero avisa; al quitar la justificación se borra el motivo', () => {
+    markAttendance(cls(), 'ana', 'absent')
+    let r = setJustification(cls(), 'ana', { justified: true, justification: '' })
+    expect(recordProblem(r)).toBe('Falta el motivo de la justificación.')
+    setJustification(cls(), 'ana', { justified: true, justification: 'Enfermedad' })
+    r = setJustification(cls(), 'ana', { justified: false, justification: 'Enfermedad' })
+    expect([r.justified, r.justification, recordProblem(r)]).toEqual([false, '', null])
+    expect(() => setJustification(cls(), 'ana', { justified: true, justification: 'x'.repeat(501) })).toThrow(/500 caracteres/)
+  })
+
+  it('entre falta y retraso se conserva; si pasa a presente, se quita; sin falta ni retraso no se puede', () => {
+    markAttendance(cls(), 'ana', 'absent')
+    setJustification(cls(), 'ana', { justified: true, justification: 'Viaje' })
+    expect(markAttendance(cls(), 'ana', 'late')).toMatchObject({ justified: true, justification: 'Viaje' })
+    expect(markAttendance(cls(), 'ana', 'absent')).toMatchObject({ justified: true, justification: 'Viaje' })
+    const r = markAttendance(cls(), 'ana', 'present')
+    expect([r.justified, r.justification, isJustified(r)]).toEqual([false, '', false])
+    expect(() => setJustification(cls(), 'ana', { justified: true, justification: 'x' })).toThrow('Solo se justifica una falta o un retraso.')
+    expect(() => setJustification(cls(), 'bruno', { justified: true, justification: 'x' })).toThrow('Solo se justifica una falta o un retraso.')
+  })
+
+  it('los registros guardados antes (sin justified) no están justificados', () => {
+    expect(isJustified({ status: 'absent' })).toBe(false)
+    expect(isJustified({ status: 'present', justified: true })).toBe(false)
+    expect(recordProblem({ status: 'absent' })).toBeNull()
   })
 })
 

@@ -324,3 +324,26 @@
   margin-right: auto;
   color: #b91c1c;
 }
+
+/* Justificación de una falta o un retraso. */
+.attendance-justify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 13px;
+}
+.attendance-justify input[type='text'] {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.attendance-justify input[aria-invalid='true'] {
+  border-color: #b45309;
+}

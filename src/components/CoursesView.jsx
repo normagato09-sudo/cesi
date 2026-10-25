@@ -22,8 +22,9 @@ function summaryText(s) {
   if (s.present + s.late + s.absent === 0) return 'Sin pasar lista'
   const parts = []
   if (s.present) parts.push(`${s.present} presente${s.present === 1 ? '' : 's'}`)
-  if (s.late) parts.push(`${s.late} retraso${s.late === 1 ? '' : 's'}`)
-  if (s.absent) parts.push(`${s.absent} falta${s.absent === 1 ? '' : 's'}`)
+  const justified = (n, word) => (n ? ` (${n} ${word}${n === 1 ? '' : 's'})` : '')
+  if (s.late) parts.push(`${s.late} retraso${s.late === 1 ? '' : 's'}${justified(s.justifiedLate, 'justificado')}`)
+  if (s.absent) parts.push(`${s.absent} falta${s.absent === 1 ? '' : 's'}${justified(s.justifiedAbsent, 'justificada')}`)
   if (s.unmarked) parts.push(`${s.unmarked} sin marcar`)
   return parts.join(' · ')
 }
