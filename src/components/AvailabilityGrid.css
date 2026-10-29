@@ -1,0 +1,138 @@
+/* Tabla de disponibilidad hora a hora (AvailabilityGrid.jsx). Toma los colores del portal del
+   alumno si está dentro (--sp-*) y, si no, los de la app. */
+
+.avail-grid-scroll {
+  --ag-on: var(--sp-blue, var(--accent));
+  --ag-off: var(--sp-bg, var(--bg));
+  --ag-border: var(--sp-border, var(--border));
+  --ag-text: var(--sp-text, var(--text));
+  --ag-muted: var(--sp-muted, var(--text-secondary));
+  --ag-surface: var(--sp-surface, var(--surface));
+  max-height: min(60vh, 560px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--ag-border);
+  border-radius: 12px;
+  background: var(--ag-surface);
+  -webkit-overflow-scrolling: touch;
+}
+.avail-grid-scroll.invalid {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px #dc2626;
+}
+
+.avail-grid {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: 12px;
+  color: var(--ag-text);
+  user-select: none;
+}
+
+.avail-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 6px 0 4px;
+  background: var(--ag-surface);
+  font-weight: 600;
+  text-align: center;
+}
+
+.avail-grid-day {
+  display: block;
+  font-size: 13px;
+}
+
+.avail-grid-total {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ag-muted);
+}
+
+.avail-grid tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 0 6px 0 2px;
+  background: var(--ag-surface);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ag-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.avail-grid-corner {
+  left: 0;
+  z-index: 3 !important;
+}
+
+.avail-grid .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.avail-grid td {
+  padding: 0;
+}
+
+.avail-cell {
+  display: block;
+  width: 100%;
+  min-width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--ag-border);
+  border-radius: 6px;
+  background: var(--ag-off);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.avail-cell.on {
+  border-color: var(--ag-on);
+  background: var(--ag-on);
+}
+.avail-grid:not(.read-only) .avail-cell:hover:not(.on) {
+  border-color: var(--ag-on);
+}
+.avail-cell:focus-visible {
+  outline: 2px solid var(--ag-on);
+  outline-offset: 1px;
+}
+.avail-grid.read-only .avail-cell {
+  height: 18px;
+  cursor: default;
+}
+
+/* Leyenda: Disponible / No disponible. */
+.avail-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12.5px;
+  color: var(--sp-muted, var(--text-secondary));
+}
+.avail-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.avail-legend i {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--sp-border, var(--border));
+  background: var(--sp-bg, var(--bg));
+}
+.avail-legend i.on {
+  border-color: var(--sp-blue, var(--accent));
+  background: var(--sp-blue, var(--accent));
+}

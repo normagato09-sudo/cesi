@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import App from '../App.jsx'
 import LoginScreen from './LoginScreen.jsx'
 import InitialSyncDialog from './InitialSyncDialog.jsx'
@@ -11,6 +11,9 @@ import { SyncEngine } from '../lib/sync/engine'
 import { createRemote } from '../lib/sync/remote'
 import { configureRemoteFiles } from '../lib/files/files'
 import { promoteDeviceFiles } from '../lib/files/contactFiles'
+
+// Portal del alumno: aparte (con su tipografía y estilos), solo se descarga si entra un alumno.
+const StudentPortal = lazy(() => import('./StudentPortal.jsx'))
 
 // Sin credenciales de Supabase la app es exactamente la de siempre (solo este dispositivo).
 export default function SyncGate() {
@@ -135,11 +138,17 @@ function SyncedApp() {
     if (role === 'equipo') {
       return <MemberApp client={client} email={email} name={result?.name || ''} area={result?.area || null} onSignOut={signOutLocal} />
     }
+    if (role === 'alumno') {
+      return (
+        <Suspense fallback={<div className="app-loading" />}>
+          <StudentPortal client={client} userId={userId} onSignOut={signOutLocal} />
+        </Suspense>
+      )
+    }
     return (
       <AccountStatusScreen
-        kind={role === 'alumno' ? 'student' : role ? 'waiting' : 'error'}
+        kind={role ? 'waiting' : 'error'}
         email={email}
-        name={result?.name || ''}
         onRetry={() => setRoleAttempt((n) => n + 1)}
         onSignOut={signOutLocal}
       />

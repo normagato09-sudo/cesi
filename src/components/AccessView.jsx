@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronDown, KeyRound, RefreshCw, RotateCcw, Search, ShieldCheck } from 'lucide-react'
+import { ChevronDown, KeyRound, RefreshCw, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react'
 import { useSync } from '../lib/sync/syncContext.js'
 import {
   DISPLAY_NAME_MAX,
@@ -30,6 +30,8 @@ import {
   resetProfilePermissions,
   setProfilePermission,
 } from '../lib/permissions'
+import { listPortalsByAccount, newStudentFromPortal } from '../lib/studentPortal'
+import { todayKey } from '../lib/students'
 import './ContactsView.css'
 import './AccessView.css'
 
@@ -216,7 +218,7 @@ function PermissionsTable({ profile, permissions, overridden, busy, onChange, on
 
 // Accesos: las cuentas que han entrado en la app, su papel, a quién están unidas y, si son de
 // equipo, su área y sus permisos. Solo la ceo.
-export default function AccessView({ contacts = [], students = [] }) {
+export default function AccessView({ contacts = [], students = [], onCreateStudent = null }) {
   const sync = useSync()
   const client = sync?.client
   const userId = sync?.userId
@@ -226,12 +228,20 @@ export default function AccessView({ contacts = [], students = [] }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState({})
   const [openPerms, setOpenPerms] = useState(null) // id de la cuenta con los permisos abiertos
+  const [portals, setPortals] = useState(() => new Map()) // perfiles del portal de alumnos, por cuenta
   const options = useMemo(() => linkOptions(contacts, students), [contacts, students])
 
   const fetchAll = useCallback(
     () =>
-      Promise.allSettled([listProfiles(client), listAreas(client), listAreaPermissions(client), listProfilePermissions(client)]).then(
-        ([list, areas, areaRows, overrides]) => {
+      Promise.allSettled([
+        listProfiles(client),
+        listAreas(client),
+        listAreaPermissions(client),
+        listProfilePermissions(client),
+        listPortalsByAccount(client),
+      ]).then(
+        ([list, areas, areaRows, overrides, portalMap]) => {
+          if (portalMap.status === 'fulfilled') setPortals(portalMap.value)
           if (list.status === 'fulfilled') {
             setProfiles(list.value)
             setError(null)
@@ -283,6 +293,21 @@ export default function AccessView({ contacts = [], students = [] }) {
         overrides: [...p.overrides.filter((o) => !(o.profile_id === profile.id && o.screen === screen)), row],
       }))
     })
+
+  // Ficha nueva en Alumnos con los datos de su perfil (ya con país, zona y disponibilidad) y la
+  // cuenta unida a ella.
+  const createStudentFor = (profile) => {
+    const portal = portals.get(profile.id)
+    if (!portal?.completed_at || !onCreateStudent) return
+    let student
+    try {
+      student = onCreateStudent(newStudentFromPortal(portal, profile, todayKey()))
+    } catch (err) {
+      setError(`No se pudo crear el alumno: ${err.message}`)
+      return
+    }
+    save(profile, linkPatch({ kind: 'student', id: student.id, label: student.name }, profile))
+  }
 
   const resetPermissions = (profile) =>
     withSaving(profile.id, async () => {
@@ -371,6 +396,27 @@ export default function AccessView({ contacts = [], students = [] }) {
                   <span className="access-field-label">Unida a</span>
                   <LinkPicker value={linkedOption(p, options)} options={options} disabled={busy} onChange={(o) => save(p, linkPatch(o, p))} />
                 </div>
+
+                {p.role === 'alumno' && !p.linked_student_id && onCreateStudent && (
+                  <div className="access-team">
+                    <div className="access-team-row">
+                      <button
+                        type="button"
+                        className="contacts-groups-btn"
+                        disabled={busy || !portals.get(p.id)?.completed_at}
+                        onClick={() => createStudentFor(p)}
+                      >
+                        <UserPlus size={14} strokeWidth={1.75} />
+                        Crear alumno nuevo con sus datos
+                      </button>
+                      <span className="access-muted">
+                        {portals.get(p.id)?.completed_at
+                          ? 'O únela a un alumno que ya tengas con «Unida a».'
+                          : 'Se podrá cuando complete su perfil al entrar. Mientras, puedes unirla a un alumno que ya tengas.'}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {p.role === 'equipo' && (
                   <div className="access-team">

@@ -54,6 +54,7 @@ import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { STORAGE_KEY as STUDENTS_KEY, createStudent, deleteStudent, getAllStudents, updateStudent } from './lib/students.js'
+import { fichaPatch, listPortalsByStudent } from './lib/studentPortal.js'
 import { STORAGE_KEY as COURSES_KEY, coursesStore, deleteCourse, getAllCourses, validateCourse } from './lib/courses.js'
 import {
   ATTENDANCE_KEY,
@@ -256,6 +257,22 @@ export default function App() {
   // Esa lista se guarda (y se sincroniza) solo cuando ya se ha descargado la nube, para no pisar
   // con la lista de ejemplo de este dispositivo una lista ya cambiada en otro.
   const sync = useSync()
+
+  // Perfiles del portal de los alumnos con cuenta unida a su ficha (Map id del alumno → perfil).
+  // Se leen al abrir Alumnos; sin el SQL del portal, vacío.
+  const [portals, setPortals] = useState(() => new Map())
+  const syncClient = sync?.client || null
+  useEffect(() => {
+    if (!syncClient || section !== 'students') return
+    let active = true
+    listPortalsByStudent(syncClient).then(
+      (next) => active && setPortals(next),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [syncClient, section])
   const syncStatus = useSyncStatus()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
   // Enlace de reservas: con sesión iniciada (ya pasada la primera sincronización).
@@ -594,6 +611,17 @@ export default function App() {
   const handleEditStudent = (id, patch) => {
     updateStudent(id, patch)
     reloadStudents()
+  }
+
+  // «Copiar a la ficha»: país, zona horaria y disponibilidad del portal del alumno.
+  const handleCopyFromPortal = (studentId) => {
+    const portal = portals.get(studentId)
+    if (!portal) return
+    try {
+      handleEditStudent(studentId, fichaPatch(portal))
+    } catch (err) {
+      window.alert(`No se pudo copiar: ${err.message}`)
+    }
   }
 
   // Con el alumno se borra su pase de lista.
@@ -1089,7 +1117,7 @@ export default function App() {
         {section === 'access' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <AccessView contacts={contacts} students={students} />
+              <AccessView contacts={contacts} students={students} onCreateStudent={handleAddStudent} />
             </Suspense>
           </div>
         )}
@@ -1138,6 +1166,8 @@ export default function App() {
             <Suspense fallback={<SectionLoading />}>
               <StudentsView
                 tab={section}
+                portals={portals}
+                onCopyFromPortal={handleCopyFromPortal}
                 students={students}
                 courses={courses}
                 contacts={contacts}

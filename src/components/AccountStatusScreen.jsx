@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { LogOut, RefreshCw } from 'lucide-react'
 import './LoginScreen.css'
 
-// Cuenta sin la app de la ceo: pendiente (kind 'waiting'), alumno (kind 'student': su «Mi panel»)
-// o cuyo papel no se ha podido comprobar (kind 'error': sin conexión la primera vez).
-export default function AccountStatusScreen({ kind = 'waiting', email = '', name = '', onRetry, onSignOut }) {
+// Cuenta pendiente (kind 'waiting') o cuyo papel no se ha podido comprobar (kind 'error': sin
+// conexión la primera vez). Los alumnos tienen su portal y el equipo su app (ver SyncGate).
+export default function AccountStatusScreen({ kind = 'waiting', email = '', onRetry, onSignOut }) {
   const [signingOut, setSigningOut] = useState(false)
 
   const handleSignOut = async () => {
@@ -27,13 +27,6 @@ export default function AccountStatusScreen({ kind = 'waiting', email = '', name
           <>
             <h1>No se pudo comprobar tu cuenta</h1>
             <p className="login-hint">Conéctate a internet y vuelve a intentarlo.</p>
-          </>
-        ) : kind === 'student' ? (
-          <>
-            <h1>Mi panel</h1>
-            <p className="login-hint">
-              Hola{name ? `, ${name}` : ''}. Aquí verás tus cursos y tu asistencia muy pronto.
-            </p>
           </>
         ) : (
           <>

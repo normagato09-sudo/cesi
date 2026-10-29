@@ -23,6 +23,8 @@ import ContactAvatar from './ContactAvatar.jsx'
 import StudentFormModal from './StudentFormModal.jsx'
 import CoursesModal from './CoursesModal.jsx'
 import CoursesView from './CoursesView.jsx'
+import StudentAccountSection from './StudentAccountSection.jsx'
+import { portalDiffers } from '../lib/studentPortal'
 import { attendanceCountOfStudent } from '../lib/attendance'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { coursesOfStudent, studentsInCourse } from '../lib/courses'
@@ -129,6 +131,8 @@ export default function StudentsView({
   onUpdateCourse,
   onDeleteCourse,
   tab: tabProp = null, // 'students' | 'courses': lo elige el menú (Formación) y no salen las pestañas
+  portals = null, // Map(id del alumno → su perfil del portal), si tiene cuenta unida (ver studentPortal.js)
+  onCopyFromPortal = null,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   const [formModal, setFormModal] = useState(null)
@@ -318,7 +322,14 @@ export default function StudentsView({
                 <button type="button" className="contact-row-main" onClick={() => onSelectStudent(s.id)}>
                   <ContactAvatar name={s.name} />
                   <span className="contact-row-text">
-                    <span className="contact-row-name">{s.name}</span>
+                    <span className="contact-row-name">
+                      {s.name}
+                      {portalDiffers(portals?.get(s.id), s) && (
+                        <span className="student-changed-badge" title="El alumno ha cambiado sus datos">
+                          Cambios
+                        </span>
+                      )}
+                    </span>
                     <CourseChips student={s} courses={courses} />
                     <span className="contact-row-country">{countryLabel(s.country)}</span>
                   </span>
@@ -444,6 +455,14 @@ export default function StudentsView({
                 </dd>
               </div>
             </dl>
+
+            {portals?.get(selected.id) && (
+              <StudentAccountSection
+                portal={portals.get(selected.id)}
+                student={selected}
+                onCopy={() => onCopyFromPortal?.(selected.id)}
+              />
+            )}
           </div>
         )}
       </div>
