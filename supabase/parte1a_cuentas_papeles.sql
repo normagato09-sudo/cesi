@@ -3,8 +3,9 @@
 -- =============================================================================
 -- Ejecutar en Supabase → SQL Editor (proyecto fvswxhfjclvadcoyuqyu).
 --
--- ANTES DE EJECUTAR: cambia TU_CORREO_AQUI (en la línea de set_config, justo debajo) por el
--- correo con el que entras en la app. Esa cuenta queda como 'ceo'. Si el correo no es de
+-- ANTES DE EJECUTAR: cambia TU_CORREO_AQUI por el correo con el que entras en la app (sale dos
+-- veces: en la comprobación de justo debajo y en el update del final; con Edición → Reemplazar
+-- → «Reemplazar todo» se cambian las dos). Esa cuenta queda como 'ceo'. Si el correo no es de
 -- ninguna cuenta, el script se para al principio sin cambiar nada.
 --
 -- Qué hace:
@@ -19,15 +20,13 @@
 -- No borra datos y se puede ejecutar más de una vez (no vuelve a cambiar los papeles que ya
 -- hayas puesto en Accesos).
 
-select set_config('cifa.ceo_email', 'TU_CORREO_AQUI', false);
-
 -- Comprobación: el correo tiene que ser de una cuenta que exista.
 do $$
 declare
-  v_email text := lower(trim(current_setting('cifa.ceo_email')));
+  v_email text := lower(trim('TU_CORREO_AQUI'));
 begin
   if v_email = '' or v_email = lower('TU_CORREO' || '_AQUI') then
-    raise exception 'Cambia TU_CORREO_AQUI por tu correo (línea de set_config) y vuelve a ejecutar.';
+    raise exception 'Cambia TU_CORREO_AQUI por tu correo (en la comprobación y en el update del final) y vuelve a ejecutar.';
   end if;
   if not exists (select 1 from auth.users where lower(email) = v_email) then
     raise exception 'No hay ninguna cuenta con el correo %. Revisa el correo y vuelve a ejecutar.', v_email;
@@ -148,13 +147,22 @@ revoke insert, update, delete on public.profiles from authenticated;
 grant select on public.profiles to authenticated;
 grant update (display_name, role, linked_team_id, linked_student_id) on public.profiles to authenticated;
 
--- Tu cuenta, ceo.
+-- Tu cuenta, ceo (el mismo correo que en la comprobación del principio).
 update public.profiles p
 set role = 'ceo'
 from auth.users u
 where u.id = p.id
-  and lower(u.email) = lower(trim(current_setting('cifa.ceo_email')))
+  and lower(u.email) = lower(trim('TU_CORREO_AQUI'))
   and p.role <> 'ceo';
+
+-- Tiene que haber una ceo: si no, la app no te dejaría entrar.
+do $$
+begin
+  if not exists (select 1 from public.profiles where role = 'ceo') then
+    raise exception 'No ha quedado ninguna cuenta como ceo: revisa el correo del update del final y vuelve a ejecutar.';
+  end if;
+end;
+$$;
 
 -- Que la API vea la tabla nueva enseguida.
 notify pgrst, 'reload schema';

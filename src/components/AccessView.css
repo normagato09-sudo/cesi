@@ -67,6 +67,30 @@
   overflow-wrap: anywhere;
 }
 
+.access-name-input {
+  width: 100%;
+  max-width: 320px;
+  margin: 2px 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.access-name-input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.access-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft-strong);
+}
+.access-name-input:disabled {
+  opacity: 0.65;
+}
+
 .access-you {
   padding: 1px 7px;
   border-radius: 999px;

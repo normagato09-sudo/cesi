@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { canChangeRole, fetchOwnRole, filterLinkOptions, linkOptions, linkPatch, linkedOption, resolveRole } from './profiles'
+import {
+  canChangeRole,
+  fetchOwnRole,
+  filterLinkOptions,
+  linkOptions,
+  linkPatch,
+  linkedOption,
+  normalizeDisplayName,
+  resolveRole,
+} from './profiles'
 
 function fakeClient(result) {
   const query = {
@@ -40,6 +49,14 @@ describe('resolveRole', () => {
   })
 })
 
+describe('normalizeDisplayName', () => {
+  it('quita espacios de más y corta a 120 caracteres', () => {
+    expect(normalizeDisplayName('  Ana   García ')).toBe('Ana García')
+    expect(normalizeDisplayName(null)).toBe('')
+    expect(normalizeDisplayName('a'.repeat(200))).toHaveLength(120)
+  })
+})
+
 describe('canChangeRole', () => {
   it('la ceo no puede cambiarse su propio papel', () => {
     expect(canChangeRole({ id: 'yo' }, 'yo')).toBe(false)
@@ -74,6 +91,13 @@ describe('enlaces', () => {
     expect(linkPatch(options[2])).toEqual({ linked_team_id: null, linked_student_id: 's1' })
     expect(linkPatch(options[1])).toEqual({ linked_team_id: 'c1', linked_student_id: null })
     expect(linkPatch(null)).toEqual({ linked_team_id: null, linked_student_id: null })
+  })
+
+  it('sin nombre, la cuenta toma el de la persona a la que se une', () => {
+    expect(linkPatch(options[2], { display_name: '  ' })).toEqual({ linked_team_id: null, linked_student_id: 's1', display_name: 'Íñigo' })
+    expect(linkPatch(options[2], { display_name: 'Ya tiene' })).toEqual({ linked_team_id: null, linked_student_id: 's1' })
+    expect(linkPatch(null, { display_name: '' })).toEqual({ linked_team_id: null, linked_student_id: null })
+    expect(linkPatch({ kind: 'team', id: 'x', missing: true }, { display_name: '' })).not.toHaveProperty('display_name')
   })
 
   it('encuentra la persona unida o avisa si ya no existe', () => {

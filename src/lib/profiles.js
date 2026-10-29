@@ -72,7 +72,7 @@ export async function listProfiles(client) {
   return check(await client.from('profiles').select(PROFILE_FIELDS).order('created_at', { ascending: true }))
 }
 
-// patch: { role } o { linked_team_id, linked_student_id }.
+// patch: { role }, { display_name } o { linked_team_id, linked_student_id[, display_name] }.
 export async function updateProfile(client, id, patch) {
   return check(await client.from('profiles').update(patch).eq('id', id).select(PROFILE_FIELDS).single())
 }
@@ -122,10 +122,22 @@ export function linkedOption(profile, options) {
   return options.find((o) => o.kind === kind && o.id === id) || { kind, id, missing: true }
 }
 
-// Cambios para unir la cuenta a `option` (o a nadie con null): a una sola persona a la vez.
-export function linkPatch(option) {
-  return {
+// Cambios para unir la cuenta a `option` (o a nadie con null): a una sola persona a la vez. Si la
+// cuenta no tiene nombre, toma el de esa persona.
+export function linkPatch(option, profile = null) {
+  const patch = {
     linked_team_id: option?.kind === 'team' ? option.id : null,
     linked_student_id: option?.kind === 'student' ? option.id : null,
   }
+  if (option && !option.missing && profile && !normalizeDisplayName(profile.display_name)) {
+    patch.display_name = normalizeDisplayName(option.label)
+  }
+  return patch
+}
+
+export const DISPLAY_NAME_MAX = 120
+
+// Nombre tal como se guarda: sin espacios de más y como mucho DISPLAY_NAME_MAX caracteres.
+export function normalizeDisplayName(name) {
+  return (name || '').replace(/\s+/g, ' ').trim().slice(0, DISPLAY_NAME_MAX)
 }

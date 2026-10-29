@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale'
 import { ChevronDown, KeyRound, RefreshCw, Search } from 'lucide-react'
 import { useSync } from '../lib/sync/syncContext.js'
 import {
+  DISPLAY_NAME_MAX,
   ROLES,
   ROLE_LABELS,
   canChangeRole,
@@ -12,6 +13,7 @@ import {
   linkPatch,
   linkedOption,
   listProfiles,
+  normalizeDisplayName,
   profileErrorText,
   updateProfile,
 } from '../lib/profiles'
@@ -112,6 +114,39 @@ function LinkPicker({ value, options, disabled, onChange }) {
   )
 }
 
+// Nombre de la cuenta: se guarda al salir del campo o con Enter (Escape deshace lo escrito).
+function NameField({ value, disabled, onSave }) {
+  const [draft, setDraft] = useState(value || '')
+
+  const commit = () => {
+    const next = normalizeDisplayName(draft)
+    setDraft(next)
+    if (next !== (value || '')) onSave(next)
+  }
+
+  return (
+    <input
+      type="text"
+      className="access-name-input"
+      value={draft}
+      maxLength={DISPLAY_NAME_MAX}
+      placeholder="Sin nombre"
+      aria-label="Nombre"
+      disabled={disabled}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        } else if (e.key === 'Escape') {
+          setDraft(value || '')
+        }
+      }}
+    />
+  )
+}
+
 // Accesos: las cuentas que han entrado en la app, su papel y a quién están unidas. Solo la ceo.
 export default function AccessView({ contacts = [], students = [] }) {
   const sync = useSync()
@@ -204,9 +239,13 @@ export default function AccessView({ contacts = [], students = [] }) {
                     {p.email || 'Sin email'}
                     {self && <span className="access-you">Tú</span>}
                   </span>
-                  <span className="access-muted">
-                    {p.display_name || 'Sin nombre'} · desde {createdText(p.created_at)}
-                  </span>
+                  <NameField
+                    key={p.display_name}
+                    value={p.display_name}
+                    disabled={busy}
+                    onSave={(display_name) => save(p, { display_name })}
+                  />
+                  <span className="access-muted">Desde el {createdText(p.created_at)}</span>
                 </div>
                 <label className="access-field">
                   <span className="access-field-label">Papel</span>
@@ -232,7 +271,7 @@ export default function AccessView({ contacts = [], students = [] }) {
                 </label>
                 <div className="access-field">
                   <span className="access-field-label">Unida a</span>
-                  <LinkPicker value={linkedOption(p, options)} options={options} disabled={busy} onChange={(o) => save(p, linkPatch(o))} />
+                  <LinkPicker value={linkedOption(p, options)} options={options} disabled={busy} onChange={(o) => save(p, linkPatch(o, p))} />
                 </div>
               </li>
             )
