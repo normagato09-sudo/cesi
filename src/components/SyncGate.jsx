@@ -116,6 +116,12 @@ function SyncedApp() {
           const { error } = await client.auth.signInWithPassword({ email: userEmail, password })
           if (error) throw error
         }}
+        onOAuth={async (provider) => {
+          // Vuelve a esta misma app (Vercel o local); Supabase deja la sesión en la dirección y el
+          // cliente la recoge al cargar (detectSessionInUrl).
+          const { error } = await client.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } })
+          if (error) throw error
+        }}
       />
     )
   }

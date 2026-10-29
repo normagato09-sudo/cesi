@@ -15,6 +15,7 @@ import {
   listProfiles,
   normalizeDisplayName,
   profileErrorText,
+  providerText,
   updateProfile,
 } from '../lib/profiles'
 import './ContactsView.css'
@@ -245,7 +246,10 @@ export default function AccessView({ contacts = [], students = [] }) {
                     disabled={busy}
                     onSave={(display_name) => save(p, { display_name })}
                   />
-                  <span className="access-muted">Desde el {createdText(p.created_at)}</span>
+                  <span className="access-muted">
+                    {providerText(p) ? `${providerText(p)} · desde el ` : 'Desde el '}
+                    {createdText(p.created_at)}
+                  </span>
                 </div>
                 <label className="access-field">
                   <span className="access-field-label">Papel</span>

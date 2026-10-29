@@ -13,7 +13,18 @@ export const ROLE_LABELS = {
   pendiente: 'Pendiente',
 }
 
-const PROFILE_FIELDS = 'id, email, display_name, role, linked_team_id, linked_student_id, created_at'
+// Todas las columnas: auth_provider y discord_username solo existen tras el SQL de la parte 1b.
+const PROFILE_FIELDS = '*'
+
+const PROVIDER_LABELS = { email: 'Correo', google: 'Google', discord: 'Discord' }
+
+// Con qué se registró la cuenta: «Google», «Discord · @usuario», «Correo» (null si no se sabe).
+export function providerText(profile) {
+  const provider = profile?.auth_provider
+  if (!provider) return null
+  const label = PROVIDER_LABELS[provider] || provider
+  return provider === 'discord' && profile.discord_username ? `${label} · @${profile.discord_username}` : label
+}
 
 // Último papel conocido de la cuenta de este dispositivo: { userId, role }. Sirve para abrir la
 // app sin conexión (y sin esperar al servidor) como hasta ahora.

@@ -7,6 +7,7 @@ import {
   linkPatch,
   linkedOption,
   normalizeDisplayName,
+  providerText,
   resolveRole,
 } from './profiles'
 
@@ -46,6 +47,17 @@ describe('resolveRole', () => {
     expect(resolveRole({ status: 'error' }, 'ceo')).toBe('ceo')
     expect(resolveRole({ status: 'error' }, null)).toBeNull()
     expect(resolveRole(undefined, null)).toBeNull()
+  })
+})
+
+describe('providerText', () => {
+  it('dice con qué se registró la cuenta y su usuario de Discord', () => {
+    expect(providerText({ auth_provider: 'google' })).toBe('Google')
+    expect(providerText({ auth_provider: 'email' })).toBe('Correo')
+    expect(providerText({ auth_provider: 'discord', discord_username: 'ana_cifa' })).toBe('Discord · @ana_cifa')
+    expect(providerText({ auth_provider: 'discord', discord_username: null })).toBe('Discord')
+    expect(providerText({ auth_provider: '' })).toBeNull()
+    expect(providerText({})).toBeNull()
   })
 })
 
