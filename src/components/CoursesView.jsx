@@ -29,12 +29,14 @@ function summaryText(s) {
   return parts.join(' · ')
 }
 
-function ClassRow({ cls, students, attendance, onOpen }) {
+// Una clase con su resumen del pase de lista (también en Asistencia, con `courseName`).
+export function ClassRow({ cls, students, attendance, onOpen, courseName = '' }) {
   const s = classSummary(cls, students, attendance)
   return (
     <li>
       <button type="button" className="course-class-row" onClick={() => onOpen(cls)}>
         <span className="course-class-when">
+          {courseName && <strong className="course-class-course">{courseName}</strong>}
           {classWhen(cls, cls.timeZone)}
           {cls.note && <span className="course-class-note">{cls.note}</span>}
           {!cls.note && cls.extraId && <span className="course-class-note">Clase suelta</span>}
@@ -71,7 +73,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
     <div className={`contacts-view${selected ? ' has-selection' : ''}`}>
       <div className="contacts-list-pane">
         <div className="contacts-header">
-          <h1 className="contacts-title">Alumnos</h1>
+          <h1 className="contacts-title">{tabs ? 'Alumnos' : 'Cursos'}</h1>
           {tabs}
           <div className="contacts-header-actions">
             <button type="button" className="contacts-groups-btn" onClick={onManageCourses} title="Crear, renombrar, editar o borrar cursos">

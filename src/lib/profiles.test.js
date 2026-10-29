@@ -22,12 +22,15 @@ function fakeClient(result) {
 
 describe('fetchOwnRole', () => {
   it('devuelve el papel de la cuenta', async () => {
-    expect(await fetchOwnRole(fakeClient({ data: { role: 'ceo' }, error: null }), 'u1')).toEqual({ status: 'ok', role: 'ceo' })
+    expect(await fetchOwnRole(fakeClient({ data: { role: 'ceo' }, error: null }), 'u1')).toEqual({ status: 'ok', role: 'ceo', name: '', area: null })
+    expect(
+      await fetchOwnRole(fakeClient({ data: { role: 'equipo', display_name: 'Ana', area: 'formacion' }, error: null }), 'u1'),
+    ).toEqual({ status: 'ok', role: 'equipo', name: 'Ana', area: 'formacion' })
   })
 
   it('sin perfil o con un papel desconocido, pendiente', async () => {
-    expect(await fetchOwnRole(fakeClient({ data: null, error: null }), 'u1')).toEqual({ status: 'ok', role: 'pendiente' })
-    expect(await fetchOwnRole(fakeClient({ data: { role: 'admin' }, error: null }), 'u1')).toEqual({ status: 'ok', role: 'pendiente' })
+    expect((await fetchOwnRole(fakeClient({ data: null, error: null }), 'u1')).role).toBe('pendiente')
+    expect((await fetchOwnRole(fakeClient({ data: { role: 'admin' }, error: null }), 'u1')).role).toBe('pendiente')
   })
 
   it('sin la tabla profiles, la app de siempre', async () => {

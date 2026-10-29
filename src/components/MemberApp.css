@@ -1,0 +1,92 @@
+/* App de una persona de equipo (MemberApp.jsx). La barra lateral es la de Sidebar.css. */
+
+.member-panel {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 32px 28px;
+  background: var(--surface);
+}
+
+.member-panel h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+
+.member-panel-area {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.member-panel-note,
+.member-panel-email {
+  margin: 0;
+  max-width: 460px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.member-panel-email {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.member-panel-access {
+  width: 100%;
+  max-width: 360px;
+  margin-top: 8px;
+}
+.member-panel-access h2 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.member-panel-access ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.member-panel-access li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+}
+.member-panel-access li + li {
+  border-top: 1px solid var(--border);
+}
+
+.member-level {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.member-level.write {
+  color: var(--accent);
+}
+
+.member-signout {
+  margin-top: 4px;
+}
+
+/* En el móvil, el menú está en la barra inferior: la lateral no se ve. */
+@media (max-width: 860px) {
+  .member-sidebar {
+    display: none;
+  }
+  .member-panel {
+    padding: 24px 16px;
+  }
+}

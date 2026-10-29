@@ -128,11 +128,13 @@ export default function StudentsView({
   onRenameCourse,
   onUpdateCourse,
   onDeleteCourse,
+  tab: tabProp = null, // 'students' | 'courses': lo elige el menú (Formación) y no salen las pestañas
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   const [formModal, setFormModal] = useState(null)
   const [coursesOpen, setCoursesOpen] = useState(false)
-  const [tab, setTab] = useState('students') // 'students' | 'courses'
+  const [ownTab, setTab] = useState('students') // 'students' | 'courses'
+  const tab = tabProp || ownTab
   const set = (patch) => setFilter((f) => ({ ...f, ...patch }))
 
   // Si se borra el curso del filtro, o ya no queda ningún alumno de ese país, se deja de filtrar.
@@ -165,7 +167,7 @@ export default function StudentsView({
 
   const wa = selected ? whatsappUrl(selected.phone) : null
 
-  const tabs = (
+  const tabs = tabProp ? null : (
     <div className="students-tabs" role="tablist" aria-label="Alumnos o cursos">
       {[
         ['students', 'Alumnos'],

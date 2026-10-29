@@ -3,6 +3,7 @@ import App from '../App.jsx'
 import LoginScreen from './LoginScreen.jsx'
 import InitialSyncDialog from './InitialSyncDialog.jsx'
 import AccountStatusScreen from './AccountStatusScreen.jsx'
+import MemberApp from './MemberApp.jsx'
 import { SYNC_ENABLED, getSupabase, hasStoredSession } from '../lib/sync/client'
 import { fetchOwnRole, readCachedRole, resolveRole, writeCachedRole } from '../lib/profiles'
 import { SyncContext } from '../lib/sync/syncContext'
@@ -128,12 +129,19 @@ function SyncedApp() {
 
   if (role !== 'ceo') {
     if (!role && result === undefined) return <div className="app-loading" />
+    const signOutLocal = () => client.auth.signOut({ scope: 'local' })
+    // Equipo: su menú según sus permisos (sin conexión, con lo último conocido no se sabe su
+    // nombre ni su área: los pide al volver).
+    if (role === 'equipo') {
+      return <MemberApp client={client} email={email} name={result?.name || ''} area={result?.area || null} onSignOut={signOutLocal} />
+    }
     return (
       <AccountStatusScreen
-        kind={role ? 'waiting' : 'error'}
+        kind={role === 'alumno' ? 'student' : role ? 'waiting' : 'error'}
         email={email}
+        name={result?.name || ''}
         onRetry={() => setRoleAttempt((n) => n + 1)}
-        onSignOut={() => client.auth.signOut({ scope: 'local' })}
+        onSignOut={signOutLocal}
       />
     )
   }

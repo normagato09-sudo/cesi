@@ -4,7 +4,7 @@ import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
 import PendingPanel from './PendingPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
-import { MAIN_SECTIONS, moreSections, sectionActive } from './sections.js'
+import { ceoGroups, sectionActive } from './sections.js'
 import './Sidebar.css'
 
 export default function Sidebar({
@@ -35,17 +35,24 @@ export default function Sidebar({
       </div>
 
       <nav className="sidebar-nav" aria-label="Secciones">
-        {[...MAIN_SECTIONS, ...moreSections(showAccess)].map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={`sidebar-nav-item${sectionActive(id, section) ? ' active' : ''}`}
-            aria-current={sectionActive(id, section) ? 'page' : undefined}
-            onClick={() => onSectionChange(id)}
-          >
-            <Icon size={17} strokeWidth={1.75} />
-            <span className="sidebar-nav-label">{label}</span>
-          </button>
+        {ceoGroups(showAccess).map((group) => (
+          <div key={group.id} className="sidebar-nav-group" role="group" aria-labelledby={`sidebar-group-${group.id}`}>
+            <span id={`sidebar-group-${group.id}`} className="sidebar-nav-group-title">
+              {group.label}
+            </span>
+            {group.items.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                className={`sidebar-nav-item${sectionActive(id, section) ? ' active' : ''}`}
+                aria-current={sectionActive(id, section) ? 'page' : undefined}
+                onClick={() => onSectionChange(id)}
+              >
+                <Icon size={17} strokeWidth={1.75} />
+                <span className="sidebar-nav-label">{label}</span>
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
 

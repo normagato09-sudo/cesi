@@ -1,0 +1,38 @@
+/* Pantallas sencillas de una columna (Buscar hueco, Vacantes, Asistencia): la cabecera es la de
+   ContactsView.css y el contenido tiene su propio scroll. */
+
+.section-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.section-page-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-page-padded {
+  padding: 4px 20px 20px;
+}
+
+.section-page-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.section-page .proposals-panel {
+  padding: 12px 20px;
+}
+
+.course-class-course {
+  font-weight: 600;
+  color: var(--text);
+}

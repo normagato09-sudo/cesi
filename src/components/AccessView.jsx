@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronDown, KeyRound, RefreshCw, Search } from 'lucide-react'
+import { ChevronDown, KeyRound, RefreshCw, RotateCcw, Search, ShieldCheck } from 'lucide-react'
 import { useSync } from '../lib/sync/syncContext.js'
 import {
   DISPLAY_NAME_MAX,
@@ -18,6 +18,18 @@ import {
   providerText,
   updateProfile,
 } from '../lib/profiles'
+import {
+  AREAS,
+  LEVELS,
+  LEVEL_LABELS,
+  SCREENS,
+  effectivePermissions,
+  listAreaPermissions,
+  listAreas,
+  listProfilePermissions,
+  resetProfilePermissions,
+  setProfilePermission,
+} from '../lib/permissions'
 import './ContactsView.css'
 import './AccessView.css'
 
@@ -148,52 +160,135 @@ function NameField({ value, disabled, onSave }) {
   )
 }
 
-// Accesos: las cuentas que han entrado en la app, su papel y a quién están unidas. Solo la ceo.
+// Permisos de una persona de equipo: pantallas × ninguno / ver / editar. Los que se cambian
+// sustituyen a los de su área; «Volver a los del área» los quita.
+function PermissionsTable({ profile, permissions, overridden, busy, onChange, onReset }) {
+  return (
+    <div className="access-perms">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Pantalla</th>
+            {LEVELS.map((level) => (
+              <th key={level} scope="col">
+                {LEVEL_LABELS[level]}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {SCREENS.map((screen) => {
+            const perm = permissions[screen.id]
+            return (
+              <tr key={screen.id} className={perm.overridden ? 'overridden' : undefined}>
+                <th scope="row">
+                  {screen.label}
+                  {perm.overridden && (
+                    <span className="access-perm-own" title={`En su área: ${LEVEL_LABELS[perm.areaLevel]}`}>
+                      propio
+                    </span>
+                  )}
+                </th>
+                {LEVELS.map((level) => (
+                  <td key={level}>
+                    <input
+                      type="radio"
+                      name={`perm-${profile.id}-${screen.id}`}
+                      checked={perm.level === level}
+                      disabled={busy}
+                      aria-label={`${screen.label}: ${LEVEL_LABELS[level]}`}
+                      onChange={() => onChange(screen.id, level)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <button type="button" className="contacts-groups-btn" disabled={busy || !overridden} onClick={onReset}>
+        <RotateCcw size={14} strokeWidth={1.75} />
+        Volver a los del área
+      </button>
+    </div>
+  )
+}
+
+// Accesos: las cuentas que han entrado en la app, su papel, a quién están unidas y, si son de
+// equipo, su área y sus permisos. Solo la ceo.
 export default function AccessView({ contacts = [], students = [] }) {
   const sync = useSync()
   const client = sync?.client
   const userId = sync?.userId
   const [profiles, setProfiles] = useState(null)
+  // Áreas y permisos (null: falta el SQL de la parte 2 o no se pudieron leer).
+  const [perms, setPerms] = useState(null) // { areas, areaRows, overrides }
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState({})
+  const [openPerms, setOpenPerms] = useState(null) // id de la cuenta con los permisos abiertos
   const options = useMemo(() => linkOptions(contacts, students), [contacts, students])
 
-  const fetchProfiles = useCallback(
+  const fetchAll = useCallback(
     () =>
-      listProfiles(client).then(
-        (list) => {
-          setProfiles(list)
-          setError(null)
-        },
-        (err) => {
-          setError(profileErrorText(err))
-          setProfiles((current) => current || [])
+      Promise.allSettled([listProfiles(client), listAreas(client), listAreaPermissions(client), listProfilePermissions(client)]).then(
+        ([list, areas, areaRows, overrides]) => {
+          if (list.status === 'fulfilled') {
+            setProfiles(list.value)
+            setError(null)
+          } else {
+            setError(profileErrorText(list.reason))
+            setProfiles((current) => current || [])
+          }
+          const ok = areas.status === 'fulfilled' && areaRows.status === 'fulfilled' && overrides.status === 'fulfilled'
+          setPerms(
+            ok ? { areas: areas.value.length > 0 ? areas.value : AREAS, areaRows: areaRows.value, overrides: overrides.value } : null,
+          )
         },
       ),
     [client],
   )
 
   useEffect(() => {
-    if (client) fetchProfiles()
-  }, [client, fetchProfiles])
+    if (client) fetchAll()
+  }, [client, fetchAll])
 
   const load = () => {
     setError(null)
-    fetchProfiles()
+    fetchAll()
   }
 
-  const save = async (profile, patch) => {
-    setSaving((s) => ({ ...s, [profile.id]: true }))
+  const withSaving = async (profileId, task) => {
+    setSaving((s) => ({ ...s, [profileId]: true }))
     setError(null)
     try {
-      const updated = await updateProfile(client, profile.id, patch)
-      setProfiles((list) => list.map((p) => (p.id === updated.id ? updated : p)))
+      await task()
     } catch (err) {
       setError(profileErrorText(err))
     } finally {
-      setSaving((s) => ({ ...s, [profile.id]: false }))
+      setSaving((s) => ({ ...s, [profileId]: false }))
     }
   }
+
+  const save = (profile, patch) =>
+    withSaving(profile.id, async () => {
+      const updated = await updateProfile(client, profile.id, patch)
+      setProfiles((list) => list.map((p) => (p.id === updated.id ? updated : p)))
+    })
+
+  const savePermission = (profile, screen, level) =>
+    withSaving(profile.id, async () => {
+      const row = await setProfilePermission(client, profile.id, screen, level)
+      setPerms((p) => ({
+        ...p,
+        overrides: [...p.overrides.filter((o) => !(o.profile_id === profile.id && o.screen === screen)), row],
+      }))
+    })
+
+  const resetPermissions = (profile) =>
+    withSaving(profile.id, async () => {
+      await resetProfilePermissions(client, profile.id)
+      setPerms((p) => ({ ...p, overrides: p.overrides.filter((o) => o.profile_id !== profile.id) }))
+    })
 
   return (
     <div className="access-view">
@@ -201,7 +296,8 @@ export default function AccessView({ contacts = [], students = [] }) {
         <h1 className="contacts-title">Accesos</h1>
         <div className="access-header-row">
           <p className="access-muted">
-            Las cuentas nuevas entran como pendientes. De momento solo la CEO ve la app; el resto ve un aviso de espera.
+            Las cuentas nuevas entran como pendientes. Al ponerle «Equipo» a una cuenta, elige su área: sus permisos son los del
+            área, y puedes cambiar los de cada persona.
           </p>
           <button type="button" className="contacts-groups-btn" onClick={load} title="Volver a cargar">
             <RefreshCw size={14} strokeWidth={1.75} />
@@ -233,6 +329,9 @@ export default function AccessView({ contacts = [], students = [] }) {
             const self = p.id === userId
             const busy = !!saving[p.id]
             const locked = !canChangeRole(p, userId)
+            const own = perms ? perms.overrides.filter((o) => o.profile_id === p.id) : []
+            const permissions = perms ? effectivePermissions(p.area, perms.areaRows, own) : null
+            const permsOpen = openPerms === p.id
             return (
               <li key={p.id} className="access-row">
                 <div className="access-account">
@@ -240,12 +339,7 @@ export default function AccessView({ contacts = [], students = [] }) {
                     {p.email || 'Sin email'}
                     {self && <span className="access-you">Tú</span>}
                   </span>
-                  <NameField
-                    key={p.display_name}
-                    value={p.display_name}
-                    disabled={busy}
-                    onSave={(display_name) => save(p, { display_name })}
-                  />
+                  <NameField key={p.display_name} value={p.display_name} disabled={busy} onSave={(display_name) => save(p, { display_name })} />
                   <span className="access-muted">
                     {providerText(p) ? `${providerText(p)} · desde el ` : 'Desde el '}
                     {createdText(p.created_at)}
@@ -277,6 +371,53 @@ export default function AccessView({ contacts = [], students = [] }) {
                   <span className="access-field-label">Unida a</span>
                   <LinkPicker value={linkedOption(p, options)} options={options} disabled={busy} onChange={(o) => save(p, linkPatch(o, p))} />
                 </div>
+
+                {p.role === 'equipo' && (
+                  <div className="access-team">
+                    {!perms ? (
+                      <p className="access-muted">
+                        Para elegir su área y sus permisos falta ejecutar en Supabase el SQL de la parte 2
+                        (supabase/parte2_papeles_permisos.sql).
+                      </p>
+                    ) : (
+                      <>
+                        <div className="access-team-row">
+                          <label className="access-field access-area">
+                            <span className="access-field-label">Área</span>
+                            <select value={p.area || ''} disabled={busy} onChange={(e) => save(p, { area: e.target.value || null })}>
+                              <option value="">Sin área</option>
+                              {perms.areas.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            className={`contacts-groups-btn${permsOpen ? ' on' : ''}`}
+                            aria-expanded={permsOpen}
+                            onClick={() => setOpenPerms(permsOpen ? null : p.id)}
+                          >
+                            <ShieldCheck size={14} strokeWidth={1.75} />
+                            {permsOpen ? 'Ocultar permisos' : 'Permisos'}
+                            {own.length > 0 && <span className="access-perm-own">{own.length} propios</span>}
+                          </button>
+                        </div>
+                        {permsOpen && (
+                          <PermissionsTable
+                            profile={p}
+                            permissions={permissions}
+                            overridden={own.length > 0}
+                            busy={busy}
+                            onChange={(screen, level) => savePermission(p, screen, level)}
+                            onReset={() => resetPermissions(p)}
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </li>
             )
           })}

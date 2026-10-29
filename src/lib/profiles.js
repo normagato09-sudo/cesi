@@ -54,13 +54,19 @@ export function isMissingTable(error) {
   return error?.code === 'PGRST205' || error?.code === '42P01'
 }
 
-// Perfil de la cuenta con sesión: { status: 'ok', role } | { status: 'legacy' } (sin tabla
-// profiles: la app de siempre) | { status: 'error', error } (sin conexión u otro fallo).
+// Perfil de la cuenta con sesión: { status: 'ok', role, name, area } | { status: 'legacy' } (sin
+// tabla profiles: la app de siempre) | { status: 'error', error } (sin conexión u otro fallo).
+// Todas las columnas: `area` solo existe tras el SQL de la parte 2.
 export async function fetchOwnRole(client, userId) {
   try {
-    const { data, error } = await client.from('profiles').select('role').eq('id', userId).maybeSingle()
+    const { data, error } = await client.from('profiles').select('*').eq('id', userId).maybeSingle()
     if (error) return isMissingTable(error) ? { status: 'legacy' } : { status: 'error', error }
-    return { status: 'ok', role: ROLES.includes(data?.role) ? data.role : 'pendiente' }
+    return {
+      status: 'ok',
+      role: ROLES.includes(data?.role) ? data.role : 'pendiente',
+      name: data?.display_name || '',
+      area: data?.area || null,
+    }
   } catch (error) {
     return { status: 'error', error }
   }

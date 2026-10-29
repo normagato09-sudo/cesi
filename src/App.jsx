@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, format, subDays, subMonths, subWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CalendarCheck } from 'lucide-react'
+import { CalendarCheck, Clock } from 'lucide-react'
 import Sidebar from './components/Sidebar.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import HomeView from './components/HomeView.jsx'
@@ -113,6 +113,10 @@ import './App.css'
 const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
 const StudentsView = lazy(() => import('./components/StudentsView.jsx'))
 const AccessView = lazy(() => import('./components/AccessView.jsx'))
+const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
+const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
+const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
+const ComingSoonView = lazy(() => import('./components/ComingSoonView.jsx'))
 const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
 const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
@@ -765,17 +769,17 @@ export default function App() {
     setSection('team')
   }
 
-  // Las vacantes están en Equipo, en su departamento.
+  // Las vacantes están en Equipo, en su departamento (o en Equipo → Vacantes, si se abren desde ahí).
   const handleOpenVacancy = (vacancyId) => {
     setSelectedVacancyId(vacancyId)
     setSelectedCandidacyId(null)
     setSelectedMemberId(null)
-    setSection('team')
+    setSection((current) => (current === 'vacancies' ? 'vacancies' : 'team'))
   }
 
-  // Ir a una sección; Equipo se abre en la lista (sin persona, vacante ni candidato abiertos).
+  // Ir a una sección; Equipo y Vacantes se abren en la lista (sin persona, vacante ni candidato abiertos).
   const goToSection = (id) => {
-    if (id === 'team') {
+    if (id === 'team' || id === 'vacancies') {
       setSelectedMemberId(null)
       setSelectedVacancyId(null)
       setSelectedCandidacyId(null)
@@ -1090,10 +1094,50 @@ export default function App() {
           </div>
         )}
 
-        {section === 'students' && (
+        {section === 'slots' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <SlotsView proposals={proposalItems} onFindSlot={() => setFindSlot({})} onOpenProposal={setProposalModalId} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'vacancies' && !vacancyOpen && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <VacancyListView vacancies={vacancies} contacts={contacts} onOpenVacancy={handleOpenVacancy} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'clockins' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <ComingSoonView title="Fichajes" Icon={Clock} note="Aquí verás los fichajes del equipo." />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'attendance' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <AttendanceView
+                courses={courses}
+                students={students}
+                contacts={contacts}
+                attendance={attendance}
+                extraClasses={extraClasses}
+                actions={attendanceActions}
+              />
+            </Suspense>
+          </div>
+        )}
+
+        {(section === 'students' || section === 'courses') && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <StudentsView
+                tab={section}
                 students={students}
                 courses={courses}
                 contacts={contacts}
@@ -1115,7 +1159,7 @@ export default function App() {
           </div>
         )}
 
-        {section === 'team' && vacancyOpen && (
+        {(section === 'team' || section === 'vacancies') && vacancyOpen && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <VacanciesView
