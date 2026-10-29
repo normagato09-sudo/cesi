@@ -1,4 +1,4 @@
-import { BadgeCheck, CalendarDays, GraduationCap, House, ListTodo, Users } from 'lucide-react'
+import { BadgeCheck, CalendarDays, GraduationCap, House, KeyRound, ListTodo, Users } from 'lucide-react'
 
 // Secciones de la app. En el ordenador, todas en la barra lateral; en el móvil, las principales en
 // la barra inferior y el resto dentro de "Más". Las vacantes están dentro de Equipo, en cada departamento.
@@ -17,6 +17,13 @@ export const MORE_SECTIONS = [
 ]
 
 export const SECTIONS = [...MAIN_SECTIONS, ...MORE_SECTIONS]
+
+// Accesos (cuentas y papeles): solo con la sincronización activa, que solo tiene la ceo.
+export const ACCESS_SECTION = { id: 'access', label: 'Accesos', Icon: KeyRound }
+
+export function moreSections(showAccess) {
+  return showAccess ? [...MORE_SECTIONS, ACCESS_SECTION] : MORE_SECTIONS
+}
 
 // ¿Se marca la sección `id` en el menú estando en `section`? (el informe, como Inicio)
 export function sectionActive(id, section) {

@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Ellipsis } from 'lucide-react'
-import { MAIN_SECTIONS, MORE_SECTIONS, sectionActive } from './sections.js'
+import { MAIN_SECTIONS, moreSections, sectionActive } from './sections.js'
 import './MobileNav.css'
 
 // Barra inferior del móvil: Inicio, Calendario, Tareas, Contactos y "Más" (Equipo, Alumnos,
 // y debajo `actions`: [{ id, label, Icon, onClick }], p. ej. "Enlace de reservas").
 // En el ordenador no se ve: están todas en la barra lateral.
-export default function MobileNav({ section, onSectionChange, actions = [] }) {
+export default function MobileNav({ section, onSectionChange, actions = [], showAccess = false }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const ref = useRef(null)
-  const inMore = MORE_SECTIONS.some((s) => s.id === section)
+  const more = moreSections(showAccess)
+  const inMore = more.some((s) => s.id === section)
 
   useEffect(() => {
     if (!moreOpen) return
@@ -56,7 +57,7 @@ export default function MobileNav({ section, onSectionChange, actions = [] }) {
 
       {moreOpen && (
         <div className="mobile-nav-more" role="menu" aria-label="Más secciones">
-          {MORE_SECTIONS.map(({ id, label, Icon }) => (
+          {more.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"

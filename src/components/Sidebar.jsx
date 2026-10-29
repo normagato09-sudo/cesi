@@ -4,7 +4,7 @@ import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
 import PendingPanel from './PendingPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
-import { SECTIONS, sectionActive } from './sections.js'
+import { MAIN_SECTIONS, moreSections, sectionActive } from './sections.js'
 import './Sidebar.css'
 
 export default function Sidebar({
@@ -22,6 +22,7 @@ export default function Sidebar({
   onOpenProposal,
   missingNotes = [],
   onOpenMissingNotes,
+  showAccess = false,
 }) {
   // En Inicio, las propuestas, las reuniones sin acta y el resumen (próxima reunión, hoy y la semana)
   // ya están en el panel.
@@ -34,7 +35,7 @@ export default function Sidebar({
       </div>
 
       <nav className="sidebar-nav" aria-label="Secciones">
-        {SECTIONS.map(({ id, label, Icon }) => (
+        {[...MAIN_SECTIONS, ...moreSections(showAccess)].map(({ id, label, Icon }) => (
           <button
             key={id}
             type="button"

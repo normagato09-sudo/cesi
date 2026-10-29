@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import App from '../App.jsx'
 import LoginScreen from './LoginScreen.jsx'
 import InitialSyncDialog from './InitialSyncDialog.jsx'
+import AccountStatusScreen from './AccountStatusScreen.jsx'
 import { SYNC_ENABLED, getSupabase, hasStoredSession } from '../lib/sync/client'
+import { fetchOwnRole, readCachedRole, resolveRole, writeCachedRole } from '../lib/profiles'
 import { SyncContext } from '../lib/sync/syncContext'
 import { SyncEngine } from '../lib/sync/engine'
 import { createRemote } from '../lib/sync/remote'
@@ -40,11 +42,33 @@ function SyncedApp() {
   const userId = session?.user?.id || null
   const email = session?.user?.email || ''
 
-  // Un motor de sincronización por usuario con sesión.
+  // Papel de la cuenta (tabla profiles): solo la ceo entra en la app. { userId, status, role }.
+  const [roleCheck, setRoleCheck] = useState(null)
+  const [roleAttempt, setRoleAttempt] = useState(0)
+
+  useEffect(() => {
+    if (!client || !userId) return
+    let active = true
+    fetchOwnRole(client, userId).then((result) => {
+      if (!active) return
+      setRoleCheck({ userId, ...result })
+      const known = resolveRole(result, null)
+      if (known) writeCachedRole(userId, known)
+    })
+    return () => {
+      active = false
+    }
+  }, [client, userId, roleAttempt])
+
+  const result = roleCheck?.userId === userId ? roleCheck : undefined
+  const role = userId ? resolveRole(result, readCachedRole(userId)) : null
+
+  // Un motor de sincronización por usuario con sesión, solo para la ceo: las demás cuentas no
+  // suben ni bajan los datos de este dispositivo.
   const engine = useMemo(() => {
-    if (!client || !userId) return null
+    if (!client || !userId || role !== 'ceo') return null
     return new SyncEngine({ remote: createRemote(client), userId, isOnline: () => navigator.onLine })
-  }, [client, userId])
+  }, [client, userId, role])
 
   useEffect(() => {
     if (!engine) return
@@ -65,6 +89,8 @@ function SyncedApp() {
       engine && {
         engine,
         email,
+        client,
+        userId,
         signOut: async () => {
           const pending = engine.getSnapshot().pending
           const warning =
@@ -76,11 +102,12 @@ function SyncedApp() {
           await client.auth.signOut({ scope: 'local' })
         },
       },
-    [engine, email, client],
+    [engine, email, client, userId],
   )
 
-  // Mientras se comprueba la sesión guardada se abre ya la app con los datos locales.
-  if (session === undefined) return hasStoredSession() ? <App /> : <div className="app-loading" />
+  // Mientras se comprueba la sesión guardada se abre ya la app con los datos locales (si la
+  // cuenta de este dispositivo era la ceo).
+  if (session === undefined) return hasStoredSession() && readCachedRole() === 'ceo' ? <App /> : <div className="app-loading" />
 
   if (!session) {
     return (
@@ -89,6 +116,18 @@ function SyncedApp() {
           const { error } = await client.auth.signInWithPassword({ email: userEmail, password })
           if (error) throw error
         }}
+      />
+    )
+  }
+
+  if (role !== 'ceo') {
+    if (!role && result === undefined) return <div className="app-loading" />
+    return (
+      <AccountStatusScreen
+        kind={role ? 'waiting' : 'error'}
+        email={email}
+        onRetry={() => setRoleAttempt((n) => n + 1)}
+        onSignOut={() => client.auth.signOut({ scope: 'local' })}
       />
     )
   }

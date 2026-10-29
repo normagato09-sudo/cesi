@@ -1,0 +1,191 @@
+/* Accesos: cuentas y papeles (la cabecera y los estados vacíos son los de ContactsView.css). */
+
+.access-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.access-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.access-header-row p {
+  margin: 0;
+}
+
+.access-muted {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.access-error {
+  margin: 12px 20px 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.access-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.access-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 260px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.access-account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.access-email {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.access-you {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.access-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.access-field-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.access-field select,
+.access-link-btn {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.access-field select:disabled,
+.access-link-btn:disabled {
+  opacity: 0.65;
+}
+
+.access-link {
+  position: relative;
+}
+
+.access-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  text-align: left;
+}
+.access-link-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.access-link-btn.empty {
+  color: var(--text-secondary);
+}
+
+.access-link-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  width: max(100%, 280px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.access-link-menu .contacts-search input {
+  padding: 7px 0;
+}
+.access-link-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.access-link-option {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+.access-link-option:hover,
+.access-link-option[aria-selected='true'] {
+  background: var(--surface-hover);
+}
+
+.access-link-none {
+  padding: 7px 8px;
+}
+
+@media (max-width: 760px) {
+  .access-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .access-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .access-field select,
+  .access-link-btn {
+    font-size: 16px;
+  }
+}

@@ -112,6 +112,7 @@ import './App.css'
 // la primera vez que se usan (el service worker los guarda para usarlos sin conexión).
 const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
 const StudentsView = lazy(() => import('./components/StudentsView.jsx'))
+const AccessView = lazy(() => import('./components/AccessView.jsx'))
 const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
 const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
@@ -1045,6 +1046,7 @@ export default function App() {
           onRescheduleUnavailable={(item) => findSlotToReschedule(item.occurrence)}
           onKeepUnavailable={handleKeepUnavailable}
           onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
+          showAccess={!!sync}
         />
 
         {section === 'contacts' && (
@@ -1076,6 +1078,14 @@ export default function App() {
                 onOpenTeamMember={handleOpenTeamMember}
                 onOpenCandidate={handleOpenCandidate}
               />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'access' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <AccessView contacts={contacts} students={students} />
             </Suspense>
           </div>
         )}
@@ -1297,6 +1307,7 @@ export default function App() {
         <MobileNav
           section={section}
           onSectionChange={goToSection}
+          showAccess={!!sync}
           actions={sync ? [{ id: 'booking-link', label: 'Enlace de reservas', Icon: CalendarCheck, onClick: () => setBookingLinkOpen(true) }] : []}
         />
 

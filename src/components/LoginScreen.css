@@ -100,6 +100,24 @@
   cursor: default;
 }
 
+/* Botón secundario (pantalla de cuenta sin acceso: «Cerrar sesión» junto a «Reintentar»). */
+.login-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+.login-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
 @media (max-width: 640px) {
   .login-field input {
     font-size: 16px;
