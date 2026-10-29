@@ -4,7 +4,8 @@ import './LoginScreen.css'
 
 // Cuenta pendiente (kind 'waiting') o cuyo papel no se ha podido comprobar (kind 'error': sin
 // conexión la primera vez). Los alumnos tienen su portal y el equipo su app (ver SyncGate).
-export default function AccountStatusScreen({ kind = 'waiting', email = '', onRetry, onSignOut }) {
+// readOnly: vista previa de «Ver como» (los botones no hacen nada).
+export default function AccountStatusScreen({ kind = 'waiting', email = '', onRetry, onSignOut, readOnly = false }) {
   const [signingOut, setSigningOut] = useState(false)
 
   const handleSignOut = async () => {
@@ -36,12 +37,12 @@ export default function AccountStatusScreen({ kind = 'waiting', email = '', onRe
         )}
         {email && <p className="login-hint">Has entrado como {email}.</p>}
         {kind === 'error' && (
-          <button type="button" className="login-submit" onClick={onRetry}>
+          <button type="button" className="login-submit" onClick={onRetry} disabled={readOnly}>
             <RefreshCw size={16} strokeWidth={1.75} />
             Reintentar
           </button>
         )}
-        <button type="button" className={kind === 'error' ? 'login-secondary' : 'login-submit'} onClick={handleSignOut} disabled={signingOut}>
+        <button type="button" className={kind === 'error' ? 'login-secondary' : 'login-submit'} onClick={handleSignOut} disabled={signingOut || readOnly}>
           <LogOut size={16} strokeWidth={1.75} />
           {signingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
         </button>

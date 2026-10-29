@@ -4,6 +4,7 @@ import LoginScreen from './LoginScreen.jsx'
 import InitialSyncDialog from './InitialSyncDialog.jsx'
 import AccountStatusScreen from './AccountStatusScreen.jsx'
 import MemberApp from './MemberApp.jsx'
+import ViewAs from './viewAs/ViewAs.jsx'
 import { SYNC_ENABLED, getSupabase, hasStoredSession } from '../lib/sync/client'
 import { fetchOwnRole, readCachedRole, resolveRole, writeCachedRole } from '../lib/profiles'
 import { SyncContext } from '../lib/sync/syncContext'
@@ -159,8 +160,11 @@ function SyncedApp() {
 
   return (
     <SyncContext.Provider value={sync}>
-      <App />
-      <InitialSyncDialog />
+      {/* «Ver como» (temporal): la ceo ve la app como otro papel, en solo lectura. */}
+      <ViewAs client={client}>
+        <App />
+        <InitialSyncDialog />
+      </ViewAs>
     </SyncContext.Provider>
   )
 }

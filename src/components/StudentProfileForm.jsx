@@ -20,7 +20,8 @@ const COUNTRY_OPTIONS = sortedCountries()
 
 // «Completa tu perfil» (la primera vez, obligatorio) o «Editar mi perfil» (desde Mi panel, ya
 // relleno). onSave(fila de student_profiles) guarda; si falla, lanza un error con el mensaje.
-export default function StudentProfileForm({ profile, account, required, onSave, onCancel }) {
+// readOnly (vista previa de «Ver como»): todo desactivado, solo se puede cerrar.
+export default function StudentProfileForm({ profile, account, required, onSave, onCancel, readOnly = false }) {
   const detected = useMemo(() => detectedZone(), [])
   const [form, setForm] = useState(() => formFromProfile(profile, account, detected))
   const [tried, setTried] = useState(false) // tras pulsar Guardar se marcan los errores
@@ -48,6 +49,7 @@ export default function StudentProfileForm({ profile, account, required, onSave,
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (readOnly) return
     setTried(true)
     if (Object.keys(validatePortalForm(form)).length > 0) {
       // Al primer campo marcado en rojo (tras pintar los errores).
@@ -85,158 +87,160 @@ export default function StudentProfileForm({ profile, account, required, onSave,
         <p>Con estos datos organizamos los horarios de tus cursos. Podrás cambiarlos cuando quieras desde Mi panel.</p>
       </header>
 
-      <section className="sp-card">
-        <h2>Tus datos</h2>
+      <fieldset className="sp-fieldset" disabled={readOnly}>
+        <section className="sp-card">
+          <h2>Tus datos</h2>
 
-        <label className={fieldClass('fullName')}>
-          <span className="sp-label">
-            Nombre y apellidos <span aria-hidden="true">*</span>
-          </span>
-          <input
-            type="text"
-            autoComplete="name"
-            value={form.fullName}
-            maxLength={120}
-            required
-            aria-invalid={!!errors.fullName}
-            onChange={(e) => set({ fullName: e.target.value })}
-          />
-          {errors.fullName && <span className="sp-error">{errors.fullName}</span>}
-        </label>
-
-        <label className={fieldClass('discord')}>
-          <span className="sp-label">Usuario de Discord</span>
-          <input
-            type="text"
-            autoComplete="off"
-            value={form.discord}
-            maxLength={40}
-            placeholder="Opcional"
-            aria-invalid={!!errors.discord}
-            onChange={(e) => set({ discord: e.target.value })}
-          />
-          {fromDiscord && <span className="sp-hint">Rellenado desde tu cuenta de Discord</span>}
-          {errors.discord && <span className="sp-error">{errors.discord}</span>}
-        </label>
-
-        <div className="sp-two-cols">
-          <label className={fieldClass('country')}>
+          <label className={fieldClass('fullName')}>
             <span className="sp-label">
-              País <span aria-hidden="true">*</span>
+              Nombre y apellidos <span aria-hidden="true">*</span>
             </span>
-            <select value={form.country} required aria-invalid={!!errors.country} onChange={(e) => handleCountry(e.target.value)}>
-              <option value="">Elige tu país</option>
-              {COUNTRY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {countryFlag(c.code)} {c.name}
+            <input
+              type="text"
+              autoComplete="name"
+              value={form.fullName}
+              maxLength={120}
+              required
+              aria-invalid={!!errors.fullName}
+              onChange={(e) => set({ fullName: e.target.value })}
+            />
+            {errors.fullName && <span className="sp-error">{errors.fullName}</span>}
+          </label>
+
+          <label className={fieldClass('discord')}>
+            <span className="sp-label">Usuario de Discord</span>
+            <input
+              type="text"
+              autoComplete="off"
+              value={form.discord}
+              maxLength={40}
+              placeholder="Opcional"
+              aria-invalid={!!errors.discord}
+              onChange={(e) => set({ discord: e.target.value })}
+            />
+            {fromDiscord && <span className="sp-hint">Rellenado desde tu cuenta de Discord</span>}
+            {errors.discord && <span className="sp-error">{errors.discord}</span>}
+          </label>
+
+          <div className="sp-two-cols">
+            <label className={fieldClass('country')}>
+              <span className="sp-label">
+                País <span aria-hidden="true">*</span>
+              </span>
+              <select value={form.country} required aria-invalid={!!errors.country} onChange={(e) => handleCountry(e.target.value)}>
+                <option value="">Elige tu país</option>
+                {COUNTRY_OPTIONS.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {countryFlag(c.code)} {c.name}
+                  </option>
+                ))}
+              </select>
+              {errors.country && <span className="sp-error">{errors.country}</span>}
+            </label>
+
+            <div className={fieldClass('birthday')} role="group" aria-labelledby="sp-birthday-label">
+              <span className="sp-label" id="sp-birthday-label">
+                Cumpleaños
+              </span>
+              <div className="sp-birthday">
+                <select
+                  value={form.birthdayDay}
+                  aria-label="Día"
+                  aria-invalid={!!errors.birthday}
+                  onChange={(e) => set({ birthdayDay: e.target.value ? Number(e.target.value) : '' })}
+                >
+                  <option value="">Día</option>
+                  {Array.from({ length: form.birthdayMonth ? daysInMonth(form.birthdayMonth) : 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={form.birthdayMonth}
+                  aria-label="Mes"
+                  aria-invalid={!!errors.birthday}
+                  onChange={(e) => set({ birthdayMonth: e.target.value ? Number(e.target.value) : '' })}
+                >
+                  <option value="">Mes</option>
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={i + 1}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.birthday && <span className="sp-error">{errors.birthday}</span>}
+            </div>
+          </div>
+
+          <label className={fieldClass('timeZone')}>
+            <span className="sp-label">
+              Zona horaria <span aria-hidden="true">*</span>
+            </span>
+            <select
+              value={form.timeZone}
+              required
+              disabled={!form.country}
+              aria-invalid={!!errors.timeZone}
+              onChange={(e) => set({ timeZone: e.target.value })}
+            >
+              <option value="">{form.country ? 'Elige tu zona horaria' : 'Elige antes tu país'}</option>
+              {zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.label} ({z.id}){z.id === detected.timeZone ? ' (detectada)' : ''}
                 </option>
               ))}
             </select>
-            {errors.country && <span className="sp-error">{errors.country}</span>}
+            {errors.timeZone && <span className="sp-error">{errors.timeZone}</span>}
           </label>
 
-          <div className={fieldClass('birthday')} role="group" aria-labelledby="sp-birthday-label">
-            <span className="sp-label" id="sp-birthday-label">
-              Cumpleaños
-            </span>
-            <div className="sp-birthday">
-              <select
-                value={form.birthdayDay}
-                aria-label="Día"
-                aria-invalid={!!errors.birthday}
-                onChange={(e) => set({ birthdayDay: e.target.value ? Number(e.target.value) : '' })}
-              >
-                <option value="">Día</option>
-                {Array.from({ length: form.birthdayMonth ? daysInMonth(form.birthdayMonth) : 31 }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={form.birthdayMonth}
-                aria-label="Mes"
-                aria-invalid={!!errors.birthday}
-                onChange={(e) => set({ birthdayMonth: e.target.value ? Number(e.target.value) : '' })}
-              >
-                <option value="">Mes</option>
-                {MONTHS.map((m, i) => (
-                  <option key={m} value={i + 1}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {errors.birthday && <span className="sp-error">{errors.birthday}</span>}
+          <div className="sp-field">
+            <span className="sp-label">Correo</span>
+            <p className="sp-readonly">{account?.email || '—'}</p>
           </div>
-        </div>
+        </section>
 
-        <label className={fieldClass('timeZone')}>
-          <span className="sp-label">
-            Zona horaria <span aria-hidden="true">*</span>
-          </span>
-          <select
-            value={form.timeZone}
-            required
-            disabled={!form.country}
-            aria-invalid={!!errors.timeZone}
-            onChange={(e) => set({ timeZone: e.target.value })}
-          >
-            <option value="">{form.country ? 'Elige tu zona horaria' : 'Elige antes tu país'}</option>
-            {zones.map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.label} ({z.id}){z.id === detected.timeZone ? ' (detectada)' : ''}
-              </option>
-            ))}
-          </select>
-          {errors.timeZone && <span className="sp-error">{errors.timeZone}</span>}
-        </label>
-
-        <div className="sp-field">
-          <span className="sp-label">Correo</span>
-          <p className="sp-readonly">{account?.email || '—'}</p>
-        </div>
-      </section>
-
-      <section className="sp-card">
-        <h2>
-          Tu disponibilidad <span aria-hidden="true">*</span>
-        </h2>
-        <p className="sp-text" id="sp-hours-help">
-          Marca cada hora en la que puedes tener clase, día por día. Siempre en tu hora local ({zoneName}).
-        </p>
-        <div className="sp-actions-row">
-          <button type="button" className="sp-btn-secondary" onClick={() => setHours(copyMondayToWeekdays)}>
-            <Copy size={16} strokeWidth={1.75} />
-            Copiar lunes a L–V
-          </button>
-          <button type="button" className="sp-btn-secondary" onClick={() => setHours(() => emptyHours())}>
-            <Eraser size={16} strokeWidth={1.75} />
-            Borrar todo
-          </button>
-        </div>
-        <AvailabilityGrid
-          hours={form.hours}
-          onChange={setHours}
-          invalid={!!errors.hours}
-          describedBy="sp-hours-help"
-        />
-        <div className="avail-legend" aria-hidden="true">
-          <span>
-            <i className="on" /> Disponible
-          </span>
-          <span>
-            <i /> No disponible
-          </span>
-        </div>
-        {hours > 0 ? (
-          <p className="sp-hours-total">
-            {hours} {hours === 1 ? 'hora disponible' : 'horas disponibles'} a la semana
+        <section className="sp-card">
+          <h2>
+            Tu disponibilidad <span aria-hidden="true">*</span>
+          </h2>
+          <p className="sp-text" id="sp-hours-help">
+            Marca cada hora en la que puedes tener clase, día por día. Siempre en tu hora local ({zoneName}).
           </p>
-        ) : (
-          <p className={errors.hours ? 'sp-error sp-hours-error' : 'sp-text'}>Marca al menos una hora para continuar</p>
-        )}
-      </section>
+          <div className="sp-actions-row">
+            <button type="button" className="sp-btn-secondary" onClick={() => setHours(copyMondayToWeekdays)}>
+              <Copy size={16} strokeWidth={1.75} />
+              Copiar lunes a L–V
+            </button>
+            <button type="button" className="sp-btn-secondary" onClick={() => setHours(() => emptyHours())}>
+              <Eraser size={16} strokeWidth={1.75} />
+              Borrar todo
+            </button>
+          </div>
+          <AvailabilityGrid
+            hours={form.hours}
+            onChange={setHours}
+            invalid={!!errors.hours}
+            describedBy="sp-hours-help"
+          />
+          <div className="avail-legend" aria-hidden="true">
+            <span>
+              <i className="on" /> Disponible
+            </span>
+            <span>
+              <i /> No disponible
+            </span>
+          </div>
+          {hours > 0 ? (
+            <p className="sp-hours-total">
+              {hours} {hours === 1 ? 'hora disponible' : 'horas disponibles'} a la semana
+            </p>
+          ) : (
+            <p className={errors.hours ? 'sp-error sp-hours-error' : 'sp-text'}>Marca al menos una hora para continuar</p>
+          )}
+        </section>
+      </fieldset>
 
       {saveError && (
         <p className="sp-save-error" role="alert">
@@ -255,7 +259,7 @@ export default function StudentProfileForm({ profile, account, required, onSave,
             Cancelar
           </button>
         )}
-        <button type="submit" className="sp-btn-primary" disabled={saving}>
+        <button type="submit" className="sp-btn-primary" disabled={saving || readOnly}>
           {saving ? 'Guardando…' : required ? 'Guardar y entrar' : 'Guardar cambios'}
         </button>
       </div>

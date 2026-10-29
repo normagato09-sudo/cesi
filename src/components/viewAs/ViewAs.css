@@ -1,0 +1,178 @@
+/* «Ver como» (temporal, solo la ceo). */
+
+.view-as-host[hidden] {
+  display: none !important;
+}
+
+.view-as-layer {
+  --view-as-banner: 44px;
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.view-as-banner {
+  flex-shrink: 0;
+  min-height: var(--view-as-banner);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  background: #c026d3;
+  color: #fff;
+  font-size: 13.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  z-index: 2;
+}
+.view-as-banner span {
+  flex: 1;
+  min-width: 0;
+}
+.view-as-banner button {
+  flex-shrink: 0;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #fff;
+  color: #a21caf;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.view-as-banner button:hover {
+  background: #fdf4ff;
+}
+
+/* La vista previa ocupa el resto de la pantalla (las de cada papel usan 100vh: aquí, el hueco). */
+.view-as-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.view-as-content .app,
+.view-as-content .login-screen,
+.view-as-content .student-portal {
+  min-height: 100%;
+}
+.view-as-content .app {
+  height: 100%;
+}
+.view-as-content .sp-sidebar {
+  top: 0;
+  height: calc(100dvh - var(--view-as-banner));
+}
+
+/* ---------- Selector ---------- */
+
+.view-as-picker {
+  max-width: 460px;
+}
+
+.view-as-muted {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.view-as-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+.view-as-tab {
+  flex: 1;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.view-as-tab.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+
+.view-as-search {
+  margin-bottom: 8px;
+}
+.view-as-search input {
+  padding: 8px 0;
+}
+
+.view-as-heading {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.view-as-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.view-as-option {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+.view-as-option:hover {
+  background: var(--surface-hover);
+}
+.view-as-example {
+  margin-left: 8px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #fff4e5;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+}
+.view-as-none {
+  padding: 8px 10px;
+}
+
+.view-as-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13.5px;
+}
+.view-as-pending p {
+  margin: 0;
+}

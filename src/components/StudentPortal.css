@@ -529,3 +529,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Las dos tarjetas del formulario (desactivadas en la vista previa de «Ver como»). */
+.sp-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.sp-fieldset:disabled .avail-cell {
+  cursor: default;
+}

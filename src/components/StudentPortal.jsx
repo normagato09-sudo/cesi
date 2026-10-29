@@ -34,14 +34,18 @@ function Brand() {
   )
 }
 
-export default function StudentPortal({ client, userId, onSignOut }) {
-  const [data, setData] = useState(null) // { account, profile }
+// Con `preview` ({ account, profile }, vista previa de «Ver como») no se pide ni se guarda nada en
+// Supabase; readOnly desactiva guardar y cerrar sesión.
+export default function StudentPortal({ client, userId, onSignOut, preview = null, readOnly = false }) {
+  const [fetched, setData] = useState(null) // { account, profile }
   const [loadError, setLoadError] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [editing, setEditing] = useState(false)
   const [section, setSection] = useState('home')
+  const data = preview || fetched
 
   useEffect(() => {
+    if (preview || !client) return
     let active = true
     fetchMyPortal(client, userId).then(
       (next) => {
@@ -54,16 +58,17 @@ export default function StudentPortal({ client, userId, onSignOut }) {
     return () => {
       active = false
     }
-  }, [client, userId, attempt])
+  }, [client, userId, attempt, preview])
 
   const handleSave = useCallback(
     async (row) => {
+      if (readOnly) return
       const profile = await saveMyPortal(client, userId, row, data?.profile || null)
       setData((d) => ({ ...d, profile }))
       setEditing(false)
       window.scrollTo(0, 0)
     },
-    [client, userId, data],
+    [client, userId, data, readOnly],
   )
 
   const handleSignOut = () => {
@@ -71,7 +76,7 @@ export default function StudentPortal({ client, userId, onSignOut }) {
   }
 
   const signOutButton = (
-    <button type="button" className="sp-btn-secondary sp-signout" onClick={handleSignOut}>
+    <button type="button" className="sp-btn-secondary sp-signout" onClick={handleSignOut} disabled={readOnly}>
       <LogOut size={16} strokeWidth={1.75} />
       Cerrar sesión
     </button>
@@ -112,6 +117,7 @@ export default function StudentPortal({ client, userId, onSignOut }) {
             profile={profile}
             account={account}
             required={!completed}
+            readOnly={readOnly}
             onSave={handleSave}
             onCancel={completed ? () => setEditing(false) : null}
           />

@@ -12,12 +12,16 @@ import './MemberApp.css'
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
 // permiso (my_permissions(), ver supabase/schema.sql). De momento cada pantalla dice
 // «Próximamente»: todavía no ve ningún dato de la ceo.
-export default function MemberApp({ client, email, name, area, onSignOut }) {
-  const [levels, setLevels] = useState(null)
+// Con `levels` (vista previa de «Ver como») no se pide nada a Supabase; readOnly desactiva
+// cerrar sesión.
+export default function MemberApp({ client, email, name, area, onSignOut, levels: previewLevels = null, readOnly = false }) {
+  const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
   const [section, setSection] = useState('home')
+  const levels = previewLevels || fetchedLevels
 
   useEffect(() => {
+    if (previewLevels || !client) return
     let active = true
     fetchMyPermissions(client).then(
       (next) => active && setLevels(next),
@@ -26,7 +30,7 @@ export default function MemberApp({ client, email, name, area, onSignOut }) {
     return () => {
       active = false
     }
-  }, [client])
+  }, [client, previewLevels])
 
   const groups = useMemo(() => memberGroups(levels || {}), [levels])
   const current = allItems(groups).find((item) => item.id === section)
@@ -65,7 +69,7 @@ export default function MemberApp({ client, email, name, area, onSignOut }) {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button type="button" className="sidebar-backup-btn" onClick={handleSignOut}>
+          <button type="button" className="sidebar-backup-btn" onClick={handleSignOut} disabled={readOnly}>
             <LogOut size={16} strokeWidth={1.75} />
             <span>Cerrar sesión</span>
           </button>
@@ -100,7 +104,7 @@ export default function MemberApp({ client, email, name, area, onSignOut }) {
             )}
 
             <p className="member-panel-email">Has entrado como {email}.</p>
-            <button type="button" className="contacts-groups-btn member-signout" onClick={handleSignOut}>
+            <button type="button" className="contacts-groups-btn member-signout" onClick={handleSignOut} disabled={readOnly}>
               <LogOut size={14} strokeWidth={1.75} />
               Cerrar sesión
             </button>

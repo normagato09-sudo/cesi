@@ -1,10 +1,11 @@
-import { CalendarCheck, DatabaseBackup } from 'lucide-react'
+import { CalendarCheck, DatabaseBackup, Eye } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
 import PendingPanel from './PendingPanel.jsx'
 import SyncStatus from './SyncStatus.jsx'
 import { ceoGroups, sectionActive } from './sections.js'
+import { useViewAs } from './viewAs/viewAsContext.js'
 import './Sidebar.css'
 
 export default function Sidebar({
@@ -27,6 +28,7 @@ export default function Sidebar({
   // En Inicio, las propuestas, las reuniones sin acta y el resumen (próxima reunión, hoy y la semana)
   // ya están en el panel.
   const onHome = section === 'home'
+  const viewAs = useViewAs()
   return (
     <aside className={`sidebar section-${section}`}>
       <div className="sidebar-brand">
@@ -66,6 +68,12 @@ export default function Sidebar({
 
       <div className="sidebar-footer">
         <SyncStatus />
+        {viewAs && (
+          <button type="button" className="sidebar-backup-btn" onClick={viewAs.open} title="Ver la app como otro papel (solo lectura)">
+            <Eye size={16} strokeWidth={1.75} />
+            <span>Ver como…</span>
+          </button>
+        )}
         {onOpenBookingLink && (
           <button type="button" className="sidebar-backup-btn" onClick={onOpenBookingLink} title="Enlace de reservas">
             <CalendarCheck size={16} strokeWidth={1.75} />

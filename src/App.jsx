@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, addWeeks, format, subDays, subMonths, subWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CalendarCheck, Clock } from 'lucide-react'
+import { CalendarCheck, Clock, Eye } from 'lucide-react'
 import Sidebar from './components/Sidebar.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import HomeView from './components/HomeView.jsx'
@@ -51,6 +51,7 @@ import { markFormerProfile, returnToTeamProfile, statusChangePatch } from './lib
 import { archivePatch, unarchivePatch } from './lib/archive.js'
 import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
+import { useViewAs } from './components/viewAs/viewAsContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
 import { STORAGE_KEY as GROUPS_KEY, contactsWithoutGroup, getAllGroups, groupsStore } from './lib/groups.js'
 import { STORAGE_KEY as STUDENTS_KEY, createStudent, deleteStudent, getAllStudents, updateStudent } from './lib/students.js'
@@ -274,6 +275,7 @@ export default function App() {
     }
   }, [syncClient, section])
   const syncStatus = useSyncStatus()
+  const viewAs = useViewAs()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
   // Enlace de reservas: con sesión iniciada (ya pasada la primera sincronización).
   const bookingsActive = !!sync && ['syncing', 'synced', 'offline', 'error'].includes(syncStatus.status)
@@ -1382,7 +1384,10 @@ export default function App() {
           section={section}
           onSectionChange={goToSection}
           showAccess={!!sync}
-          actions={sync ? [{ id: 'booking-link', label: 'Enlace de reservas', Icon: CalendarCheck, onClick: () => setBookingLinkOpen(true) }] : []}
+          actions={[
+            ...(sync ? [{ id: 'booking-link', label: 'Enlace de reservas', Icon: CalendarCheck, onClick: () => setBookingLinkOpen(true) }] : []),
+            ...(viewAs ? [{ id: 'view-as', label: 'Ver como…', Icon: Eye, onClick: viewAs.open }] : []),
+          ]}
         />
 
         <EventModal
