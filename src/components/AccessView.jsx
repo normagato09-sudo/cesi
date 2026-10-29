@@ -196,6 +196,7 @@ export default function AccessView({ contacts = [], students = [] }) {
           {profiles.map((p) => {
             const self = p.id === userId
             const busy = !!saving[p.id]
+            const locked = !canChangeRole(p, userId)
             return (
               <li key={p.id} className="access-row">
                 <div className="access-account">
@@ -211,8 +212,10 @@ export default function AccessView({ contacts = [], students = [] }) {
                   <span className="access-field-label">Papel</span>
                   <select
                     value={p.role}
-                    disabled={busy || !canChangeRole(p, userId)}
-                    title={self ? 'No puedes quitarte el papel de CEO' : undefined}
+                    className={locked ? 'locked' : undefined}
+                    disabled={busy || locked}
+                    aria-describedby={locked ? `access-locked-${p.id}` : undefined}
+                    title={locked ? 'No puedes cambiar tu propio papel' : undefined}
                     onChange={(e) => save(p, { role: e.target.value })}
                   >
                     {ROLES.map((r) => (
@@ -221,6 +224,11 @@ export default function AccessView({ contacts = [], students = [] }) {
                       </option>
                     ))}
                   </select>
+                  {locked && (
+                    <span id={`access-locked-${p.id}`} className="access-locked-note">
+                      Tu papel no se puede cambiar
+                    </span>
+                  )}
                 </label>
                 <div className="access-field">
                   <span className="access-field-label">Unida a</span>
