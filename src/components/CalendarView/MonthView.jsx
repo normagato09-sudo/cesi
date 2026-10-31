@@ -184,11 +184,11 @@ export default function MonthView({ currentDate, events, onSelectEvent, onSelect
                         key={ev.id}
                         className={`month-event-dot ${dragPreview?.id === ev.id ? 'dragging' : ''}`}
                         style={{ '--event-color': colorForEvent(ev), touchAction: 'none' }}
-                        aria-label={`${ev.provisional ? 'Provisional: ' : ''}${ev.notAttending ? `${NOT_ATTENDING_LABEL}: ` : ''}${eventTitle(ev)}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
+                        aria-label={`${ev.shared ? 'Compartida: ' : ''}${ev.provisional ? 'Provisional: ' : ''}${ev.notAttending ? `${NOT_ATTENDING_LABEL}: ` : ''}${eventTitle(ev)}${!ev.allDay ? ' · ' + format(ev.start, 'HH:mm') : ''}${hasNotes(ev) ? ' · Con acta' : ''}`}
                         {...bindPreview(ev)}
                         onPointerDown={(e) => {
                           hidePreview()
-                          handlePointerDown(e, ev, dayIndex)
+                          if (!ev.shared) handlePointerDown(e, ev, dayIndex)
                           pressPreview(e, ev)
                         }}
                         onClick={(e) => handleEventClick(e, ev)}

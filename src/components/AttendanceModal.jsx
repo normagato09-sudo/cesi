@@ -1,15 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ClipboardCheck, Pencil, UserCheck, X } from 'lucide-react'
 import { MAX_JUSTIFICATION_LENGTH, STATUSES, classStudents, classSummary, classWhen, isJustified, myTime, recordProblem } from '../lib/attendance'
 import { teacherStatus } from '../lib/courses'
 import { SPAIN_ZONE, zonePlace } from '../lib/timezones'
+import { listClassAttendees } from '../lib/sharedCalendar'
+import { useSync } from '../lib/sync/syncContext.js'
 import './EventFormModal.css'
 import './StudentsView.css'
 
 // Un alumno en el pase de lista: presente / retraso / falta y, si vino, entrada y salida (en mi
 // hora, con la hora del curso al lado) y los minutos de retraso. Cada cambio se guarda al momento;
 // las horas, al salir del campo (si no son válidas no se guardan y se avisa).
-function AttendanceRow({ cls, row, actions }) {
+// Lo que el alumno ha dicho en su calendario (calendario compartido): irá o no podrá ir.
+const CONFIRMATION_LABELS = { yes: 'Confirmó que irá', no: 'Dijo que no podrá ir' }
+
+// Confirmaciones de la clase (Map id del alumno → 'yes' | 'no'). Vacío sin sincronización o sin
+// el SQL de la parte 6.
+function useClassConfirmations(cls) {
+  const sync = useSync()
+  const client = sync?.client || null
+  const [map, setMap] = useState(() => new Map())
+  useEffect(() => {
+    if (!client) return
+    let active = true
+    listClassAttendees(client, cls.courseId, cls.key).then(
+      (rows) => active && setMap(new Map((rows || []).filter((r) => r.status).map((r) => [r.student_id, r.status]))),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [client, cls.courseId, cls.key])
+  return map
+}
+
+function AttendanceRow({ cls, row, actions, confirmation = null }) {
   const { student, record, enrolled } = row
   const [draft, setDraft] = useState(null) // { arrived, left, minutes } que aún no se han guardado
   const [error, setError] = useState(null)
@@ -61,6 +86,7 @@ function AttendanceRow({ cls, row, actions }) {
         <span className="attendance-name">
           {student.name}
           {!enrolled && <span className="student-muted"> · ya no está en el curso</span>}
+          {confirmation && <span className={`attendance-confirmation ${confirmation}`}>{CONFIRMATION_LABELS[confirmation]}</span>}
         </span>
         <div className="attendance-status" role="group" aria-label={`Asistencia de ${student.name}`}>
           {STATUSES.map((s) => (
@@ -143,6 +169,7 @@ function AttendanceRow({ cls, row, actions }) {
 export default function AttendanceModal({ cls, course, contacts, students, attendance, actions, onEditExtra, onClose }) {
   const rows = classStudents(cls, students, attendance)
   const summary = classSummary(cls, students, attendance)
+  const confirmations = useClassConfirmations(cls)
   const { teacher } = teacherStatus(course, contacts)
 
   return (
@@ -195,7 +222,7 @@ export default function AttendanceModal({ cls, course, contacts, students, atten
               </div>
               <ul className="attendance-list">
                 {rows.map((row) => (
-                  <AttendanceRow key={row.student.id} cls={cls} row={row} actions={actions} />
+                  <AttendanceRow key={row.student.id} cls={cls} row={row} actions={actions} confirmation={confirmations.get(row.student.id) || null} />
                 ))}
               </ul>
               <p className="contact-form-hint">Se guarda solo. Entrada y salida, en tu hora. Sin marcar no cuenta como falta.</p>

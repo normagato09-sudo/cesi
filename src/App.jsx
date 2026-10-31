@@ -7,6 +7,9 @@ import MobileNav from './components/MobileNav.jsx'
 import HomeView from './components/HomeView.jsx'
 import ProfileReminder from './components/ProfileReminder.jsx'
 import { useMyProfile } from './components/useMyProfile'
+import { usePublishCeoBusy, useSharedMeetings } from './hooks/useSharedMeetings'
+import { sharedEventsForCalendar } from './lib/sharedCalendar'
+import { localTimeZone } from './lib/timezones'
 import CalendarHeader from './components/CalendarHeader.jsx'
 import MonthView from './components/CalendarView/MonthView.jsx'
 import WeekView from './components/CalendarView/WeekView.jsx'
@@ -118,6 +121,8 @@ const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
 const StudentsView = lazy(() => import('./components/StudentsView.jsx'))
 const AccessView = lazy(() => import('./components/AccessView.jsx'))
 const MyProfileView = lazy(() => import('./components/MyProfileView.jsx'))
+const MeetingDetailModal = lazy(() => import('./components/shared/MeetingDetailModal.jsx'))
+const MeetingFormModal = lazy(() => import('./components/shared/MeetingFormModal.jsx'))
 const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
 const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
@@ -281,6 +286,19 @@ export default function App() {
   // completo, Inicio lo recuerda.
   const myProfile = useMyProfile(syncClient, sync?.userId || null)
   const myProfileMissing = !!myProfile.data && !myProfile.data.profile?.completed_at
+  const myZone = myProfile.data?.profile?.time_zone || localTimeZone()
+
+  // Calendario compartido: sus reuniones salen también en mi calendario (en morado, «Compartida»),
+  // leídas aparte de mis eventos; y mis bloques ocupados se publican (solo horas) para el
+  // libre/ocupado de los demás.
+  const sharedMeetings = useSharedMeetings(syncClient, range)
+  const calendarEvents = useMemo(() => {
+    const shared = sharedEventsForCalendar(sharedMeetings.rows)
+    return shared.length > 0 ? [...events, ...shared] : events
+  }, [events, sharedMeetings.rows])
+  const [sharedOpen, setSharedOpen] = useState(null) // reunión compartida abierta
+  const [sharedForm, setSharedForm] = useState(null) // { meeting } (null: nueva)
+  usePublishCeoBusy(syncClient, rawEvents, now)
   const syncStatus = useSyncStatus()
   const viewAs = useViewAs()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
@@ -523,6 +541,10 @@ export default function App() {
   }
 
   const openEvent = (event, { focusNotes = false } = {}) => {
+    if (event.shared) {
+      setSharedOpen(event.sharedMeeting)
+      return
+    }
     setSelectedEvent(event)
     setNotesFocus(focusNotes)
     setConvocationFor(null)
@@ -984,6 +1006,7 @@ export default function App() {
 
   // Arrastrar o redimensionar en Semana, Día o Mes. En una serie, pregunta a qué días se aplica.
   const handleMoveOrResize = async (event, newStart, newEnd) => {
+    if (event.shared) return
     let scope = null
     if (event.isRecurringInstance) {
       scope = await askScope('move', event)
@@ -1352,6 +1375,7 @@ export default function App() {
               onNext={handleNext}
               onToday={handleToday}
               onNewMeeting={handleNewMeeting}
+              onNewShared={sync ? () => setSharedForm({ meeting: null }) : null}
               onFindSlot={() => setFindSlot({})}
               onOpenSchedule={() => setScheduleOpen(true)}
             />
@@ -1360,7 +1384,7 @@ export default function App() {
               {view === 'month' && (
                 <MonthView
                   currentDate={currentDate}
-                  events={events}
+                  events={calendarEvents}
                   onSelectEvent={openEvent}
                   onMoveEvent={handleMoveOrResize}
                   onSelectDay={(day) => {
@@ -1373,7 +1397,7 @@ export default function App() {
                 <WeekView
                   currentDate={currentDate}
                   compact={compactWeek}
-                  events={events}
+                  events={calendarEvents}
                   workingHours={workingHours}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
@@ -1384,7 +1408,7 @@ export default function App() {
               {view === 'day' && (
                 <DayView
                   currentDate={currentDate}
-                  events={events}
+                  events={calendarEvents}
                   workingHours={workingHours}
                   onSelectEvent={openEvent}
                   onSlotClick={handleSlotClick}
@@ -1405,6 +1429,41 @@ export default function App() {
             ...(viewAs ? [{ id: 'view-as', label: 'Ver como…', Icon: Eye, onClick: viewAs.open }] : []),
           ]}
         />
+
+        {sync && sharedOpen && (
+          <Suspense fallback={null}>
+            <MeetingDetailModal
+              client={sync.client}
+              meeting={sharedOpen}
+              meId={sync.userId}
+              zone={myZone}
+              onClose={() => setSharedOpen(null)}
+              onChanged={() => {
+                setSharedOpen(null)
+                sharedMeetings.reload()
+              }}
+              onEdit={(meeting) => {
+                setSharedOpen(null)
+                setSharedForm({ meeting })
+              }}
+            />
+          </Suspense>
+        )}
+        {sync && sharedForm && (
+          <Suspense fallback={null}>
+            <MeetingFormModal
+              client={sync.client}
+              meId={sync.userId}
+              zone={myZone}
+              meeting={sharedForm.meeting}
+              onClose={() => setSharedForm(null)}
+              onSaved={() => {
+                setSharedForm(null)
+                sharedMeetings.reload()
+              }}
+            />
+          </Suspense>
+        )}
 
         <EventModal
           key={selectedEvent?.id || 'none'}

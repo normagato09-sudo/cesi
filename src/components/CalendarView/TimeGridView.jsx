@@ -6,7 +6,7 @@ import UnavailableIcon from '../UnavailableIcon.jsx'
 import { hasNotes } from '../../lib/notes'
 import { isSameDay } from '../../lib/dateHelpers'
 import { isEventOnDay, layoutEvents } from '../../lib/eventLayout'
-import { colorForEvent } from '../../lib/eventStyle'
+import { SHARED_LABEL, colorForEvent } from '../../lib/eventStyle'
 import { dragThresholdFor } from '../../lib/dragThreshold'
 import { canStartDrag, trackDrag } from '../../lib/pointerDrag'
 import { useMediaQuery } from '../../lib/useMediaQuery'
@@ -276,7 +276,7 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
                     }}
                     {...bindPreview(event)}
                     onPointerDown={(e) => {
-                      handleMoveStart(e, event, dayIndex)
+                      if (!event.shared) handleMoveStart(e, event, dayIndex)
                       pressPreview(e, event)
                     }}
                     onClick={() => handleEventClick(event)}
@@ -291,11 +291,12 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
                       {format(event.start, 'HH:mm')}
                       {event.provisional && <span className="time-grid-event-provisional"> · Provisional</span>}
                       {event.notAttending && <span className="time-grid-event-organized"> · {NOT_ATTENDING_LABEL}</span>}
+                      {event.shared && <span className="time-grid-event-organized"> · {event.sharedPending ? `${SHARED_LABEL} · Pendiente` : SHARED_LABEL}</span>}
                     </span>
                     <div
                       className="time-grid-event-resize-handle"
                       style={{ touchAction: 'none' }}
-                      onPointerDown={(e) => handleResizeStart(e, event)}
+                      onPointerDown={(e) => (event.shared ? e.stopPropagation() : handleResizeStart(e, event))}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </button>

@@ -13,8 +13,9 @@ const noop = () => {}
 // «Ver como» (TEMPORAL, solo la ceo): ver la app como un papel sin cerrar sesión.
 // - Envuelve la app de la ceo (SyncGate). La app sigue montada pero oculta, así que al «Salir» se
 //   vuelve a la misma pantalla. El estado solo vive en memoria: al recargar, se sale.
-// - Solo lectura: las vistas previas no reciben el cliente de Supabase (no pueden leer ni escribir
-//   nada; los datos se leen una vez al elegir) y van con readOnly (botones de guardar desactivados).
+// - Solo lectura: las vistas previas no reciben el cliente de Supabase (los datos se leen una vez
+//   al elegir) y van con readOnly (botones de guardar desactivados). El calendario compartido sí
+//   lo recibe, solo para leer el de esa persona (funciones con p_as, solo para la ceo).
 // Para quitarlo: borrar esta carpeta y su uso en SyncGate, Sidebar y App (onViewAs / «Ver como…»).
 export default function ViewAs({ client, children }) {
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -63,13 +64,23 @@ export default function ViewAs({ client, children }) {
                 area={view.area}
                 levels={view.levels}
                 preview={{ account: view.account, profile: view.profile }}
+                calendarClient={view.account?.id ? client : null}
+                calendarAs={view.account?.id || null}
                 readOnly
                 onSignOut={noop}
               />
             )}
             {view.role === 'alumno' && (
               <Suspense fallback={<div className="app-loading" />}>
-                <StudentPortal client={null} userId={null} preview={{ account: view.account, profile: view.profile }} readOnly onSignOut={noop} />
+                <StudentPortal
+                  client={null}
+                  userId={null}
+                  preview={{ account: view.account, profile: view.profile }}
+                  calendarClient={view.account?.id ? client : null}
+                  calendarAs={view.account?.id || null}
+                  readOnly
+                  onSignOut={noop}
+                />
               </Suspense>
             )}
           </div>

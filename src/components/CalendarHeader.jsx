@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CalendarPlus, Search, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarPlus, Search, Clock, Users } from 'lucide-react'
 import './CalendarHeader.css'
 
 const VIEWS = [
@@ -15,6 +15,7 @@ export default function CalendarHeader({
   onNext,
   onToday,
   onNewMeeting,
+  onNewShared = null,
   onFindSlot,
   onOpenSchedule,
 }) {
@@ -47,6 +48,18 @@ export default function CalendarHeader({
             <CalendarPlus size={15} strokeWidth={1.75} />
             <span className="header-action-label">Nueva reunión</span>
           </button>
+          {onNewShared && (
+            <button
+              type="button"
+              className="header-action-btn"
+              onClick={onNewShared}
+              aria-label="Nueva reunión compartida"
+              title="Nueva reunión compartida (con personas que tienen cuenta)"
+            >
+              <Users size={15} strokeWidth={1.75} />
+              <span className="header-action-label">Reunión compartida</span>
+            </button>
+          )}
           <button
             type="button"
             className="header-action-btn"

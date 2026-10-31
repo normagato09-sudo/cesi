@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale'
 import UnavailableIcon from '../UnavailableIcon.jsx'
 import { allDayRangeText, eventTitle } from '../../lib/unavailableKinds'
 import { ParticipantList } from '../Participant.jsx'
-import { colorForEvent } from '../../lib/eventStyle'
+import { SHARED_LABEL, colorForEvent } from '../../lib/eventStyle'
 import { useScheduling } from '../../lib/schedulingContext'
 import './EventPreview.css'
 import { NOT_ATTENDING_LABEL } from '../../lib/notAttending'
@@ -48,9 +48,10 @@ export default function EventPreview({ preview }) {
         {eventTitle(event)}
         {event.provisional && <span className="event-preview-badge">Provisional</span>}
         {event.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
+        {event.shared && <span className="event-preview-badge">{event.sharedPending ? `${SHARED_LABEL} · Pendiente` : SHARED_LABEL}</span>}
       </p>
       <p className="event-preview-when">{when}</p>
-      {!event.isUnavailable && (
+      {!event.isUnavailable && !event.shared && (
         <ParticipantList
           item={event}
           contacts={contacts}

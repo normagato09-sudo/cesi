@@ -71,13 +71,26 @@ export function ceoGroups(withSync) {
   return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
 }
 
-// Menú de una persona de equipo: «Mi panel» y las pantallas a las que tiene permiso.
+// Menú de una persona de equipo: «Mi panel», su «Calendario» (el compartido, siempre) y las
+// pantallas a las que tiene permiso. Mi calendario (permiso 'calendario') aún no lo ve nadie del
+// equipo, así que no sale (habría dos «Calendario»).
 // levels: { pantalla: 'none' | 'read' | 'write' }.
 export function memberGroups(levels = {}) {
   return NAV_GROUPS.map((g) =>
     g.id === 'panel'
-      ? { ...g, items: [{ id: 'home', label: 'Mi panel', Icon: LayoutDashboard }] }
-      : { ...g, items: g.items.filter((item) => !item.ceoOnly && item.screen && levels[item.screen] && levels[item.screen] !== 'none') },
+      ? {
+          ...g,
+          items: [
+            { id: 'home', label: 'Mi panel', Icon: LayoutDashboard },
+            { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
+          ],
+        }
+      : {
+          ...g,
+          items: g.items.filter(
+            (item) => !item.ceoOnly && item.id !== 'calendar' && item.screen && levels[item.screen] && levels[item.screen] !== 'none',
+          ),
+        },
   ).filter((g) => g.items.length > 0)
 }
 

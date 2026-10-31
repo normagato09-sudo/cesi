@@ -27,13 +27,18 @@ describe('ceoGroups', () => {
 describe('memberGroups', () => {
   it('Mi panel y solo las pantallas con permiso (nunca Accesos)', () => {
     const groups = memberGroups({ calendario: 'read', cursos: 'write', alumnos: 'none', fichajes: 'write' })
-    expect(groups.map((g) => g.id)).toEqual(['panel', 'agenda', 'people', 'training'])
-    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'calendar', 'clockins', 'courses'])
+    expect(groups.map((g) => g.id)).toEqual(['panel', 'people', 'training'])
+    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'shared-calendar', 'clockins', 'courses'])
     expect(groups[0].items[0].label).toBe('Mi panel')
   })
 
-  it('sin permisos, solo Mi panel', () => {
-    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home'])
+  it('sin permisos, Mi panel y su Calendario (el compartido)', () => {
+    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'shared-calendar'])
+  })
+
+  it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {
+    const items = allItems(memberGroups({ calendario: 'write', contactos: 'read' })).map((i) => i.id)
+    expect(items).toEqual(['home', 'shared-calendar', 'contacts'])
   })
 })
 

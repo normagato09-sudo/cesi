@@ -7,7 +7,8 @@ import { useMyProfile } from './useMyProfile'
 import { allItems, memberGroups, sectionActive } from './sections.js'
 import { LEVEL_LABELS, SCREENS, areaName, fetchMyPermissions } from '../lib/permissions'
 import { zoneShort } from '../lib/studentPortal'
-import { countryName } from '../lib/timezones'
+import { countryName, localTimeZone } from '../lib/timezones'
+import SharedCalendar from './shared/SharedCalendar.jsx'
 import '../App.css'
 import './Sidebar.css'
 import './ContactsView.css'
@@ -18,8 +19,21 @@ import './MemberApp.css'
 // «Próximamente»: todavía no ve ningún dato de la ceo.
 // Como el alumno, hasta que completa su perfil (account_profiles) no puede hacer nada más.
 // Con `levels` y `preview` ({ account, profile }, vista previa de «Ver como») no se pide nada a
-// Supabase; readOnly desactiva guardar y cerrar sesión.
-export default function MemberApp({ client, userId, email, name, area, onSignOut, levels: previewLevels = null, preview = null, readOnly = false }) {
+// Supabase; readOnly desactiva guardar y cerrar sesión. El calendario de la vista previa se lee con
+// calendarClient (el de la ceo) y calendarAs (la cuenta que se está viendo).
+export default function MemberApp({
+  client,
+  userId,
+  email,
+  name,
+  area,
+  onSignOut,
+  levels: previewLevels = null,
+  preview = null,
+  readOnly = false,
+  calendarClient = null,
+  calendarAs = null,
+}) {
   const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
   const [section, setSection] = useState('home')
@@ -112,7 +126,15 @@ export default function MemberApp({ client, userId, email, name, area, onSignOut
       </aside>
 
       <main className="app-main">
-        {section === 'home' || !current ? (
+        {section === 'shared-calendar' ? (
+          <SharedCalendar
+            client={preview ? calendarClient : client}
+            meId={preview ? calendarAs : userId}
+            zone={profile.time_zone || localTimeZone()}
+            asId={preview ? calendarAs : null}
+            readOnly={readOnly}
+          />
+        ) : section === 'home' || !current ? (
           <div className="member-panel">
             <header className="member-panel-head">
               <div className="member-panel-who">

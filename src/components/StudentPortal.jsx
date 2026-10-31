@@ -3,7 +3,8 @@ import { Award, BookOpen, CalendarDays, House, Mail, MessageCircle, Pencil } fro
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
-import { countryName } from '../lib/timezones'
+import { countryName, localTimeZone } from '../lib/timezones'
+import SharedCalendar from './shared/SharedCalendar.jsx'
 import './StudentPortal.css'
 
 // Portal del alumno (papel 'alumno'). Consultas directas a Supabase (sin el motor de
@@ -27,9 +28,13 @@ const CARDS = [
   { id: 'messages', label: 'Mensajes', Icon: MessageCircle, text: 'Habla con tus compañeros de curso.' },
 ]
 
+// Secciones que ya funcionan (las demás dicen «Próximamente»).
+const READY = new Set(['calendar'])
+
 // Con `preview` ({ account, profile }, vista previa de «Ver como») no se pide ni se guarda nada en
-// Supabase; readOnly desactiva guardar y cerrar sesión.
-export default function StudentPortal({ client, userId, onSignOut, preview = null, readOnly = false }) {
+// Supabase; readOnly desactiva guardar y cerrar sesión. El calendario de la vista previa se lee con
+// calendarClient (el de la ceo) y calendarAs (la cuenta que se está viendo).
+export default function StudentPortal({ client, userId, onSignOut, preview = null, readOnly = false, calendarClient = null, calendarAs = null }) {
   const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
   const [editing, setEditing] = useState(false)
   const [section, setSection] = useState('home')
@@ -108,22 +113,42 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             </header>
 
             <div className="sp-cards">
-              {CARDS.map(({ id, label, Icon, text }) => (
-                <section key={id} className="sp-card sp-soon-card">
-                  <span className="sp-soon-icon" aria-hidden="true">
-                    <Icon size={20} strokeWidth={1.75} />
-                  </span>
-                  <div>
-                    <h2>{label}</h2>
-                    <p className="sp-text">{text}</p>
-                  </div>
-                  <span className="sp-badge-soon">Próximamente</span>
-                </section>
-              ))}
+              {CARDS.map(({ id, label, Icon, text }) =>
+                READY.has(id) ? (
+                  <button key={id} type="button" className="sp-card sp-soon-card sp-card-link" onClick={() => setSection(id)}>
+                    <span className="sp-soon-icon" aria-hidden="true">
+                      <Icon size={20} strokeWidth={1.75} />
+                    </span>
+                    <div>
+                      <h2>{label}</h2>
+                      <p className="sp-text">{text}</p>
+                    </div>
+                  </button>
+                ) : (
+                  <section key={id} className="sp-card sp-soon-card">
+                    <span className="sp-soon-icon" aria-hidden="true">
+                      <Icon size={20} strokeWidth={1.75} />
+                    </span>
+                    <div>
+                      <h2>{label}</h2>
+                      <p className="sp-text">{text}</p>
+                    </div>
+                    <span className="sp-badge-soon">Próximamente</span>
+                  </section>
+                ),
+              )}
             </div>
 
             <div className="sp-mobile-signout">{signOutButton}</div>
           </>
+        ) : section === 'calendar' ? (
+          <SharedCalendar
+            client={preview ? calendarClient : client}
+            meId={preview ? calendarAs : userId}
+            zone={profile.time_zone || localTimeZone()}
+            asId={preview ? calendarAs : null}
+            readOnly={readOnly}
+          />
         ) : (
           <section className="sp-card sp-soon-page">
             <span className="sp-soon-icon" aria-hidden="true">

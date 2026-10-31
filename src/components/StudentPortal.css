@@ -331,6 +331,18 @@
   padding: 18px 16px calc(96px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Tarjeta de Mi panel de una sección que ya funciona: se pulsa para abrirla. */
+.sp-card-link {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sp-card-link:hover {
+  border-color: var(--sp-blue);
+}
+
 .sp-hello {
   display: flex;
   align-items: center;
