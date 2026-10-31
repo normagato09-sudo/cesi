@@ -4,6 +4,7 @@ import { allDaySpanDays, cleanNote, unavailableKindOf, unavailableNoteOf, unavai
 import { isInterview } from './vacancies'
 import { DAY_END_MINUTES } from './weeklySchedule'
 import { pad2 } from './timezones'
+import { availabilityIntervals } from './contactAvailability'
 
 // «Nueva reunión»: el único formulario de reuniones (para la ceo, el equipo y los alumnos). Aquí
 // va lo que no es pantalla: de qué se parte, qué color tiene cada hora de la tabla, el resumen de
@@ -259,6 +260,17 @@ export function localPayload(form, zone, { contacts = [], original = null, showI
       recurrence,
     },
   }
+}
+
+/**
+ * Hora de la reunión para un contacto externo, en su zona: { time: '13:00', outside } (outside:
+ * le cae fuera de su horario apuntado, entera o en parte). null si el contacto no tiene zona.
+ */
+export function externalLocalTime(contact, start, end) {
+  if (!contact?.timeZone || !start || !end) return null
+  const intervals = availabilityIntervals(contact, start, end)
+  const covered = intervals === null || intervals.some((i) => i.start <= start && i.end >= end)
+  return { time: hhmmOf(start, contact.timeZone), outside: !covered }
 }
 
 // Iniciales para el círculo: «Ana López» → «AL».

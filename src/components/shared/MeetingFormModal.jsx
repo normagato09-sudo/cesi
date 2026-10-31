@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Ban, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { Ban, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Search, Wand2, X } from 'lucide-react'
+import PlaceIcon from '../PlaceIcon.jsx'
+import { getVideoRooms, linkChoices, meetingLinkFor } from '../../lib/videoCall'
 import { MeetingWarningError } from '../../lib/meetingWarnings'
 import { isActiveMember } from '../../lib/team'
 import { hasCandidateParticipant, isCandidateOnly } from '../../lib/vacancies'
@@ -15,6 +17,7 @@ import {
   MAX_MINUTES,
   busyDuring,
   chosenTimes,
+  externalLocalTime,
   firstUsefulHour,
   hourCells,
   initialForm,
@@ -117,6 +120,9 @@ export default function MeetingFormModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [warning, setWarning] = useState(null)
+  const [linkMenu, setLinkMenu] = useState(false)
+  const [linkChoicesList] = useState(() => linkChoices(getVideoRooms()))
+  const linkRef = useRef(null)
   const gridRef = useRef(null)
   const scrolledFor = useRef(null)
 
@@ -127,6 +133,20 @@ export default function MeetingFormModal({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // El menú de «Generar enlace» se cierra al pulsar fuera o con Escape.
+  useEffect(() => {
+    if (!linkMenu) return
+    const close = (e) => {
+      if (e.type === 'keydown' ? e.key === 'Escape' : !linkRef.current?.contains(e.target)) setLinkMenu(false)
+    }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [linkMenu])
 
   // Personas con cuenta (y, la ceo, a quién está unida cada cuenta).
   useEffect(() => {
@@ -215,7 +235,7 @@ export default function MeetingFormModal({
     ...form.accounts.map((id) => ({ key: `a:${id}`, name: nameOfAccount(id), remove: () => set({ accounts: form.accounts.filter((x) => x !== id) }) })),
     ...form.contactIds.map((id) => {
       const c = contacts.find((x) => x.id === id)
-      return { key: `c:${id}`, name: c?.name || c?.email || 'Contacto', external: true, remove: () => set({ contactIds: form.contactIds.filter((x) => x !== id) }) }
+      return { key: `c:${id}`, contact: c, name: c?.name || c?.email || 'Contacto', external: true, remove: () => set({ contactIds: form.contactIds.filter((x) => x !== id) }) }
     }),
     ...form.guests.map((g) => ({ key: `g:${g}`, name: g, external: true, remove: () => set({ guests: form.guests.filter((x) => x !== g) }) })),
   ]
@@ -445,15 +465,24 @@ export default function MeetingFormModal({
                 </span>
                 {chips.length > 0 && (
                   <div className="mf-chips">
-                    {chips.map((c) => (
-                      <span key={c.key} className={`mf-chip${c.external ? ' external' : ''}`}>
-                        <span className="mf-avatar small">{initials(c.name)}</span>
-                        {c.name}
-                        <button type="button" onClick={c.remove} aria-label={`Quitar a ${c.name}`}>
-                          <X size={13} strokeWidth={2} />
-                        </button>
-                      </span>
-                    ))}
+                    {chips.map((c) => {
+                      // Hora de la reunión allí (contactos externos con zona) y si le cae fuera de su horario.
+                      const local = c.contact && times?.exists && !fullDay ? externalLocalTime(c.contact, times.start, times.end) : null
+                      return (
+                        <span
+                          key={c.key}
+                          className={`mf-chip${c.external ? ' external' : ''}${local?.outside ? ' outside' : ''}`}
+                          title={local?.outside ? 'A esa hora está fuera de su horario' : undefined}
+                        >
+                          <span className="mf-avatar small">{initials(c.name)}</span>
+                          {c.name}
+                          {local && <span className="mf-chip-time">· {local.time} allí</span>}
+                          <button type="button" onClick={c.remove} aria-label={`Quitar a ${c.name}`}>
+                            <X size={13} strokeWidth={2} />
+                          </button>
+                        </span>
+                      )
+                    })}
                   </div>
                 )}
                 <label className="mf-search">
@@ -505,10 +534,37 @@ export default function MeetingFormModal({
             )}
 
             {!isUnavailable && (
-              <label className="mf-field">
-                <span>Enlace</span>
-                <input type="url" value={form.link} maxLength={500} onChange={(e) => set({ link: e.target.value })} placeholder="Discord, Meet…" />
-              </label>
+              <div className="mf-field">
+                <label htmlFor="mf-link">Enlace</label>
+                <div className="mf-link-row" ref={linkRef}>
+                  <input id="mf-link" type="url" value={form.link} maxLength={500} onChange={(e) => set({ link: e.target.value })} placeholder="Discord, Meet…" />
+                  <button type="button" className="mf-link-gen" onClick={() => setLinkMenu((o) => !o)} aria-expanded={linkMenu} aria-haspopup="menu" title="Generar enlace">
+                    <Wand2 size={15} strokeWidth={1.75} />
+                    Generar
+                  </button>
+                  {linkMenu && (
+                    <div className="mf-link-menu" role="menu">
+                      {linkChoicesList.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            set({ link: meetingLinkFor(p.id) })
+                            setLinkMenu(false)
+                          }}
+                        >
+                          <PlaceIcon place={p.id} size={20} />
+                          <span>
+                            {p.label}
+                            <em>{p.id === 'jitsi' ? 'Enlace nuevo solo para esta reunión' : 'Tu sala fija'}</em>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {!isUnavailable && (

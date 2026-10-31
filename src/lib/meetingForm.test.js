@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { busyDuring, chosenTimes, firstUsefulHour, hourCells, initialForm, initials, localPayload, sharedDescription, withoutInterval } from './meetingForm'
+import { externalLocalTime, busyDuring, chosenTimes, firstUsefulHour, hourCells, initialForm, initials, localPayload, sharedDescription, withoutInterval } from './meetingForm'
 
 const zone = 'Europe/Madrid'
 const now = new Date('2026-11-01T08:00:00Z')
@@ -104,5 +104,20 @@ describe('reunión compartida', () => {
   it('iniciales', () => {
     expect(initials('Gabriel Ruiz')).toBe('GR')
     expect(initials('')).toBe('?')
+  })
+})
+
+describe('contactos externos', () => {
+  it('su hora allí y si le cae fuera de su horario', () => {
+    const week = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, enabled: true, slots: [{ start: '09:00', end: '17:00' }] }))
+    const ana = { id: 'a', name: 'Ana', timeZone: 'America/Mexico_City', availability: week }
+    // 18:00 en Madrid = 11:00 en Ciudad de México (5 nov).
+    const start = new Date('2026-11-05T17:00:00Z')
+    const end = new Date('2026-11-05T18:00:00Z')
+    expect(externalLocalTime(ana, start, end)).toEqual({ time: '11:00', outside: false })
+    const late = new Date('2026-11-06T01:00:00Z') // 19:00 allí
+    expect(externalLocalTime(ana, late, new Date(late.getTime() + 3600000))).toEqual({ time: '19:00', outside: true })
+    expect(externalLocalTime({ name: 'Sin zona' }, start, end)).toBeNull()
+    expect(externalLocalTime({ timeZone: 'Asia/Tokyo' }, start, end)).toEqual({ time: '02:00', outside: false })
   })
 })
