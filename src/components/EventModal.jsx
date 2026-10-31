@@ -61,6 +61,8 @@ export default function EventModal({
   onOpenTask,
   onToggleTask,
   onOpenTaskSource,
+  // «Convertir en tarea» del acta: tarea nueva del equipo (null sin la sincronización).
+  onTeamTask = null,
   onClose,
   onEdit,
   onDelete,
@@ -281,6 +283,7 @@ export default function EventModal({
               onNewTask={onNewTask}
               onOpenTask={onOpenTask}
               onToggleTask={onToggleTask}
+              onTeamTask={onTeamTask}
               organizerName={organizerName}
             />
           )}

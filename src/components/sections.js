@@ -48,7 +48,7 @@ export const NAV_GROUPS = [
     label: 'Equipo',
     Icon: BadgeCheck,
     items: [
-      { id: 'team', label: 'Personas', Icon: BadgeCheck, screen: 'equipo' },
+      { id: 'team', label: 'Equipo', Icon: BadgeCheck, screen: 'equipo' },
       { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },

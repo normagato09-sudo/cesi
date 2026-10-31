@@ -93,32 +93,16 @@ describe('borrar con reasignación', () => {
   })
 })
 
-describe('migración de la lista de ejemplo', () => {
-  it('la lista de ejemplo antigua se sustituye por la nueva (y hay que guardarla)', () => {
-    const { list: next, changed } = resolveDepartments(LEGACY_DEFAULT_DEPARTMENTS, [], [])
-    expect(next).toEqual(DEFAULT_DEPARTMENTS)
+describe('lista de áreas', () => {
+  it('siempre son las 10 áreas, en su orden (y hay que guardarla si la guardada es otra)', () => {
+    const { list: next, changed } = resolveDepartments(LEGACY_DEFAULT_DEPARTMENTS)
+    expect(next).toEqual(['Directivo', 'Profesor', 'Alianzas', 'RRHH', 'Finanzas', 'Legal', 'Media', 'Técnico', 'Ciberseguridad', 'Moderación'])
     expect(changed).toBe(true)
-    expect(next.slice(0, 3)).toEqual(['Directivo', 'Alianzas', 'Moderación'])
-  })
-
-  it('conserva al final las áreas antiguas que aún usan miembros o vacantes', () => {
-    const used = [member('ana', 'Doblaje'), member('luis', 'Radio'), member('eva', 'Profesorado')]
-    const { list: next } = resolveDepartments(LEGACY_DEFAULT_DEPARTMENTS, used, [{ id: 'v', area: 'Coordinación' }])
-    expect(next).toEqual([...DEFAULT_DEPARTMENTS, 'Doblaje', 'Profesorado', 'Coordinación'])
-  })
-
-  it('sin lista guardada empieza con la nueva', () => {
-    expect(resolveDepartments(null, [], [])).toEqual({ list: DEFAULT_DEPARTMENTS, changed: true })
-  })
-
-  it('una lista ya cambiada por el usuario no se toca (aunque se parezca a la de ejemplo)', () => {
-    const custom = [...LEGACY_DEFAULT_DEPARTMENTS, 'Producción']
-    expect(resolveDepartments(custom, [], [])).toEqual({ list: custom, changed: false })
-    const reordered = [...LEGACY_DEFAULT_DEPARTMENTS].reverse()
-    expect(resolveDepartments(reordered, [], []).list).toEqual(reordered)
+    expect(resolveDepartments(null)).toEqual({ list: DEFAULT_DEPARTMENTS, changed: true })
+    expect(resolveDepartments([...DEFAULT_DEPARTMENTS, 'Producción']).changed).toBe(true)
   })
 
   it('una lista ya migrada no vuelve a cambiar', () => {
-    expect(resolveDepartments(DEFAULT_DEPARTMENTS, [member('a', 'Radio')], []).changed).toBe(false)
+    expect(resolveDepartments(DEFAULT_DEPARTMENTS).changed).toBe(false)
   })
 })

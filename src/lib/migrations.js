@@ -11,6 +11,7 @@ export const STORAGE_KEY = 'cesi_migrations_v1'
 export const MIGRATIONS = {
   departments2026: 'departments-2026',
   formerToArchive2026: 'former-to-archive-2026',
+  areas2026: 'areas-2026',
 }
 
 function read() {

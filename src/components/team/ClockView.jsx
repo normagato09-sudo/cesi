@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, LogIn, LogOut } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LogIn, LogOut, Trash2 } from 'lucide-react'
 import ClockFixModal from './ClockFixModal.jsx'
 import { addDaysKey, dayLabel, daysRange, hhmmOf, keyOf, mondayOf, weekLabel } from '../../lib/sharedCalendar'
 import {
   clockIn,
   clockOut,
+  deleteClockEntry,
   entriesByDay,
   entryMinutes,
   errorText,
@@ -19,7 +20,7 @@ import './TeamWork.css'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-function EntryRow({ entry, zone, showName, onFix }) {
+function EntryRow({ entry, zone, showName, onFix, onDelete }) {
   const start = new Date(entry.clock_in)
   const end = entry.clock_out ? new Date(entry.clock_out) : null
   return (
@@ -37,23 +38,32 @@ function EntryRow({ entry, zone, showName, onFix }) {
           </span>
         )}
       </div>
-      {onFix && (
-        <button type="button" className="sc-btn" onClick={() => onFix(entry)}>
-          Corregir
-        </button>
+      {(onFix || onDelete) && (
+        <span className="tw-entry-actions">
+          {onFix && (
+            <button type="button" className="sc-btn" onClick={() => onFix(entry)}>
+              Corregir
+            </button>
+          )}
+          {onDelete && (
+            <button type="button" className="sc-btn sc-icon-btn tw-delete" onClick={() => onDelete(entry)} aria-label="Eliminar fichaje" title="Eliminar fichaje">
+              <Trash2 size={15} strokeWidth={1.75} />
+            </button>
+          )}
+        </span>
       )}
     </div>
   )
 }
 
-function DayList({ entries, zone, showName, onFix }) {
+function DayList({ entries, zone, showName, onFix, onDelete = null }) {
   const byDay = entriesByDay(entries, zone)
   if (byDay.size === 0) return <p className="sc-message">No hay fichajes esta semana.</p>
   return [...byDay.entries()].map(([key, list]) => (
     <section key={key} className="tw-day">
       <h3>{dayLabel(key)}</h3>
       {list.map((e) => (
-        <EntryRow key={e.id} entry={e} zone={zone} showName={showName} onFix={onFix && e.can_fix ? onFix : null} />
+        <EntryRow key={e.id} entry={e} zone={zone} showName={showName} onFix={onFix && e.can_fix ? onFix : null} onDelete={onDelete} />
       ))}
     </section>
   ))
@@ -120,6 +130,23 @@ export default function ClockView({ client, me, zone, asId = null, readOnly = fa
   }
 
   const onFix = readOnly ? null : setFixing
+
+  // Eliminar un fichaje: solo la ceo (no en «Ver como»), con confirmación.
+  const onDelete =
+    me.role === 'ceo' && !readOnly
+      ? async (entry) => {
+          const who = entry.name ? ` de ${entry.name}` : ''
+          const when = `${dayLabel(keyOf(new Date(entry.clock_in), zone))} a las ${hhmmOf(new Date(entry.clock_in), zone)}`
+          if (!window.confirm(`¿Seguro que quieres eliminar el fichaje${who} del ${when}? No se puede deshacer.`)) return
+          setActionError(null)
+          try {
+            await deleteClockEntry(client, entry.id)
+            refresh()
+          } catch (err) {
+            setActionError(errorText(err))
+          }
+        }
+      : null
 
   return (
     <div className="sc-root">
@@ -245,7 +272,8 @@ export default function ClockView({ client, me, zone, asId = null, readOnly = fa
               </tbody>
             </table>
           )}
-          <DayList entries={shown.week} zone={zone} showName onFix={onFix} />
+          {actionError && <p className="sc-message error">{actionError}</p>}
+          <DayList entries={shown.week} zone={zone} showName onFix={onFix} onDelete={onDelete} />
         </>
       )}
 

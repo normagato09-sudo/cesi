@@ -162,6 +162,14 @@
 .tw-entry-time {
   font-weight: 600;
 }
+.tw-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tw-delete {
+  color: #b91c1c;
+}
 .tw-entry-text {
   color: var(--sc-muted);
   font-size: 13px;

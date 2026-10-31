@@ -121,11 +121,13 @@ export function openEntry(entries, now = new Date()) {
 export function summarizeByPerson(entries) {
   const out = new Map()
   for (const e of entries) {
-    const row = out.get(e.profile_id) || { profileId: e.profile_id, name: e.name, minutes: 0, count: 0, open: 0 }
+    // Los de una cuenta eliminada (sin profile_id) van por su nombre.
+    const key = e.profile_id || `gone:${e.name}`
+    const row = out.get(key) || { profileId: key, name: e.name, minutes: 0, count: 0, open: 0 }
     row.minutes += entryMinutes(e)
     row.count += 1
     if (!e.clock_out) row.open += 1
-    out.set(e.profile_id, row)
+    out.set(key, row)
   }
   return [...out.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'))
 }
@@ -204,6 +206,11 @@ export function fixClockEntry(client, id, { clockIn: inAt = null, clockOut: outA
   })
 }
 
+// Eliminar un fichaje (solo la ceo; ver cesi_clock_delete en la parte 8).
+export function deleteClockEntry(client, id) {
+  return rpc(client, 'cesi_clock_delete', { p_id: id })
+}
+
 export function listClockEntries(client, from, to, { all = false, asId = null } = {}) {
   return rpc(client, 'cesi_clock_entries', { p_from: from.toISOString(), p_to: to.toISOString(), p_all: all, p_as: asId })
 }
@@ -213,6 +220,6 @@ export function listOldOpenEntries(client, asId = null) {
 }
 
 export function errorText(err) {
-  if (err?.code === 'PGRST202' || err?.code === '42883') return 'Falta ejecutar en Supabase el SQL de la parte 7 (tareas y fichaje).'
+  if (err?.code === 'PGRST202' || err?.code === '42883') return 'Falta ejecutar en Supabase el SQL de las partes 7 y 8 (tareas y fichaje).'
   return err?.message || 'No se pudo completar. Inténtalo de nuevo.'
 }

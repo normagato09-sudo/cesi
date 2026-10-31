@@ -1,6 +1,7 @@
 import { addMonths, parseISO } from 'date-fns'
 import { createCollection, makeId } from './store'
 import { emptyTeamProfile, todayKey } from './team'
+import { acceptRole, currentRoles, newRoleId, withRoles } from './trajectory'
 
 // Vacantes y candidatos.
 //
@@ -236,6 +237,26 @@ export function interviewUpdates(meeting, contacts, now = new Date()) {
 // cargo y departamento de la vacante, y hoy como inicio de ese rol (editable antes de guardar).
 export function incorporationDraft(vacancy, now = new Date()) {
   return emptyTeamProfile({ role: vacancy?.title || '', area: vacancy?.area || '', joinedAt: todayKey(now) })
+}
+
+/**
+ * Perfil de equipo al aceptar a un candidato (se incorpora solo, sin formulario), en el área de la
+ * vacante y con su título como cargo, desde hoy:
+ * - si aún no es del equipo, un perfil nuevo con ese rol;
+ * - si ya es (o fue) del equipo, el mismo perfil con el rol añadido, salvo que ya tenga un rol
+ *   actual en esa área: entonces no se toca (no se duplica).
+ */
+export function acceptedTeamProfile(contact, vacancy, now = new Date()) {
+  const today = todayKey(now)
+  const area = vacancy?.area || ''
+  const role = vacancy?.title || ''
+  const p = contact.teamProfile
+  if (!p) {
+    const draft = incorporationDraft(vacancy, now)
+    return { ...withRoles(draft, [{ id: newRoleId(), role, area, start: today, end: null }]), status: 'active', leftAt: null }
+  }
+  if (p.status !== 'former' && !contact.archived && currentRoles(p).some((r) => (r.area || '') === area)) return p
+  return acceptRole(p, { role, area, today })
 }
 
 /**

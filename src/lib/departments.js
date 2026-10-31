@@ -1,15 +1,15 @@
-// Departamentos del equipo (en la interfaz "Departamento"; por dentro se siguen llamando
-// áreas: el campo `area` de teamProfile y de las vacantes, y la clave cesi_team_areas_v1, así
-// no hay que migrar datos ni cambiar la sincronización).
-//
-// La lista es ordenada: el orden es el de los desplegables y filtros.
+// Áreas del equipo (antes "departamentos"): el campo `area` de teamProfile, de sus roles y de las
+// vacantes guarda el nombre del área, y la lista va en la clave cesi_team_areas_v1 (sincronizada).
+// Desde 2026 la lista es fija: las 10 áreas de las cuentas (ver permissions.js), en su orden.
 
 import { rolesOf } from './trajectory'
+import { AREAS } from './permissions'
 
 // Lista de ejemplo de versiones anteriores: si la guardada es exactamente esta, se sustituye.
 export const LEGACY_DEFAULT_DEPARTMENTS = ['Dirección', 'Profesorado', 'Doblaje', 'Radio', 'Redes', 'Coordinación']
 
-export const DEFAULT_DEPARTMENTS = [
+// Lista de departamentos de la migración de 2026 (departments-2026), antes de pasar a las áreas.
+export const DEPARTMENTS_2026 = [
   'Directivo',
   'Alianzas',
   'Moderación',
@@ -27,7 +27,10 @@ export const DEFAULT_DEPARTMENTS = [
   'Profesores',
 ]
 
-export const NO_DEPARTMENT_LABEL = 'Sin departamento'
+// Las áreas, en su orden: la lista de Equipo, de las vacantes y de la trayectoria.
+export const DEFAULT_DEPARTMENTS = AREAS.map((a) => a.name)
+
+export const NO_DEPARTMENT_LABEL = 'Sin área'
 
 const MAX_NAME_LENGTH = 50
 
@@ -137,24 +140,13 @@ export function removeDepartment(list, name, target, contacts, vacancies) {
 }
 
 /**
- * Lista que hay que usar a partir de la guardada:
- * - sin lista guardada, o si es exactamente la de ejemplo antigua, la nueva lista;
- * - se añaden al final los departamentos que usan miembros o vacantes y no están en la lista,
- *   para no perderlos.
+ * Lista que hay que usar: siempre las áreas (DEFAULT_DEPARTMENTS). Los nombres antiguos que aún
+ * usen miembros o vacantes los pasa a áreas la migración areas-2026 (areasPlan).
  * Devuelve { list, changed } (changed: hay que guardarla).
  */
-export function resolveDepartments(stored, contacts = [], vacancies = []) {
+export function resolveDepartments(stored) {
   const valid = Array.isArray(stored) && stored.length > 0
-  const isLegacy =
-    valid && stored.length === LEGACY_DEFAULT_DEPARTMENTS.length && stored.every((d, i) => d === LEGACY_DEFAULT_DEPARTMENTS[i])
-  let list = valid && !isLegacy ? [...stored] : [...DEFAULT_DEPARTMENTS]
-  const used = [
-    ...contacts.flatMap((c) => [c.teamProfile?.area, ...rolesOf(c.teamProfile).map((r) => r.area)]),
-    ...vacancies.map((v) => v.area),
-  ]
-  for (const name of used) {
-    if (name && !list.some((d) => departmentKey(d) === departmentKey(name)) && !list.includes(name)) list = [...list, name]
-  }
+  const list = [...DEFAULT_DEPARTMENTS]
   const changed = !valid || list.length !== stored.length || list.some((d, i) => d !== stored[i])
   return { list, changed }
 }
@@ -168,14 +160,14 @@ export const DEPARTMENT_RENAMES = {
 }
 
 /**
- * Migración única: la lista queda exactamente DEFAULT_DEPARTMENTS, en su orden. Los miembros y
+ * Migración única: la lista queda exactamente DEPARTMENTS_2026, en su orden. Los miembros y
  * vacantes con un departamento antiguo se reasignan según DEPARTMENT_RENAMES; los que usan otro
  * departamento que no está en la lista (p. ej. Doblaje) lo conservan y se añade al final.
  * Devuelve { list, contactPatches, vacancyPatches }.
  */
 export function resetDepartments(contacts = [], vacancies = []) {
   const renames = new Map(Object.entries(DEPARTMENT_RENAMES).map(([from, to]) => [departmentKey(from), to]))
-  const inList = (name) => DEFAULT_DEPARTMENTS.find((d) => departmentKey(d) === departmentKey(name))
+  const inList = (name) => DEPARTMENTS_2026.find((d) => departmentKey(d) === departmentKey(name))
   // Nombre final de un departamento usado: el de la lista (con su escritura), el reasignado o el mismo.
   const target = (name) => (name ? inList(name) || renames.get(departmentKey(name)) || name : name)
 
@@ -186,10 +178,77 @@ export function resetDepartments(contacts = [], vacancies = []) {
     .filter((v) => v.area && target(v.area) !== v.area)
     .map((v) => ({ id: v.id, patch: { area: target(v.area) } }))
 
-  const list = [...DEFAULT_DEPARTMENTS]
+  const list = [...DEPARTMENTS_2026]
   const used = [...contacts.map((c) => c.teamProfile?.area), ...vacancies.map((v) => v.area)].map(target)
   for (const name of used) {
     if (name && !list.some((d) => departmentKey(d) === departmentKey(name))) list.push(name)
   }
   return { list, contactPatches, vacancyPatches }
+}
+
+// Qué incluye cada área: los departamentos antiguos con uno de estos nombres (sin distinguir
+// mayúsculas ni acentos) pasan a esa área. Los que no encajan claramente (p. ej. Tienda), a «Sin área».
+export const AREA_EQUIVALENTS = {
+  Directivo: ['Directivo', 'Directiva', 'Dirección', 'Subdirección', 'Coordinación', 'Coordinación general'],
+  Profesor: ['Profesor', 'Profesora', 'Profesores', 'Profesorado', 'Formación', 'Clases', 'Cursos'],
+  Alianzas: ['Alianzas', 'Patrocinadores', 'Patrocinio', 'Colaboraciones', 'Socios', 'Partners'],
+  RRHH: ['RRHH', 'Recursos humanos', 'Personas', 'Reclutamiento', 'Selección', 'Vacantes'],
+  Finanzas: ['Finanzas', 'Dinero', 'Presupuesto', 'Contabilidad', 'Donaciones'],
+  Legal: ['Legal', 'Normas', 'Contratos', 'Privacidad'],
+  Media: ['Media', 'Publicidad', 'Marketing', 'Redes', 'Redes sociales', 'Diseño', 'Contenido', 'Vídeo', 'Radio', 'Doblaje', 'Eventos'],
+  Técnico: ['Técnico', 'Desarrollo', 'Web', 'App', 'Programación', 'Soporte técnico'],
+  Ciberseguridad: ['Ciberseguridad', 'Seguridad', 'Cuentas', 'Protección de datos'],
+  Moderación: ['Moderación', 'Moderación del Discord', 'Verificación', 'Soporte a la comunidad', 'Comunidad'],
+}
+
+const AREA_BY_KEY = new Map(Object.entries(AREA_EQUIVALENTS).flatMap(([area, names]) => names.map((n) => [departmentKey(n), area])))
+
+// Área de un departamento antiguo ('' si no encaja en ninguna).
+export function areaForDepartment(name) {
+  return AREA_BY_KEY.get(departmentKey(name)) || ''
+}
+
+/**
+ * Migración única areas-2026: cada miembro (área, y área de cada rol de su trayectoria) y cada
+ * vacante pasa del departamento antiguo a su área (areaForDepartment). El nombre antiguo se
+ * guarda en `legacyArea` (en el perfil, en el rol y en la vacante) para no perderlo; los que no
+ * encajan quedan en «Sin área» (area ''). Devuelve { list, contactPatches, vacancyPatches }.
+ */
+export function areasPlan(contacts = [], vacancies = []) {
+  const moved = (area) => !!area && areaForDepartment(area) !== area
+  const contactPatches = contacts
+    .filter((c) => c.teamProfile && (moved(c.teamProfile.area) || rolesOf(c.teamProfile).some((r) => moved(r.area))))
+    .map((c) => {
+      const p = c.teamProfile
+      const next = { ...p }
+      if (moved(p.area)) Object.assign(next, { area: areaForDepartment(p.area), legacyArea: p.area })
+      if (Array.isArray(p.roles)) {
+        next.roles = p.roles.map((r) => (moved(r.area) ? { ...r, area: areaForDepartment(r.area), legacyArea: r.area } : r))
+      }
+      // Su posición en cada departamento pasa a la del área (si no tenía ya una en esa área).
+      if (p.order) {
+        next.order = {}
+        const entries = Object.entries(p.order).sort(([a], [b]) => Number(moved(a)) - Number(moved(b)))
+        for (const [k, v] of entries) {
+          const to = moved(k) ? areaForDepartment(k) : k
+          if (to && !(to in next.order)) next.order[to] = v
+        }
+      }
+      return { id: c.id, patch: { teamProfile: next } }
+    })
+  const vacancyPatches = vacancies
+    .filter((v) => moved(v.area))
+    .map((v) => ({ id: v.id, patch: { area: areaForDepartment(v.area), legacyArea: v.area } }))
+  return { list: [...DEFAULT_DEPARTMENTS], contactPatches, vacancyPatches }
+}
+
+// Los que la migración dejó en «Sin área» y aún no se han colocado: [{ id, name, legacyArea }].
+export function unplacedMembers(contacts = []) {
+  return contacts
+    .filter((c) => c.teamProfile && c.teamProfile.status !== 'former' && !c.archived && !c.teamProfile.area && c.teamProfile.legacyArea)
+    .map((c) => ({ id: c.id, name: c.name, legacyArea: c.teamProfile.legacyArea }))
+}
+
+export function unplacedVacancies(vacancies = []) {
+  return vacancies.filter((v) => !v.area && v.legacyArea).map((v) => ({ id: v.id, title: v.title, legacyArea: v.legacyArea }))
 }

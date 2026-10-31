@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { resetDepartments } from './departments'
+import { areasPlan, resetDepartments } from './departments'
 import { formerToArchivePlan } from './archive'
 import { removeKey, writeJSON } from './store'
 import { getAllEvents, STORAGE_KEY as EVENTS_KEY } from './localEvents'
@@ -40,8 +40,10 @@ import { ATTENDANCE_KEY, EXTRA_CLASSES_KEY, getAllAttendance, getAllExtraClasses
 // contactos pueden estar archivados (archived, archivedAt) y ya no hay grupo «Antiguos miembros»;
 // al importar una copia anterior se archivan sus antiguos miembros y se quita ese grupo. v18 añade
 // students (alumnos, con sus cursos en courseIds) y courses. v19 añade attendance (pase de lista)
-// y extraClasses (clases sueltas de los cursos); las copias anteriores se importan sin ellas.
-const BACKUP_VERSION = 19
+// y extraClasses (clases sueltas de los cursos); las copias anteriores se importan sin ellas. v20:
+// los departamentos pasan a las 10 áreas (legacyArea guarda el nombre antiguo); al importar una
+// copia anterior se pasan igual que en la migración areas-2026.
+const BACKUP_VERSION = 20
 
 // Colecciones opcionales: si una copia antigua no las trae, al importarla quedan vacías.
 const OPTIONAL_LISTS = [
@@ -183,6 +185,17 @@ export function migrateBackupData(data) {
       ...out,
       contacts: out.contacts.map((c) => ({ ...c, ...patchOf(c.id) })),
       ...(out.groups ? { groups: groups.filter((g) => g.id !== plan.groupId) } : {}),
+    }
+  }
+  if (version < 20 && Array.isArray(out.contacts)) {
+    const vacancies = Array.isArray(out.vacancies) ? out.vacancies : []
+    const plan = areasPlan(out.contacts, vacancies)
+    const patchOf = (patches, id) => patches.find((p) => p.id === id)?.patch || {}
+    out = {
+      ...out,
+      contacts: out.contacts.map((c) => ({ ...c, ...patchOf(plan.contactPatches, c.id) })),
+      ...(out.vacancies ? { vacancies: vacancies.map((v) => ({ ...v, ...patchOf(plan.vacancyPatches, v.id) })) } : {}),
+      teamAreas: plan.list,
     }
   }
   return out

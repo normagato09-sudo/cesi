@@ -28,15 +28,23 @@ const base = {
 }
 
 describe('TeamView', () => {
-  it('agrupa por departamento, con el jefe arriba, sus vacantes y las cubiertas plegadas', () => {
+  it('agrupa por área, con el jefe arriba, sin las vacantes (están en «Vacantes»)', () => {
     const html = render(base)
     expect(html.indexOf('Ana')).toBeLessThan(html.indexOf('Bea'))
     expect(html).toContain('Jefe/a de departamento')
     expect(html).not.toContain('Antiguo')
-    expect(html).toContain('Vacante: Locutor/a')
-    expect(html).toContain('1 vacante cubierta')
-    expect(html).toContain('Nueva vacante')
+    expect(html).not.toContain('Locutor/a')
+    expect(html).not.toContain('Nueva vacante')
+    expect(html).not.toContain('Departamentos')
     expect(html).not.toContain('Ordenar por')
+  })
+
+  it('avisa de quién ha quedado en «Sin área» al pasar a las áreas', () => {
+    const leo = { id: 'leo', name: 'Leo', teamProfile: { status: 'active', area: '', legacyArea: 'Tienda', roles: [role('r3', 'Tendero', '')] } }
+    const html = render({ ...base, contacts: [ana, leo] })
+    expect(html).toContain('Sin área')
+    expect(html).toContain('Leo')
+    expect(html).toContain('antes: Tienda')
   })
 
   it('la ficha lo junta todo con un solo «Editar»', () => {

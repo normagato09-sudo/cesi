@@ -22,6 +22,7 @@ import {
   getAllVacancies,
   vacancyCountsText,
   withStatus,
+  acceptedTeamProfile,
 } from './vacancies'
 import { acceptRole } from './trajectory'
 import { buildBackup, parseBackup, restoreBackup } from './backup'
@@ -304,5 +305,30 @@ describe('copia de seguridad', () => {
     expect(isCandidateOnly(ana)).toBe(true)
     createContact({ name: 'Luis', country: 'ES', timeZone: 'Europe/Madrid' })
     expect(getAllContacts()).toHaveLength(2)
+  })
+})
+
+describe('aceptar a un candidato lo incorpora solo', () => {
+  const vacancy = { id: 'v1', title: 'Locutora', area: 'Media' }
+  const now = new Date('2026-10-31T10:00:00')
+
+  it('si no es del equipo, perfil nuevo en el área de la vacante', () => {
+    const p = acceptedTeamProfile({ id: 'a', name: 'Ana' }, vacancy, now)
+    expect(p.status).toBe('active')
+    expect(p.area).toBe('Media')
+    expect(p.role).toBe('Locutora')
+    expect(p.roles).toHaveLength(1)
+    expect(p.roles[0]).toMatchObject({ role: 'Locutora', area: 'Media', start: '2026-10-31', end: null })
+  })
+
+  it('si ya está en esa área, no se duplica', () => {
+    const teamProfile = { status: 'active', role: 'Editora', area: 'Media', roles: [{ id: 'r', role: 'Editora', area: 'Media', start: '2025-01-01', end: null }] }
+    expect(acceptedTeamProfile({ id: 'a', teamProfile }, vacancy, now)).toBe(teamProfile)
+  })
+
+  it('si es de otra área, se le suma el rol nuevo', () => {
+    const teamProfile = { status: 'active', role: 'Abogada', area: 'Legal', roles: [{ id: 'r', role: 'Abogada', area: 'Legal', start: '2025-01-01', end: null }] }
+    const p = acceptedTeamProfile({ id: 'a', teamProfile }, vacancy, now)
+    expect(p.roles.map((r) => r.area).sort()).toEqual(['Legal', 'Media'])
   })
 })

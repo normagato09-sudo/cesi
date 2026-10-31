@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  accountName,
   canChangeRole,
+  canDeleteAccount,
+  filterProfiles,
+  initialsOf,
   fetchOwnRole,
   filterLinkOptions,
   linkOptions,
@@ -119,5 +123,35 @@ describe('enlaces', () => {
     expect(linkedOption({ linked_student_id: 's1' }, options).label).toBe('Íñigo')
     expect(linkedOption({ linked_team_id: 'borrado' }, options)).toEqual({ kind: 'team', id: 'borrado', missing: true })
     expect(linkedOption({}, options)).toBeNull()
+  })
+})
+
+describe('Accesos: lista, filtros y eliminar cuenta', () => {
+  const ceo = { id: 'c', role: 'ceo', email: 'ceo@x.com', display_name: 'Norma' }
+  const ana = { id: 'a', role: 'equipo', area: 'media', email: 'ana@x.com', display_name: 'Ana López' }
+  const sinArea = { id: 's', role: 'equipo', area: null, email: 'sin@x.com', display_name: '' }
+  const alumno = { id: 'al', role: 'alumno', email: 'jose@x.com', display_name: 'José' }
+  const all = [ceo, ana, sinArea, alumno]
+
+  it('nombre e iniciales', () => {
+    expect(accountName(sinArea)).toBe('sin@x.com')
+    expect(accountName(ana, { full_name: 'Ana María López' })).toBe('Ana María López')
+    expect(initialsOf('Ana López')).toBe('AL')
+    expect(initialsOf('ana@x.com')).toBe('A')
+    expect(initialsOf('')).toBe('?')
+  })
+
+  it('filtra por texto (sin acentos), papel y área', () => {
+    expect(filterProfiles(all, { query: 'jose' }).map((p) => p.id)).toEqual(['al'])
+    expect(filterProfiles(all, { role: 'equipo' }).map((p) => p.id)).toEqual(['a', 's'])
+    expect(filterProfiles(all, { area: 'media' }).map((p) => p.id)).toEqual(['a'])
+    expect(filterProfiles(all, { area: 'none' }).map((p) => p.id)).toEqual(['s'])
+  })
+
+  it('nunca se puede eliminar la propia cuenta ni la de la ceo', () => {
+    expect(canDeleteAccount(ana, 'c')).toBe(true)
+    expect(canDeleteAccount(ceo, 'c')).toBe(false)
+    expect(canDeleteAccount(ceo, 'otra')).toBe(false)
+    expect(canDeleteAccount(ana, 'a')).toBe(false)
   })
 })

@@ -1,27 +1,14 @@
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { BarChart3, Briefcase, CalendarCheck, CalendarDays, Check, ChevronRight, NotebookPen, Send, X } from 'lucide-react'
-import { colorForEvent } from '../lib/eventStyle'
-import {
-  greeting,
-  hasAgenda,
-  meetingsTodayAndTomorrow,
-  openVacancies,
-  participantsLine,
-  upcomingInterviews,
-  vacancyProgressText,
-} from '../lib/home'
-import { VACANCY_STATUS } from '../lib/vacancies'
+import { CalendarCheck, CalendarDays, Check, ChevronRight, Send, X } from 'lucide-react'
+import { greeting } from '../lib/home'
 import { matchContact, requestMinutes, requestVisitor } from '../lib/bookings'
 import ArchivedNotice from './ArchivedNotice.jsx'
 import PlaceIcon from './PlaceIcon.jsx'
 import { placeLabel } from '../lib/videoCall'
 import { formatDurationLong } from '../lib/proposals'
-import { formatHours, weekDeltaText } from '../lib/weeklyReport'
 import './HomeView.css'
 
-const MAX_MISSING_NOTES = 5
-const time = (date) => format(date, 'HH:mm')
 
 // Bloque del panel: cabecera que lleva a su sección y el contenido (o un mensaje si está vacío).
 function HomeCard({ Icon, title, count, linkLabel, onLink, children, className = '' }) {
@@ -43,54 +30,6 @@ function HomeCard({ Icon, title, count, linkLabel, onLink, children, className =
 
 function Empty({ children }) {
   return <p className="home-empty">{children}</p>
-}
-
-// Fila de una reunión: (día y) hora, título, participantes y, si se pide, si tiene agenda preparada.
-// `dimPast`: atenuarla si ya ha terminado (en la lista de hoy).
-function MeetingRow({ event, contacts, now, showAgenda = true, showDay = false, dimPast = false, onOpen }) {
-  const people = participantsLine(event, contacts)
-  const when = showDay ? format(event.start, 'EEE d', { locale: es }) : null
-  const past = dimPast && event.end <= now
-  const agenda = hasAgenda(event)
-  return (
-    <li>
-      <button
-        type="button"
-        className={`home-meeting${past ? ' past' : ''}`}
-        style={{ '--event-color': colorForEvent(event) }}
-        onClick={() => onOpen(event)}
-      >
-        <span className="home-meeting-time">
-          {when && <span className="home-meeting-day">{when}</span>}
-          {event.allDay ? 'Todo el día' : time(event.start)}
-        </span>
-        <span className="home-meeting-main">
-          <span className="home-meeting-title">{event.title || 'Sin título'}</span>
-          {people && <span className="home-meeting-people">{people}</span>}
-        </span>
-        {showAgenda && (
-          <span className={`home-agenda${agenda ? ' ready' : ''}`}>{agenda ? 'Agenda lista' : 'Sin agenda'}</span>
-        )}
-      </button>
-    </li>
-  )
-}
-
-function MeetingList({ title, meetings, empty, ...rowProps }) {
-  return (
-    <div className="home-group">
-      <h3>{title}</h3>
-      {meetings.length === 0 ? (
-        <Empty>{empty}</Empty>
-      ) : (
-        <ul className="home-list">
-          {meetings.map((ev) => (
-            <MeetingRow key={ev.id} event={ev} {...rowProps} />
-          ))}
-        </ul>
-      )}
-    </div>
-  )
 }
 
 // Solicitudes del enlace de reservas pendientes: quién, cuándo (en mi hora), duración, su país y
@@ -151,54 +90,20 @@ function BookingRequests({ requests, contacts = [], onAccept, onReject, onUnarch
   )
 }
 
-// «Tu semana»: reuniones, horas en reuniones y horas libres de esta semana, comparadas con la
-// anterior. `week`: computeWeeklyReport de esta semana. Lleva al informe completo.
-function WeekSummary({ week }) {
-  const stats = [
-    { label: week.count === 1 ? 'reunión' : 'reuniones', value: String(week.count), delta: weekDeltaText('count', week.delta.count) },
-    { label: 'en reuniones', value: formatHours(week.meetingMs), delta: weekDeltaText('ms', week.delta.meetingMs) },
-    { label: 'libres', value: formatHours(week.freeMs), delta: weekDeltaText('ms', week.delta.freeMs) },
-  ]
-  return (
-    <ul className="home-week">
-      {stats.map((s) => (
-        <li key={s.label}>
-          <span className="home-week-value">{s.value}</span>
-          <span className="home-week-label">{s.label}</span>
-          <span className="home-week-delta">{s.delta}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 /**
- * Inicio: lo primero que se ve al abrir la app. Reuniones de hoy y mañana, tareas que vencen,
- * reuniones sin acta, entrevistas y vacantes, propuestas pendientes y «Tu semana» (que lleva al
- * informe completo). Cada bloque lleva a su sección.
+ * Inicio: lo primero que se ve al abrir la app. «Mi equipo» arriba, las solicitudes del enlace de
+ * reservas y las propuestas pendientes. Cada bloque lleva a su sección.
  */
 export default function HomeView({
   now,
-  week = null,
-  rawEvents,
-  contacts,
-  vacancies,
   proposals,
-  missingNotes,
   onGoTo,
-  onOpenEvent,
-  onOpenEventNotes,
-  onOpenVacancy,
   onOpenProposal,
   // Enlace de reservas (solo con la sincronización configurada): null si no se usa.
   bookings = null,
   // «Mi equipo» (CeoTeamPanel), arriba de todo; null sin la sincronización.
   teamPanel = null,
 }) {
-  const meetings = meetingsTodayAndTomorrow(rawEvents, now)
-  const interviews = upcomingInterviews(rawEvents, now)
-  const openings = openVacancies(vacancies, contacts)
-  const shownNotes = missingNotes.slice(0, MAX_MISSING_NOTES)
   const dateText = format(now, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
 
   return (
@@ -235,93 +140,6 @@ export default function HomeView({
             />
           </HomeCard>
         )}
-
-        <HomeCard
-          Icon={CalendarDays}
-          title="Reuniones"
-          count={meetings.today.length}
-          linkLabel="Calendario"
-          onLink={() => onGoTo('calendar')}
-        >
-          <MeetingList title="Hoy" meetings={meetings.today} empty="Hoy no tienes reuniones." contacts={contacts} now={now} dimPast onOpen={onOpenEvent} />
-          <MeetingList title="Mañana" meetings={meetings.tomorrow} empty="Mañana, sin reuniones." contacts={contacts} now={now} onOpen={onOpenEvent} />
-        </HomeCard>
-
-        {week && (
-          <HomeCard Icon={BarChart3} title="Tu semana" linkLabel="Ver informe completo" onLink={() => onGoTo('report')} className="home-card-week">
-            <WeekSummary week={week} />
-          </HomeCard>
-        )}
-
-        <HomeCard
-          Icon={NotebookPen}
-          title="Sin acta"
-          count={missingNotes.length}
-          linkLabel="Calendario"
-          onLink={() => onGoTo('calendar')}
-        >
-          {missingNotes.length === 0 ? (
-            <Empty>Todas las actas de los últimos 7 días al día 👌</Empty>
-          ) : (
-            <>
-              <ul className="home-list">
-                {shownNotes.map((ev) => (
-                  <MeetingRow
-                    key={ev.id}
-                    event={ev}
-                    contacts={contacts}
-                    now={now}
-                    showAgenda={false}
-                    showDay
-                    onOpen={onOpenEventNotes}
-                  />
-                ))}
-              </ul>
-              {missingNotes.length > shownNotes.length && (
-                <p className="home-more">y {missingNotes.length - shownNotes.length} más</p>
-              )}
-            </>
-          )}
-        </HomeCard>
-
-        <HomeCard
-          Icon={Briefcase}
-          title="Entrevistas y vacantes"
-          count={interviews.length}
-          linkLabel="Equipo"
-          onLink={() => onGoTo('team')}
-        >
-          <MeetingList
-            title="Próximas entrevistas"
-            meetings={interviews}
-            empty="Sin entrevistas en los próximos 14 días."
-            contacts={contacts}
-            now={now}
-            showAgenda={false}
-            showDay
-            onOpen={onOpenEvent}
-          />
-          <div className="home-group">
-            <h3>Vacantes abiertas</h3>
-            {openings.length === 0 ? (
-              <Empty>No hay vacantes abiertas.</Empty>
-            ) : (
-              <ul className="home-list">
-                {openings.map((item) => (
-                  <li key={item.vacancy.id}>
-                    <button type="button" className="home-vacancy" onClick={() => onOpenVacancy(item.vacancy.id)}>
-                      <span className="home-meeting-main">
-                        <span className="home-meeting-title">{item.vacancy.title || 'Sin título'}</span>
-                        <span className="home-meeting-people">{vacancyProgressText(item)}</span>
-                      </span>
-                      <span className={`home-vacancy-status ${item.vacancy.status}`}>{VACANCY_STATUS[item.vacancy.status] || ''}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </HomeCard>
 
         {proposals.length > 0 && (
           <HomeCard

@@ -61,7 +61,7 @@ export default function VacancyFormModal({ initialVacancy = null, defaultArea = 
 
           <div className="event-form-row">
             <label className="event-form-field">
-              <span>Departamento</span>
+              <span>Área</span>
               {addingArea ? (
                 <span className="vacancy-new-area">
                   <input
@@ -84,14 +84,14 @@ export default function VacancyFormModal({ initialVacancy = null, defaultArea = 
                 </span>
               ) : (
                 <select value={area} onChange={(e) => (e.target.value === NEW_AREA ? setAddingArea(true) : setArea(e.target.value))}>
-                  <option value="">Sin departamento</option>
+                  <option value="">Sin área</option>
                   {areas.map((a) => (
                     <option key={a} value={a}>
                       {a}
                     </option>
                   ))}
                   {area && !areas.includes(area) && <option value={area}>{area}</option>}
-                  <option value={NEW_AREA}>+ Añadir un departamento…</option>
+                  {onAddArea && <option value={NEW_AREA}>+ Añadir un departamento…</option>}
                 </select>
               )}
             </label>

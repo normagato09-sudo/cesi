@@ -15,9 +15,10 @@ import {
 // Nueva tarea del equipo o editar una (quien la creó, Directivo o la ceo). Directivo y la ceo
 // eligen área y persona; los demás, solo su área y para sí mismos. Sin permiso para editarla
 // (o en «Ver como»), solo se ve.
-// me: { id, area, boss }; areas: [{ id, name }].
-export default function TaskEditModal({ client, me, task = null, areas, readOnly = false, onClose, onSaved }) {
-  const [form, setForm] = useState(() => (task ? formFromTask(task) : emptyTaskForm(me)))
+// me: { id, area, boss }; areas: [{ id, name }]. prefill: datos de una tarea nueva ({ title,
+// description }, p. ej. desde el acta de una reunión).
+export default function TaskEditModal({ client, me, task = null, prefill = null, areas, readOnly = false, onClose, onSaved }) {
+  const [form, setForm] = useState(() => (task ? formFromTask(task) : { ...emptyTaskForm(me), ...prefill }))
   const [people, setPeople] = useState(null)
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)

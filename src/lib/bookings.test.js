@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bookingAvailability, bookingContactData, decisionMessage, linkSettings, matchContact, requestDescription, requestTitle, requestVisitor } from './bookings'
+import { bookingAvailability, bookingLinkUrl, bookingContactData, decisionMessage, linkSettings, matchContact, requestDescription, requestTitle, requestVisitor } from './bookings'
 import { emptyWeek } from './weeklySchedule'
 
 const d = (month, day, h = 0, m = 0) => new Date(2026, month - 1, day, h, m)
@@ -117,5 +117,11 @@ describe('país de quien reserva', () => {
       country: 'AR',
       timeZone: 'America/Argentina/Cordoba',
     })
+  })
+})
+
+describe('enlace de reservas', () => {
+  it('siempre con el dominio de CIFA', () => {
+    expect(bookingLinkUrl('abc')).toBe('https://www.cifa-academy.com/reservar/abc')
   })
 })

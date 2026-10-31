@@ -2,13 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw, Users } from 'lucide-react'
 import TaskEditModal from './team/TaskEditModal.jsx'
 import ClockFixModal from './team/ClockFixModal.jsx'
-import MeetingDetailModal from './shared/MeetingDetailModal.jsx'
-import MeetingFormModal from './shared/MeetingFormModal.jsx'
 import { listProfiles } from '../lib/profiles'
 import { listPortalsByAccount } from '../lib/studentPortal'
 import { dayLabel, hhmmOf, keyOf } from '../lib/sharedCalendar'
 import { formatMinutes, listAreasForTasks, listClockEntries, listTeamTasks } from '../lib/teamWork'
-import { areaProgress, nameOf, overdueTasks, panelRanges, splitOpenEntries, teamMeetings, weekHoursByPerson } from '../lib/ceoPanel'
+import { areaProgress, nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
 import './CeoTeamPanel.css'
 
 const ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
@@ -19,29 +17,17 @@ function check({ data, error }) {
 }
 
 // Todo lo de «Mi equipo» de una vez (al entrar en Inicio y con «Actualizar»).
-async function loadPanel(client, meId, zone) {
+async function loadPanel(client, zone) {
   const now = new Date()
   const r = panelRanges(now, zone)
-  const [profiles, portals, areas, week, open, tasks, meetings] = await Promise.all([
+  const [profiles, portals, areas, week, open, tasks] = await Promise.all([
     listProfiles(client),
     listPortalsByAccount(client),
     listAreasForTasks(client),
     listClockEntries(client, r.week.start, r.week.end, { all: true }),
-    client.from('clock_entries').select('id, profile_id, clock_in, clock_out, summary, fix_note').is('clock_out', null).then(check),
+    client.from('clock_entries').select('*').is('clock_out', null).then(check),
     listTeamTasks(client),
-    client
-      .from('shared_meetings')
-      .select('id, organizer_id, title, description, link, starts_at, ends_at, cancelled_at')
-      .is('cancelled_at', null)
-      .lt('starts_at', r.days.end.toISOString())
-      .gt('ends_at', now.toISOString())
-      .order('starts_at')
-      .then(check),
   ])
-  const participants = meetings.length
-    ? check(await client.from('shared_meeting_participants').select('meeting_id, profile_id, status').in('meeting_id', meetings.map((m) => m.id)))
-    : []
-
   const profilesById = new Map(profiles.map((p) => [p.id, p]))
   const nameFor = (id) => nameOf(id, profilesById, portals)
   const areaNameOf = (id) => areas.find((a) => a.id === id)?.name || 'Sin área'
@@ -49,13 +35,11 @@ async function loadPanel(client, meId, zone) {
   return {
     at: now,
     today: r.today,
-    tomorrow: r.tomorrow,
     areas,
     ...splitOpenEntries(open, nameFor, now),
     hours: weekHoursByPerson(members, week, nameFor, areaNameOf),
     overdue: overdueTasks(tasks, r.today),
     progress: areaProgress(tasks, areas, r.today, zone),
-    meetings: teamMeetings(meetings, participants, nameFor, meId),
   }
 }
 
@@ -79,12 +63,10 @@ export default function CeoTeamPanel({ client, meId, zone }) {
   const [reload, setReload] = useState(0)
   const [openTask, setOpenTask] = useState(null)
   const [fixing, setFixing] = useState(null)
-  const [openMeeting, setOpenMeeting] = useState(null)
-  const [editMeeting, setEditMeeting] = useState(null)
 
   useEffect(() => {
     let active = true
-    loadPanel(client, meId, zone).then(
+    loadPanel(client, zone).then(
       (next) => {
         if (!active) return
         setData(next)
@@ -237,55 +219,11 @@ export default function CeoTeamPanel({ client, meId, zone }) {
             </ul>
           </Card>
 
-          <Card title="Reuniones compartidas de hoy y mañana" count={data.meetings.length}>
-            {data.meetings.length === 0 ? (
-              <p className="ceo-muted">Ninguna.</p>
-            ) : (
-              <ul className="ceo-list">
-                {data.meetings.map((m) => {
-                  const start = new Date(m.starts_at)
-                  const day = keyOf(start, zone)
-                  return (
-                    <li key={m.id}>
-                      <button type="button" className={`ceo-link${m.mine ? ' mine' : ''}`} onClick={() => setOpenMeeting(m)}>
-                        <strong>
-                          {m.title}
-                          {m.mine && <span className="ceo-you">Tú</span>}
-                        </strong>
-                        <span className="ceo-muted">
-                          {day === data.today ? 'Hoy' : day === data.tomorrow ? 'Mañana' : dayLabel(day)} {hhmmOf(start, zone)}–{hhmmOf(new Date(m.ends_at), zone)} · organiza{' '}
-                          {m.organizer_id === meId ? 'tú' : m.organizer_name} · {m.accepted} de {m.invited} han aceptado
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </Card>
         </div>
       )}
 
       {openTask && <TaskEditModal client={client} me={ME(meId)} task={openTask} areas={data.areas} onClose={() => setOpenTask(null)} onSaved={done(setOpenTask)} />}
       {fixing && <ClockFixModal client={client} entry={fixing} zone={zone} boss onClose={() => setFixing(null)} onSaved={done(setFixing)} />}
-      {openMeeting && (
-        <MeetingDetailModal
-          client={client}
-          meeting={openMeeting}
-          meId={meId}
-          zone={zone}
-          readOnly={!openMeeting.mine}
-          onClose={() => setOpenMeeting(null)}
-          onChanged={done(setOpenMeeting)}
-          onEdit={(meeting) => {
-            setOpenMeeting(null)
-            setEditMeeting(meeting)
-          }}
-        />
-      )}
-      {editMeeting && (
-        <MeetingFormModal client={client} meId={meId} zone={zone} meeting={editMeeting} onClose={() => setEditMeeting(null)} onSaved={done(setEditMeeting)} />
-      )}
     </section>
   )
 }

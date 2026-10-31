@@ -7,7 +7,7 @@ import { daysOff } from './unavailableKinds'
 import { meetingWhen } from './meetingWhen'
 import { formatDurationLong } from './proposals'
 import { countryFlag, dayShift, defaultContactZone, findZone, formatTimeInZone, localTimeZone, sameClock, zonePlace } from './timezones'
-import { newLinkToken, PUBLIC_URL } from './contactLinks'
+import { newLinkToken } from './contactLinks'
 import { getSupabase } from './sync/client'
 import { DEFAULT_VIDEO_OPTIONS, ROOM_PLATFORMS, cleanOptions, placeLabel } from './videoCall'
 
@@ -64,7 +64,10 @@ export function bookingAvailability({
 // Supabase
 // ---------------------------------------------------------------------------
 
-export function bookingLinkUrl(token, base = PUBLIC_URL || globalThis.location?.origin || '') {
+// El enlace de reservas que se copia y se envía va siempre con el dominio de CIFA.
+export const BOOKING_BASE_URL = 'https://www.cifa-academy.com'
+
+export function bookingLinkUrl(token, base = BOOKING_BASE_URL) {
   return `${base.trim().replace(/\/+$/, '')}/reservar/${token}`
 }
 

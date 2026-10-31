@@ -135,7 +135,7 @@ export default function TeamProfileModal({
         <div className="event-form-body">
           {!isNew && seed.status !== 'former' && (
             <p className="team-fieldset-hint">
-              El cargo y el departamento se cambian en «Trayectoria en CIFA», en su ficha del equipo.
+              El cargo y el área se cambian en «Trayectoria en CIFA», en su ficha del equipo.
             </p>
           )}
           {isNew && (
@@ -145,7 +145,7 @@ export default function TeamProfileModal({
               <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Profesora de doblaje" />
             </label>
             <label className="event-form-field">
-              <span>Departamento</span>
+              <span>Área</span>
               {addingArea ? (
                 <span className="team-area-new">
                   <input
@@ -170,13 +170,13 @@ export default function TeamProfileModal({
                 </span>
               ) : (
                 <select value={area} onChange={(e) => handleAreaSelect(e.target.value)}>
-                  <option value="">Sin departamento</option>
+                  <option value="">Sin área</option>
                   {areaOptions.map((a) => (
                     <option key={a} value={a}>
                       {a}
                     </option>
                   ))}
-                  <option value={NEW_AREA}>+ Añadir departamento…</option>
+                  {onAddArea && <option value={NEW_AREA}>+ Añadir departamento…</option>}
                 </select>
               )}
             </label>

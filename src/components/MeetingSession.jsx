@@ -353,9 +353,16 @@ export default function MeetingSession({
   onNewTask,
   onOpenTask,
   onToggleTask,
+  // «Convertir en tarea» del equipo (team_tasks): abre su formulario con el texto ya puesto.
+  onTeamTask = null,
   // Mi nombre en el acta («Nombre que se muestra» del enlace de reservas).
   organizerName = '',
 }) {
+  // Tarea nueva del equipo desde el acta: el texto como título y de qué reunión sale.
+  const teamTaskDraft = (text) => ({
+    title: text.trim().slice(0, 200),
+    description: `De la reunión «${event.title || 'Sin título'}» del ${format(new Date(event.start), "d 'de' MMMM", { locale: es })}.`,
+  })
   const [session, setSession] = useState(() => sessionOf(event))
   const finished = new Date(event.end) <= now
   const [tab, setTab] = useState(focusNotes || finished ? 'minutes' : 'agenda')
@@ -489,7 +496,13 @@ export default function MeetingSession({
         placeholder={event.recurrence ? 'Notas de este día…' : 'Lo que se habló, próximos pasos, ideas…'}
         onDecision={addDecision}
         isDecision={isDecision}
-        onTask={onNewTask ? (text) => onNewTask({ title: text, source: sourceOf(event) }) : null}
+        onTask={
+          onNewTask
+            ? (text) => onNewTask({ title: text, source: sourceOf(event) })
+            : onTeamTask
+              ? (text) => onTeamTask(teamTaskDraft(text))
+              : null
+        }
       />
       <span className="session-subtitle">Decisiones</span>
       <ItemList
@@ -499,7 +512,14 @@ export default function MeetingSession({
         addPlaceholder="Añadir una decisión…"
         emptyText="Sin decisiones apuntadas."
         renderExtra={(item) => {
-          if (!onNewTask) return null
+          if (!onNewTask) {
+            return onTeamTask ? (
+              <button type="button" className="decision-task" onClick={() => onTeamTask(teamTaskDraft(item.text))}>
+                <ListTodo size={13} strokeWidth={2} />
+                Convertir en tarea
+              </button>
+            ) : null
+          }
           const task = taskOfDecision(tasks, item.id)
           return task ? (
             <button type="button" className="decision-task" onClick={() => onOpenTask(task)}>

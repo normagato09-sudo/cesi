@@ -40,7 +40,7 @@ describe('teamGroups', () => {
       ['Moderación', ['ana', 'bea']],
       ['Técnico', ['bea', 'carlos']],
       ['Radio', []],
-      ['Sin departamento', ['sd']],
+      ['Sin área', ['sd']],
     ])
   })
 
@@ -109,7 +109,7 @@ describe('teamGroups con vacantes', () => {
     expect(groups.map((g) => [g.label, g.vacancies.map((v) => v.id)])).toEqual([
       ['Moderación', ['v4', 'v1']],
       ['Radio', ['v2']],
-      ['Sin departamento', ['v3']],
+      ['Sin área', ['v3']],
     ])
   })
 

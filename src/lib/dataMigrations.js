@@ -2,7 +2,7 @@ import { getAllContacts, updateContact } from './contacts'
 import { getAllGroups, groupsStore } from './groups'
 import { formerToArchivePlan } from './archive'
 import { getAllVacancies, vacanciesStore } from './vacancies'
-import { resetDepartments } from './departments'
+import { areasPlan, resetDepartments } from './departments'
 import { saveTeamAreas } from './team'
 import { MIGRATIONS, isMigrationDone, markMigrationDone } from './migrations'
 
@@ -29,6 +29,16 @@ export function runPendingMigrations(now = new Date()) {
     if (plan.groupId) groupsStore.remove(plan.groupId)
     markMigrationDone(MIGRATIONS.formerToArchive2026, now)
     ran.push(MIGRATIONS.formerToArchive2026)
+  }
+
+  // Los departamentos pasan a las 10 áreas (el nombre antiguo queda en legacyArea).
+  if (!isMigrationDone(MIGRATIONS.areas2026)) {
+    const plan = areasPlan(getAllContacts(), getAllVacancies())
+    for (const { id, patch } of plan.contactPatches) updateContact(id, patch)
+    for (const { id, patch } of plan.vacancyPatches) vacanciesStore.update(id, patch)
+    saveTeamAreas(plan.list)
+    markMigrationDone(MIGRATIONS.areas2026, now)
+    ran.push(MIGRATIONS.areas2026)
   }
 
   return ran

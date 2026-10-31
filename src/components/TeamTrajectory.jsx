@@ -59,9 +59,9 @@ function RoleForm({ initial, areas, joinedAt, onSave, onCancel }) {
           <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Moderadora" autoFocus />
         </label>
         <label className="event-form-field">
-          <span>Departamento</span>
+          <span>Área</span>
           <select value={area} onChange={(e) => setArea(e.target.value)}>
-            <option value="">Sin departamento</option>
+            <option value="">Sin área</option>
             {areaOptions.map((a) => (
               <option key={a} value={a}>
                 {a}

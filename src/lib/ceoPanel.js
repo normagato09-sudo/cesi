@@ -21,7 +21,8 @@ export function splitOpenEntries(openRows, nameFor, now = new Date()) {
   const stale = []
   for (const e of openRows) {
     const since = new Date(e.clock_in)
-    const row = { ...e, name: nameFor(e.profile_id), can_fix: true }
+    // De una cuenta eliminada: el nombre que tenía (owner_gone_name, parte 8).
+    const row = { ...e, name: e.profile_id ? nameFor(e.profile_id) : `${e.owner_gone_name || 'Sin nombre'} (cuenta eliminada)`, can_fix: true }
     if (now - since < OPEN_MS) working.push({ ...row, minutes: Math.max(0, Math.round((now - since) / 60000)) })
     else stale.push(row)
   }

@@ -54,7 +54,7 @@ import { AREAS_KEY, getStoredTeamAreas, isActiveMember, removeFromTeamPatch, sav
 import { orderPatches } from './lib/teamOrder.js'
 import { markFormerProfile, returnToTeamProfile, statusChangePatch } from './lib/formerMembers.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
-import { addDepartment, moveDepartment, removeDepartment, renameDepartment, resolveDepartments } from './lib/departments.js'
+import { DEFAULT_DEPARTMENTS, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { useViewAs } from './components/viewAs/viewAsContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
@@ -82,6 +82,8 @@ import {
   STORAGE_KEY as VACANCIES_KEY,
   candidacyPatch,
   candidatesOf,
+  acceptedTeamProfile,
+  candidaciesOf,
   findCandidacy,
   getAllVacancies,
   incorporate,
@@ -101,7 +103,6 @@ import { STORAGE_KEY as TASKS_KEY, getAllTasks, taskSourcePatches, tasksStore } 
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
-import { computeWeeklyReport, weekStartOf } from './lib/weeklyReport.js'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability } from './lib/weeklyAvailability.js'
 import { getPreferences, savePreferences } from './lib/preferences.js'
 import { DAY_END_MINUTES } from './lib/weeklySchedule.js'
@@ -121,6 +122,7 @@ const MeetingFormModal = lazy(() => import('./components/shared/MeetingFormModal
 // Yo, para las tareas del equipo y los fichajes (veo y gestiono todo).
 const CEO_ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
 const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
+const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
 const CeoTeamPanel = lazy(() => import('./components/CeoTeamPanel.jsx'))
 const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
@@ -133,7 +135,6 @@ const ReportView = lazy(() => import('./components/ReportView.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
 const MyScheduleModal = lazy(() => import('./components/MyScheduleModal.jsx'))
-const DepartmentsModal = lazy(() => import('./components/DepartmentsModal.jsx'))
 const BookingLinkModal = lazy(() => import('./components/BookingLinkModal.jsx'))
 const BookingDecisionModal = lazy(() => import('./components/BookingDecisionModal.jsx'))
 
@@ -189,10 +190,11 @@ export default function App() {
   const [bookingDecision, setBookingDecision] = useState(null)
   const [proposalModalId, setProposalModalId] = useState(null)
   const [scheduleOpen, setScheduleOpen] = useState(false)
-  const [departmentsOpen, setDepartmentsOpen] = useState(false)
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
   // Tarea abierta: null = cerrada; { task } para editarla o { initial } para crear una nueva.
+  // Tarea nueva del equipo desde el acta de una reunión: { title, description } o null.
+  const [teamTaskDraft, setTeamTaskDraft] = useState(null)
   // Aviso al mover o redimensionar: { violations, resolve } (resolve: 'save' | 'find' | null).
   const [moveWarning, setMoveWarning] = useState(null)
   const [now, setNow] = useState(() => new Date())
@@ -257,9 +259,8 @@ export default function App() {
     reloadExtraClasses()
   }
 
-  // Departamentos (antes "áreas"): la lista guardada, la nueva lista si aún era la de ejemplo, y
-  // los que usan miembros o vacantes aunque no estén en la lista.
-  const teamAreas = useMemo(() => resolveDepartments(storedAreas, contacts, vacancies).list, [storedAreas, contacts, vacancies])
+  // Áreas del equipo: lista fija (las 10 áreas de las cuentas; ver departments.js).
+  const teamAreas = DEFAULT_DEPARTMENTS
   // Esa lista se guarda (y se sincroniza) solo cuando ya se ha descargado la nube, para no pisar
   // con la lista de ejemplo de este dispositivo una lista ya cambiada en otro.
   const sync = useSync()
@@ -340,7 +341,7 @@ export default function App() {
       reloadAllData()
       return
     }
-    const { list, changed } = resolveDepartments(getStoredTeamAreas(), contacts, vacancies)
+    const { list, changed } = resolveDepartments(getStoredTeamAreas())
     if (changed) {
       saveTeamAreas(list)
       reloadTeamAreas()
@@ -555,12 +556,6 @@ export default function App() {
     editEvent(series.id, sessionPatch(series, occurrence, changes))
   }
 
-  // «Tu semana» en Inicio: esta semana comparada con la anterior (lo mismo que el informe).
-  const weekReport = useMemo(
-    () => computeWeeklyReport(rawEvents, { weekStart: weekStartOf(now), workingHours }),
-    [rawEvents, workingHours, now],
-  )
-
   const summary = useMemo(
     () => computeSummary(rawEvents, workingHours, now),
     [rawEvents, workingHours, now],
@@ -743,6 +738,15 @@ export default function App() {
   const handleCandidateStatus = (contact, candidacyId, status) =>
     editContact(contact.id, candidacyPatch(contact, candidacyId, (c) => withStatus(c, status)))
 
+  // Aceptar a un candidato lo incorpora solo al equipo, en el área de la vacante (sin duplicarlo si
+  // ya estaba en esa área); el resto de estados solo cambian la candidatura.
+  const handleCandidateStatusChange = (contact, candidacyId, status) => {
+    const candidacy = candidaciesOf(contact).find((c) => c.id === candidacyId)
+    const vacancy = candidacy && vacancies.find((v) => v.id === candidacy.vacancyId)
+    if (status !== 'accepted' || !vacancy) return handleCandidateStatus(contact, candidacyId, status)
+    handleIncorporate(contact, candidacyId, vacancy, { contactPatch: {}, teamProfile: acceptedTeamProfile(contact, vacancy) })
+  }
+
   const handleFindInterviewSlot = (contact) =>
     setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, interview: true })
 
@@ -807,33 +811,6 @@ export default function App() {
   }
 
   const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
-
-  const handleAddArea = (name) => {
-    saveTeamAreas(addDepartment(teamAreas, name))
-    reloadTeamAreas()
-  }
-
-  // Renombrar o borrar un departamento cambia también a sus miembros y vacantes.
-  const applyDepartmentChange = (result) => {
-    if (result.error) return result.error
-    for (const { id, patch } of result.contactPatches) editContact(id, patch)
-    for (const { id, patch } of result.vacancyPatches) vacanciesStore.update(id, patch)
-    saveTeamAreas(result.list)
-    reloadTeamAreas()
-    reloadVacancies()
-    return null
-  }
-
-  const handleRenameDepartment = (oldName, newName) =>
-    applyDepartmentChange(renameDepartment(teamAreas, oldName, newName, contacts, vacancies))
-
-  const handleRemoveDepartment = (name, target) =>
-    applyDepartmentChange(removeDepartment(teamAreas, name, target, contacts, vacancies))
-
-  const handleMoveDepartment = (index, delta) => {
-    saveTeamAreas(moveDepartment(teamAreas, index, delta))
-    reloadTeamAreas()
-  }
 
   // Pasar a antiguo miembro lo archiva y volver al equipo (o entrar en él) lo desarchiva.
   // Devuelve el cambio del contacto completo (ver formerMembers.js y archive.js).
@@ -1094,7 +1071,6 @@ export default function App() {
                 onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
                 onDeleteGroup={handleDeleteGroup}
                 areas={teamAreas}
-                onAddArea={handleAddArea}
                 onSaveTeamProfile={handleSaveTeamProfile}
                 onArchiveContact={handleArchiveContact}
                 onUnarchiveContact={handleUnarchiveContact}
@@ -1141,7 +1117,15 @@ export default function App() {
         {section === 'vacancies' && !vacancyOpen && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <VacancyListView vacancies={vacancies} contacts={contacts} onOpenVacancy={handleOpenVacancy} />
+              <VacancyListView
+                vacancies={vacancies}
+                contacts={contacts}
+                now={now}
+                areas={teamAreas}
+                onOpenVacancy={handleOpenVacancy}
+                onCreateVacancy={handleCreateVacancy}
+                onEraseExpired={handleEraseExpired}
+              />
             </Suspense>
           </div>
         )}
@@ -1211,7 +1195,6 @@ export default function App() {
                 now={now}
                 areas={teamAreas}
                 groups={groups}
-                onAddArea={handleAddArea}
                 selectedVacancyId={selectedVacancyId}
                 onSelectVacancy={setSelectedVacancyId}
                 selectedCandidacyId={selectedCandidacyId}
@@ -1222,7 +1205,7 @@ export default function App() {
                 onAddCandidacy={handleAddCandidacy}
                 onEditCandidacy={handleEditCandidacy}
                 onRemoveCandidacy={handleRemoveCandidacy}
-                onCandidateStatus={handleCandidateStatus}
+                onCandidateStatus={handleCandidateStatusChange}
                 onFindInterviewSlot={handleFindInterviewSlot}
                 onIncorporate={handleIncorporate}
                 onOpenEvent={openEvent}
@@ -1247,17 +1230,11 @@ export default function App() {
                 onMarkFormer={handleMarkFormer}
                 onKeepActive={handleKeepActive}
                 onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
-                onAddArea={handleAddArea}
-                onManageDepartments={() => setDepartmentsOpen(true)}
                 onOpenEvent={openEvent}
                 onFindSlot={handleFindSlotWithContact}
                 onNewMeeting={handleNewMeetingWithContact}
                 onOpenCandidate={handleOpenCandidate}
                 onReorder={handleReorderDepartment}
-                vacancies={vacancies}
-                onOpenVacancy={handleOpenVacancy}
-                onCreateVacancy={handleCreateVacancy}
-                onEraseExpired={handleEraseExpired}
               />
             </Suspense>
           </div>
@@ -1268,16 +1245,8 @@ export default function App() {
             {sync && myProfileMissing && <ProfileReminder onOpen={() => goToSection('profile')} />}
             <HomeView
               now={now}
-              week={weekReport}
-              rawEvents={rawEvents}
-              contacts={contacts}
-              vacancies={vacancies}
               proposals={proposalItems}
-              missingNotes={missingNotes}
               onGoTo={goToSection}
-              onOpenEvent={openEvent}
-              onOpenEventNotes={(ev) => openEvent(ev, { focusNotes: true })}
-              onOpenVacancy={handleOpenVacancy}
               onOpenProposal={setProposalModalId}
               teamPanel={
                 sync ? (
@@ -1438,8 +1407,21 @@ export default function App() {
           onDuplicate={handleDuplicateEvent}
           onConfirmOption={handleConfirmOption}
           onCancelProposal={handleCancelProposal}
+          onTeamTask={sync ? setTeamTaskDraft : null}
           organizerName={bookings.link?.display_name || ''}
         />
+
+        {teamTaskDraft && sync && (
+          <Suspense fallback={null}>
+            <NewTeamTaskModal
+              client={sync.client}
+              me={CEO_ME(sync.userId)}
+              prefill={teamTaskDraft}
+              onClose={() => setTeamTaskDraft(null)}
+              onSaved={() => setTeamTaskDraft(null)}
+            />
+          </Suspense>
+        )}
 
         {formModal && (
           <EventFormModal
@@ -1521,21 +1503,6 @@ export default function App() {
               onSave={handleSaveSchedule}
               onClose={() => setScheduleOpen(false)}
               onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
-            />
-          </Suspense>
-        )}
-
-        {departmentsOpen && (
-          <Suspense fallback={null}>
-            <DepartmentsModal
-              departments={teamAreas}
-              contacts={contacts}
-              vacancies={vacancies}
-              onAdd={handleAddArea}
-              onRename={handleRenameDepartment}
-              onMove={handleMoveDepartment}
-              onRemove={handleRemoveDepartment}
-              onClose={() => setDepartmentsOpen(false)}
             />
           </Suspense>
         )}

@@ -98,10 +98,52 @@ export function profileErrorText(error) {
   const message = String(error?.message || '')
   if (isMissingTable(error)) return 'Falta ejecutar en Supabase el SQL de la parte 1a (supabase/parte1a_cuentas_papeles.sql).'
   if (/propio papel/i.test(message)) return 'No puedes cambiar tu propio papel.'
+  if (error?.code === 'PGRST202' || error?.code === '42883') return 'Falta ejecutar en Supabase el SQL de la parte 8 (supabase/parte8_panel_ceo.sql).'
   if (/fetch|network/i.test(message) || (typeof navigator !== 'undefined' && !navigator.onLine)) {
     return 'No se pudo conectar con el servidor. Inténtalo de nuevo.'
   }
   return message || 'No se pudo guardar.'
+}
+
+// Nombre que se ve de una cuenta: el de su perfil completo, el de la cuenta o el email.
+export function accountName(profile, portal = null) {
+  return (portal?.full_name || '').trim() || (profile?.display_name || '').trim() || profile?.email || 'Sin nombre'
+}
+
+// Iniciales para el círculo (dos como mucho): «Ana López» → «AL», «ana@x.com» → «A».
+export function initialsOf(name) {
+  const words = String(name || '')
+    .replace(/@.*/, '')
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+  return (words.length > 1 ? words[0][0] + words.at(-1)[0] : (words[0] || '?')[0]).toLocaleUpperCase('es')
+}
+
+// Filtro de Accesos: texto (nombre o email, sin distinguir mayúsculas ni acentos), papel ('' todos)
+// y área ('' todas, 'none' sin área: solo cuentas de equipo).
+export function filterProfiles(profiles, { query = '', role = '', area = '' } = {}, portals = new Map()) {
+  const q = normalizeName(query)
+  return profiles.filter((p) => {
+    if (role && p.role !== role) return false
+    if (area === 'none' && (p.role !== 'equipo' || p.area)) return false
+    if (area && area !== 'none' && p.area !== area) return false
+    if (!q) return true
+    return normalizeName(`${accountName(p, portals.get(p.id))} ${p.display_name || ''} ${p.email || ''}`).includes(q)
+  })
+}
+
+// ¿Se puede eliminar esta cuenta? Nunca la propia ni la de otra ceo.
+export function canDeleteAccount(profile, currentUserId) {
+  return !!profile && profile.id !== currentUserId && profile.role !== 'ceo'
+}
+
+// Palabra que hay que escribir para confirmar que se elimina una cuenta.
+export const DELETE_WORD = 'ELIMINAR'
+
+// Elimina la cuenta de verdad (solo la ceo; ver cesi_delete_account en la parte 8).
+export async function deleteAccount(client, id) {
+  const { error } = await client.rpc('cesi_delete_account', { p_id: id })
+  if (error) throw error
 }
 
 // ¿Puede la ceo cambiar el papel de esta cuenta? No el suyo (no puede quitarse el de ceo).
