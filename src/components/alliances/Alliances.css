@@ -1,0 +1,240 @@
+/* Alianzas: el seguimiento en la ficha del contacto (AlliancePanel), el tablero y la lista
+   (AlliancesView) y los bloques del Inicio. Usa los colores de la app (--text, --border…). */
+
+.al-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.al-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+.al-panel h3 .contact-action-btn {
+  margin-left: auto;
+}
+.al-panel h4 {
+  margin: 6px 0 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.al-muted {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.al-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.al-summary {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.al-summary dt {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.al-summary dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+}
+.al-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.al-badge,
+.al-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 600;
+}
+.al-status.negociacion {
+  background: #fff1dc;
+  color: #9a5b00;
+}
+.al-status.cerrado {
+  background: #e3f5ea;
+  color: #1d7a45;
+}
+.al-status.descartado {
+  color: var(--text-secondary);
+}
+.al-late {
+  color: #dc2626;
+  font-weight: 600;
+}
+.al-error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.al-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.al-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.al-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.al-field input,
+.al-field select,
+.al-field textarea,
+.al-note-form textarea,
+.al-filters select {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  font: inherit;
+}
+.al-field.invalid input,
+.al-field.invalid textarea {
+  border-color: #dc2626;
+}
+.al-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.al-notes ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.al-notes li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 30px 8px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+}
+.al-note-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.al-note-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.al-note-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.al-note-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Pantalla Alianzas */
+.al-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.al-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.al-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(200px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.al-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+.al-column h3 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 13px;
+}
+.al-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.al-card strong {
+  overflow-wrap: anywhere;
+}
+.al-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.al-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 860px) {
+  .al-board {
+    grid-template-columns: repeat(5, 78vw);
+  }
+}

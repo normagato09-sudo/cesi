@@ -5,7 +5,8 @@ import { useContactDraft } from '../hooks/useContactDraft'
 import './EventFormModal.css'
 import './GroupsModal.css'
 
-export default function ContactFormModal({ initialContact, groups = [], onClose: close, onSubmit }) {
+// withPhoto: false en la app del equipo (Alianzas), que no sube fotos a mis archivos.
+export default function ContactFormModal({ initialContact, groups = [], withPhoto = true, onClose: close, onSubmit }) {
   const isEditing = !!initialContact
   const draft = useContactDraft(initialContact, groups)
   const savedRef = useRef(false)
@@ -53,7 +54,7 @@ export default function ContactFormModal({ initialContact, groups = [], onClose:
         </div>
 
         <div className="event-form-body">
-          <ContactEditorFields draft={draft} autoFocusName />
+          <ContactEditorFields draft={draft} autoFocusName skip={withPhoto ? [] : ['photo']} />
           {formError && <div className="event-form-error">{formError}</div>}
         </div>
 

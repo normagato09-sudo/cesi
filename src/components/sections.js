@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Clock,
   GraduationCap,
+  Handshake,
   House,
   KeyRound,
   LayoutDashboard,
@@ -22,7 +23,8 @@ import {
 // El informe (sección 'report') no está en el menú: se abre desde «Tu semana» en Inicio y cuenta
 // como parte de Inicio (ver sectionActive).
 // `screen`: pantalla de los permisos del equipo (ver lib/permissions.js); `ceoOnly`: solo la ceo;
-// `needsSync`: solo con la sincronización activa (sin Supabase no hay cuentas ni perfil).
+// `needsSync`: solo con la sincronización activa (sin Supabase no hay cuentas ni perfil);
+// `areas`: en el equipo, solo para esas áreas (además del permiso de `screen`).
 export const NAV_GROUPS = [
   {
     id: 'panel',
@@ -40,6 +42,7 @@ export const NAV_GROUPS = [
     items: [
       { id: 'calendar', label: 'Calendario', Icon: CalendarDays, screen: 'calendario' },
       { id: 'contacts', label: 'Contactos externos', Icon: Users, screen: 'contactos' },
+      { id: 'alliances', label: 'Alianzas', Icon: Handshake, screen: 'contactos', areas: ['alianzas', 'direccion'] },
     ],
   },
   {
@@ -77,8 +80,8 @@ export function ceoGroups(withSync) {
 // tiene permiso. Mi calendario (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen:
 // el calendario aún no lo ve nadie del equipo, y los fichajes de todos los ve Directivo desde su
 // «Fichaje».
-// levels: { pantalla: 'none' | 'read' | 'write' }.
-export function memberGroups(levels = {}) {
+// levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.
+export function memberGroups(levels = {}, area = null) {
   return NAV_GROUPS.map((g) =>
     g.id === 'panel'
       ? {
@@ -94,7 +97,14 @@ export function memberGroups(levels = {}) {
       : {
           ...g,
           items: g.items.filter(
-            (item) => !item.ceoOnly && item.id !== 'calendar' && item.id !== 'clockins' && item.screen && levels[item.screen] && levels[item.screen] !== 'none',
+            (item) =>
+              !item.ceoOnly &&
+              (!item.areas || item.areas.includes(area)) &&
+              item.id !== 'calendar' &&
+              item.id !== 'clockins' &&
+              item.screen &&
+              levels[item.screen] &&
+              levels[item.screen] !== 'none',
           ),
         },
   ).filter((g) => g.items.length > 0)

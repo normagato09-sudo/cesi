@@ -10,6 +10,7 @@ describe('ceoGroups', () => {
       'profile',
       'calendar',
       'contacts',
+      'alliances',
       'team',
       'vacancies',
       'team-tasks',
@@ -34,6 +35,14 @@ describe('memberGroups', () => {
 
   it('sin permisos, Mi panel, Calendario, Tareas, Objetivos y Fichaje', () => {
     expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'shared-calendar', 'team-tasks', 'goals', 'clock'])
+  })
+
+  it('Alianzas solo para las áreas Alianzas y Directivo (con permiso de contactos)', () => {
+    const ids = (area) => allItems(memberGroups({ contactos: 'write' }, area)).map((i) => i.id)
+    expect(ids('alianzas')).toContain('alliances')
+    expect(ids('direccion')).toContain('alliances')
+    expect(ids('media')).not.toContain('alliances')
+    expect(ids('media')).toContain('contacts')
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {

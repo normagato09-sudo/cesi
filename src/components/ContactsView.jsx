@@ -37,6 +37,7 @@ import { migrateProfileLinks } from '../lib/links'
 import { dayLong } from '../lib/trajectory'
 import { contactsForList, isCandidate } from '../lib/vacancies'
 import { useSync } from '../lib/sync/syncContext'
+import { isExternalContact } from '../lib/alliances'
 import './ContactsView.css'
 import './TeamView.css'
 
@@ -92,6 +93,11 @@ export default function ContactsView({
   // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, archivar ni borrar, y
   // sin mis reuniones con cada contacto.
   readOnly = false,
+  // Con readOnly, Alianzas sí crea y edita contactos externos (sin foto ni grupos nuevos; nunca
+  // fichas de Equipo, alumnos ni candidatos). onAddContact / onEditContact pueden devolver promesas.
+  editExternal = false,
+  // El seguimiento de alianza en la ficha (Alianzas, Directivo y yo): (contacto) => contenido.
+  renderAlliance = null,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
@@ -140,12 +146,13 @@ export default function ContactsView({
 
   const handleFormSubmit = async (values) => {
     if (formModal?.contact) {
-      onEditContact(formModal.contact.id, values)
+      await onEditContact(formModal.contact.id, values)
     } else {
-      const created = onAddContact(values)
+      const created = await onAddContact(values)
       onSelectContact(created.id)
     }
   }
+  const canCreate = !readOnly || editExternal
 
   const handleArchive = () => {
     if (!window.confirm(`¿Archivar a ${selected.name}? Dejará de salir en Contactos, al elegir participantes y en las búsquedas. Se conserva todo (datos, notas, reuniones y tareas) y puedes desarchivarlo desde «Archivados».`)) return
@@ -255,7 +262,7 @@ export default function ContactsView({
                 aria-label="Buscar contactos"
               />
             </label>
-            {!readOnly && (
+            {canCreate && (
               <button
                 type="button"
                 className="contacts-new-btn"
@@ -437,7 +444,16 @@ export default function ContactsView({
               </div>
             </div>
 
-            {readOnly ? null : showArchive ? (
+            {readOnly ? (
+              editExternal && !showArchive && isExternalContact(selected) ? (
+                <div className="contact-detail-actions">
+                  <button type="button" className="contact-action-btn" onClick={() => setFormModal({ contact: selected })}>
+                    <Pencil size={14} strokeWidth={1.75} />
+                    Editar
+                  </button>
+                </div>
+              ) : null
+            ) : showArchive ? (
               <div className="contact-detail-actions">
                 <p className="contact-archived-badge">
                   <Archive size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -508,6 +524,8 @@ export default function ContactsView({
 
             <ContactFields contact={selected} />
 
+            {renderAlliance && !showArchive && isExternalContact(selected) && renderAlliance(selected)}
+
             {!readOnly && <ContactMeetings contact={selected} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
           </div>
         )}
@@ -517,6 +535,7 @@ export default function ContactsView({
         <ContactFormModal
           initialContact={formModal.contact}
           groups={groups}
+          withPhoto={!readOnly}
           onClose={() => setFormModal(null)}
           onSubmit={handleFormSubmit}
         />

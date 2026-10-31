@@ -7,7 +7,7 @@ import HomeView from './components/HomeView.jsx'
 import ProfileReminder from './components/ProfileReminder.jsx'
 import { useMyProfile } from './components/useMyProfile'
 import { usePublishCeoBusy, useSharedMeetings } from './hooks/useSharedMeetings'
-import { sharedEventsForCalendar } from './lib/sharedCalendar'
+import { keyOf, sharedEventsForCalendar } from './lib/sharedCalendar'
 import { eventsInZone, fromWall, realEvent, toWall, viewZone } from './lib/zoneView'
 import { profileWorkingHours } from './lib/availability'
 import CalendarHeader from './components/CalendarHeader.jsx'
@@ -106,6 +106,7 @@ import { computeSummary } from './lib/summary.js'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability } from './lib/weeklyAvailability.js'
 import { DAY_END_MINUTES } from './lib/weeklySchedule.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
+import { addAllianceNote, allianceOf, applyAllianceSave, listAlliancePeople, removeAllianceNote } from './lib/alliances.js'
 import './App.css'
 
 // Las secciones y los modales que no hacen falta al abrir el calendario se cargan aparte,
@@ -120,6 +121,8 @@ const MeetingFormModal = lazy(() => import('./components/shared/MeetingFormModal
 const CEO_ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
 const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
 const GoalsView = lazy(() => import('./components/team/GoalsView.jsx'))
+const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
+const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
 const CeoTeamPanel = lazy(() => import('./components/CeoTeamPanel.jsx'))
@@ -597,6 +600,29 @@ export default function App() {
     reloadExtraClasses()
   }
 
+  // Alianzas (parte 16): el seguimiento va en mis contactos externos (se sincroniza como el resto
+  // de la ficha); los responsables posibles, de Supabase.
+  const [alliancePeople, setAlliancePeople] = useState([])
+  useEffect(() => {
+    if (!syncClient) return
+    let active = true
+    listAlliancePeople(syncClient).then(
+      (rows) => active && setAlliancePeople(rows || []),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [syncClient])
+  const allianceOfId = (id) => allianceOf(contacts.find((c) => c.id === id))
+  const allianceApi = {
+    save: (id, input, ownerName) => editContact(id, { alliance: applyAllianceSave(allianceOfId(id), input, ownerName) }),
+    addNote: (id, text) =>
+      editContact(id, { alliance: addAllianceNote(allianceOfId(id), text, { byId: sync?.userId || null, by: myProfile.data?.profile?.full_name || 'Dirección' }) }),
+    removeNote: (id, noteId) => editContact(id, { alliance: removeAllianceNote(allianceOfId(id), noteId) }),
+  }
+  const todayInMyZone = keyOf(now, myZone)
+
   // Pase de lista y clases sueltas (attendance.js): cada cambio se guarda al momento. Los que no
   // son válidos lanzan un Error con el mensaje para el usuario.
   const attendanceActions = {
@@ -1019,7 +1045,16 @@ export default function App() {
                 onReturnToTeam={handleReturnToTeam}
                 onOpenTeamMember={handleOpenTeamMember}
                 onOpenCandidate={handleOpenCandidate}
+                renderAlliance={(c) => <AlliancePanel contact={c} canEdit people={alliancePeople} api={allianceApi} today={todayInMyZone} />}
               />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'alliances' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <AlliancesView contacts={contacts} canEdit people={alliancePeople} api={allianceApi} today={todayInMyZone} />
             </Suspense>
           </div>
         )}

@@ -10,6 +10,10 @@ import { DEFAULT_DEPARTMENTS } from '../../lib/departments'
 import { NO_ATTENDANCE_ACTIONS, SECTION_SCREENS, fetchScreenData, screenErrorText } from '../../lib/screenData'
 import { useMinuteClock } from '../../hooks/useMinuteClock'
 import { findCandidacy } from '../../lib/vacancies'
+import { keyOf } from '../../lib/sharedCalendar'
+import { addNoteRemote, listAlliancePeople, removeNoteRemote, saveAlliance, saveExternalContact } from '../../lib/alliances'
+import AlliancePanel from '../alliances/AlliancePanel.jsx'
+import AlliancesView from '../alliances/AlliancesView.jsx'
 
 const noop = () => {}
 const NO_RECORDS = []
@@ -18,8 +22,10 @@ const NO_RECORDS = []
 // una persona de equipo con permiso: sus datos de cesi_screen_data (parte 11) en la misma pantalla
 // de la ceo, en solo lectura (en este paso, también con «Editar»). asId / asArea: «Ver como» de la
 // ceo (una persona o un área). El área Profesor solo ve sus cursos y, con su cuenta, pasa lista en
-// sus clases (parte 15); en «Ver como», también en solo lectura.
-export default function MemberScreen({ client, section, asId = null, asArea = null }) {
+// sus clases (parte 15); en «Ver como», también en solo lectura. Alianzas crea y edita los
+// contactos externos y su seguimiento (parte 16; Directivo, solo ver), y tiene la pantalla Alianzas.
+// zone: la de la persona (para «hoy»).
+export default function MemberScreen({ client, section, zone, asId = null, asArea = null }) {
   const screen = SECTION_SCREENS[section]
   const now = useMinuteClock()
   const [state, setState] = useState({ key: null, data: null, error: null })
@@ -60,24 +66,70 @@ export default function MemberScreen({ client, section, asId = null, asArea = nu
     [canMark, client, students, attendance, key],
   )
 
+  // Alianzas (parte 16): lo que guarda Alianzas sustituye a la ficha en la lista (y le llega a la ceo).
+  const allianceOn = !!state.data?.alliance && state.key === key
+  const allianceEdit = !!state.data?.allianceEdit && state.key === key
+  const [people, setPeople] = useState([])
+  useEffect(() => {
+    if (!client || !allianceOn) return
+    let active = true
+    listAlliancePeople(client).then(
+      (rows) => active && setPeople(rows || []),
+      () => active && setPeople([]),
+    )
+    return () => {
+      active = false
+    }
+  }, [client, allianceOn])
+  const putContact = (doc) => {
+    setState((s) =>
+      s.key !== key || !s.data
+        ? s
+        : {
+            ...s,
+            data: {
+              ...s.data,
+              contacts: [...s.data.contacts.filter((c) => c.id !== doc.id), doc].sort((a, b) =>
+                (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }),
+              ),
+            },
+          },
+    )
+    return doc
+  }
+  const allianceApi = {
+    save: async (contactId, input) => putContact(await saveAlliance(client, contactId, input)),
+    addNote: async (contactId, text) => putContact(await addNoteRemote(client, contactId, text)),
+    removeNote: async (contactId, noteId) => putContact(await removeNoteRemote(client, contactId, noteId)),
+  }
+  const today = keyOf(now, zone)
+  const renderAlliance = allianceOn ? (c) => <AlliancePanel contact={c} canEdit={allianceEdit} people={people} api={allianceApi} today={today} /> : null
+
   if (!screen) return null
   if (state.key !== key || (!state.data && !state.error)) return <p className="member-screen-note">Cargando…</p>
   if (state.error) return <p className="member-screen-note error">{state.error}</p>
 
   const { contacts, groups, vacancies, courses, extraClasses } = state.data
 
+  if (section === 'alliances') {
+    if (!allianceOn) return <p className="member-screen-note">No tienes acceso a esta pantalla.</p>
+    return <AlliancesView contacts={contacts} canEdit={allianceEdit} people={people} api={allianceApi} today={today} />
+  }
+
   if (section === 'contacts') {
     return (
       <ContactsView
         readOnly
+        editExternal={allianceEdit}
+        renderAlliance={renderAlliance}
         contacts={contacts}
         groups={groups}
         rawEvents={[]}
         now={now}
         selectedContactId={selectedId}
         onSelectContact={setSelectedId}
-        onAddContact={noop}
-        onEditContact={noop}
+        onAddContact={async (values) => putContact(await saveExternalContact(client, null, values))}
+        onEditContact={async (id, values) => putContact(await saveExternalContact(client, id, values))}
         onRemoveContact={noop}
         onOpenEvent={noop}
         onNewMeetingWithContact={noop}

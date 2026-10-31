@@ -11,6 +11,7 @@ import GoalEditModal from './team/GoalEditModal.jsx'
 import GoalItem from './team/GoalItem.jsx'
 import { goalErrorText, goalsByArea, listGoals, monthStart, splitUnclosed } from '../lib/goals'
 import { nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
+import { allianceStats } from '../lib/alliances'
 import './CeoTeamPanel.css'
 
 const ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
@@ -30,7 +31,12 @@ async function loadPanel(client, zone) {
     (rows) => ({ rows: rows || [], error: null }),
     (err) => ({ rows: [], error: goalErrorText(err) }),
   )
-  const [profiles, portals, areas, week, open, tasks, goalResult] = await Promise.all([
+  // Las alianzas también aparte (sin la parte 16, sin cifras).
+  const allianceRow = allianceStats(client).then(
+    (row) => ({ ...row, error: null }),
+    (err) => ({ closed_month: 0, negotiating: 0, error: err.message }),
+  )
+  const [profiles, portals, areas, week, open, tasks, goalResult, alliances] = await Promise.all([
     listProfiles(client),
     listPortalsByAccount(client),
     listAreasForTasks(client),
@@ -38,6 +44,7 @@ async function loadPanel(client, zone) {
     client.from('clock_entries').select('*').is('clock_out', null).then(check),
     listTeamTasks(client),
     goalRows,
+    allianceRow,
   ])
   const { unclosed, current } = splitUnclosed(goalResult.rows, month)
   const goals = { error: goalResult.error, unclosed, byArea: goalsByArea(current, areas, { allAreas: true }) }
@@ -54,6 +61,7 @@ async function loadPanel(client, zone) {
     tasks,
     overdue: overdueTasks(tasks, r.today),
     goals,
+    alliances,
   }
 }
 
@@ -222,6 +230,23 @@ export default function CeoTeamPanel({ client, meId, zone }) {
             <div className="tw-home-tasks">
               <MyTasksList tasks={data.tasks} today={data.today} onOpen={setOpenTask} />
             </div>
+          </Card>
+
+          <Card title="Alianzas">
+            {data.alliances.error ? (
+              <p className="ceo-muted">{data.alliances.error}</p>
+            ) : (
+              <ul className="ceo-list">
+                <li>
+                  <span>Cerradas este mes</span>
+                  <strong>{data.alliances.closed_month}</strong>
+                </li>
+                <li>
+                  <span>En negociación</span>
+                  <strong>{data.alliances.negotiating}</strong>
+                </li>
+              </ul>
+            )}
           </Card>
 
           <Card title="Objetivos de cada área (este mes)" count={data.goals.unclosed.length ? `${data.goals.unclosed.length} sin cerrar` : null} wide>

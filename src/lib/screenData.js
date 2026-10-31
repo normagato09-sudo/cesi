@@ -8,6 +8,8 @@ import { normalizeCourse } from './courses'
 // Sección del menú → pantalla de los permisos.
 export const SECTION_SCREENS = {
   contacts: 'contactos',
+  // Alianzas (parte 16): los contactos externos con su seguimiento.
+  alliances: 'contactos',
   team: 'equipo',
   vacancies: 'vacantes',
   courses: 'cursos',

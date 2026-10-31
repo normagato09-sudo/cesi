@@ -13,6 +13,7 @@ import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
 import MyClasses from './team/MyClasses.jsx'
+import { AllianceStatsCard, NextStepsCard } from './alliances/AllianceHome.jsx'
 import AreaGoals from './team/AreaGoals.jsx'
 import GoalsView from './team/GoalsView.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
@@ -69,7 +70,7 @@ export default function MemberApp({
     }
   }, [client, previewLevels])
 
-  const groups = useMemo(() => memberGroups(levels || {}), [levels])
+  const groups = useMemo(() => memberGroups(levels || {}, area), [levels, area])
   const current = allItems(groups).find((item) => item.id === section)
   const allowed = SCREENS.filter((s) => levels && levels[s.id] !== 'none')
 
@@ -158,7 +159,7 @@ export default function MemberApp({
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : current && SECTION_SCREENS[section] ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
-            <MemberScreen client={preview ? screensClient : client} section={section} asId={workAs} asArea={preview && !workAs ? screensArea : null} />
+            <MemberScreen client={preview ? screensClient : client} section={section} zone={zone} asId={workAs} asArea={preview && !workAs ? screensArea : null} />
           </Suspense>
         ) : section === 'home' || !current ? (
           <div className="member-panel">
@@ -183,6 +184,8 @@ export default function MemberApp({
             />
             <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
             <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
+            {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
+            {me.boss && <AllianceStatsCard client={workClient} asId={workAs} />}
 
             {error ? (
               <p className="member-panel-note">No se pudieron cargar tus permisos. Comprueba la conexión y vuelve a entrar.</p>

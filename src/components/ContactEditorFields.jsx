@@ -8,7 +8,7 @@ import './GroupsModal.css'
 /**
  * Campos de los datos de un contacto (sobre un borrador de useContactDraft).
  * `skip`: campos que no se muestran, p. ej. en el perfil de equipo la organización y el cargo
- * del contacto (allí el cargo es el del equipo).
+ * del contacto (allí el cargo es el del equipo), o la foto ('photo') en la app del equipo.
  */
 export default function ContactEditorFields({ draft, skip = [], autoFocusName = false }) {
   const { values: v, set, seed, groups } = draft
@@ -16,7 +16,7 @@ export default function ContactEditorFields({ draft, skip = [], autoFocusName = 
 
   return (
     <>
-      <PhotoField name={v.name} value={v.photo} onChange={draft.handlePhoto} />
+      {show('photo') && <PhotoField name={v.name} value={v.photo} onChange={draft.handlePhoto} />}
 
       <label className="event-form-field">
         <span>Nombre</span>
