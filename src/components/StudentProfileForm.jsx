@@ -18,10 +18,28 @@ import { countryFlag, zoneLabel } from '../lib/timezones'
 
 const COUNTRY_OPTIONS = sortedCountries()
 
-// «Completa tu perfil» (la primera vez, obligatorio) o «Editar mi perfil» (desde Mi panel, ya
-// relleno). onSave(fila de student_profiles) guarda; si falla, lanza un error con el mensaje.
+// Textos según quién rellena el perfil (el formulario es el mismo para todos).
+const TEXTS = {
+  alumno: {
+    intro: 'Con estos datos organizamos los horarios de tus cursos. Podrás cambiarlos cuando quieras desde Mi panel.',
+    hours: 'Marca cada hora en la que puedes tener clase, día por día.',
+  },
+  equipo: {
+    intro: 'Con estos datos sabremos cuándo estás disponible para el equipo y los alumnos. Podrás cambiarlos cuando quieras desde Mi panel.',
+    hours: 'Marca cada hora en la que estás disponible, día por día.',
+  },
+  ceo: {
+    intro: 'Con estos datos el equipo y los alumnos sabrán cuándo estás disponible. Podrás cambiarlos cuando quieras desde Mi perfil.',
+    hours: 'Marca cada hora en la que estás disponible, día por día.',
+  },
+}
+
+// «Completa tu perfil» (la primera vez; obligatorio con `required`) o «Editar mi perfil» (ya
+// relleno). onSave(fila de account_profiles) guarda; si falla, lanza un error con el mensaje.
+// audience: 'alumno' | 'equipo' | 'ceo' (cambian los textos).
 // readOnly (vista previa de «Ver como»): todo desactivado, solo se puede cerrar.
-export default function StudentProfileForm({ profile, account, required, onSave, onCancel, readOnly = false }) {
+export default function StudentProfileForm({ profile, account, required, onSave, onCancel, readOnly = false, audience = 'alumno' }) {
+  const texts = TEXTS[audience] || TEXTS.alumno
   const detected = useMemo(() => detectedZone(), [])
   const [form, setForm] = useState(() => formFromProfile(profile, account, detected))
   const [tried, setTried] = useState(false) // tras pulsar Guardar se marcan los errores
@@ -83,8 +101,8 @@ export default function StudentProfileForm({ profile, account, required, onSave,
             </button>
           )
         )}
-        <h1>{required ? 'Completa tu perfil' : 'Editar mi perfil'}</h1>
-        <p>Con estos datos organizamos los horarios de tus cursos. Podrás cambiarlos cuando quieras desde Mi panel.</p>
+        <h1>{required || !profile?.completed_at ? 'Completa tu perfil' : 'Editar mi perfil'}</h1>
+        <p>{texts.intro}</p>
       </header>
 
       <fieldset className="sp-fieldset" disabled={readOnly}>
@@ -206,7 +224,7 @@ export default function StudentProfileForm({ profile, account, required, onSave,
             Tu disponibilidad <span aria-hidden="true">*</span>
           </h2>
           <p className="sp-text" id="sp-hours-help">
-            Marca cada hora en la que puedes tener clase, día por día. Siempre en tu hora local ({zoneName}).
+            {texts.hours} Siempre en tu hora local ({zoneName}).
           </p>
           <div className="sp-actions-row">
             <button type="button" className="sp-btn-secondary" onClick={() => setHours(copyMondayToWeekdays)}>

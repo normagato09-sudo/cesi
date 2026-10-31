@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { LogOut } from 'lucide-react'
+import { LogOut, Pencil } from 'lucide-react'
 import MobileNav from './MobileNav.jsx'
 import ComingSoonView from './ComingSoonView.jsx'
+import { ProfileFormPage, ProfileLoadError, ProfileLoading } from './ProfileScreens.jsx'
+import { useMyProfile } from './useMyProfile'
 import { allItems, memberGroups, sectionActive } from './sections.js'
 import { LEVEL_LABELS, SCREENS, areaName, fetchMyPermissions } from '../lib/permissions'
+import { zoneShort } from '../lib/studentPortal'
+import { countryName } from '../lib/timezones'
 import '../App.css'
 import './Sidebar.css'
 import './ContactsView.css'
@@ -12,13 +16,16 @@ import './MemberApp.css'
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
 // permiso (my_permissions(), ver supabase/schema.sql). De momento cada pantalla dice
 // «Próximamente»: todavía no ve ningún dato de la ceo.
-// Con `levels` (vista previa de «Ver como») no se pide nada a Supabase; readOnly desactiva
-// cerrar sesión.
-export default function MemberApp({ client, email, name, area, onSignOut, levels: previewLevels = null, readOnly = false }) {
+// Como el alumno, hasta que completa su perfil (account_profiles) no puede hacer nada más.
+// Con `levels` y `preview` ({ account, profile }, vista previa de «Ver como») no se pide nada a
+// Supabase; readOnly desactiva guardar y cerrar sesión.
+export default function MemberApp({ client, userId, email, name, area, onSignOut, levels: previewLevels = null, preview = null, readOnly = false }) {
   const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
   const [section, setSection] = useState('home')
+  const [editing, setEditing] = useState(false)
   const levels = previewLevels || fetchedLevels
+  const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
 
   useEffect(() => {
     if (previewLevels || !client) return
@@ -39,6 +46,34 @@ export default function MemberApp({ client, email, name, area, onSignOut, levels
   const handleSignOut = () => {
     if (window.confirm('¿Cerrar sesión?')) onSignOut()
   }
+
+  if (loadError && !data) return <ProfileLoadError onRetry={retry} onSignOut={onSignOut} readOnly={readOnly} />
+  if (!data) return <ProfileLoading />
+
+  const { account, profile } = data
+  const completed = !!profile?.completed_at
+
+  // Primera vez (o editando): el formulario a pantalla completa.
+  if (!completed || editing) {
+    return (
+      <ProfileFormPage
+        profile={profile}
+        account={account}
+        audience="equipo"
+        readOnly={readOnly}
+        onSave={async (row) => {
+          if (readOnly) return
+          await save(row)
+          setEditing(false)
+          window.scrollTo(0, 0)
+        }}
+        onCancel={() => setEditing(false)}
+        onSignOut={onSignOut}
+      />
+    )
+  }
+
+  const shownName = profile.full_name || name
 
   return (
     <div className="app member-app">
@@ -79,8 +114,18 @@ export default function MemberApp({ client, email, name, area, onSignOut, levels
       <main className="app-main">
         {section === 'home' || !current ? (
           <div className="member-panel">
-            <h1>Hola{name ? `, ${name}` : ''}</h1>
-            <p className="member-panel-area">{area ? `Equipo · ${areaName(area)}` : 'Equipo · sin área todavía'}</p>
+            <header className="member-panel-head">
+              <div className="member-panel-who">
+                <h1>Hola{shownName ? `, ${shownName}` : ''}</h1>
+                <p className="member-panel-area">{area ? `Equipo · ${areaName(area)}` : 'Equipo · sin área todavía'}</p>
+                <p className="member-panel-place">
+                  {countryName(profile.country)} · {zoneShort(profile.time_zone)}
+                </p>
+              </div>
+              <button type="button" className="member-edit-btn" onClick={() => setEditing(true)} aria-label="Editar mi perfil" title="Editar mi perfil">
+                <Pencil size={16} strokeWidth={1.75} />
+              </button>
+            </header>
             <p className="member-panel-note">Aquí verás tus tareas y tu fichaje muy pronto.</p>
 
             {error ? (

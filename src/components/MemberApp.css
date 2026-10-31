@@ -90,3 +90,40 @@
     padding: 24px 16px;
   }
 }
+
+/* Cabecera de Mi panel: nombre, área, país y zona, y el lápiz para editar el perfil. */
+.member-panel-head {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.member-panel-who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.member-panel-place {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+.member-edit-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.member-edit-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}

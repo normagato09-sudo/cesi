@@ -5,29 +5,43 @@ import { listProfiles } from '../../lib/profiles'
 import { AREAS, effectivePermissions, listAreaPermissions, listAreas, listProfilePermissions } from '../../lib/permissions'
 import { listPortalsByAccount, toggleHour, emptyHours, weekFromHours } from '../../lib/studentPortal'
 
+// Perfil completo inventado (disponible de lunes a viernes a esas horas y el sábado por la mañana).
+function exampleProfile(fullName, country, timeZone, weekdayHours) {
+  let hours = emptyHours()
+  for (const day of [1, 2, 3, 4, 5]) for (const h of weekdayHours) hours = toggleHour(hours, day, h, true)
+  for (const h of [10, 11, 12]) hours = toggleHour(hours, 6, h, true)
+  return {
+    id: 'ejemplo',
+    full_name: fullName,
+    discord: '',
+    country,
+    time_zone: timeZone,
+    birthday: '',
+    availability: weekFromHours(hours),
+    completed_at: '2026-01-01T00:00:00Z',
+  }
+}
+
 // Alumno inventado para cuando no hay ninguno con cuenta unida.
 export function exampleStudent() {
-  let hours = emptyHours()
-  for (const day of [1, 2, 3, 4, 5]) for (const h of [17, 18, 19]) hours = toggleHour(hours, day, h, true)
-  for (const h of [10, 11, 12]) hours = toggleHour(hours, 6, h, true)
   return {
     example: true,
     label: 'Lucía Martínez',
     account: { display_name: 'Lucía Martínez', email: 'lucia@ejemplo.com', auth_provider: 'email' },
-    profile: {
-      id: 'ejemplo',
-      full_name: 'Lucía Martínez',
-      discord: 'lucia_m',
-      country: 'MX',
-      time_zone: 'America/Mexico_City',
-      birthday: '03-14',
-      availability: weekFromHours(hours),
-      completed_at: '2026-01-01T00:00:00Z',
-    },
+    profile: { ...exampleProfile('Lucía Martínez', 'MX', 'America/Mexico_City', [17, 18, 19]), discord: 'lucia_m', birthday: '03-14' },
   }
 }
 
-// { students: [{ id, label, detail, account, profile }], members: [{ id, label, detail, area, levels }],
+// Persona de equipo inventada para «Solo un área»: con el perfil completo, para ver su panel.
+export function exampleMember() {
+  return {
+    account: { display_name: '', email: 'persona@ejemplo.com', auth_provider: 'email' },
+    profile: exampleProfile('', 'ES', 'Europe/Madrid', [9, 10, 11, 12, 13]),
+  }
+}
+
+// { students: [{ id, label, detail, account, profile }],
+//   members: [{ id, label, detail, email, name, area, levels, account, profile }],
 //   areas: [{ id, name, levels }], permsError: bool }
 export async function loadViewAsOptions(client) {
   const [profiles, portals, areas, areaRows, overrides] = await Promise.allSettled([
@@ -65,15 +79,21 @@ export async function loadViewAsOptions(client) {
 
   const members = list
     .filter((p) => p.role === 'equipo')
-    .map((p) => ({
-      id: p.id,
-      label: p.display_name || p.email,
-      detail: p.area ? areaName(p.area) : 'Sin área',
-      email: p.email,
-      name: p.display_name || '',
-      area: p.area || null,
-      levels: levelsOf(p.area || null, p.id),
-    }))
+    .map((p) => {
+      const profile = portalMap.get(p.id) || null
+      const area = p.area ? areaName(p.area) : 'Sin área'
+      return {
+        id: p.id,
+        label: profile?.full_name || p.display_name || p.email,
+        detail: profile?.completed_at ? area : `${area} · sin completar el perfil`,
+        email: p.email,
+        name: p.display_name || '',
+        area: p.area || null,
+        levels: levelsOf(p.area || null, p.id),
+        account: p,
+        profile,
+      }
+    })
 
   return {
     students,

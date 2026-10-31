@@ -3,6 +3,7 @@ import {
   cellLabel,
   copyMondayToWeekdays,
   emptyHours,
+  fetchMyPortal,
   fichaPatch,
   formFromProfile,
   hoursFromWeek,
@@ -115,5 +116,32 @@ describe('con mi ficha', () => {
     expect(validateStudent(data)).toBeNull()
     expect(data).toMatchObject({ name: 'Ana López', email: 'ana@example.com', discord: 'ana_l', enrolledAt: '2026-10-29' })
     expect(portalDiffers(portal, data)).toBe(false)
+  })
+})
+
+describe('Supabase', () => {
+  // Cliente falso: cada tabla devuelve su fila (o «no existe» si no está en `tables`).
+  function fakeClient(tables) {
+    const used = []
+    return {
+      used,
+      from(table) {
+        used.push(table)
+        const result = table in tables ? { data: tables[table], error: null } : { data: null, error: { code: 'PGRST205' } }
+        const query = { select: () => query, eq: () => query, maybeSingle: () => Promise.resolve(result) }
+        return query
+      },
+    }
+  }
+
+  it('lee el perfil de account_profiles', async () => {
+    const client = fakeClient({ profiles: { id: 'u1' }, account_profiles: { id: 'u1', full_name: 'Eva' } })
+    expect(await fetchMyPortal(client, 'u1')).toEqual({ account: { id: 'u1' }, profile: { id: 'u1', full_name: 'Eva' } })
+    expect(client.used).not.toContain('student_profiles')
+  })
+
+  it('sin el SQL de la parte 4, la tabla de antes (student_profiles)', async () => {
+    const client = fakeClient({ profiles: { id: 'u1' }, student_profiles: { id: 'u1', full_name: 'Ana' } })
+    expect((await fetchMyPortal(client, 'u1')).profile).toEqual({ id: 'u1', full_name: 'Ana' })
   })
 })

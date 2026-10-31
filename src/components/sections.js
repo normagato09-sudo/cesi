@@ -11,6 +11,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ListTodo,
+  UserRound,
   Users,
 } from 'lucide-react'
 
@@ -19,7 +20,8 @@ import {
 // eligen) y «Más» con las acciones sueltas.
 // El informe (sección 'report') no está en el menú: se abre desde «Tu semana» en Inicio y cuenta
 // como parte de Inicio (ver sectionActive).
-// `screen`: pantalla de los permisos del equipo (ver lib/permissions.js); `ceoOnly`: solo la ceo.
+// `screen`: pantalla de los permisos del equipo (ver lib/permissions.js); `ceoOnly`: solo la ceo;
+// `needsSync`: solo con la sincronización activa (sin Supabase no hay cuentas ni perfil).
 export const NAV_GROUPS = [
   {
     id: 'panel',
@@ -28,6 +30,7 @@ export const NAV_GROUPS = [
     items: [
       { id: 'home', label: 'Inicio', Icon: House },
       { id: 'tasks', label: 'Tareas', Icon: ListTodo },
+      { id: 'profile', label: 'Mi perfil', Icon: UserRound, ceoOnly: true, needsSync: true },
     ],
   },
   {
@@ -48,7 +51,7 @@ export const NAV_GROUPS = [
       { id: 'team', label: 'Personas', Icon: BadgeCheck, screen: 'equipo' },
       { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
-      { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true },
+      { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],
   },
   {
@@ -63,9 +66,9 @@ export const NAV_GROUPS = [
   },
 ]
 
-// Menú de la ceo. Accesos solo con la sincronización activa (sin Supabase no hay cuentas).
-export function ceoGroups(showAccess) {
-  return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => showAccess || item.id !== 'access') }))
+// Menú de la ceo. Mi perfil y Accesos solo con la sincronización activa.
+export function ceoGroups(withSync) {
+  return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
 }
 
 // Menú de una persona de equipo: «Mi panel» y las pantallas a las que tiene permiso.

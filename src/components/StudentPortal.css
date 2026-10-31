@@ -1,4 +1,5 @@
-/* Portal del alumno (StudentPortal.jsx, StudentProfileForm.jsx). Móvil primero. Colores y
+/* Portal del alumno y perfil de equipo y ceo (StudentPortal, ProfileScreens, StudentProfileForm,
+   MyProfileView). Móvil primero. Colores y
    tipografía propios (--sp-*), aparte de los de la app de la ceo. */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
@@ -22,6 +23,13 @@
   font-family: 'Plus Jakarta Sans', var(--sans, system-ui, sans-serif);
   font-size: 15px;
   line-height: 1.45;
+}
+
+/* Dentro de la app de la ceo («Mi perfil»): ocupa el hueco de la sección y se desplaza. */
+.student-portal.sp-embedded {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .student-portal h1,

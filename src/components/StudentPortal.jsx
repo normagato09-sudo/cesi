@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Award, BookOpen, CalendarDays, House, LogOut, Mail, MessageCircle, Pencil, RefreshCw } from 'lucide-react'
-import StudentProfileForm from './StudentProfileForm.jsx'
-import { fetchMyPortal, initials, saveMyPortal, zoneShort } from '../lib/studentPortal'
+import { useState } from 'react'
+import { Award, BookOpen, CalendarDays, House, Mail, MessageCircle, Pencil } from 'lucide-react'
+import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
+import { useMyProfile } from './useMyProfile'
+import { initials, zoneShort } from '../lib/studentPortal'
 import { countryName } from '../lib/timezones'
 import './StudentPortal.css'
 
 // Portal del alumno (papel 'alumno'). Consultas directas a Supabase (sin el motor de
-// sincronización ni datos en el navegador): su cuenta (profiles) y su perfil (student_profiles).
+// sincronización ni datos en el navegador): su cuenta (profiles) y su perfil (account_profiles).
 // Hasta que completa el perfil no puede hacer nada más.
 
 const NAV = [
@@ -26,81 +27,24 @@ const CARDS = [
   { id: 'messages', label: 'Mensajes', Icon: MessageCircle, text: 'Habla con tus compañeros de curso.' },
 ]
 
-function Brand() {
-  return (
-    <div className="sp-brand">
-      <span className="sp-logo">C</span>
-      <span>CIFA</span>
-    </div>
-  )
-}
-
 // Con `preview` ({ account, profile }, vista previa de «Ver como») no se pide ni se guarda nada en
 // Supabase; readOnly desactiva guardar y cerrar sesión.
 export default function StudentPortal({ client, userId, onSignOut, preview = null, readOnly = false }) {
-  const [fetched, setData] = useState(null) // { account, profile }
-  const [loadError, setLoadError] = useState(false)
-  const [attempt, setAttempt] = useState(0)
+  const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
   const [editing, setEditing] = useState(false)
   const [section, setSection] = useState('home')
-  const data = preview || fetched
 
-  useEffect(() => {
-    if (preview || !client) return
-    let active = true
-    fetchMyPortal(client, userId).then(
-      (next) => {
-        if (!active) return
-        setData(next)
-        setLoadError(false)
-      },
-      () => active && setLoadError(true),
-    )
-    return () => {
-      active = false
-    }
-  }, [client, userId, attempt, preview])
-
-  const handleSave = useCallback(
-    async (row) => {
-      if (readOnly) return
-      const profile = await saveMyPortal(client, userId, row, data?.profile || null)
-      setData((d) => ({ ...d, profile }))
-      setEditing(false)
-      window.scrollTo(0, 0)
-    },
-    [client, userId, data, readOnly],
-  )
-
-  const handleSignOut = () => {
-    if (window.confirm('¿Cerrar sesión?')) onSignOut()
+  const handleSave = async (row) => {
+    if (readOnly) return
+    await save(row)
+    setEditing(false)
+    window.scrollTo(0, 0)
   }
 
-  const signOutButton = (
-    <button type="button" className="sp-btn-secondary sp-signout" onClick={handleSignOut} disabled={readOnly}>
-      <LogOut size={16} strokeWidth={1.75} />
-      Cerrar sesión
-    </button>
-  )
+  const signOutButton = <SignOutButton onSignOut={onSignOut} readOnly={readOnly} />
 
-  if (loadError && !data) {
-    return (
-      <div className="student-portal sp-center">
-        <div className="sp-card sp-narrow">
-          <Brand />
-          <h1>No se pudo cargar tu perfil</h1>
-          <p className="sp-text">Comprueba la conexión y vuelve a intentarlo.</p>
-          <button type="button" className="sp-btn-primary" onClick={() => setAttempt((n) => n + 1)}>
-            <RefreshCw size={16} strokeWidth={1.75} />
-            Reintentar
-          </button>
-          {signOutButton}
-        </div>
-      </div>
-    )
-  }
-
-  if (!data) return <div className="student-portal sp-center sp-loading">Cargando…</div>
+  if (loadError && !data) return <ProfileLoadError onRetry={retry} onSignOut={onSignOut} readOnly={readOnly} />
+  if (!data) return <ProfileLoading />
 
   const { account, profile } = data
   const completed = !!profile?.completed_at
@@ -108,22 +52,15 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
   // Primera vez (o editando): el formulario a pantalla completa.
   if (!completed || editing) {
     return (
-      <div className="student-portal">
-        <div className="sp-form-page">
-          <div className="sp-form-top">
-            <Brand />
-            {!completed && signOutButton}
-          </div>
-          <StudentProfileForm
-            profile={profile}
-            account={account}
-            required={!completed}
-            readOnly={readOnly}
-            onSave={handleSave}
-            onCancel={completed ? () => setEditing(false) : null}
-          />
-        </div>
-      </div>
+      <ProfileFormPage
+        profile={profile}
+        account={account}
+        audience="alumno"
+        readOnly={readOnly}
+        onSave={handleSave}
+        onCancel={() => setEditing(false)}
+        onSignOut={onSignOut}
+      />
     )
   }
 

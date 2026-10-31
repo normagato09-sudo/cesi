@@ -5,6 +5,8 @@ import { CalendarCheck, Clock, Eye } from 'lucide-react'
 import Sidebar from './components/Sidebar.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import HomeView from './components/HomeView.jsx'
+import ProfileReminder from './components/ProfileReminder.jsx'
+import { useMyProfile } from './components/useMyProfile'
 import CalendarHeader from './components/CalendarHeader.jsx'
 import MonthView from './components/CalendarView/MonthView.jsx'
 import WeekView from './components/CalendarView/WeekView.jsx'
@@ -115,6 +117,7 @@ import './App.css'
 const ContactsView = lazy(() => import('./components/ContactsView.jsx'))
 const StudentsView = lazy(() => import('./components/StudentsView.jsx'))
 const AccessView = lazy(() => import('./components/AccessView.jsx'))
+const MyProfileView = lazy(() => import('./components/MyProfileView.jsx'))
 const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
 const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
@@ -274,6 +277,10 @@ export default function App() {
       active = false
     }
   }, [syncClient, section])
+  // Mi perfil (account_profiles), como el de equipo y alumnos: no me bloquea la app; si no está
+  // completo, Inicio lo recuerda.
+  const myProfile = useMyProfile(syncClient, sync?.userId || null)
+  const myProfileMissing = !!myProfile.data && !myProfile.data.profile?.completed_at
   const syncStatus = useSyncStatus()
   const viewAs = useViewAs()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
@@ -1116,6 +1123,14 @@ export default function App() {
           </div>
         )}
 
+        {section === 'profile' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <MyProfileView state={myProfile} onDone={() => goToSection('home')} />
+            </Suspense>
+          </div>
+        )}
+
         {section === 'access' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
@@ -1260,6 +1275,7 @@ export default function App() {
 
         {section === 'home' && (
           <div className="app-main">
+            {sync && myProfileMissing && <ProfileReminder onOpen={() => goToSection('profile')} />}
             <HomeView
               now={now}
               today={today}

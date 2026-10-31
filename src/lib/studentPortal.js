@@ -3,8 +3,8 @@ import { findCountry, findZone, localTimeZone } from './timezones'
 import { DAY_END, WEEKDAY_DISPLAY_ORDER, WEEKDAY_LABELS, clampEnd, emptyWeek, normalizeWeek, timeToMinutes } from './weeklySchedule'
 import { normalizeDiscord } from './students'
 
-// Portal del alumno: su perfil (tabla student_profiles, ver supabase/schema.sql), que rellena él
-// mismo la primera vez que entra. La disponibilidad tiene el mismo formato que la de mis fichas de
+// Perfil de cada cuenta (alumnos, equipo y ceo; tabla account_profiles, ver supabase/schema.sql),
+// que rellena ella misma la primera vez que entra. La disponibilidad tiene el mismo formato que la de mis fichas de
 // alumno ([{ day, enabled, slots: [{ start, end }] }] en su hora local) más su zona horaria, así
 // se cruza con la del profesor igual (courseScheduling.js).
 //
@@ -171,7 +171,7 @@ export function validatePortalForm(form) {
   return errors
 }
 
-// Fila de student_profiles a guardar (sin id ni fechas).
+// Fila de account_profiles a guardar (sin id ni fechas).
 export function profileRowFromForm(form) {
   const day = Number(form.birthdayDay) || 0
   const month = Number(form.birthdayMonth) || 0
@@ -246,22 +246,31 @@ export function isMissingTable(error) {
   return error?.code === 'PGRST205' || error?.code === '42P01'
 }
 
-// La cuenta del alumno (profiles) y su perfil (null si aún no lo ha rellenado).
+// Consulta a account_profiles. TEMPORAL: si aún no se ha ejecutado el SQL de la parte 4
+// (supabase/parte4_perfil_para_todos.sql), la tabla de antes, student_profiles. Quitarlo junto
+// con la vista student_profiles.
+async function onProfiles(client, build) {
+  const result = await build(client.from('account_profiles'))
+  return isMissingTable(result.error) ? build(client.from('student_profiles')) : result
+}
+
+// La cuenta (profiles) y su perfil (null si aún no lo ha rellenado).
 export async function fetchMyPortal(client, userId) {
   const [account, profile] = await Promise.all([
     client.from('profiles').select('*').eq('id', userId).maybeSingle(),
-    client.from('student_profiles').select(FIELDS).eq('id', userId).maybeSingle(),
+    onProfiles(client, (t) => t.select(FIELDS).eq('id', userId).maybeSingle()),
   ])
   return { account: check(account) || {}, profile: check(profile) }
 }
 
-// Guarda el perfil (lo crea la primera vez). Sin upsert: el alumno no puede cambiar el id.
+// Guarda el perfil (lo crea la primera vez). Sin upsert: nadie puede cambiar el id.
 export async function saveMyPortal(client, userId, row, existing = null) {
   const completed_at = existing?.completed_at || new Date().toISOString()
-  const query = existing
-    ? client.from('student_profiles').update({ ...row, completed_at }).eq('id', userId)
-    : client.from('student_profiles').insert({ id: userId, ...row, completed_at })
-  return check(await query.select(FIELDS).single())
+  return check(
+    await onProfiles(client, (t) =>
+      (existing ? t.update({ ...row, completed_at }).eq('id', userId) : t.insert({ id: userId, ...row, completed_at })).select(FIELDS).single(),
+    ),
+  )
 }
 
 // Para la ceo: los perfiles de los alumnos con cuenta, por id de mi ficha de Alumnos.
@@ -269,7 +278,7 @@ export async function saveMyPortal(client, userId, row, existing = null) {
 export async function listPortalsByStudent(client) {
   const [links, profiles] = await Promise.all([
     client.from('profiles').select('id, email, linked_student_id').not('linked_student_id', 'is', null),
-    client.from('student_profiles').select(FIELDS),
+    onProfiles(client, (t) => t.select(FIELDS)),
   ])
   if (isMissingTable(profiles.error)) return new Map()
   const byAccount = new Map(check(profiles).map((p) => [p.id, p]))
@@ -281,9 +290,9 @@ export async function listPortalsByStudent(client) {
   return out
 }
 
-// Para la ceo: todos los perfiles, por id de cuenta (Accesos).
+// Para la ceo: todos los perfiles (alumnos, equipo y el suyo), por id de cuenta (Accesos, «Ver como»).
 export async function listPortalsByAccount(client) {
-  const { data, error } = await client.from('student_profiles').select(FIELDS)
+  const { data, error } = await onProfiles(client, (t) => t.select(FIELDS))
   if (isMissingTable(error)) return new Map()
   return new Map(check({ data, error }).map((p) => [p.id, p]))
 }

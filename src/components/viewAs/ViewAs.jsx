@@ -55,7 +55,17 @@ export default function ViewAs({ client, children }) {
           <div className="view-as-content">
             {view.role === 'pendiente' && <AccountStatusScreen kind="waiting" email="persona@ejemplo.com" readOnly onSignOut={noop} />}
             {view.role === 'equipo' && (
-              <MemberApp client={null} email={view.email} name={view.name} area={view.area} levels={view.levels} readOnly onSignOut={noop} />
+              <MemberApp
+                client={null}
+                userId={null}
+                email={view.email}
+                name={view.name}
+                area={view.area}
+                levels={view.levels}
+                preview={{ account: view.account, profile: view.profile }}
+                readOnly
+                onSignOut={noop}
+              />
             )}
             {view.role === 'alumno' && (
               <Suspense fallback={<div className="app-loading" />}>

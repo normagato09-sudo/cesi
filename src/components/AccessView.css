@@ -310,3 +310,17 @@
     font-size: 16px;
   }
 }
+
+/* Marca de si la cuenta ha completado su perfil (account_profiles). */
+.access-profile {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.access-profile.done {
+  color: #15803d;
+}

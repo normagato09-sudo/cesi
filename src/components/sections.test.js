@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { allItems, ceoGroups, groupOfSection, memberGroups, sectionActive } from './sections.js'
 
 describe('ceoGroups', () => {
-  it('cuatro grupos con todas las pantallas; Accesos solo con sincronización', () => {
+  it('cuatro grupos con todas las pantallas; Mi perfil y Accesos solo con sincronización', () => {
     const groups = ceoGroups(true)
     expect(groups.map((g) => g.label)).toEqual(['Mi panel', 'Agenda', 'Equipo', 'Formación'])
     expect(allItems(groups).map((i) => i.id)).toEqual([
       'home',
       'tasks',
+      'profile',
       'calendar',
       'contacts',
       'slots',
@@ -19,7 +20,7 @@ describe('ceoGroups', () => {
       'students',
       'attendance',
     ])
-    expect(allItems(ceoGroups(false)).some((i) => i.id === 'access')).toBe(false)
+    expect(allItems(ceoGroups(false)).some((i) => i.id === 'access' || i.id === 'profile')).toBe(false)
   })
 })
 

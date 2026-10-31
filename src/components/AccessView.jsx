@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronDown, KeyRound, RefreshCw, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react'
+import { CircleCheck, CircleDashed, ChevronDown, KeyRound, RefreshCw, RotateCcw, Search, ShieldCheck, UserPlus } from 'lucide-react'
 import { useSync } from '../lib/sync/syncContext.js'
 import {
   DISPLAY_NAME_MAX,
@@ -228,7 +228,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState({})
   const [openPerms, setOpenPerms] = useState(null) // id de la cuenta con los permisos abiertos
-  const [portals, setPortals] = useState(() => new Map()) // perfiles del portal de alumnos, por cuenta
+  const [portals, setPortals] = useState(() => new Map()) // perfiles (account_profiles), por cuenta
   const options = useMemo(() => linkOptions(contacts, students), [contacts, students])
 
   const fetchAll = useCallback(
@@ -369,6 +369,18 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                     {providerText(p) ? `${providerText(p)} · desde el ` : 'Desde el '}
                     {createdText(p.created_at)}
                   </span>
+                  {p.role !== 'pendiente' &&
+                    (portals.get(p.id)?.completed_at ? (
+                      <span className="access-profile done">
+                        <CircleCheck size={13} strokeWidth={2} aria-hidden="true" />
+                        Perfil completo
+                      </span>
+                    ) : (
+                      <span className="access-profile">
+                        <CircleDashed size={13} strokeWidth={2} aria-hidden="true" />
+                        Perfil sin completar
+                      </span>
+                    ))}
                 </div>
                 <label className="access-field">
                   <span className="access-field-label">Papel</span>

@@ -137,7 +137,7 @@ function SyncedApp() {
     // Equipo: su menú según sus permisos (sin conexión, con lo último conocido no se sabe su
     // nombre ni su área: los pide al volver).
     if (role === 'equipo') {
-      return <MemberApp client={client} email={email} name={result?.name || ''} area={result?.area || null} onSignOut={signOutLocal} />
+      return <MemberApp client={client} userId={userId} email={email} name={result?.name || ''} area={result?.area || null} onSignOut={signOutLocal} />
     }
     if (role === 'alumno') {
       return (

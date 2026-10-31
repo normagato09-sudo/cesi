@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BadgeCheck, Eye, GraduationCap, Hourglass, Search, X } from 'lucide-react'
 import { normalizeName } from '../../lib/applications'
-import { exampleStudent, loadViewAsOptions } from './viewAsData'
+import { exampleMember, exampleStudent, loadViewAsOptions } from './viewAsData'
 import '../EventFormModal.css'
 import '../ContactsView.css'
 import './ViewAs.css'
@@ -144,7 +144,7 @@ export default function ViewAsPicker({ client, onPick, onClose }) {
                     ) : (
                       members.map((m) =>
                         item(m.id, m.label, m.detail, () =>
-                          onPick({ role: 'equipo', label: m.label, email: m.email, name: m.name, area: m.area, levels: m.levels }),
+                          onPick({ role: 'equipo', label: m.label, email: m.email, name: m.name, area: m.area, levels: m.levels, account: m.account, profile: m.profile }),
                         ),
                       )
                     )}
@@ -155,7 +155,7 @@ export default function ViewAsPicker({ client, onPick, onClose }) {
                       .filter((a) => matches({ label: a.name }, query))
                       .map((a) =>
                         item(`area-${a.id}`, a.name, 'Área', () =>
-                          onPick({ role: 'equipo', label: `el área ${a.name}`, email: 'persona@ejemplo.com', name: '', area: a.id, levels: a.levels }),
+                          onPick({ role: 'equipo', label: `el área ${a.name}`, email: 'persona@ejemplo.com', name: '', area: a.id, levels: a.levels, ...exampleMember() }),
                         ),
                       )}
                   </ul>
