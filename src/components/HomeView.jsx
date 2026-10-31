@@ -1,10 +1,8 @@
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { BarChart3, Briefcase, CalendarCheck, CalendarDays, Check, ChevronRight, ListTodo, NotebookPen, Send, X } from 'lucide-react'
-import TaskItem from './TaskItem.jsx'
+import { BarChart3, Briefcase, CalendarCheck, CalendarDays, Check, ChevronRight, NotebookPen, Send, X } from 'lucide-react'
 import { colorForEvent } from '../lib/eventStyle'
 import {
-  dueTasks,
   greeting,
   hasAgenda,
   meetingsTodayAndTomorrow,
@@ -20,7 +18,6 @@ import PlaceIcon from './PlaceIcon.jsx'
 import { placeLabel } from '../lib/videoCall'
 import { formatDurationLong } from '../lib/proposals'
 import { formatHours, weekDeltaText } from '../lib/weeklyReport'
-import './Tasks.css'
 import './HomeView.css'
 
 const MAX_MISSING_NOTES = 5
@@ -92,20 +89,6 @@ function MeetingList({ title, meetings, empty, ...rowProps }) {
           ))}
         </ul>
       )}
-    </div>
-  )
-}
-
-function TaskGroup({ title, tasks, className = '', ...itemProps }) {
-  if (tasks.length === 0) return null
-  return (
-    <div className={`home-group ${className}`}>
-      <h3>{title}</h3>
-      <ul className="task-list">
-        {tasks.map((task) => (
-          <TaskItem key={task.id} task={task} showSource={false} {...itemProps} />
-        ))}
-      </ul>
     </div>
   )
 }
@@ -196,19 +179,15 @@ function WeekSummary({ week }) {
  */
 export default function HomeView({
   now,
-  today,
   week = null,
   rawEvents,
   contacts,
-  tasks,
   vacancies,
   proposals,
   missingNotes,
   onGoTo,
   onOpenEvent,
   onOpenEventNotes,
-  onToggleTask,
-  onOpenTask,
   onOpenVacancy,
   onOpenProposal,
   // Enlace de reservas (solo con la sincronización configurada): null si no se usa.
@@ -217,13 +196,10 @@ export default function HomeView({
   teamPanel = null,
 }) {
   const meetings = meetingsTodayAndTomorrow(rawEvents, now)
-  const due = dueTasks(tasks, today)
   const interviews = upcomingInterviews(rawEvents, now)
   const openings = openVacancies(vacancies, contacts)
-  const dueCount = due.overdue.length + due.today.length + due.upcoming.length
   const shownNotes = missingNotes.slice(0, MAX_MISSING_NOTES)
   const dateText = format(now, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
-  const taskProps = { contacts, today, onToggle: onToggleTask, onOpen: onOpenTask }
 
   return (
     <div className="home-view">
@@ -276,14 +252,6 @@ export default function HomeView({
             <WeekSummary week={week} />
           </HomeCard>
         )}
-
-        <HomeCard Icon={ListTodo} title="Tareas" count={dueCount} linkLabel="Ver todas" onLink={() => onGoTo('tasks')}>
-          {due.overdue.length === 0 && <Empty>Nada vencido 👌</Empty>}
-          <TaskGroup title="Vencidas" tasks={due.overdue} className="overdue" {...taskProps} />
-          <TaskGroup title="Para hoy" tasks={due.today} {...taskProps} />
-          <TaskGroup title="Próximos 7 días" tasks={due.upcoming} {...taskProps} />
-          {due.today.length === 0 && due.upcoming.length === 0 && <Empty>Nada más con fecha esta semana.</Empty>}
-        </HomeCard>
 
         <HomeCard
           Icon={NotebookPen}

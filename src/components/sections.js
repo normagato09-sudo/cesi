@@ -30,7 +30,6 @@ export const NAV_GROUPS = [
     Icon: LayoutDashboard,
     items: [
       { id: 'home', label: 'Inicio', Icon: House },
-      { id: 'tasks', label: 'Tareas', Icon: ListTodo },
       { id: 'profile', label: 'Mi perfil', Icon: UserRound, ceoOnly: true, needsSync: true },
     ],
   },
@@ -51,7 +50,7 @@ export const NAV_GROUPS = [
     items: [
       { id: 'team', label: 'Personas', Icon: BadgeCheck, screen: 'equipo' },
       { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
-      { id: 'team-tasks', label: 'Tareas del equipo', Icon: ListChecks, ceoOnly: true, needsSync: true },
+      { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],

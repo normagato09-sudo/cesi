@@ -489,7 +489,7 @@ export default function MeetingSession({
         placeholder={event.recurrence ? 'Notas de este día…' : 'Lo que se habló, próximos pasos, ideas…'}
         onDecision={addDecision}
         isDecision={isDecision}
-        onTask={(text) => onNewTask({ title: text, source: sourceOf(event) })}
+        onTask={onNewTask ? (text) => onNewTask({ title: text, source: sourceOf(event) }) : null}
       />
       <span className="session-subtitle">Decisiones</span>
       <ItemList
@@ -499,6 +499,7 @@ export default function MeetingSession({
         addPlaceholder="Añadir una decisión…"
         emptyText="Sin decisiones apuntadas."
         renderExtra={(item) => {
+          if (!onNewTask) return null
           const task = taskOfDecision(tasks, item.id)
           return task ? (
             <button type="button" className="decision-task" onClick={() => onOpenTask(task)}>
@@ -517,9 +518,9 @@ export default function MeetingSession({
           )
         }}
       />
-      <span className="session-subtitle">Tareas</span>
-      {sessionTasks.length === 0 && <p className="session-empty">Sin tareas de esta reunión.</p>}
-      {sessionTasks.length > 0 && (
+      {onNewTask && <span className="session-subtitle">Tareas</span>}
+      {onNewTask && sessionTasks.length === 0 && <p className="session-empty">Sin tareas de esta reunión.</p>}
+      {onNewTask && sessionTasks.length > 0 && (
         <ul className="task-list">
           {sessionTasks.map((task) => (
             <TaskItem
@@ -534,10 +535,12 @@ export default function MeetingSession({
           ))}
         </ul>
       )}
-      <button type="button" className="session-tasks-add" onClick={() => onNewTask({ source: sourceOf(event) })}>
-        <Plus size={16} strokeWidth={2} />
-        Nueva tarea
-      </button>
+      {onNewTask && (
+        <button type="button" className="session-tasks-add" onClick={() => onNewTask({ source: sourceOf(event) })}>
+          <Plus size={16} strokeWidth={2} />
+          Nueva tarea
+        </button>
+      )}
     </>
   )
 

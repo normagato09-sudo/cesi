@@ -95,14 +95,9 @@ import {
   vacanciesStore,
   withStatus,
 } from './lib/vacancies.js'
-import {
-  STORAGE_KEY as TASKS_KEY,
-  getAllTasks,
-  sourceOccurrence,
-  taskData,
-  taskSourcePatches,
-  tasksStore,
-} from './lib/tasks.js'
+// Mis tareas personales antiguas (tasks): ya no salen en ningún sitio (las tareas son las del
+// equipo, team_tasks); se siguen guardando y sincronizando tal cual, sin borrar nada.
+import { STORAGE_KEY as TASKS_KEY, getAllTasks, taskSourcePatches, tasksStore } from './lib/tasks.js'
 import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
@@ -135,8 +130,6 @@ const ComingSoonView = lazy(() => import('./components/ComingSoonView.jsx'))
 const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
 const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
-const TasksView = lazy(() => import('./components/TasksView.jsx'))
-const TaskFormModal = lazy(() => import('./components/TaskFormModal.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
 const MyScheduleModal = lazy(() => import('./components/MyScheduleModal.jsx'))
@@ -200,7 +193,6 @@ export default function App() {
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
   // Tarea abierta: null = cerrada; { task } para editarla o { initial } para crear una nueva.
-  const [taskModal, setTaskModal] = useState(null)
   // Aviso al mover o redimensionar: { violations, resolve } (resolve: 'save' | 'find' | null).
   const [moveWarning, setMoveWarning] = useState(null)
   const [now, setNow] = useState(() => new Date())
@@ -243,7 +235,7 @@ export default function App() {
   const [storedAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getStoredTeamAreas)
   const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
-  const [tasks, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
+  const [, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
   const [students, reloadStudents] = useStoredValue(STUDENTS_KEY, getAllStudents)
   const [courses, reloadCourses] = useStoredValue(COURSES_KEY, getAllCourses)
   const [attendance, reloadAttendance] = useStoredValue(ATTENDANCE_KEY, getAllAttendance)
@@ -561,43 +553,6 @@ export default function App() {
     const series = getAllEvents().find((ev) => ev.id === occurrence.seriesId)
     if (!series) return
     editEvent(series.id, sessionPatch(series, occurrence, changes))
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tareas
-  // ---------------------------------------------------------------------------
-
-  const today = dateKey(now)
-
-  // `initial`: datos de la tarea nueva ({ title, source, decisionId } si sale del acta).
-  const handleNewTask = (initial = {}) => setTaskModal({ initial })
-  const handleOpenTask = (task) => setTaskModal({ task })
-
-  const handleSaveTask = (data) => {
-    const editing = taskModal?.task
-    if (editing) tasksStore.update(editing.id, taskData(data, editing))
-    else tasksStore.create(taskData(data))
-    reloadTasks()
-  }
-
-  const handleDeleteTask = (id) => {
-    tasksStore.remove(id)
-    reloadTasks()
-  }
-
-  const handleToggleTask = (task) => {
-    tasksStore.update(task.id, taskData({ ...task, status: task.status === 'done' ? 'pending' : 'done' }, task))
-    reloadTasks()
-  }
-
-  // Abre la reunión (o la sesión) de la que sale la tarea.
-  const handleOpenTaskSource = (task) => {
-    const occurrence = sourceOccurrence(task, rawEvents)
-    if (!occurrence) return
-    setTaskModal(null)
-    setSection('calendar')
-    setCurrentDate(new Date(occurrence.start))
-    openEvent(occurrence)
   }
 
   // «Tu semana» en Inicio: esta semana comparada con la anterior (lo mismo que el informe).
@@ -1162,7 +1117,7 @@ export default function App() {
         {section === 'team-tasks' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <TeamTasksView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} title="Tareas del equipo" />
+              <TeamTasksView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} />
             </Suspense>
           </div>
         )}
@@ -1298,11 +1253,6 @@ export default function App() {
                 onFindSlot={handleFindSlotWithContact}
                 onNewMeeting={handleNewMeetingWithContact}
                 onOpenCandidate={handleOpenCandidate}
-                tasks={tasks}
-                today={today}
-                onToggleTask={handleToggleTask}
-                onOpenTask={handleOpenTask}
-                onOpenTaskSource={handleOpenTaskSource}
                 onReorder={handleReorderDepartment}
                 vacancies={vacancies}
                 onOpenVacancy={handleOpenVacancy}
@@ -1318,19 +1268,15 @@ export default function App() {
             {sync && myProfileMissing && <ProfileReminder onOpen={() => goToSection('profile')} />}
             <HomeView
               now={now}
-              today={today}
               week={weekReport}
               rawEvents={rawEvents}
               contacts={contacts}
-              tasks={tasks}
               vacancies={vacancies}
               proposals={proposalItems}
               missingNotes={missingNotes}
               onGoTo={goToSection}
               onOpenEvent={openEvent}
               onOpenEventNotes={(ev) => openEvent(ev, { focusNotes: true })}
-              onToggleTask={handleToggleTask}
-              onOpenTask={handleOpenTask}
               onOpenVacancy={handleOpenVacancy}
               onOpenProposal={setProposalModalId}
               teamPanel={
@@ -1353,23 +1299,6 @@ export default function App() {
                   : null
               }
             />
-          </div>
-        )}
-
-        {section === 'tasks' && (
-          <div className="app-main">
-            <Suspense fallback={<SectionLoading />}>
-              <TasksView
-                tasks={tasks}
-                contacts={contacts}
-                rawEvents={rawEvents}
-                today={today}
-                onNewTask={handleNewTask}
-                onOpenTask={handleOpenTask}
-                onToggleTask={handleToggleTask}
-                onOpenSource={handleOpenTaskSource}
-              />
-            </Suspense>
           </div>
         )}
 
@@ -1496,11 +1425,6 @@ export default function App() {
           now={now}
           focusNotes={notesFocus}
           onSaveSession={handleSaveSession}
-          tasks={tasks}
-          onNewTask={handleNewTask}
-          onOpenTask={handleOpenTask}
-          onToggleTask={handleToggleTask}
-          onOpenTaskSource={handleOpenTaskSource}
           openConvocation={!!selectedEvent && convocationFor === selectedEvent.id}
           onClose={() => {
             setSelectedEvent(null)
@@ -1516,20 +1440,6 @@ export default function App() {
           onCancelProposal={handleCancelProposal}
           organizerName={bookings.link?.display_name || ''}
         />
-
-        {taskModal && (
-          <Suspense fallback={null}>
-            <TaskFormModal
-              key={taskModal.task?.id || 'new'}
-              task={taskModal.task || null}
-              initial={taskModal.initial}
-              contacts={contacts}
-              onSave={handleSaveTask}
-              onDelete={handleDeleteTask}
-              onClose={() => setTaskModal(null)}
-            />
-          </Suspense>
-        )}
 
         {formModal && (
           <EventFormModal

@@ -18,9 +18,7 @@ const base = {
   groups: [],
   rawEvents: [],
   now,
-  today: '2026-10-08',
   areas: ['Moderación', 'Radio'],
-  tasks: [{ id: 't1', title: 'Revisar normas', assignee: 'ana', status: 'pending' }],
   vacancies: [
     { id: 'v1', ...newVacancy({ title: 'Locutor/a', area: 'Radio', status: 'open' }) },
     { id: 'v2', ...newVacancy({ title: 'Moderador/a', area: 'Moderación', status: 'filled' }) },
@@ -47,8 +45,8 @@ describe('TeamView', () => {
     expect(html).toContain('>Editar<')
     expect(html).not.toContain('Ficha de contacto')
     expect(html).not.toContain('Editar perfil')
-    expect(html).toContain('Tareas pendientes')
-    expect(html).toContain('Revisar normas')
+    // Las tareas antiguas ya no salen (las del equipo están en Tareas).
+    expect(html).not.toContain('Tareas pendientes')
     expect(html).toContain('ana@cesi.org')
     expect(html).toContain('Jefe/a de departamento: Moderación')
   })

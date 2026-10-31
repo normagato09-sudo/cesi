@@ -7,7 +7,6 @@ describe('ceoGroups', () => {
     expect(groups.map((g) => g.label)).toEqual(['Mi panel', 'Agenda', 'Equipo', 'Formación'])
     expect(allItems(groups).map((i) => i.id)).toEqual([
       'home',
-      'tasks',
       'profile',
       'calendar',
       'contacts',

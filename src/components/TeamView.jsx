@@ -23,9 +23,7 @@ import CvLink from './CvLink.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
 import LinkList from './LinkList.jsx'
 import TeamTrajectory from './TeamTrajectory.jsx'
-import TaskItem from './TaskItem.jsx'
 import ContactLinkModal from './ContactLinkModal.jsx'
-import { pendingTasksOf } from '../lib/tasks'
 import { isCandidate } from '../lib/vacancies'
 import { useSync } from '../lib/sync/syncContext'
 import { isActiveMember, milestonesToBio, quoteDisplay, todayKey } from '../lib/team'
@@ -50,8 +48,6 @@ function MemberDetail({
   contacts,
   groups,
   rawEvents,
-  tasks,
-  today,
   now,
   areas,
   onBack,
@@ -64,16 +60,12 @@ function MemberDetail({
   onFindSlot,
   onNewMeeting,
   onOpenCandidate,
-  onToggleTask,
-  onOpenTask,
-  onOpenTaskSource,
 }) {
   const p = milestonesToBio(contact.teamProfile)
   const seniority = tenureText(tenure(p, now))
   const links = (migrateProfileLinks(p).links || []).filter((l) => l.url)
   const departments = [...new Set(currentRoles(p).map((r) => r.area).filter(Boolean))]
   if (departments.length === 0 && p.area) departments.push(p.area)
-  const pending = useMemo(() => pendingTasksOf(tasks, contact.id), [tasks, contact.id])
   const heads = headAreas(contact, contacts)
 
   return (
@@ -187,19 +179,6 @@ function MemberDetail({
           <p className="team-bio">{p.bio}</p>
         </section>
       )}
-
-      <section className="team-section">
-        <h3>Tareas pendientes</h3>
-        {pending.length === 0 ? (
-          <p className="team-empty">No tiene tareas pendientes.</p>
-        ) : (
-          <ul className="task-list team-tasks">
-            {pending.map((t) => (
-              <TaskItem key={t.id} task={t} contacts={contacts} today={today} onToggle={onToggleTask} onOpen={onOpenTask} onOpenSource={onOpenTaskSource} />
-            ))}
-          </ul>
-        )}
-      </section>
 
       <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />
     </div>
@@ -315,11 +294,6 @@ export default function TeamView({
   onFindSlot,
   onNewMeeting,
   onOpenCandidate,
-  tasks = [],
-  today,
-  onToggleTask,
-  onOpenTask,
-  onOpenTaskSource,
   onReorder,
   vacancies = [],
   onOpenVacancy,
@@ -350,8 +324,6 @@ export default function TeamView({
           contacts={contacts}
           groups={groups}
           rawEvents={rawEvents}
-          tasks={tasks}
-          today={today}
           now={now}
           areas={areas}
           onBack={() => onSelectMember(null)}
@@ -369,9 +341,6 @@ export default function TeamView({
           onFindSlot={onFindSlot}
           onNewMeeting={onNewMeeting}
           onOpenCandidate={onOpenCandidate}
-          onToggleTask={onToggleTask}
-          onOpenTask={onOpenTask}
-          onOpenTaskSource={onOpenTaskSource}
         />
         {archiving && (
           <ArchiveMemberDialog

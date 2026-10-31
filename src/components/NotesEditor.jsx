@@ -157,18 +157,20 @@ export default function NotesEditor({ ref: outerRef, id, value, onChange, placeh
         {decided ? <Check size={16} strokeWidth={2.25} /> : <Gavel size={16} strokeWidth={1.9} />}
         <span>Decisión</span>
       </button>
-      <button
-        type="button"
-        className="notes-tool notes-line-action"
-        onPointerDown={keepFocus}
-        onClick={() => onTask?.(content)}
-        disabled={!content}
-        title="Convertir esta línea en tarea"
-        aria-label="Convertir esta línea en tarea"
-      >
-        <ListTodo size={16} strokeWidth={1.9} />
-        <span>Tarea</span>
-      </button>
+      {onTask && (
+        <button
+          type="button"
+          className="notes-tool notes-line-action"
+          onPointerDown={keepFocus}
+          onClick={() => onTask(content)}
+          disabled={!content}
+          title="Convertir esta línea en tarea"
+          aria-label="Convertir esta línea en tarea"
+        >
+          <ListTodo size={16} strokeWidth={1.9} />
+          <span>Tarea</span>
+        </button>
+      )}
     </>
   )
 
