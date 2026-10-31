@@ -15,7 +15,6 @@ import MonthView from './components/CalendarView/MonthView.jsx'
 import WeekView from './components/CalendarView/WeekView.jsx'
 import DayView from './components/CalendarView/DayView.jsx'
 import EventModal from './components/EventModal.jsx'
-import EventFormModal from './components/EventFormModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
@@ -162,6 +161,8 @@ export default function App() {
   const [notesFocus, setNotesFocus] = useState(false)
   // Reunión (id de la ocurrencia) que se abre con el mensaje de convocatoria ("Yo no asisto").
   const [convocationFor, setConvocationFor] = useState(null)
+  // «Nueva reunión» (el único formulario): { meeting } (reunión compartida mía), { editingEvent,
+  // scope } (un evento mío) o { prefill } (una nueva; prefill.source: un evento que se duplica).
   const [formModal, setFormModal] = useState(null)
   // null = cerrado; { participants, interview, ... } = abierto, con los participantes iniciales
   // si los hay. Sirve para recolocar una reunión (desde los avisos) y desde mi formulario de eventos.
@@ -284,7 +285,6 @@ export default function App() {
   // Lo que se ve en Mes, Semana y Día: en la zona de mi perfil (ver zoneView.js).
   const zonedEvents = useMemo(() => eventsInZone(calendarEvents, myZone), [calendarEvents, myZone])
   const [sharedOpen, setSharedOpen] = useState(null) // reunión compartida abierta
-  const [sharedForm, setSharedForm] = useState(null) // { meeting } (null: nueva)
   usePublishCeoBusy(syncClient, rawEvents, now)
   const syncStatus = useSyncStatus()
   const viewAs = useViewAs()
@@ -758,50 +758,10 @@ export default function App() {
     setSection(id)
   }
 
-  // «Nueva reunión»: con la sincronización, el formulario único (reunión compartida si hay alguien
-  // con cuenta; si no, evento mío). Sin ella, mi formulario de eventos de siempre.
-  // prefill: { date, time, externalIds, interview }.
-  const openNewMeeting = (prefill = {}) => {
-    if (sync) {
-      setSharedForm({ meeting: null, prefill })
-      return
-    }
-    const eventPrefill = {}
-    if (prefill.externalIds?.length) Object.assign(eventPrefill, { participantIds: prefill.externalIds, guests: [] })
-    if (prefill.interview) eventPrefill.interview = true
-    if (prefill.start) Object.assign(eventPrefill, { start: prefill.start, end: prefill.end })
-    setFormModal({ mode: 'meeting', editingEvent: null, prefill: Object.keys(eventPrefill).length ? eventPrefill : null })
-  }
+  // «Nueva reunión»: reunión compartida si hay alguien con cuenta; si no, evento mío.
+  // prefill: { date, time, start, end, externalIds, guests, interview, notAttending }.
+  const openNewMeeting = (prefill = {}) => setFormModal({ prefill })
   const handleNewMeeting = () => openNewMeeting()
-
-  // Reunión sin nadie con cuenta (o solo con contactos externos): un evento mío, como siempre.
-  const handleSaveLocalMeeting = ({ title, description, start, end, link, externalIds, interview }, options) =>
-    handleFormSubmit(
-      {
-        title,
-        description,
-        ...participantFields(externalIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean), []),
-        meetLink: link,
-        notAttending: false,
-        ...(interview ? { interview: true } : {}),
-        isUnavailable: false,
-        allDay: false,
-        start,
-        end,
-        recurrence: null,
-      },
-      options,
-    )
-
-  // «Más opciones»: mi formulario de eventos de siempre, con lo ya escrito.
-  const handleMoreMeetingOptions = ({ title, description, start, end, link, externalIds, interview }) => {
-    setSharedForm(null)
-    setFormModal({
-      mode: 'meeting',
-      editingEvent: null,
-      prefill: { title, description, start, end, meetLink: link, participantIds: externalIds, guests: [], ...(interview ? { interview: true } : {}) },
-    })
-  }
 
   // Pasar a antiguo miembro lo archiva y volver al equipo (o entrar en él) lo desarchiva.
   // Devuelve el cambio del contacto completo (ver formerMembers.js y archive.js).
@@ -906,12 +866,12 @@ export default function App() {
       if (!scope) return
     }
     setSelectedEvent(null)
-    setFormModal({ mode: event.isUnavailable ? 'unavailable' : 'meeting', editingEvent: event, prefill: null, scope })
+    setFormModal({ editingEvent: event, scope })
   }
 
   const handleDuplicateEvent = (event) => {
     setSelectedEvent(null)
-    setFormModal({ mode: event.isUnavailable ? 'unavailable' : 'meeting', editingEvent: null, prefill: event })
+    setFormModal({ prefill: { source: event } })
   }
 
   // Devuelve true si se ha borrado (false si se cancela).
@@ -969,12 +929,12 @@ export default function App() {
     }
     const prefill = { start: slot.start, end: slot.end }
     if (participants && (participants.participantIds.length || participants.guests.length)) {
-      prefill.participantIds = participants.participantIds
+      prefill.externalIds = participants.participantIds
       prefill.guests = participants.guests
     }
     if (interview) prefill.interview = true
     if (notAttending) prefill.notAttending = true
-    setFormModal({ mode: 'meeting', editingEvent: null, prefill })
+    setFormModal({ prefill })
   }
 
   const handleFormSubmit = async (values, { ignoreWarnings = false } = {}) => {
@@ -1322,31 +1282,11 @@ export default function App() {
               }}
               onEdit={(meeting) => {
                 setSharedOpen(null)
-                setSharedForm({ meeting })
+                setFormModal({ meeting })
               }}
             />
           </Suspense>
         )}
-        {sync && sharedForm && (
-          <Suspense fallback={null}>
-            <MeetingFormModal
-              client={sync.client}
-              meId={sync.userId}
-              zone={myZone}
-              meeting={sharedForm.meeting}
-              prefill={sharedForm.prefill}
-              externalContacts={contacts}
-              onSaveLocal={handleSaveLocalMeeting}
-              onMoreOptions={handleMoreMeetingOptions}
-              onClose={() => setSharedForm(null)}
-              onSaved={() => {
-                setSharedForm(null)
-                sharedMeetings.reload()
-              }}
-            />
-          </Suspense>
-        )}
-
         <EventModal
           key={selectedEvent?.id || 'none'}
           event={selectedEvent}
@@ -1384,17 +1324,27 @@ export default function App() {
         )}
 
         {formModal && (
-          <EventFormModal
-            mode={formModal.mode}
-            initialEvent={formModal.editingEvent}
-            scope={formModal.scope}
-            prefill={formModal.prefill}
-            defaultDate={currentDate}
-            contacts={contacts}
-            onCreateContact={addContact}
-            onClose={() => setFormModal(null)}
-            onSubmit={handleFormSubmit}
-          />
+          <Suspense fallback={null}>
+            <MeetingFormModal
+              client={sync?.client || null}
+              meId={sync?.userId || 'yo'}
+              zone={myZone}
+              isCeo
+              meeting={formModal.meeting || null}
+              event={formModal.editingEvent || null}
+              scope={formModal.scope || null}
+              prefill={formModal.prefill || null}
+              contacts={contacts}
+              groups={groups}
+              students={students}
+              onSaveLocal={handleFormSubmit}
+              onClose={() => setFormModal(null)}
+              onSaved={() => {
+                setFormModal(null)
+                sharedMeetings.reload()
+              }}
+            />
+          </Suspense>
         )}
 
         {findSlot && (

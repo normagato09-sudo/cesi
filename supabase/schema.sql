@@ -3616,3 +3616,24 @@ grant execute on function public.cesi_task_save(uuid, text, text, text, uuid, da
 -- ni pedir una reunión con él.
 revoke all on function public.cesi_booking_get(text) from public, anon, authenticated;
 revoke all on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text, text) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 10: «Nueva reunión» con el área de cada persona
+-- ---------------------------------------------------------------------------
+create or replace function public.cesi_invitable_people_areas()
+returns table (id uuid, name text, role text, area_name text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, public.cesi_person_name(p.id), p.role,
+    case when p.role = 'equipo' then coalesce(a.name, '') else '' end
+  from public.profiles p
+  left join public.areas a on a.id = p.area
+  where p.role in ('ceo', 'equipo', 'alumno') and public.cesi_can_invite((select auth.uid()), p.id)
+  order by 2;
+$$;
+
+revoke all on function public.cesi_invitable_people_areas() from public, anon;
+grant execute on function public.cesi_invitable_people_areas() to authenticated;

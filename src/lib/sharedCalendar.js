@@ -330,6 +330,16 @@ export function listInvitablePeople(client) {
   return rpc(client, 'cesi_invitable_people', {})
 }
 
+// Las mismas, con el nombre de su área (parte 10); sin ese SQL, sin área.
+export async function listInvitablePeopleWithArea(client) {
+  try {
+    return await rpc(client, 'cesi_invitable_people_areas', {})
+  } catch (err) {
+    if (err?.code === 'PGRST202' || err?.code === '42883') return ((await listInvitablePeople(client)) || []).map((p) => ({ ...p, area_name: '' }))
+    throw err
+  }
+}
+
 export function fetchFreeBusy(client, people, from, to, excludeId = null) {
   return rpc(client, 'cesi_free_busy', { p_people: people, p_from: from.toISOString(), p_to: to.toISOString(), p_exclude: excludeId })
 }

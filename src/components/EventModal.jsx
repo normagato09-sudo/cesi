@@ -5,6 +5,7 @@ import {
   X,
   Clock,
   Users,
+  MapPin,
   Video,
   Briefcase,
   Pencil,
@@ -186,6 +187,13 @@ export default function EventModal({
             <div className="event-modal-row">
               <Briefcase size={16} strokeWidth={1.75} />
               <span>Entrevista de candidato</span>
+            </div>
+          )}
+
+          {event.location && (
+            <div className="event-modal-row">
+              <MapPin size={16} strokeWidth={1.75} />
+              <span>{event.location}</span>
             </div>
           )}
 

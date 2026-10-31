@@ -1,34 +1,47 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import Modal from './Modal.jsx'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Ban, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { MeetingWarningError } from '../../lib/meetingWarnings'
 import { isActiveMember } from '../../lib/team'
+import { hasCandidateParticipant, isCandidateOnly } from '../../lib/vacancies'
+import { UNAVAILABLE_KINDS } from '../../lib/unavailableKinds'
+import { SCOPES } from '../../lib/seriesEdits'
+import { ordinal, recurrenceLabel, unitLabel, weekdayName, weekdayPosition } from '../../lib/recurrence'
+import { zoneShort } from '../../lib/studentPortal'
+import { pad2 } from '../../lib/timezones'
+import { addDaysKey, daysRange, errorText, fetchFreeBusy, hhmmOf, keyOf, listInvitablePeopleWithArea, mondayOf, saveMeeting, weekKeys, weekLabel } from '../../lib/sharedCalendar'
 import {
-  DURATIONS,
-  addDaysKey,
-  busyByHour,
-  dayLabel,
-  daysRange,
-  emptyMeetingForm,
-  errorText,
-  fetchFreeBusy,
-  formFromMeeting,
-  freeHours,
-  hhmmOf,
-  keyOf,
-  listInvitablePeople,
-  meetingTimes,
-  mondayOf,
-  saveMeeting,
-  validateMeetingForm,
-  weekKeys,
-  weekLabel,
-  withExternals,
-} from '../../lib/sharedCalendar'
-import { pad2, zoneLabel } from '../../lib/timezones'
+  DURATION_OPTIONS,
+  MAX_MINUTES,
+  busyDuring,
+  chosenTimes,
+  firstUsefulHour,
+  hourCells,
+  initialForm,
+  initials,
+  localPayload,
+  sharedDescription,
+  withoutInterval,
+} from '../../lib/meetingForm'
+import './MeetingForm.css'
 
 const ROLE_LABELS = { ceo: 'Dirección', equipo: 'Equipo', alumno: 'Alumno' }
+const REPEAT_OPTIONS = [
+  { value: '', label: 'No repetir' },
+  { value: 'daily', label: 'Por días' },
+  { value: 'weekly', label: 'Por semanas' },
+  { value: 'monthly', label: 'Por meses' },
+  { value: 'yearly', label: 'Por años' },
+]
+const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const FREE_BUSY_DELAY_MS = 300
+const MAX_LIST = 60
+
+const plain = (text) =>
+  (text || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
 
 function durationLabel(minutes) {
   if (minutes < 60) return `${minutes} min`
@@ -37,111 +50,204 @@ function durationLabel(minutes) {
   return m ? `${h} h ${m} min` : `${h} h`
 }
 
-// Texto de búsqueda sin mayúsculas ni acentos.
-const plain = (text) =>
-  (text || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+// «Lun 2» de un día 'AAAA-MM-DD'.
+function dayHead(key) {
+  const [y, m, d] = key.split('-').map(Number)
+  return `${DAY_SHORT[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d}`
+}
 
-// «Nueva reunión» (o editar una reunión compartida mía): título, día, hora y duración (en mi zona),
-// enlace, descripción y participantes con cuenta (solo a quien puedo invitar). Con participantes,
-// la tabla de la semana marca en verde las horas en que estamos todos libres (al pulsar una, se pone
-// ese día y esa hora; al pulsar una ocupada, se ve quién no puede, sin detalles).
-// Solo la ceo (externalContacts y onSaveLocal): también contactos externos, que no cuentan en la
-// tabla. Si hay alguien con cuenta, se guarda como reunión compartida (los externos van en la
-// descripción); si no, como evento suyo (onSaveLocal), y «Más opciones» abre su formulario de
-// eventos de siempre.
-// prefill: { date, time, externalIds, interview } de una reunión nueva.
+// «Jueves 5 nov · 18:00–19:00» en la zona.
+function whenText(start, end, zone) {
+  const day = start.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short', timeZone: zone }).replace(',', '').replace('.', '')
+  return `${day.charAt(0).toUpperCase()}${day.slice(1)} · ${hhmmOf(start, zone)}–${hhmmOf(end, zone)}`
+}
+
+function monthlyOptions(key) {
+  const day = new Date(`${key}T12:00:00`)
+  if (Number.isNaN(day.getTime())) return []
+  const { nth, isLast } = weekdayPosition(day)
+  const weekday = weekdayName(day)
+  return [
+    { value: 'date', label: `El día ${day.getDate()}` },
+    ...(nth <= 4 ? [{ value: 'nth', label: `El ${ordinal(nth)} ${weekday}` }] : []),
+    ...(isLast ? [{ value: 'last', label: `El último ${weekday}` }] : []),
+  ]
+}
+
+/**
+ * «Nueva reunión»: el único formulario de reuniones, para la ceo, el equipo y los alumnos. Ventana
+ * grande de dos columnas: a la izquierda título, participantes, enlace y «Más opciones»; a la
+ * derecha «¿Cuándo les va bien?» (la tabla de la semana con quién puede a cada hora).
+ *
+ * Con alguien con cuenta se guarda como reunión compartida (los que no tienen cuenta y los
+ * contactos externos van en la descripción). Solo la ceo (isCeo): si no hay nadie con cuenta, se
+ * guarda como evento suyo (onSaveLocal), y también «No disponible», repetir, «Yo no asisto» y
+ * entrevista. Edita una reunión compartida mía (`meeting`) o un evento mío (`event`, con `scope`
+ * si es de una serie).
+ */
 export default function MeetingFormModal({
   client,
   meId,
   zone,
+  isCeo = false,
   meeting = null,
+  event = null,
+  scope = null,
   prefill = null,
-  externalContacts = null,
+  contacts = [],
+  groups = [],
+  students = [],
   onSaveLocal = null,
-  onMoreOptions = null,
   onClose,
   onSaved,
 }) {
-  const [form, setForm] = useState(() => {
-    if (meeting) return formFromMeeting(meeting, zone)
-    const empty = emptyMeetingForm(zone)
-    return { ...empty, ...(prefill?.date ? { date: prefill.date } : {}), ...(prefill?.time ? { time: prefill.time } : {}) }
-  })
-  const [externalIds, setExternalIds] = useState(() => (meeting ? [] : prefill?.externalIds || []))
-  const [externalQuery, setExternalQuery] = useState('')
-  const [busyAt, setBusyAt] = useState(null) // hora ocupada pulsada: 'AAAA-MM-DD_h'
-  const [warning, setWarning] = useState(null) // avisos de mis reglas al guardar como evento mío
-  const [people, setPeople] = useState(null)
+  const editingLocal = !!event
+  const editing = !!meeting || editingLocal
+  const [form, setForm] = useState(() => initialForm({ meeting, event, prefill, contacts, zone }))
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const [people, setPeople] = useState(() => (client ? null : [])) // personas con cuenta a las que puedo invitar
   const [peopleError, setPeopleError] = useState(null)
+  const [links, setLinks] = useState(null) // a quién está unida cada cuenta (solo la ceo)
   const [query, setQuery] = useState('')
+  const [moreOpen, setMoreOpen] = useState(() => !!(form.place || form.description || form.repeatFreq || form.notAttending))
   const [gridMonday, setGridMonday] = useState(() => mondayOf(form.date))
   const [busyRows, setBusyRows] = useState(null)
   const [busyError, setBusyError] = useState(null)
-  const [tried, setTried] = useState(false)
+  const [hover, setHover] = useState(null) // 'AAAA-MM-DD_h'
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState(null)
+  const [error, setError] = useState(null)
+  const [warning, setWarning] = useState(null)
+  const gridRef = useRef(null)
+  const scrolledFor = useRef(null)
 
-  const canLocal = !!onSaveLocal && !meeting
-  const validation = { allowNoParticipants: canLocal }
-  const errors = useMemo(() => (tried ? validateMeetingForm(form, zone, { allowNoParticipants: canLocal }) : {}), [tried, form, zone, canLocal])
-  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const isUnavailable = form.mode === 'unavailable'
 
   useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Personas con cuenta (y, la ceo, a quién está unida cada cuenta).
+  useEffect(() => {
+    if (!client) return
     let active = true
-    listInvitablePeople(client).then(
-      (rows) => active && setPeople(rows || []),
+    listInvitablePeopleWithArea(client).then(
+      (rows) => active && setPeople((rows || []).filter((p) => p.id !== meId)),
       (err) => active && setPeopleError(errorText(err)),
     )
+    if (isCeo) {
+      client
+        .from('profiles')
+        .select('id, linked_team_id, linked_student_id')
+        .then(({ data }) => {
+          if (!active) return
+          setLinks(data || [])
+          // «Nueva reunión con esta persona»: si el contacto tiene cuenta, va como participante.
+          const accountOf = new Map((data || []).filter((l) => l.linked_team_id).map((l) => [l.linked_team_id, l.id]))
+          if (event || accountOf.size === 0) return
+          setForm((f) => {
+            const moved = f.contactIds.filter((id) => accountOf.has(id))
+            if (moved.length === 0) return f
+            return { ...f, contactIds: f.contactIds.filter((id) => !accountOf.has(id)), accounts: [...new Set([...f.accounts, ...moved.map((id) => accountOf.get(id))])] }
+          })
+        })
+    }
     return () => {
       active = false
     }
-  }, [client])
+    // Solo al abrir el formulario.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, meId, isCeo])
 
-  // Contactos que llegan ya añadidos («Nueva reunión con esta persona»): si tienen cuenta unida
-  // (Accesos › Unida a), también como participantes.
-  useEffect(() => {
-    const ids = prefill?.externalIds || []
-    if (meeting || ids.length === 0 || !client) return
-    let active = true
-    client
-      .from('profiles')
-      .select('id, linked_team_id, linked_student_id')
-      .then(({ data }) => {
-        if (!active || !data) return
-        const linked = data.filter((r) => r.id !== meId && (ids.includes(r.linked_team_id) || ids.includes(r.linked_student_id))).map((r) => r.id)
-        if (linked.length > 0) setForm((f) => ({ ...f, participants: [...new Set([...f.participants, ...linked])] }))
-      })
-    return () => {
-      active = false
+  const linkedTeam = useMemo(() => new Map((links || []).filter((l) => l.linked_team_id).map((l) => [l.linked_team_id, l.id])), [links])
+  const linkedStudents = useMemo(() => new Set((links || []).map((l) => l.linked_student_id).filter(Boolean)), [links])
+
+  // Filas de la lista: primero con cuenta; luego, sin cuenta (equipo y alumnos de la ceo).
+  const baseRows = useMemo(() => {
+    const accounts = (people || []).map((p) => ({ key: `a:${p.id}`, type: 'account', id: p.id, name: p.name || 'Sin nombre', tag: p.area_name || ROLE_LABELS[p.role] || '' }))
+    if (!isCeo || meeting) return accounts
+    const team = contacts
+      .filter((c) => isActiveMember(c) && !linkedTeam.has(c.id))
+      .map((c) => ({ key: `c:${c.id}`, type: 'contact', id: c.id, name: c.name || c.email || 'Sin nombre', tag: c.teamProfile?.area || 'Equipo', noAccount: true }))
+    const studentRows = students
+      .filter((s) => !linkedStudents.has(s.id) && s.name)
+      .map((s) => ({ key: `s:${s.id}`, type: 'guest', id: s.name, name: s.name, tag: 'Alumno', noAccount: true }))
+    const byName = (a, b) => a.name.localeCompare(b.name, 'es')
+    return [...accounts, ...[...team, ...studentRows].sort(byName)]
+  }, [people, isCeo, meeting, contacts, students, linkedTeam, linkedStudents])
+
+  const rows = useMemo(() => {
+    const q = plain(query.trim())
+    if (!q) return baseRows
+    const match = (text) => plain(text).includes(q)
+    const found = baseRows.filter((r) => match(`${r.name} ${r.tag}`))
+    if (!isCeo || meeting) return found
+    // La ceo busca también en Contactos externos y en sus grupos.
+    const externalRows = contacts
+      .filter((c) => !c.archived && !isActiveMember(c) && !isCandidateOnly(c) && match(`${c.name} ${c.email || ''} ${c.organization || ''}`))
+      .map((c) => ({ key: `e:${c.id}`, type: 'contact', id: c.id, name: c.name || c.email, tag: 'Externo', external: true }))
+    const groupRows = groups
+      .filter((g) => match(g.name))
+      .map((g) => ({ key: `g:${g.id}`, type: 'group', id: g.id, name: g.name, tag: 'Grupo', members: contacts.filter((c) => (c.groupIds || []).includes(g.id)).map((c) => c.id) }))
+    const exact = [...found, ...externalRows].some((r) => plain(r.name) === q)
+    const guestRow = exact ? [] : [{ key: `t:${query.trim()}`, type: 'guest', id: query.trim(), name: query.trim(), tag: 'Invitado', noAccount: true, typed: true }]
+    return [...groupRows, ...found, ...externalRows, ...guestRow]
+  }, [query, baseRows, isCeo, meeting, contacts, groups])
+
+  const isChosen = (r) =>
+    r.type === 'account' ? form.accounts.includes(r.id) : r.type === 'contact' ? form.contactIds.includes(r.id) : r.type === 'guest' ? form.guests.includes(r.id) : false
+
+  const toggle = (r) => {
+    if (r.type === 'group') {
+      set({ contactIds: [...new Set([...form.contactIds, ...r.members])] })
+      setQuery('')
+      return
     }
-  }, [client, meId, meeting, prefill])
+    const field = r.type === 'account' ? 'accounts' : r.type === 'contact' ? 'contactIds' : 'guests'
+    const list = form[field]
+    set({ [field]: list.includes(r.id) ? list.filter((x) => x !== r.id) : [...list, r.id] })
+    if (r.typed || r.external) setQuery('')
+  }
 
-  // Quien ya estaba en la reunión aunque ahora no se le pueda invitar (se puede quitar).
-  const options = useMemo(() => {
-    const list = [...(people || [])]
-    for (const p of meeting?.participants || []) {
-      if (p.id !== meId && !list.some((x) => x.id === p.id)) list.push({ id: p.id, name: p.name, role: '' })
-    }
-    return list
-  }, [people, meeting, meId])
+  const nameOfAccount = (id) => (id === meId ? 'Tú' : people?.find((p) => p.id === id)?.name || 'Alguien')
+  const chips = [
+    ...form.accounts.map((id) => ({ key: `a:${id}`, name: nameOfAccount(id), remove: () => set({ accounts: form.accounts.filter((x) => x !== id) }) })),
+    ...form.contactIds.map((id) => {
+      const c = contacts.find((x) => x.id === id)
+      return { key: `c:${id}`, name: c?.name || c?.email || 'Contacto', external: true, remove: () => set({ contactIds: form.contactIds.filter((x) => x !== id) }) }
+    }),
+    ...form.guests.map((g) => ({ key: `g:${g}`, name: g, external: true, remove: () => set({ guests: form.guests.filter((x) => x !== g) }) })),
+  ]
+  const externals = [...form.contactIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean), ...form.guests.map((name) => ({ name }))]
 
-  const shown = options.filter((p) => !query.trim() || p.name.toLowerCase().includes(query.trim().toLowerCase()) || form.participants.includes(p.id))
+  // ¿Cómo se guarda? Reunión compartida (alguien con cuenta) o evento mío (la ceo, sin nadie con
+  // cuenta, o «No disponible»).
+  const asLocal = isCeo && !meeting && (isUnavailable || form.accounts.length === 0)
+  const showInterview = isCeo && !isUnavailable && (form.interview || hasCandidateParticipant(form.contactIds, contacts))
+
+  // Quién cuenta en la tabla: los participantes con cuenta y yo (salvo «Yo no asisto»).
+  const gridPeople = useMemo(() => {
+    const ids = isUnavailable ? [] : [...form.accounts]
+    if (!(asLocal && form.notAttending)) ids.unshift(meId)
+    return [...new Set(ids)]
+  }, [form.accounts, isUnavailable, asLocal, form.notAttending, meId])
+  const peopleKey = gridPeople.join(',')
 
   const days = useMemo(() => weekKeys(gridMonday), [gridMonday])
-  const participantsKey = form.participants.join(',')
+  const eventStart = event?.start ? new Date(event.start).getTime() : null
+  const eventEnd = event?.end ? new Date(event.end).getTime() : null
 
   useEffect(() => {
-    if (!participantsKey) return
+    if (!client || !peopleKey) return
     let active = true
     const timer = setTimeout(() => {
       const { start, end } = daysRange(gridMonday, 7, zone)
-      fetchFreeBusy(client, [meId, ...participantsKey.split(',')], start, end, meeting?.id || null).then(
-        (rows) => {
+      fetchFreeBusy(client, peopleKey.split(','), start, end, meeting?.id || null).then(
+        (data) => {
           if (!active) return
-          setBusyRows(rows || [])
+          // Al editar un evento mío, su propio rato no cuenta como ocupado.
+          setBusyRows(eventStart !== null ? withoutInterval(data || [], meId, new Date(eventStart), new Date(eventEnd)) : data || [])
           setBusyError(null)
         },
         (err) => active && setBusyError(errorText(err)),
@@ -151,322 +257,486 @@ export default function MeetingFormModal({
       active = false
       clearTimeout(timer)
     }
-  }, [client, meId, participantsKey, gridMonday, zone, meeting])
+  }, [client, peopleKey, gridMonday, zone, meeting, eventStart, eventEnd, meId])
 
-  const grid = useMemo(() => (busyRows ? freeHours(busyRows, days, zone) : null), [busyRows, days, zone])
-  const busyPeople = useMemo(() => (busyRows ? busyByHour(busyRows, days, zone) : new Map()), [busyRows, days, zone])
-  const nameOf = (id) => (id === meId ? 'Tú' : options.find((p) => p.id === id)?.name || 'Alguien')
+  const cells = useMemo(() => (busyRows ? hourCells(busyRows, gridPeople, days, zone) : null), [busyRows, gridPeople, days, zone])
 
-  // Contactos externos (no del equipo activo ni archivados), por nombre.
-  const externals = useMemo(
-    () =>
-      (externalContacts || [])
-        .filter((c) => !c.archived && (!isActiveMember(c) || externalIds.includes(c.id)))
-        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es')),
-    [externalContacts, externalIds],
-  )
-  const chosenExternals = externalIds.map((id) => (externalContacts || []).find((c) => c.id === id)).filter(Boolean)
-  const shownExternals = externalQuery.trim()
-    ? externals.filter((c) => plain(`${c.name} ${c.email || ''}`).includes(plain(externalQuery.trim())) && !externalIds.includes(c.id)).slice(0, 8)
-    : []
+  // La tabla empieza en la primera hora en que a alguien le va bien (una vez por semana).
+  useEffect(() => {
+    if (!cells || !gridRef.current || scrolledFor.current === gridMonday) return
+    scrolledFor.current = gridMonday
+    const row = gridRef.current.querySelector(`[data-hour="${firstUsefulHour(cells)}"]`)
+    if (row) gridRef.current.scrollTop = row.offsetTop - 34
+  }, [cells, gridMonday])
 
-  // Horas que ocupa la reunión elegida (para marcarlas en la tabla).
-  const selected = useMemo(() => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date) || !/^\d{2}:\d{2}$/.test(form.time)) return new Set()
-    const { start, end, exists } = meetingTimes(form, zone)
-    if (!exists) return new Set()
-    const out = new Set()
-    for (let t = start.getTime(); t < end.getTime(); t += 15 * 60000) {
+  const times = chosenTimes(form, zone)
+  const fullDay = isUnavailable && form.allDay
+  const chosenCells = new Set()
+  if (times?.exists && !fullDay) {
+    for (let t = times.start.getTime(); t < times.end.getTime(); t += 15 * 60000) {
       const d = new Date(t)
-      out.add(`${keyOf(d, zone)}_${Number(hhmmOf(d, zone).slice(0, 2))}`)
-    }
-    return out
-  }, [form, zone])
-
-  const allFreeAtChosen = useMemo(() => {
-    if (!grid || selected.size === 0) return null
-    for (const cell of selected) {
-      const [key, hour] = cell.split('_')
-      const hours = grid.get(key)
-      if (!hours) return null
-      if (hours[Number(hour)] !== 'free') return false
-    }
-    return true
-  }, [grid, selected])
-
-  const toggle = (id) => set({ participants: form.participants.includes(id) ? form.participants.filter((x) => x !== id) : [...form.participants, id] })
-
-  // Lo escrito, para guardarlo como evento mío o abrir «Más opciones».
-  const localData = () => {
-    const ok = Object.keys(validateMeetingForm(form, zone, validation)).filter((k) => k !== 'title').length === 0
-    const times = ok ? meetingTimes(form, zone) : null
-    return {
-      title: form.title.trim(),
-      description: form.description.trim(),
-      link: form.link.trim(),
-      start: times?.start,
-      end: times?.end,
-      externalIds,
-      interview: !!prefill?.interview,
+      chosenCells.add(`${keyOf(d, zone)}_${Number(hhmmOf(d, zone).slice(0, 2))}`)
     }
   }
+  const chosenBusy = busyRows && times?.exists ? busyDuring(busyRows, gridPeople, times.start, times.end) : null
+  const hoverCell = hover ? cells?.get(hover.split('_')[0])?.[Number(hover.split('_')[1])] : null
+
+  const repeatOptions = monthlyOptions(form.date)
+  const intervalOk = /^\d{1,2}$/.test(form.repeatInterval) && Number(form.repeatInterval) > 0
+  const repeatSummary =
+    form.repeatFreq && intervalOk
+      ? `${recurrenceLabel({ freq: form.repeatFreq, interval: Number(form.repeatInterval), monthlyBy: form.monthlyBy }, new Date(`${form.date}T12:00:00`))}${
+          form.repeatUntil ? ` hasta el ${form.repeatUntil.split('-').reverse().join('/')}` : ''
+        }`
+      : ''
+  const canRepeat = asLocal && !isUnavailable && scope !== SCOPES.THIS
 
   const save = async ({ ignoreWarnings = false } = {}) => {
-    setTried(true)
-    if (Object.keys(validateMeetingForm(form, zone, validation)).length > 0) return
-    setSaving(true)
-    setSaveError(null)
+    setError(null)
     setWarning(null)
-    try {
-      if (form.participants.length > 0 || !canLocal) {
-        // Con alguien con cuenta: reunión compartida (los externos, en la descripción).
-        await saveMeeting(client, meeting?.id || null, { ...form, description: withExternals(form.description, chosenExternals) }, zone)
-      } else {
-        // Solo externos o nadie: evento mío.
-        await onSaveLocal(localData(), { ignoreWarnings })
+    if (asLocal) {
+      const { payload, error: problem } = localPayload(isUnavailable || canRepeat || scope === SCOPES.THIS ? form : { ...form, repeatFreq: '' }, zone, {
+        contacts,
+        original: event,
+        showInterview,
+      })
+      if (problem) return setError(problem)
+      setSaving(true)
+      try {
+        await onSaveLocal(payload, { ignoreWarnings })
+        onSaved()
+      } catch (err) {
+        if (err instanceof MeetingWarningError) setWarning(err.violations.map((v) => v.message).join(' '))
+        else setError(err?.message || 'No se pudo guardar. Inténtalo de nuevo.')
+        setSaving(false)
       }
+      return
+    }
+    if (!form.title.trim()) return setError('Escribe un título.')
+    if (form.accounts.length === 0) return setError('Añade al menos un participante con cuenta.')
+    if (!times?.exists) return setError(times ? 'Esa hora no existe ese día (cambio de hora).' : 'Elige el día y la hora.')
+    if (!(Number(form.minutes) > 0 && Number(form.minutes) <= MAX_MINUTES)) return setError('Elige la duración.')
+    setSaving(true)
+    try {
+      await saveMeeting(
+        client,
+        meeting?.id || null,
+        { title: form.title, description: sharedDescription(form, externals), link: form.link, date: form.date, time: form.time, minutes: form.minutes, participants: form.accounts },
+        zone,
+      )
       onSaved()
     } catch (err) {
-      if (err instanceof MeetingWarningError) setWarning(err.violations.map((v) => v.message).join(' '))
-      else setSaveError(err?.code ? errorText(err) : err?.message || errorText(err))
+      setError(errorText(err))
       setSaving(false)
     }
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    save()
-  }
+  const externalNames = externals.map((x) => x.name || x.email).join(', ')
+  const footNote = isUnavailable
+    ? 'Bloquea este rato en tu calendario: para los demás cuenta como ocupado.'
+    : asLocal
+      ? 'Sin nadie con cuenta: se guarda como evento tuyo.'
+      : `Los invitados la recibirán como Pendiente hasta que la acepten.${externals.length > 0 ? ` Externos: ${externalNames} irán en la descripción.` : ''}`
 
-  const field = (name) => `sc-field${errors[name] ? ' invalid' : ''}`
+  const heading = isUnavailable ? (editing ? 'Editar «No disponible»' : 'No disponible') : editing ? 'Editar reunión' : 'Nueva reunión'
+  const scopeNote =
+    scope === SCOPES.THIS
+      ? 'Solo cambia este día; el resto de la serie no cambia.'
+      : scope === SCOPES.FOLLOWING
+        ? 'Cambia este día y los siguientes; los anteriores no cambian.'
+        : scope === SCOPES.ALL
+          ? 'Cambia toda la serie.'
+          : null
+  const submitLabel = saving ? 'Guardando…' : editing ? 'Guardar cambios' : isUnavailable ? 'Bloquear este rato' : 'Crear reunión'
 
-  return (
-    <Modal title={meeting ? 'Editar reunión' : 'Nueva reunión'} wide onClose={onClose}>
-      <form className="sc-form" onSubmit={handleSubmit} noValidate>
-        <label className={field('title')}>
-          <span>Título</span>
-          <input type="text" value={form.title} maxLength={200} onChange={(e) => set({ title: e.target.value })} autoFocus />
-          {errors.title && <span className="sc-error">{errors.title}</span>}
-        </label>
-
-        <div className="sc-row">
-          <label className={field('date')}>
-            <span>Día</span>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => {
-                set({ date: e.target.value })
-                if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setGridMonday(mondayOf(e.target.value))
-              }}
-            />
-            {errors.date && <span className="sc-error">{errors.date}</span>}
-          </label>
-          <label className={field('time')}>
-            <span>Hora</span>
-            <input type="time" step={900} value={form.time} onChange={(e) => set({ time: e.target.value })} />
-            {errors.time && <span className="sc-error">{errors.time}</span>}
-          </label>
-          <label className={field('minutes')}>
-            <span>Duración</span>
-            <select value={form.minutes} onChange={(e) => set({ minutes: Number(e.target.value) })}>
-              {[...new Set([...DURATIONS, Number(form.minutes)])]
-                .sort((a, b) => a - b)
-                .map((m) => (
-                  <option key={m} value={m}>
-                    {durationLabel(m)}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </div>
-        <p className="sc-zone">Horas en tu zona: {zoneLabel(zone)}</p>
-
-        <div className={field('participants')}>
-          <span>Participantes</span>
-          {peopleError ? (
-            <p className="sc-message error">{peopleError}</p>
-          ) : people === null ? (
-            <p className="sc-message">Cargando…</p>
-          ) : options.length === 0 ? (
-            <p className="sc-message">No hay nadie a quien puedas invitar todavía.</p>
-          ) : (
-            <>
-              <input type="search" placeholder="Buscar por nombre" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar participante" />
-              <div className="sc-picker">
-                {shown.map((p) => (
-                  <label key={p.id}>
-                    <input type="checkbox" checked={form.participants.includes(p.id)} onChange={() => toggle(p.id)} />
-                    <span>{p.name}</span>
-                    <span className="sc-picker-role">{ROLE_LABELS[p.role] || ''}</span>
-                  </label>
-                ))}
-              </div>
-            </>
-          )}
-          {errors.participants && <span className="sc-error">{errors.participants}</span>}
-        </div>
-
-        {externalContacts && (
-          <div className="sc-field">
-            <span>Contactos externos (no cuentan en la tabla)</span>
-            {chosenExternals.length > 0 && (
-              <div className="sc-chips">
-                {chosenExternals.map((c) => (
-                  <span key={c.id} className="sc-chip">
-                    {c.name || c.email}
-                    <button type="button" onClick={() => setExternalIds((ids) => ids.filter((x) => x !== c.id))} aria-label={`Quitar a ${c.name}`}>
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <input
-              type="search"
-              placeholder="Buscar en Contactos externos"
-              value={externalQuery}
-              onChange={(e) => setExternalQuery(e.target.value)}
-              aria-label="Buscar contacto externo"
-            />
-            {shownExternals.length > 0 && (
-              <div className="sc-picker">
-                {shownExternals.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className="sc-picker-add"
-                    onClick={() => {
-                      setExternalIds((ids) => [...ids, c.id])
-                      setExternalQuery('')
-                    }}
-                  >
-                    <span>{c.name || c.email}</span>
-                    {c.email && <span className="sc-picker-role">{c.email}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-            {canLocal && (
-              <span className="sc-hint">
-                {form.participants.length > 0
-                  ? 'Se guardará como reunión compartida; los externos irán en la descripción.'
-                  : 'Sin nadie con cuenta, se guardará como evento tuyo.'}
-              </span>
-            )}
+  return createPortal(
+    <div className="mf-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form
+        className="mf-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={heading}
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+        noValidate
+      >
+        <header className="mf-head">
+          <span className="mf-head-icon" aria-hidden="true">
+            {isUnavailable ? <Ban size={20} strokeWidth={1.75} /> : <CalendarDays size={20} strokeWidth={1.75} />}
+          </span>
+          <div className="mf-head-text">
+            <h2>{heading}</h2>
+            <p>Horas en tu zona: {zoneShort(zone)}</p>
           </div>
-        )}
-
-        {form.participants.length > 0 && (
-          <div className="sc-field">
-            <span>¿Cuándo estáis todos libres?</span>
-            <div className="sc-toolbar">
-              <button type="button" className="sc-btn sc-icon-btn" onClick={() => setGridMonday(addDaysKey(gridMonday, -7))} aria-label="Semana anterior">
-                <ChevronLeft size={16} />
+          {isCeo && !editing && (
+            <div className="mf-switch" role="group" aria-label="Tipo">
+              <button type="button" className={!isUnavailable ? 'on' : ''} aria-pressed={!isUnavailable} onClick={() => set({ mode: 'meeting' })}>
+                Reunión
               </button>
-              <span className="sc-week-label">{weekLabel(gridMonday)}</span>
-              <button type="button" className="sc-btn sc-icon-btn" onClick={() => setGridMonday(addDaysKey(gridMonday, 7))} aria-label="Semana siguiente">
-                <ChevronRight size={16} />
+              <button type="button" className={isUnavailable ? 'on' : ''} aria-pressed={isUnavailable} onClick={() => set({ mode: 'unavailable' })}>
+                No disponible
               </button>
             </div>
-            {busyError ? (
-              <p className="sc-message error">{busyError}</p>
-            ) : !grid ? (
-              <p className="sc-message">Calculando…</p>
-            ) : (
+          )}
+          <button type="button" className="mf-close" onClick={onClose} aria-label="Cerrar">
+            <X size={18} strokeWidth={1.75} />
+          </button>
+        </header>
+
+        <div className="mf-body">
+          <section className="mf-left">
+            {scopeNote && <p className="mf-note">{scopeNote}</p>}
+
+            {!isUnavailable && (
+              <label className="mf-field">
+                <span>Título</span>
+                <input type="text" value={form.title} maxLength={200} onChange={(e) => set({ title: e.target.value })} placeholder="Reunión de…" autoFocus />
+              </label>
+            )}
+
+            {isUnavailable && (
               <>
-                <div className="sc-grid-wrap">
-                  <table className="sc-grid">
-                    <thead>
-                      <tr>
-                        <th scope="col" aria-label="Hora" />
-                        {days.map((k) => (
-                          <th key={k} scope="col">
-                            {dayLabel(k)}
-                          </th>
+                <label className="mf-check">
+                  <input type="checkbox" checked={form.allDay} onChange={(e) => set({ allDay: e.target.checked })} />
+                  <span>Todo el día</span>
+                </label>
+                {form.allDay && (
+                  <>
+                    <label className="mf-field">
+                      <span>Tipo</span>
+                      <select value={form.kind} onChange={(e) => set({ kind: e.target.value })}>
+                        {UNAVAILABLE_KINDS.map((k) => (
+                          <option key={k.value} value={k.value}>
+                            {k.label}
+                          </option>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from({ length: 24 }, (_, h) => (
-                        <tr key={h}>
-                          <td>{`${pad2(h)}:00`}</td>
-                          {days.map((k) => {
-                            const state = grid.get(k)?.[h] || 'busy'
-                            const isSelected = selected.has(`${k}_${h}`)
-                            const who = (busyPeople.get(`${k}_${h}`) || []).map(nameOf).join(', ')
-                            return (
-                              <td key={k}>
-                                <button
-                                  type="button"
-                                  className={`sc-cell ${state}${isSelected ? ' selected' : ''}${busyAt === `${k}_${h}` ? ' picked' : ''}`}
-                                  disabled={state === 'past' || state === 'none'}
-                                  title={state === 'busy' && who ? `Ocupado: ${who}` : undefined}
-                                  aria-label={`${dayLabel(k)} ${pad2(h)}:00 · ${state === 'free' ? 'todos libres' : `ocupado${who ? `: ${who}` : ''}`}`}
-                                  onClick={() => {
-                                    if (state === 'free') {
-                                      setBusyAt(null)
-                                      set({ date: k, time: `${pad2(h)}:00` })
-                                    } else setBusyAt(`${k}_${h}`)
-                                  }}
-                                />
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="sc-legend">
-                  <span className="free">Todos libres (pulsa para elegir)</span>
-                  <span>Alguien ocupado (pulsa para ver quién)</span>
-                </p>
-                {busyAt && (
-                  <p className="sc-busy-who">
-                    {dayLabel(busyAt.split('_')[0])} a las {pad2(Number(busyAt.split('_')[1]))}:00, ocupado:{' '}
-                    {(busyPeople.get(busyAt) || []).map(nameOf).join(', ') || 'nadie'}
-                  </p>
+                      </select>
+                    </label>
+                    <div className="mf-row">
+                      <label className="mf-field">
+                        <span>Desde</span>
+                        <input
+                          type="date"
+                          value={form.date}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            set({ date: v, endDate: form.endDate < v ? v : form.endDate })
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(v)) setGridMonday(mondayOf(v))
+                          }}
+                        />
+                      </label>
+                      <label className="mf-field">
+                        <span>Hasta (incluido)</span>
+                        <input type="date" value={form.endDate} min={form.date} onChange={(e) => set({ endDate: e.target.value })} />
+                      </label>
+                    </div>
+                  </>
                 )}
+                <p className="mf-hint">Para los demás, ese tiempo sale como ocupado (sin detalles).</p>
               </>
             )}
-            {allFreeAtChosen === false && <p className="sc-warning">A esa hora no estáis todos libres.</p>}
-          </div>
-        )}
 
-        <label className="sc-field">
-          <span>Enlace (opcional)</span>
-          <input type="url" placeholder="Discord, Meet…" value={form.link} maxLength={500} onChange={(e) => set({ link: e.target.value })} />
-        </label>
-        <label className="sc-field">
-          <span>Descripción (opcional)</span>
-          <textarea value={form.description} maxLength={4000} onChange={(e) => set({ description: e.target.value })} />
-        </label>
+            {!isUnavailable && (
+              <div className="mf-field">
+                <span className="mf-label-row">
+                  Participantes {chips.length > 0 && <em className="mf-count">{chips.length === 1 ? '1 elegida' : `${chips.length} elegidas`}</em>}
+                </span>
+                {chips.length > 0 && (
+                  <div className="mf-chips">
+                    {chips.map((c) => (
+                      <span key={c.key} className={`mf-chip${c.external ? ' external' : ''}`}>
+                        <span className="mf-avatar small">{initials(c.name)}</span>
+                        {c.name}
+                        <button type="button" onClick={c.remove} aria-label={`Quitar a ${c.name}`}>
+                          <X size={13} strokeWidth={2} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <label className="mf-search">
+                  <Search size={15} strokeWidth={1.75} aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={isCeo && !meeting ? 'Buscar personas, contactos externos o grupos' : 'Buscar por nombre'}
+                    aria-label="Buscar participantes"
+                  />
+                </label>
+                {peopleError ? (
+                  <p className="mf-msg error">{peopleError}</p>
+                ) : people === null ? (
+                  <p className="mf-msg">Cargando…</p>
+                ) : rows.length === 0 ? (
+                  <p className="mf-msg">{query ? 'Nadie con ese nombre.' : 'No hay nadie a quien puedas invitar todavía.'}</p>
+                ) : (
+                  <ul className="mf-list">
+                    {rows.slice(0, MAX_LIST).map((r) => {
+                      const locked = r.type === 'account' && editingLocal
+                      return (
+                        <li key={r.key}>
+                          <label className={`mf-person${locked ? ' locked' : ''}`}>
+                            <input type="checkbox" checked={isChosen(r)} disabled={locked} onChange={() => toggle(r)} />
+                            <span className={`mf-avatar${r.noAccount || r.external ? ' muted' : ''}`}>{r.type === 'group' ? '#' : initials(r.name)}</span>
+                            <span className="mf-person-name">{r.typed ? `Añadir «${r.name}» como invitado` : r.name}</span>
+                            {r.noAccount && !r.typed && <span className="mf-tag warn">Sin cuenta</span>}
+                            {r.tag && !r.typed && <span className="mf-tag">{r.tag}</span>}
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                <p className="mf-hint">
+                  Los que aún no tienen cuenta se añaden como externos: no salen en la tabla de horas.
+                  {editingLocal && ' Para invitar a personas con cuenta, crea una reunión nueva.'}
+                </p>
+              </div>
+            )}
 
-        {saveError && <p className="sc-message error">{saveError}</p>}
-        {warning && (
-          <div className="sc-warning">
-            {warning}{' '}
-            <button type="button" className="sc-btn" disabled={saving} onClick={() => save({ ignoreWarnings: true })}>
-              Guardar igualmente
-            </button>
-          </div>
-        )}
+            {showInterview && (
+              <label className="mf-check">
+                <input type="checkbox" checked={form.interview} onChange={(e) => set({ interview: e.target.checked })} />
+                <span>Entrevista de candidato</span>
+              </label>
+            )}
 
-        <div className="sc-actions">
-          {canLocal && onMoreOptions && form.participants.length === 0 && (
-            <button type="button" className="sc-btn sc-more" onClick={() => onMoreOptions(localData())}>
-              Más opciones…
-            </button>
-          )}
-          <button type="button" className="sc-btn" onClick={onClose}>
-            Cancelar
-          </button>
-          <button type="submit" className="sc-btn-primary" disabled={saving}>
-            {saving ? 'Guardando…' : meeting ? 'Guardar cambios' : 'Crear reunión'}
-          </button>
+            {!isUnavailable && (
+              <label className="mf-field">
+                <span>Enlace</span>
+                <input type="url" value={form.link} maxLength={500} onChange={(e) => set({ link: e.target.value })} placeholder="Discord, Meet…" />
+              </label>
+            )}
+
+            {!isUnavailable && (
+              <div className="mf-more">
+                <button type="button" className="mf-more-toggle" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>
+                  <ChevronDown size={16} strokeWidth={1.75} className={moreOpen ? 'open' : ''} />
+                  Más opciones
+                </button>
+                {moreOpen && (
+                  <div className="mf-more-body">
+                    {isCeo && scope !== SCOPES.THIS && (
+                      <div className="mf-field">
+                        <span>Repetir</span>
+                        <div className="mf-row">
+                          <select value={canRepeat ? form.repeatFreq : ''} disabled={!canRepeat} onChange={(e) => set({ repeatFreq: e.target.value })} aria-label="Repetir">
+                            {REPEAT_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                          {canRepeat && form.repeatFreq && (
+                            <span className="mf-inline">
+                              cada
+                              <input type="number" min={1} max={99} value={form.repeatInterval} onChange={(e) => set({ repeatInterval: e.target.value })} aria-label="Cada" />
+                              {unitLabel(form.repeatFreq, Number(form.repeatInterval) || 2)}
+                            </span>
+                          )}
+                        </div>
+                        {!canRepeat && <em className="mf-hint">Las reuniones compartidas aún no se repiten.</em>}
+                        {canRepeat && form.repeatFreq && (
+                          <div className="mf-row">
+                            {form.repeatFreq === 'monthly' && (
+                              <select value={form.monthlyBy} onChange={(e) => set({ monthlyBy: e.target.value })} aria-label="Qué día">
+                                {repeatOptions.map((o) => (
+                                  <option key={o.value} value={o.value}>
+                                    {o.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <label className="mf-inline">
+                              hasta
+                              <input type="date" value={form.repeatUntil} min={form.date} onChange={(e) => set({ repeatUntil: e.target.value })} />
+                            </label>
+                          </div>
+                        )}
+                        {canRepeat && form.repeatFreq && <em className="mf-hint">{repeatSummary || 'Indica cada cuántas veces se repite: un número del 1 al 99.'}</em>}
+                      </div>
+                    )}
+                    <label className="mf-field">
+                      <span>Lugar</span>
+                      <input type="text" value={form.place} maxLength={200} onChange={(e) => set({ place: e.target.value })} placeholder="Sala, dirección…" />
+                    </label>
+                    {isCeo && asLocal && scope !== SCOPES.THIS && (
+                      <label className="mf-check">
+                        <input type="checkbox" checked={form.notAttending} onChange={(e) => set({ notAttending: e.target.checked })} />
+                        <span>
+                          <strong>Yo no asisto</strong>
+                          <em>
+                            La organizas para que se reúnan entre ellos: se queda en tu calendario como «Organizada por mí», sin ocupar tu
+                            tiempo, y podrás enviarles la convocatoria.
+                          </em>
+                        </span>
+                      </label>
+                    )}
+                    <label className="mf-field">
+                      <span>Descripción</span>
+                      <textarea value={form.description} maxLength={4000} rows={3} onChange={(e) => set({ description: e.target.value })} placeholder="Orden del día, detalles…" />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="mf-right">
+            <div className="mf-right-head">
+              <h3>{isUnavailable ? '¿Qué rato bloqueas?' : '¿Cuándo les va bien?'}</h3>
+              <div className="mf-week">
+                <button type="button" onClick={() => setGridMonday(addDaysKey(gridMonday, -7))} aria-label="Semana anterior">
+                  <ChevronLeft size={16} />
+                </button>
+                <span>{weekLabel(gridMonday)}</span>
+                <button type="button" onClick={() => setGridMonday(addDaysKey(gridMonday, 7))} aria-label="Semana siguiente">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {!fullDay && (
+              <div className="mf-row mf-when">
+                <label className="mf-field">
+                  <span>Día</span>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      set({ date: v, endDate: v })
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) setGridMonday(mondayOf(v))
+                    }}
+                  />
+                </label>
+                <label className="mf-field">
+                  <span>Hora</span>
+                  <input type="time" step={900} value={form.time} onChange={(e) => set({ time: e.target.value })} />
+                </label>
+                <label className="mf-field">
+                  <span>Duración</span>
+                  <select value={form.minutes} onChange={(e) => set({ minutes: Number(e.target.value) })}>
+                    {[...new Set([...DURATION_OPTIONS, Number(form.minutes)])]
+                      .sort((a, b) => a - b)
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {durationLabel(m)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {!client ? (
+              <p className="mf-msg">La tabla de horas necesita la sincronización.</p>
+            ) : busyError ? (
+              <p className="mf-msg error">{busyError}</p>
+            ) : !cells ? (
+              <p className="mf-msg">Calculando…</p>
+            ) : (
+              <div className="mf-grid-wrap" ref={gridRef}>
+                <table className="mf-grid">
+                  <thead>
+                    <tr>
+                      <th scope="col" aria-label="Hora" />
+                      {days.map((k) => (
+                        <th key={k} scope="col">
+                          {dayHead(k)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <tr key={h} data-hour={h}>
+                        <td className="mf-hour">{pad2(h)}</td>
+                        {days.map((k) => {
+                          const c = cells.get(k)?.[h]
+                          const id = `${k}_${h}`
+                          const who = (c?.busy || []).map(nameOfAccount).join(', ')
+                          return (
+                            <td key={k}>
+                              <button
+                                type="button"
+                                className={`mf-cell ${c?.state || 'none'}${chosenCells.has(id) ? ' chosen' : ''}`}
+                                disabled={!c || c.state === 'past' || c.state === 'none' || fullDay}
+                                title={who ? `Ocupados: ${who}` : undefined}
+                                aria-label={`${dayHead(k)} ${pad2(h)}:00${c?.state === 'all' ? ' · les va bien a todos' : who ? ` · ocupados: ${who}` : ''}`}
+                                onMouseEnter={() => setHover(id)}
+                                onMouseLeave={() => setHover((x) => (x === id ? null : x))}
+                                onFocus={() => setHover(id)}
+                                onClick={() => {
+                                  setHover(id)
+                                  set({ date: k, time: `${pad2(h)}:00`, endDate: k })
+                                }}
+                              >
+                                {c?.state === 'some' ? `${c.free}/${c.total}` : ''}
+                              </button>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <p className="mf-legend">
+              <span className="all">Les va bien a todos</span>
+              <span className="some">Solo a algunos</span>
+              <span className="nobody">A nadie</span>
+              <span className="chosen">Hora elegida</span>
+            </p>
+            <p className="mf-hover" aria-live="polite">
+              {hoverCell && hoverCell.busy.length > 0
+                ? `${dayHead(hover.split('_')[0])} · ${pad2(Number(hover.split('_')[1]))}:00 — ocupados: ${hoverCell.busy.map(nameOfAccount).join(', ')}`
+                : ' '}
+            </p>
+
+            {times?.exists && !fullDay && (
+              <div className={`mf-summary${chosenBusy?.length ? ' warn' : chosenBusy ? ' ok' : ''}`}>
+                <strong>{whenText(times.start, times.end, zone)}</strong>
+                {chosenBusy &&
+                  (chosenBusy.length === 0 ? (
+                    <span>{gridPeople.length > 1 ? `Les va bien a todos (${gridPeople.length} contigo)` : 'Estás libre'}</span>
+                  ) : (
+                    <span>Ocupados a esa hora: {chosenBusy.map(nameOfAccount).join(', ')}</span>
+                  ))}
+              </div>
+            )}
+          </section>
         </div>
+
+        <footer className="mf-foot">
+          <div className="mf-foot-text">
+            <p className="mf-foot-note">{footNote}</p>
+            {error && <p className="mf-msg error">{error}</p>}
+            {warning && (
+              <p className="mf-msg warn">
+                {warning}{' '}
+                <button type="button" className="mf-btn" disabled={saving} onClick={() => save({ ignoreWarnings: true })}>
+                  Guardar igualmente
+                </button>
+              </p>
+            )}
+          </div>
+          <div className="mf-actions">
+            <button type="button" className="mf-btn" onClick={onClose}>
+              Cancelar
+            </button>
+            <button type="submit" className="mf-btn primary" disabled={saving}>
+              {submitLabel}
+            </button>
+          </div>
+        </footer>
       </form>
-    </Modal>
+    </div>,
+    document.body,
   )
 }
