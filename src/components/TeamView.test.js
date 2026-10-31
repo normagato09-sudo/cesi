@@ -49,7 +49,8 @@ describe('TeamView', () => {
 
   it('la ficha lo junta todo con un solo «Editar»', () => {
     const html = render({ ...base, selectedMemberId: 'ana' })
-    expect(html).toContain('Buscar hueco con esta persona')
+    expect(html).toContain('Nueva reunión con esta persona')
+    expect(html).not.toContain('Buscar hueco')
     expect(html).toContain('>Editar<')
     expect(html).not.toContain('Ficha de contacto')
     expect(html).not.toContain('Editar perfil')

@@ -48,7 +48,7 @@ export default function EventPreview({ preview }) {
         {eventTitle(event)}
         {event.provisional && <span className="event-preview-badge">Provisional</span>}
         {event.notAttending && <span className="organized-badge">{NOT_ATTENDING_LABEL}</span>}
-        {event.shared && <span className="event-preview-badge">{event.sharedPending ? `${SHARED_LABEL} · Pendiente` : SHARED_LABEL}</span>}
+        {event.shared && <span className="event-preview-badge">{event.badge || (event.sharedPending ? `${SHARED_LABEL} · Pendiente` : SHARED_LABEL)}</span>}
       </p>
       <p className="event-preview-when">{when}</p>
       {!event.isUnavailable && !event.shared && (

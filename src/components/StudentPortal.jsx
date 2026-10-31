@@ -3,8 +3,9 @@ import { Award, BookOpen, CalendarDays, House, Mail, MessageCircle, Pencil } fro
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
-import { countryName, localTimeZone } from '../lib/timezones'
+import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
+import { viewZone } from '../lib/zoneView'
 import './StudentPortal.css'
 
 // Portal del alumno (papel 'alumno'). Consultas directas a Supabase (sin el motor de
@@ -145,7 +146,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
           <SharedCalendar
             client={preview ? calendarClient : client}
             meId={preview ? calendarAs : userId}
-            zone={profile.time_zone || localTimeZone()}
+            zone={viewZone(profile)}
             asId={preview ? calendarAs : null}
             readOnly={readOnly}
           />

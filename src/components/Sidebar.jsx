@@ -1,4 +1,4 @@
-import { CalendarCheck, DatabaseBackup, Eye } from 'lucide-react'
+import { DatabaseBackup, Eye } from 'lucide-react'
 import SummaryPanel from './SummaryPanel.jsx'
 import ProposalsPanel from './ProposalsPanel.jsx'
 import MissingNotesPanel from './MissingNotesPanel.jsx'
@@ -14,7 +14,6 @@ export default function Sidebar({
   section,
   onSectionChange,
   onOpenBackup,
-  onOpenBookingLink = null,
   unavailableMeetings = [],
   onOpenUnavailable,
   onRescheduleUnavailable,
@@ -72,12 +71,6 @@ export default function Sidebar({
           <button type="button" className="sidebar-backup-btn" onClick={viewAs.open} title="Ver la app como otro papel (solo lectura)">
             <Eye size={16} strokeWidth={1.75} />
             <span>Ver como…</span>
-          </button>
-        )}
-        {onOpenBookingLink && (
-          <button type="button" className="sidebar-backup-btn" onClick={onOpenBookingLink} title="Enlace de reservas">
-            <CalendarCheck size={16} strokeWidth={1.75} />
-            <span>Enlace de reservas</span>
           </button>
         )}
         <button

@@ -28,3 +28,10 @@ export function saveWorkingHours(workingHours) {
 }
 
 export { STORAGE_KEY }
+
+// Mi disponibilidad desde «Mi perfil» (account_profiles.availability, el mismo formato de semana):
+// solo si el perfil está completo; si no, null (se usa el horario guardado de antes).
+export function profileWorkingHours(profile) {
+  if (!profile?.completed_at || !Array.isArray(profile.availability)) return null
+  return normalizeWeek(profile.availability, defaultWorkingHours())
+}

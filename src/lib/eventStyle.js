@@ -11,6 +11,7 @@ export const SHARED_COLOR = '#7c3aed'
 export const SHARED_LABEL = 'Compartida'
 
 export function colorForEvent(event) {
+  if (event.color) return event.color
   if (event.shared) return SHARED_COLOR
   if (event.provisional && event.proposalId) return PROVISIONAL_COLOR
   if (event.isUnavailable) return UNAVAILABLE_COLOR

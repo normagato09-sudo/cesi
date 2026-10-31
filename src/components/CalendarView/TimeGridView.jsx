@@ -291,7 +291,7 @@ export default function TimeGridView({ days, events, workingHours = null, onSele
                       {format(event.start, 'HH:mm')}
                       {event.provisional && <span className="time-grid-event-provisional"> · Provisional</span>}
                       {event.notAttending && <span className="time-grid-event-organized"> · {NOT_ATTENDING_LABEL}</span>}
-                      {event.shared && <span className="time-grid-event-organized"> · {event.sharedPending ? `${SHARED_LABEL} · Pendiente` : SHARED_LABEL}</span>}
+                      {event.shared && <span className="time-grid-event-organized"> · {event.badge || (event.sharedPending ? `${SHARED_LABEL} · Pendiente` : SHARED_LABEL)}</span>}
                     </span>
                     <div
                       className="time-grid-event-resize-handle"

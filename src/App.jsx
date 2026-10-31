@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import { addDays, addMonths, addWeeks, format, subDays, subMonths, subWeeks } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { CalendarCheck, Clock, Eye } from 'lucide-react'
+import { addDays, format, subDays } from 'date-fns'
+import { Clock, Eye } from 'lucide-react'
 import Sidebar from './components/Sidebar.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import HomeView from './components/HomeView.jsx'
@@ -9,7 +8,8 @@ import ProfileReminder from './components/ProfileReminder.jsx'
 import { useMyProfile } from './components/useMyProfile'
 import { usePublishCeoBusy, useSharedMeetings } from './hooks/useSharedMeetings'
 import { sharedEventsForCalendar } from './lib/sharedCalendar'
-import { localTimeZone } from './lib/timezones'
+import { eventsInZone, fromWall, realEvent, toWall, viewZone } from './lib/zoneView'
+import { profileWorkingHours } from './lib/availability'
 import CalendarHeader from './components/CalendarHeader.jsx'
 import MonthView from './components/CalendarView/MonthView.jsx'
 import WeekView from './components/CalendarView/WeekView.jsx'
@@ -100,15 +100,13 @@ import {
 // Mis tareas personales antiguas (tasks): ya no salen en ningún sitio (las tareas son las del
 // equipo, team_tasks); se siguen guardando y sincronizando tal cual, sin borrar nada.
 import { STORAGE_KEY as TASKS_KEY, getAllTasks, taskSourcePatches, tasksStore } from './lib/tasks.js'
-import { COMPACT_WEEK_DAYS, getVisibleRange } from './lib/dateHelpers.js'
+import { getVisibleRange } from './lib/dateHelpers.js'
+import { headerLabel, readView, stepDate, writeView } from './lib/calendarNav.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { computeSummary } from './lib/summary.js'
 import { STORAGE_KEY as WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability } from './lib/weeklyAvailability.js'
-import { getPreferences, savePreferences } from './lib/preferences.js'
 import { DAY_END_MINUTES } from './lib/weeklySchedule.js'
 import { contactDataFromText, participantFields, participantsOf } from './lib/contacts.js'
-import { useBookings } from './hooks/useBookings.js'
-import { bookingContactData, bookingLinkUrl, decideRequest, matchContact, requestDescription, requestTitle } from './lib/bookings.js'
 import './App.css'
 
 // Las secciones y los modales que no hacen falta al abrir el calendario se cargan aparte,
@@ -125,7 +123,6 @@ const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
 const CeoTeamPanel = lazy(() => import('./components/CeoTeamPanel.jsx'))
-const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
 const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
 const ComingSoonView = lazy(() => import('./components/ComingSoonView.jsx'))
@@ -134,9 +131,6 @@ const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
-const MyScheduleModal = lazy(() => import('./components/MyScheduleModal.jsx'))
-const BookingLinkModal = lazy(() => import('./components/BookingLinkModal.jsx'))
-const BookingDecisionModal = lazy(() => import('./components/BookingDecisionModal.jsx'))
 
 // Mientras llega el código de una sección: un aviso discreto que solo se ve si tarda.
 function SectionLoading() {
@@ -148,23 +142,6 @@ function SectionLoading() {
 }
 
 // Rango compacto, p. ej. "23–25 sept 2026", "30 sept – 2 oct 2026" o "30 dic 2026 – 1 ene 2027".
-function formatCompactRange(start, end) {
-  if (start.getFullYear() !== end.getFullYear()) {
-    return `${format(start, 'd MMM yyyy', { locale: es })} – ${format(end, 'd MMM yyyy', { locale: es })}`
-  }
-  if (start.getMonth() !== end.getMonth()) {
-    return `${format(start, 'd MMM', { locale: es })} – ${format(end, 'd MMM yyyy', { locale: es })}`
-  }
-  return `${format(start, 'd')}–${format(end, 'd MMM yyyy', { locale: es })}`
-}
-
-function getHeaderLabel(currentDate, view, compactWeek) {
-  if (view === 'week' && compactWeek) return formatCompactRange(currentDate, addDays(currentDate, COMPACT_WEEK_DAYS - 1))
-  if (view === 'day') return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
-  if (view === 'week') return format(currentDate, "'Semana del' d 'de' MMMM yyyy", { locale: es })
-  return format(currentDate, 'MMMM yyyy', { locale: es })
-}
-
 export default function App() {
   // Se abre en Inicio.
   const [section, setSection] = useState('home')
@@ -173,7 +150,12 @@ export default function App() {
   const [selectedMemberId, setSelectedMemberId] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
-  const [view, setView] = useState('month')
+  // Vista del calendario: la última que elegí en este dispositivo.
+  const [view, setViewState] = useState(() => readView())
+  const setView = (next) => {
+    writeView(next)
+    setViewState(next)
+  }
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
   // true si la reunión se abrió para escribir las notas (desde "Sin notas").
@@ -182,14 +164,10 @@ export default function App() {
   const [convocationFor, setConvocationFor] = useState(null)
   const [formModal, setFormModal] = useState(null)
   // null = cerrado; { participants, interview, ... } = abierto, con los participantes iniciales
-  // si los hay (interview: true desde "Buscar hueco para entrevista").
+  // si los hay. Sirve para recolocar una reunión (desde los avisos) y desde mi formulario de eventos.
   const [findSlot, setFindSlot] = useState(null)
   const [backupOpen, setBackupOpen] = useState(false)
-  // Enlace de reservas: modal del enlace y solicitud que se está aceptando o rechazando ({ request, decision }).
-  const [bookingLinkOpen, setBookingLinkOpen] = useState(false)
-  const [bookingDecision, setBookingDecision] = useState(null)
   const [proposalModalId, setProposalModalId] = useState(null)
-  const [scheduleOpen, setScheduleOpen] = useState(false)
   // Pregunta "¿Solo este día, este y los siguientes o toda la serie?": { action, title, resolve }.
   const [scopeAsk, setScopeAsk] = useState(null)
   // Tarea abierta: null = cerrada; { task } para editarla o { initial } para crear una nueva.
@@ -207,16 +185,17 @@ export default function App() {
   // En móvil la vista Semana muestra solo COMPACT_WEEK_DAYS días a partir de currentDate.
   const compactWeek = useMediaQuery('(max-width: 640px)')
 
-  const range = useMemo(
-    () => getVisibleRange(currentDate, view, { compactWeek }),
-    [currentDate, view, compactWeek],
-  )
+  // Un día más a cada lado: el calendario se ve en la zona de mi perfil, que puede no ser la del
+  // dispositivo.
+  const range = useMemo(() => {
+    const r = getVisibleRange(currentDate, view, { compactWeek })
+    return { start: subDays(r.start, 1), end: addDays(r.end, 1) }
+  }, [currentDate, view, compactWeek])
 
   const {
     rawEvents,
     events,
-    workingHours,
-    setWorkingHours,
+    workingHours: storedWorkingHours,
     checkConflict,
     addEvent,
     editEvent,
@@ -235,7 +214,9 @@ export default function App() {
   const [proposals, reloadProposals] = useStoredValue(PROPOSALS_KEY, getAllProposals)
   const [groups, reloadGroups] = useStoredValue(GROUPS_KEY, getAllGroups)
   const [storedAreas, reloadTeamAreas] = useStoredValue(AREAS_KEY, getStoredTeamAreas)
-  const [weeklyAvailability, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
+  // weekly_availability (la antigua «Disponibilidad de la semana») ya no se usa; se sigue
+  // sincronizando tal cual, sin borrar nada.
+  const [, reloadWeeklyAvailability] = useStoredValue(WEEKLY_AVAILABILITY_KEY, getAllWeeklyAvailability)
   const [vacancies, reloadVacancies] = useStoredValue(VACANCIES_KEY, getAllVacancies)
   const [, reloadTasks] = useStoredValue(TASKS_KEY, getAllTasks)
   const [students, reloadStudents] = useStoredValue(STUDENTS_KEY, getAllStudents)
@@ -284,7 +265,13 @@ export default function App() {
   // completo, Inicio lo recuerda.
   const myProfile = useMyProfile(syncClient, sync?.userId || null)
   const myProfileMissing = !!myProfile.data && !myProfile.data.profile?.completed_at
-  const myZone = myProfile.data?.profile?.time_zone || localTimeZone()
+  // Todo se ve en la zona de mi perfil (si no está completo, en la del dispositivo).
+  const myZone = viewZone(myProfile.data?.profile)
+  // Mi disponibilidad: la de mi perfil; sin perfil completo, el horario guardado de antes.
+  const workingHours = useMemo(
+    () => profileWorkingHours(myProfile.data?.profile) || storedWorkingHours,
+    [myProfile.data, storedWorkingHours],
+  )
 
   // Calendario compartido: sus reuniones salen también en mi calendario (en morado, «Compartida»),
   // leídas aparte de mis eventos; y mis bloques ocupados se publican (solo horas) para el
@@ -294,46 +281,14 @@ export default function App() {
     const shared = sharedEventsForCalendar(sharedMeetings.rows)
     return shared.length > 0 ? [...events, ...shared] : events
   }, [events, sharedMeetings.rows])
+  // Lo que se ve en Mes, Semana y Día: en la zona de mi perfil (ver zoneView.js).
+  const zonedEvents = useMemo(() => eventsInZone(calendarEvents, myZone), [calendarEvents, myZone])
   const [sharedOpen, setSharedOpen] = useState(null) // reunión compartida abierta
   const [sharedForm, setSharedForm] = useState(null) // { meeting } (null: nueva)
   usePublishCeoBusy(syncClient, rawEvents, now)
   const syncStatus = useSyncStatus()
   const viewAs = useViewAs()
   const canSaveDepartments = !sync || syncStatus.status === 'synced'
-  // Enlace de reservas: con sesión iniciada (ya pasada la primera sincronización).
-  const bookingsActive = !!sync && ['syncing', 'synced', 'offline', 'error'].includes(syncStatus.status)
-  const bookings = useBookings({ active: bookingsActive, rawEvents, workingHours, now })
-  // Las solicitudes pendientes ocupan su hueco también en "Buscar hueco".
-  const bookingRequests = useMemo(() => bookings.requests.map((r) => ({ start: r.starts_at, end: r.ends_at })), [bookings.requests])
-
-  // Aceptar (se crea la reunión con su enlace, vinculada al contacto si coincide o al nuevo si se guarda) o
-  // rechazar una solicitud. Devuelve un aviso si la hora ya se solapa con algo del calendario.
-  const handleBookingDecision = async ({ saveContact, meetLink = '' }) => {
-    const { request, decision } = bookingDecision
-    await decideRequest(request.id, decision)
-    bookings.setRequests((list) => list.filter((r) => r.id !== request.id))
-    if (decision !== 'accepted') return null
-    const start = new Date(request.starts_at)
-    const end = new Date(request.ends_at)
-    let contact = matchContact(request, contacts)
-    if (!contact && saveContact) contact = addContact(bookingContactData(request))
-    const conflict = checkConflict(start, end)
-    addEvent({
-      title: requestTitle(request),
-      description: requestDescription(request),
-      ...participantFields(contact ? [contact] : [], contact ? [] : [request.name]),
-      isUnavailable: false,
-      allDay: false,
-      start: start.toISOString(),
-      end: end.toISOString(),
-      recurrence: null,
-      // Según dónde quiso hacerla: mi sala fija, uno nuevo de Jitsi o ninguno (ver videoCall.js).
-      meetLink,
-      bookingRequestId: request.id,
-    })
-    return conflict ? 'Ojo: a esa hora ya tienes otra cosa en el calendario (se ha creado igualmente).' : null
-  }
-
   useEffect(() => {
     if (!canSaveDepartments) return
     // Migraciones únicas de datos (departamentos; antiguos miembros al archivo).
@@ -353,13 +308,13 @@ export default function App() {
     () => ({
       rawEvents,
       workingHours,
-      bookingRequests,
+      bookingRequests: [],
       contacts,
       addContact,
       proposals,
       groups,
     }),
-    [rawEvents, workingHours, bookingRequests, contacts, addContact, proposals, groups],
+    [rawEvents, workingHours, contacts, addContact, proposals, groups],
   )
 
   // Propuestas pendientes para la barra lateral, con sus opciones y si han caducado.
@@ -561,12 +516,6 @@ export default function App() {
     [rawEvents, workingHours, now],
   )
 
-  // "Mi horario": se guarda como horario fijo y deja de partir de la última semana declarada.
-  const handleSaveSchedule = (week) => {
-    setWorkingHours(week)
-    savePreferences({ ...getPreferences(), fixedScheduleSaved: true })
-  }
-
   const handleCreateGroup = (data) => {
     groupsStore.create(data)
     reloadGroups()
@@ -747,8 +696,7 @@ export default function App() {
     handleIncorporate(contact, candidacyId, vacancy, { contactPatch: {}, teamProfile: acceptedTeamProfile(contact, vacancy) })
   }
 
-  const handleFindInterviewSlot = (contact) =>
-    setFindSlot({ participants: { participantIds: [contact.id], guests: [] }, interview: true })
+  const handleFindInterviewSlot = (contact) => openNewMeeting({ externalIds: [contact.id], interview: true })
 
   // Candidato → miembro del equipo: perfil con el nuevo rol en su trayectoria (si ya era del equipo,
   // se ha preguntado si se suma o sustituye), vacante cubierta y, si quedan otros candidatos, se
@@ -810,7 +758,50 @@ export default function App() {
     setSection(id)
   }
 
-  const handleNewMeeting = () => setFormModal({ mode: 'meeting', editingEvent: null, prefill: null })
+  // «Nueva reunión»: con la sincronización, el formulario único (reunión compartida si hay alguien
+  // con cuenta; si no, evento mío). Sin ella, mi formulario de eventos de siempre.
+  // prefill: { date, time, externalIds, interview }.
+  const openNewMeeting = (prefill = {}) => {
+    if (sync) {
+      setSharedForm({ meeting: null, prefill })
+      return
+    }
+    const eventPrefill = {}
+    if (prefill.externalIds?.length) Object.assign(eventPrefill, { participantIds: prefill.externalIds, guests: [] })
+    if (prefill.interview) eventPrefill.interview = true
+    if (prefill.start) Object.assign(eventPrefill, { start: prefill.start, end: prefill.end })
+    setFormModal({ mode: 'meeting', editingEvent: null, prefill: Object.keys(eventPrefill).length ? eventPrefill : null })
+  }
+  const handleNewMeeting = () => openNewMeeting()
+
+  // Reunión sin nadie con cuenta (o solo con contactos externos): un evento mío, como siempre.
+  const handleSaveLocalMeeting = ({ title, description, start, end, link, externalIds, interview }, options) =>
+    handleFormSubmit(
+      {
+        title,
+        description,
+        ...participantFields(externalIds.map((id) => contacts.find((c) => c.id === id)).filter(Boolean), []),
+        meetLink: link,
+        notAttending: false,
+        ...(interview ? { interview: true } : {}),
+        isUnavailable: false,
+        allDay: false,
+        start,
+        end,
+        recurrence: null,
+      },
+      options,
+    )
+
+  // «Más opciones»: mi formulario de eventos de siempre, con lo ya escrito.
+  const handleMoreMeetingOptions = ({ title, description, start, end, link, externalIds, interview }) => {
+    setSharedForm(null)
+    setFormModal({
+      mode: 'meeting',
+      editingEvent: null,
+      prefill: { title, description, start, end, meetLink: link, participantIds: externalIds, guests: [], ...(interview ? { interview: true } : {}) },
+    })
+  }
 
   // Pasar a antiguo miembro lo archiva y volver al equipo (o entrar en él) lo desarchiva.
   // Devuelve el cambio del contacto completo (ver formerMembers.js y archive.js).
@@ -861,10 +852,9 @@ export default function App() {
     setSection('team')
   }
 
-  const handleFindSlotWithContact = (contact) => setFindSlot({ participants: { participantIds: [contact.id], guests: [] } })
-
-  const handleNewMeetingWithContact = (contact) =>
-    setFormModal({ mode: 'meeting', editingEvent: null, prefill: { participantIds: [contact.id], guests: [] } })
+  // «Nueva reunión con esta persona»: el formulario con el contacto ya añadido (como externo y, si
+  // tiene cuenta, también como participante).
+  const handleNewMeetingWithContact = (contact) => openNewMeeting({ externalIds: [contact.id] })
 
   const handleOpenContact = (contactId) => {
     const contact = contacts.find((c) => c.id === contactId)
@@ -898,6 +888,7 @@ export default function App() {
     setSelectedEvent((ev) => (ev ? { ...ev, ...fields } : ev))
   }
 
+  // Hueco del calendario (día y hora en la zona de mi perfil): «Nueva reunión» a esa hora.
   const handleSlotClick = (day, hour) => {
     const start = new Date(day)
     start.setHours(hour, 0, 0, 0)
@@ -905,7 +896,7 @@ export default function App() {
     const dayEnd = new Date(day)
     dayEnd.setHours(0, DAY_END_MINUTES, 0, 0)
     const end = new Date(Math.min(start.getTime() + 60 * 60 * 1000, dayEnd.getTime()))
-    setFormModal({ mode: 'meeting', editingEvent: null, prefill: { start, end } })
+    openNewMeeting({ date: format(start, 'yyyy-MM-dd'), time: format(start, 'HH:mm'), start: fromWall(start, myZone), end: fromWall(end, myZone) })
   }
 
   const handleEditEvent = async (event) => {
@@ -966,6 +957,9 @@ export default function App() {
     applyOccurrenceChange(event, { start: newStart, end: newEnd, acceptedUnavailable: acceptedUnavailableFor(moved) }, scope)
   }
 
+  // Arrastrar o estirar en las vistas: de la hora de la zona de mi perfil a la de verdad.
+  const handleZonedMove = (event, newStart, newEnd) => handleMoveOrResize(realEvent(event), fromWall(newStart, myZone), fromWall(newEnd, myZone))
+
   const handleFindSlotPick = (slot, participants, { notAttending = false, interview = false } = {}) => {
     const reschedule = findSlot?.reschedule
     setFindSlot(null)
@@ -1013,21 +1007,10 @@ export default function App() {
     applyInterviewUpdates(data)
   }
 
-  const handlePrev = () => {
-    if (view === 'month') setCurrentDate((d) => subMonths(d, 1))
-    else if (view === 'week' && compactWeek) setCurrentDate((d) => subDays(d, COMPACT_WEEK_DAYS))
-    else if (view === 'week') setCurrentDate((d) => subWeeks(d, 1))
-    else setCurrentDate((d) => subDays(d, 1))
-  }
+  const handlePrev = () => setCurrentDate((d) => stepDate(d, view, compactWeek, -1))
+  const handleNext = () => setCurrentDate((d) => stepDate(d, view, compactWeek, 1))
 
-  const handleNext = () => {
-    if (view === 'month') setCurrentDate((d) => addMonths(d, 1))
-    else if (view === 'week' && compactWeek) setCurrentDate((d) => addDays(d, COMPACT_WEEK_DAYS))
-    else if (view === 'week') setCurrentDate((d) => addWeeks(d, 1))
-    else setCurrentDate((d) => addDays(d, 1))
-  }
-
-  const handleToday = () => setCurrentDate(new Date())
+  const handleToday = () => setCurrentDate(toWall(new Date(), myZone))
 
   return (
     <SchedulingContext.Provider value={scheduling}>
@@ -1038,7 +1021,6 @@ export default function App() {
           section={section}
           onSectionChange={goToSection}
           onOpenBackup={() => setBackupOpen(true)}
-          onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
           proposals={proposalItems}
           onOpenProposal={setProposalModalId}
           missingNotes={missingNotes}
@@ -1065,7 +1047,6 @@ export default function App() {
                 onRemoveContact={removeContact}
                 onOpenEvent={openEvent}
                 onNewMeetingWithContact={handleNewMeetingWithContact}
-                onFindSlotWithContact={handleFindSlotWithContact}
                 onCreateGroup={handleCreateGroup}
                 onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
                 onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
@@ -1102,14 +1083,6 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <AccessView contacts={contacts} students={students} onCreateStudent={handleAddStudent} />
-            </Suspense>
-          </div>
-        )}
-
-        {section === 'slots' && (
-          <div className="app-main">
-            <Suspense fallback={<SectionLoading />}>
-              <SlotsView proposals={proposalItems} onFindSlot={() => setFindSlot({})} onOpenProposal={setProposalModalId} />
             </Suspense>
           </div>
         )}
@@ -1231,7 +1204,6 @@ export default function App() {
                 onKeepActive={handleKeepActive}
                 onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
                 onOpenEvent={openEvent}
-                onFindSlot={handleFindSlotWithContact}
                 onNewMeeting={handleNewMeetingWithContact}
                 onOpenCandidate={handleOpenCandidate}
                 onReorder={handleReorderDepartment}
@@ -1254,18 +1226,6 @@ export default function App() {
                     <CeoTeamPanel client={sync.client} meId={sync.userId} zone={myZone} />
                   </Suspense>
                 ) : null
-              }
-              bookings={
-                sync
-                  ? {
-                      requests: bookings.requests,
-                      onOpenLink: () => setBookingLinkOpen(true),
-                      contacts,
-                      onUnarchive: handleUnarchiveContact,
-                      onAccept: (request) => setBookingDecision({ request, decision: 'accepted' }),
-                      onReject: (request) => setBookingDecision({ request, decision: 'rejected' }),
-                    }
-                  : null
               }
             />
           </div>
@@ -1290,25 +1250,22 @@ export default function App() {
         {section === 'calendar' && (
           <div className="app-main">
             <CalendarHeader
-              label={getHeaderLabel(currentDate, view, compactWeek)}
+              label={headerLabel(currentDate, view, compactWeek)}
               view={view}
               onViewChange={setView}
               onPrev={handlePrev}
               onNext={handleNext}
               onToday={handleToday}
               onNewMeeting={handleNewMeeting}
-              onNewShared={sync ? () => setSharedForm({ meeting: null }) : null}
-              onFindSlot={() => setFindSlot({})}
-              onOpenSchedule={() => setScheduleOpen(true)}
             />
 
             <div className="app-calendar-body">
               {view === 'month' && (
                 <MonthView
                   currentDate={currentDate}
-                  events={calendarEvents}
-                  onSelectEvent={openEvent}
-                  onMoveEvent={handleMoveOrResize}
+                  events={zonedEvents}
+                  onSelectEvent={(ev) => openEvent(realEvent(ev))}
+                  onMoveEvent={handleZonedMove}
                   onSelectDay={(day) => {
                     setCurrentDate(day)
                     setView('day')
@@ -1319,23 +1276,23 @@ export default function App() {
                 <WeekView
                   currentDate={currentDate}
                   compact={compactWeek}
-                  events={calendarEvents}
+                  events={zonedEvents}
                   workingHours={workingHours}
-                  onSelectEvent={openEvent}
+                  onSelectEvent={(ev) => openEvent(realEvent(ev))}
                   onSlotClick={handleSlotClick}
-                  onMoveEvent={handleMoveOrResize}
-                  onResizeEvent={handleMoveOrResize}
+                  onMoveEvent={handleZonedMove}
+                  onResizeEvent={handleZonedMove}
                 />
               )}
               {view === 'day' && (
                 <DayView
                   currentDate={currentDate}
-                  events={calendarEvents}
+                  events={zonedEvents}
                   workingHours={workingHours}
-                  onSelectEvent={openEvent}
+                  onSelectEvent={(ev) => openEvent(realEvent(ev))}
                   onSlotClick={handleSlotClick}
-                  onMoveEvent={handleMoveOrResize}
-                  onResizeEvent={handleMoveOrResize}
+                  onMoveEvent={handleZonedMove}
+                  onResizeEvent={handleZonedMove}
                 />
               )}
             </div>
@@ -1347,7 +1304,6 @@ export default function App() {
           onSectionChange={goToSection}
           showAccess={!!sync}
           actions={[
-            ...(sync ? [{ id: 'booking-link', label: 'Enlace de reservas', Icon: CalendarCheck, onClick: () => setBookingLinkOpen(true) }] : []),
             ...(viewAs ? [{ id: 'view-as', label: 'Ver como…', Icon: Eye, onClick: viewAs.open }] : []),
           ]}
         />
@@ -1378,6 +1334,10 @@ export default function App() {
               meId={sync.userId}
               zone={myZone}
               meeting={sharedForm.meeting}
+              prefill={sharedForm.prefill}
+              externalContacts={contacts}
+              onSaveLocal={handleSaveLocalMeeting}
+              onMoreOptions={handleMoreMeetingOptions}
               onClose={() => setSharedForm(null)}
               onSaved={() => {
                 setSharedForm(null)
@@ -1408,7 +1368,7 @@ export default function App() {
           onConfirmOption={handleConfirmOption}
           onCancelProposal={handleCancelProposal}
           onTeamTask={sync ? setTeamTaskDraft : null}
-          organizerName={bookings.link?.display_name || ''}
+          organizerName={myProfile.data?.profile?.full_name || ''}
         />
 
         {teamTaskDraft && sync && (
@@ -1460,50 +1420,9 @@ export default function App() {
           </Suspense>
         )}
 
-        {bookingLinkOpen && (
-          <Suspense fallback={null}>
-            <BookingLinkModal
-              key={bookings.link === undefined ? 'cargando' : bookings.link?.token || 'sin-enlace'}
-              syncActive={bookingsActive}
-              link={bookingsActive ? bookings.link : null}
-              onLinkChange={bookings.onLinkChange}
-              rawEvents={rawEvents}
-              workingHours={workingHours}
-              onClose={() => setBookingLinkOpen(false)}
-            />
-          </Suspense>
-        )}
-
-        {bookingDecision && (
-          <Suspense fallback={null}>
-            <BookingDecisionModal
-              request={bookingDecision.request}
-              decision={bookingDecision.decision}
-              contacts={contacts}
-              onUnarchive={handleUnarchiveContact}
-              linkUrl={bookings.link ? bookingLinkUrl(bookings.link.token) : ''}
-              onDecide={handleBookingDecision}
-              onClose={() => setBookingDecision(null)}
-            />
-          </Suspense>
-        )}
-
         {backupOpen && (
           <Suspense fallback={null}>
             <BackupModal onClose={() => setBackupOpen(false)} onRestored={handleBackupRestored} />
-          </Suspense>
-        )}
-
-        {scheduleOpen && (
-          <Suspense fallback={null}>
-            <MyScheduleModal
-              workingHours={workingHours}
-              weeklyAvailability={weeklyAvailability}
-              saved={!!getPreferences().fixedScheduleSaved}
-              onSave={handleSaveSchedule}
-              onClose={() => setScheduleOpen(false)}
-              onOpenBookingLink={sync ? () => setBookingLinkOpen(true) : null}
-            />
           </Suspense>
         )}
 

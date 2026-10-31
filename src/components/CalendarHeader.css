@@ -206,3 +206,10 @@
     flex-shrink: 0;
   }
 }
+
+/* Zona en la que se ven las horas (calendario del equipo y de los alumnos). */
+.calendar-header-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

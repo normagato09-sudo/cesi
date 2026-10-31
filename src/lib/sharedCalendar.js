@@ -122,6 +122,45 @@ export function sharedMeetingEvent(row) {
   }
 }
 
+// Colores del calendario del equipo y de los alumnos.
+export const CLASS_COLOR = '#059669'
+export const MUTED_COLOR = '#9ca3af'
+
+/**
+ * Lo que ve una persona de equipo o un alumno en su calendario (Mes, Semana, Día): sus reuniones
+ * compartidas y sus clases, como eventos de solo lectura (no se arrastran) con su etiqueta. Al
+ * pulsar uno, `item` dice qué ficha abrir.
+ */
+export function memberCalendarEvents(meetings, classes, meId) {
+  const meetingEvents = meetings.map((m) => {
+    const item = meetingItem(m)
+    const badge = itemBadge(item, meId)
+    const muted = m.cancelled || m.my_status === 'declined'
+    return { id: item.id, title: m.title, start: item.start, end: item.end, shared: true, badge, item, participantIds: [], guests: [], ...(muted ? { color: MUTED_COLOR } : {}) }
+  })
+  const classEvents = classes.map((c) => {
+    const item = classItem(c)
+    return { id: item.id, title: item.title, start: item.start, end: item.end, shared: true, badge: itemBadge(item, meId), item, color: CLASS_COLOR, participantIds: [], guests: [] }
+  })
+  return [...meetingEvents, ...classEvents]
+}
+
+// Etiqueta de lo que sale en el calendario de una persona.
+export function itemBadge(item, meId) {
+  if (item.kind === 'class') {
+    const c = item.cls
+    if (c.kind === 'profesor') return `Clase que das · ${c.confirmed} confirmados`
+    return `Clase${c.teacher_name ? ` · ${c.teacher_name}` : ''}${c.my_status === 'yes' ? ' · Vas' : c.my_status === 'no' ? ' · No irás' : ''}`
+  }
+  const m = item.meeting
+  if (m.cancelled) return 'Cancelada'
+  if (m.organizer_id === meId) {
+    const accepted = m.participants.filter((p) => p.id !== meId && p.status === 'accepted').length
+    return `Organizas · ${accepted} de ${m.participants.length - 1} han aceptado`
+  }
+  return { pending: 'Pendiente', declined: 'Rechazada', accepted: 'Aceptada' }[m.my_status] || 'Compartida'
+}
+
 // Las que salen en mi calendario: ni canceladas ni rechazadas.
 export function sharedEventsForCalendar(rows) {
   return rows.filter((m) => !m.cancelled && m.my_status !== 'declined').map(sharedMeetingEvent)
@@ -175,6 +214,36 @@ export function freeHours(busyRows, keys, zone, now = new Date()) {
   return out
 }
 
+/**
+ * Quién está ocupado en cada hora: Map('AAAA-MM-DD_h' → [ids]) (solo las horas con alguien).
+ * Para ver, al pulsar una hora ocupada, quién no puede (sin detalles).
+ */
+export function busyByHour(busyRows, keys, zone) {
+  const out = new Map()
+  for (const key of keys) {
+    for (let h = 0; h < 24; h++) {
+      const { date: start, exists } = instantOf(key, `${pad2(h)}:00`, zone)
+      if (!exists) continue
+      const end = h === 23 ? instantOf(addDaysKey(key, 1), '00:00', zone).date : instantOf(key, `${pad2(h + 1)}:00`, zone).date
+      const ids = [...new Set(busyRows.filter((r) => new Date(r.starts_at) < end && new Date(r.ends_at) > start).map((r) => r.profile_id))]
+      if (ids.length > 0) out.set(`${key}_${h}`, ids)
+    }
+  }
+  return out
+}
+
+// Contactos externos de una reunión compartida: van en la descripción («Externos: Ana (ana@x.com)»).
+export function externalsLine(contacts) {
+  const names = contacts.map((c) => (c.email ? `${c.name || c.email} (${c.email})` : c.name || 'Sin nombre'))
+  return names.length > 0 ? `Externos: ${names.join(', ')}` : ''
+}
+
+export function withExternals(description, contacts) {
+  const line = externalsLine(contacts)
+  if (!line) return description
+  return description.trim() ? `${description.trim()}\n\n${line}` : line
+}
+
 // ---------------------------------------------------------------------------
 // Formulario de reunión
 // ---------------------------------------------------------------------------
@@ -205,7 +274,8 @@ export function meetingTimes(form, zone) {
 }
 
 // { campo: mensaje } ({} si está bien).
-export function validateMeetingForm(form, zone) {
+// allowNoParticipants: la ceo puede crear una reunión sin nadie con cuenta (es un evento suyo).
+export function validateMeetingForm(form, zone, { allowNoParticipants = false } = {}) {
   const errors = {}
   const title = form.title.trim()
   if (!title) errors.title = 'Escribe un título.'
@@ -214,7 +284,7 @@ export function validateMeetingForm(form, zone) {
   else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(form.time || '')) errors.time = 'Elige la hora.'
   else if (!meetingTimes(form, zone).exists) errors.time = 'Esa hora no existe ese día (cambio de hora).'
   if (!(Number(form.minutes) > 0 && Number(form.minutes) <= 12 * 60)) errors.minutes = 'Elige la duración.'
-  if (form.participants.length === 0) errors.participants = 'Añade al menos un participante.'
+  if (form.participants.length === 0 && !allowNoParticipants) errors.participants = 'Añade al menos un participante.'
   return errors
 }
 

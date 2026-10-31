@@ -15,6 +15,9 @@ import {
   validateMeetingForm,
   weekKeys,
   weekLabel,
+  busyByHour,
+  externalsLine,
+  withExternals,
 } from './sharedCalendar'
 
 const MADRID = 'Europe/Madrid'
@@ -133,5 +136,25 @@ describe('mis bloques ocupados', () => {
     const blocks = ceoBusyBlocks([ev('a', 10, 11), ev('b', 11, 12), ev('c', 15, 16, { notAttending: true })], now)
     expect(blocks).toEqual([[new Date(2030, 10, 4, 10).toISOString(), new Date(2030, 10, 4, 12).toISOString()]])
     expect(JSON.stringify(blocks)).not.toContain('secreto')
+  })
+})
+
+describe('Nueva reunión: quién está ocupado y externos', () => {
+  it('dice quién está ocupado en cada hora', () => {
+    const rows = [
+      { profile_id: 'ana', starts_at: '2026-11-02T09:00:00Z', ends_at: '2026-11-02T10:30:00Z' },
+      { profile_id: 'luis', starts_at: '2026-11-02T10:00:00Z', ends_at: '2026-11-02T11:00:00Z' },
+    ]
+    const map = busyByHour(rows, ['2026-11-02'], 'UTC')
+    expect(map.get('2026-11-02_9')).toEqual(['ana'])
+    expect(map.get('2026-11-02_10')).toEqual(['ana', 'luis'])
+    expect(map.has('2026-11-02_11')).toBe(false)
+  })
+
+  it('los externos van en la descripción', () => {
+    const people = [{ name: 'Ana', email: 'ana@x.com' }, { name: 'Luis' }]
+    expect(externalsLine(people)).toBe('Externos: Ana (ana@x.com), Luis')
+    expect(withExternals('Orden del día', people)).toBe('Orden del día\n\nExternos: Ana (ana@x.com), Luis')
+    expect(withExternals('', [])).toBe('')
   })
 })

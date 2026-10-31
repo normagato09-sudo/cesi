@@ -77,7 +77,6 @@ export default function ContactsView({
   onRemoveContact,
   onOpenEvent,
   onNewMeetingWithContact,
-  onFindSlotWithContact,
   onCreateGroup,
   onRenameGroup,
   onGroupColor,
@@ -179,7 +178,7 @@ export default function ContactsView({
         <div className="contacts-header">
           <button type="button" className="contact-back-btn contacts-archive-back" onClick={closeArchive}>
             <ArrowLeft size={16} strokeWidth={1.75} />
-            Contactos
+            Contactos externos
           </button>
           <h1 className="contacts-title">
             <Archive size={20} strokeWidth={1.75} aria-hidden="true" />
@@ -241,7 +240,7 @@ export default function ContactsView({
       ) : (
       <div className="contacts-list-pane">
         <div className="contacts-header">
-          <h1 className="contacts-title">Contactos</h1>
+          <h1 className="contacts-title">Contactos externos</h1>
           <div className="contacts-header-actions">
             <label className="contacts-search">
               <Search size={15} strokeWidth={1.75} />
@@ -442,11 +441,7 @@ export default function ContactsView({
             <div className="contact-detail-actions">
               <button type="button" className="contact-action-btn primary" onClick={() => onNewMeetingWithContact(selected)}>
                 <CalendarPlus size={14} strokeWidth={1.75} />
-                Nueva reunión con este contacto
-              </button>
-              <button type="button" className="contact-action-btn wide" onClick={() => onFindSlotWithContact(selected)}>
-                <Search size={14} strokeWidth={1.75} />
-                Buscar hueco con este contacto
+                Nueva reunión con esta persona
               </button>
               <button type="button" className="contact-action-btn" onClick={() => setFormModal({ contact: selected })}>
                 <Pencil size={14} strokeWidth={1.75} />

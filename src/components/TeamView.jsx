@@ -55,7 +55,6 @@ function MemberDetail({
   onArchive,
   onSaveRoles,
   onOpenEvent,
-  onFindSlot,
   onNewMeeting,
   onOpenCandidate,
 }) {
@@ -103,13 +102,9 @@ function MemberDetail({
       </div>
 
       <div className="contact-detail-actions team-detail-actions">
-        <button type="button" className="contact-action-btn primary" onClick={() => onFindSlot(contact)}>
-          <Search size={14} strokeWidth={1.75} />
-          Buscar hueco con esta persona
-        </button>
-        <button type="button" className="contact-action-btn" onClick={() => onNewMeeting(contact)}>
+        <button type="button" className="contact-action-btn primary" onClick={() => onNewMeeting(contact)}>
           <CalendarPlus size={14} strokeWidth={1.75} />
-          Nueva reunión
+          Nueva reunión con esta persona
         </button>
         <button type="button" className="contact-action-btn" onClick={onEdit}>
           <Pencil size={14} strokeWidth={1.75} />
@@ -287,7 +282,6 @@ export default function TeamView({
   onKeepActive,
   onRemoveFromTeam,
   onOpenEvent,
-  onFindSlot,
   onNewMeeting,
   onOpenCandidate,
   onReorder,
@@ -328,7 +322,6 @@ export default function TeamView({
           }}
           onArchive={() => setArchiving(true)}
           onOpenEvent={onOpenEvent}
-          onFindSlot={onFindSlot}
           onNewMeeting={onNewMeeting}
           onOpenCandidate={onOpenCandidate}
         />

@@ -1,17 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill'
-import flagFontUrl from 'country-flag-emoji-polyfill/dist/TwemojiCountryFlags.woff2?url'
 import '../index.css'
-import ReservarPage from './ReservarPage.jsx'
+import ReservarClosed from './ReservarClosed.jsx'
 
-// Página pública /reservar/<token>: aparte de la app (no carga el calendario ni los datos de nadie).
-
-// Banderas del selector de país también en Chrome y Edge para Windows.
-polyfillCountryFlagEmojis('Twemoji Country Flags', flagFontUrl)
-
+// Página pública /reservar/<token>. El enlace de reservas ya no se usa: cualquier enlace muestra
+// que ya no está disponible (la página antigua sigue en ReservarPage.jsx, sin usarse; los datos y
+// las tablas de Supabase se conservan).
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ReservarPage />
+    <ReservarClosed />
   </StrictMode>,
 )

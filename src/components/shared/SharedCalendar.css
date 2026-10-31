@@ -505,3 +505,69 @@
   color: var(--sc-warn);
   font-size: 13px;
 }
+
+/* Nueva reunión: contactos externos, quién está ocupado y «Más opciones». */
+.sc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 999px;
+  background: var(--sc-soft, #eef2ff);
+  font-size: 13px;
+}
+.sc-chip button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 4px;
+  color: inherit;
+}
+.sc-picker-add {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.sc-picker-add:hover {
+  background: var(--sc-soft, #eef2ff);
+}
+.sc-hint {
+  font-size: 12px;
+  color: var(--sc-muted);
+}
+.sc-busy-who {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.sc-cell.picked {
+  outline: 2px solid currentColor;
+}
+.sc-more {
+  margin-right: auto;
+}
+.sc-cell.busy { cursor: pointer; }
+
+/* Calendario de equipo y alumnos: el mismo que el de la ceo (cabecera y vistas a todo lo ancho). */
+.sc-root.sc-calendar {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+.sc-root.sc-calendar > .sc-message {
+  margin: 8px 16px 0;
+}

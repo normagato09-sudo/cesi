@@ -7,7 +7,7 @@ import { useMyProfile } from './useMyProfile'
 import { allItems, memberGroups, sectionActive } from './sections.js'
 import { LEVEL_LABELS, SCREENS, areaName, fetchMyPermissions } from '../lib/permissions'
 import { zoneShort } from '../lib/studentPortal'
-import { countryName, localTimeZone } from '../lib/timezones'
+import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
 import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
@@ -15,6 +15,7 @@ import { DIRECTIVO_AREA } from '../lib/teamWork'
 import '../App.css'
 import './Sidebar.css'
 import './ContactsView.css'
+import { viewZone } from '../lib/zoneView'
 import './MemberApp.css'
 
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
@@ -91,7 +92,7 @@ export default function MemberApp({
   }
 
   const shownName = profile.full_name || name
-  const zone = profile.time_zone || localTimeZone()
+  const zone = viewZone(profile)
   // Tareas, fichaje y calendario: con mi cuenta o, en «Ver como», con la de la ceo leyendo los de
   // esa persona (calendarAs), en solo lectura.
   const workClient = preview ? calendarClient : client

@@ -206,3 +206,20 @@
   box-shadow: 0 0 0 2px var(--accent);
   font-weight: 600;
 }
+
+/* El enlace de reservas ya no se usa: aviso de que no está disponible. */
+.rp-closed {
+  max-width: 480px;
+  margin: 15vh auto 0;
+  padding: 0 16px;
+  text-align: center;
+  color: var(--text);
+}
+.rp-closed h1 {
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+.rp-closed p {
+  margin: 0;
+  color: var(--text-secondary);
+}

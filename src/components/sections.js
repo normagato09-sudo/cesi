@@ -3,7 +3,6 @@ import {
   BookOpen,
   Briefcase,
   CalendarDays,
-  CalendarSearch,
   ClipboardCheck,
   Clock,
   GraduationCap,
@@ -39,8 +38,7 @@ export const NAV_GROUPS = [
     Icon: CalendarDays,
     items: [
       { id: 'calendar', label: 'Calendario', Icon: CalendarDays, screen: 'calendario' },
-      { id: 'contacts', label: 'Contactos', Icon: Users, screen: 'contactos' },
-      { id: 'slots', label: 'Buscar hueco', Icon: CalendarSearch, screen: 'huecos' },
+      { id: 'contacts', label: 'Contactos externos', Icon: Users, screen: 'contactos' },
     ],
   },
   {

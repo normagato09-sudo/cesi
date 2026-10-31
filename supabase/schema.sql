@@ -3608,3 +3608,11 @@ grant execute on function public.cesi_team_tasks(uuid) to authenticated;
 grant execute on function public.cesi_clock_entries(timestamptz, timestamptz, boolean, uuid) to authenticated;
 grant execute on function public.cesi_task_people() to authenticated;
 grant execute on function public.cesi_task_save(uuid, text, text, text, uuid, date, text, text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 9: sin enlace de reservas
+-- ---------------------------------------------------------------------------
+-- El enlace de reservas ya no se usa (sus tablas y datos se conservan): nadie puede leer un enlace
+-- ni pedir una reunión con él.
+revoke all on function public.cesi_booking_get(text) from public, anon, authenticated;
+revoke all on function public.cesi_booking_request(text, timestamptz, int, text, text, text, text, text, text) from public, anon, authenticated;

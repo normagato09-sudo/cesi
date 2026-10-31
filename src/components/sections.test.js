@@ -10,7 +10,6 @@ describe('ceoGroups', () => {
       'profile',
       'calendar',
       'contacts',
-      'slots',
       'team',
       'vacancies',
       'team-tasks',

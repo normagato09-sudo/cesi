@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from './Modal.jsx'
+import { MeetingWarningError } from '../../lib/meetingWarnings'
+import { isActiveMember } from '../../lib/team'
 import {
   DURATIONS,
   addDaysKey,
+  busyByHour,
   dayLabel,
   daysRange,
   emptyMeetingForm,
@@ -20,6 +23,7 @@ import {
   validateMeetingForm,
   weekKeys,
   weekLabel,
+  withExternals,
 } from '../../lib/sharedCalendar'
 import { pad2, zoneLabel } from '../../lib/timezones'
 
@@ -33,12 +37,43 @@ function durationLabel(minutes) {
   return m ? `${h} h ${m} min` : `${h} h`
 }
 
-// Nueva reunión compartida (o editar una mía): título, día, hora y duración (en mi zona),
-// descripción, enlace y participantes (solo a quien puedo invitar). Con participantes elegidos,
-// la tabla de la semana marca en verde las horas en que estamos todos libres; al pulsar una, se
-// pone ese día y esa hora.
-export default function MeetingFormModal({ client, meId, zone, meeting = null, onClose, onSaved }) {
-  const [form, setForm] = useState(() => (meeting ? formFromMeeting(meeting, zone) : emptyMeetingForm(zone)))
+// Texto de búsqueda sin mayúsculas ni acentos.
+const plain = (text) =>
+  (text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+// «Nueva reunión» (o editar una reunión compartida mía): título, día, hora y duración (en mi zona),
+// enlace, descripción y participantes con cuenta (solo a quien puedo invitar). Con participantes,
+// la tabla de la semana marca en verde las horas en que estamos todos libres (al pulsar una, se pone
+// ese día y esa hora; al pulsar una ocupada, se ve quién no puede, sin detalles).
+// Solo la ceo (externalContacts y onSaveLocal): también contactos externos, que no cuentan en la
+// tabla. Si hay alguien con cuenta, se guarda como reunión compartida (los externos van en la
+// descripción); si no, como evento suyo (onSaveLocal), y «Más opciones» abre su formulario de
+// eventos de siempre.
+// prefill: { date, time, externalIds, interview } de una reunión nueva.
+export default function MeetingFormModal({
+  client,
+  meId,
+  zone,
+  meeting = null,
+  prefill = null,
+  externalContacts = null,
+  onSaveLocal = null,
+  onMoreOptions = null,
+  onClose,
+  onSaved,
+}) {
+  const [form, setForm] = useState(() => {
+    if (meeting) return formFromMeeting(meeting, zone)
+    const empty = emptyMeetingForm(zone)
+    return { ...empty, ...(prefill?.date ? { date: prefill.date } : {}), ...(prefill?.time ? { time: prefill.time } : {}) }
+  })
+  const [externalIds, setExternalIds] = useState(() => (meeting ? [] : prefill?.externalIds || []))
+  const [externalQuery, setExternalQuery] = useState('')
+  const [busyAt, setBusyAt] = useState(null) // hora ocupada pulsada: 'AAAA-MM-DD_h'
+  const [warning, setWarning] = useState(null) // avisos de mis reglas al guardar como evento mío
   const [people, setPeople] = useState(null)
   const [peopleError, setPeopleError] = useState(null)
   const [query, setQuery] = useState('')
@@ -49,7 +84,9 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
-  const errors = useMemo(() => (tried ? validateMeetingForm(form, zone) : {}), [tried, form, zone])
+  const canLocal = !!onSaveLocal && !meeting
+  const validation = { allowNoParticipants: canLocal }
+  const errors = useMemo(() => (tried ? validateMeetingForm(form, zone, { allowNoParticipants: canLocal }) : {}), [tried, form, zone, canLocal])
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
   useEffect(() => {
@@ -62,6 +99,25 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
       active = false
     }
   }, [client])
+
+  // Contactos que llegan ya añadidos («Nueva reunión con esta persona»): si tienen cuenta unida
+  // (Accesos › Unida a), también como participantes.
+  useEffect(() => {
+    const ids = prefill?.externalIds || []
+    if (meeting || ids.length === 0 || !client) return
+    let active = true
+    client
+      .from('profiles')
+      .select('id, linked_team_id, linked_student_id')
+      .then(({ data }) => {
+        if (!active || !data) return
+        const linked = data.filter((r) => r.id !== meId && (ids.includes(r.linked_team_id) || ids.includes(r.linked_student_id))).map((r) => r.id)
+        if (linked.length > 0) setForm((f) => ({ ...f, participants: [...new Set([...f.participants, ...linked])] }))
+      })
+    return () => {
+      active = false
+    }
+  }, [client, meId, meeting, prefill])
 
   // Quien ya estaba en la reunión aunque ahora no se le pueda invitar (se puede quitar).
   const options = useMemo(() => {
@@ -98,6 +154,21 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
   }, [client, meId, participantsKey, gridMonday, zone, meeting])
 
   const grid = useMemo(() => (busyRows ? freeHours(busyRows, days, zone) : null), [busyRows, days, zone])
+  const busyPeople = useMemo(() => (busyRows ? busyByHour(busyRows, days, zone) : new Map()), [busyRows, days, zone])
+  const nameOf = (id) => (id === meId ? 'Tú' : options.find((p) => p.id === id)?.name || 'Alguien')
+
+  // Contactos externos (no del equipo activo ni archivados), por nombre.
+  const externals = useMemo(
+    () =>
+      (externalContacts || [])
+        .filter((c) => !c.archived && (!isActiveMember(c) || externalIds.includes(c.id)))
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es')),
+    [externalContacts, externalIds],
+  )
+  const chosenExternals = externalIds.map((id) => (externalContacts || []).find((c) => c.id === id)).filter(Boolean)
+  const shownExternals = externalQuery.trim()
+    ? externals.filter((c) => plain(`${c.name} ${c.email || ''}`).includes(plain(externalQuery.trim())) && !externalIds.includes(c.id)).slice(0, 8)
+    : []
 
   // Horas que ocupa la reunión elegida (para marcarlas en la tabla).
   const selected = useMemo(() => {
@@ -125,19 +196,46 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
 
   const toggle = (id) => set({ participants: form.participants.includes(id) ? form.participants.filter((x) => x !== id) : [...form.participants, id] })
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  // Lo escrito, para guardarlo como evento mío o abrir «Más opciones».
+  const localData = () => {
+    const ok = Object.keys(validateMeetingForm(form, zone, validation)).filter((k) => k !== 'title').length === 0
+    const times = ok ? meetingTimes(form, zone) : null
+    return {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      link: form.link.trim(),
+      start: times?.start,
+      end: times?.end,
+      externalIds,
+      interview: !!prefill?.interview,
+    }
+  }
+
+  const save = async ({ ignoreWarnings = false } = {}) => {
     setTried(true)
-    if (Object.keys(validateMeetingForm(form, zone)).length > 0) return
+    if (Object.keys(validateMeetingForm(form, zone, validation)).length > 0) return
     setSaving(true)
     setSaveError(null)
+    setWarning(null)
     try {
-      await saveMeeting(client, meeting?.id || null, form, zone)
+      if (form.participants.length > 0 || !canLocal) {
+        // Con alguien con cuenta: reunión compartida (los externos, en la descripción).
+        await saveMeeting(client, meeting?.id || null, { ...form, description: withExternals(form.description, chosenExternals) }, zone)
+      } else {
+        // Solo externos o nadie: evento mío.
+        await onSaveLocal(localData(), { ignoreWarnings })
+      }
       onSaved()
     } catch (err) {
-      setSaveError(errorText(err))
+      if (err instanceof MeetingWarningError) setWarning(err.violations.map((v) => v.message).join(' '))
+      else setSaveError(err?.code ? errorText(err) : err?.message || errorText(err))
       setSaving(false)
     }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    save()
   }
 
   const field = (name) => `sc-field${errors[name] ? ' invalid' : ''}`
@@ -209,6 +307,56 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
           {errors.participants && <span className="sc-error">{errors.participants}</span>}
         </div>
 
+        {externalContacts && (
+          <div className="sc-field">
+            <span>Contactos externos (no cuentan en la tabla)</span>
+            {chosenExternals.length > 0 && (
+              <div className="sc-chips">
+                {chosenExternals.map((c) => (
+                  <span key={c.id} className="sc-chip">
+                    {c.name || c.email}
+                    <button type="button" onClick={() => setExternalIds((ids) => ids.filter((x) => x !== c.id))} aria-label={`Quitar a ${c.name}`}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <input
+              type="search"
+              placeholder="Buscar en Contactos externos"
+              value={externalQuery}
+              onChange={(e) => setExternalQuery(e.target.value)}
+              aria-label="Buscar contacto externo"
+            />
+            {shownExternals.length > 0 && (
+              <div className="sc-picker">
+                {shownExternals.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="sc-picker-add"
+                    onClick={() => {
+                      setExternalIds((ids) => [...ids, c.id])
+                      setExternalQuery('')
+                    }}
+                  >
+                    <span>{c.name || c.email}</span>
+                    {c.email && <span className="sc-picker-role">{c.email}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {canLocal && (
+              <span className="sc-hint">
+                {form.participants.length > 0
+                  ? 'Se guardará como reunión compartida; los externos irán en la descripción.'
+                  : 'Sin nadie con cuenta, se guardará como evento tuyo.'}
+              </span>
+            )}
+          </div>
+        )}
+
         {form.participants.length > 0 && (
           <div className="sc-field">
             <span>¿Cuándo estáis todos libres?</span>
@@ -246,14 +394,21 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
                           {days.map((k) => {
                             const state = grid.get(k)?.[h] || 'busy'
                             const isSelected = selected.has(`${k}_${h}`)
+                            const who = (busyPeople.get(`${k}_${h}`) || []).map(nameOf).join(', ')
                             return (
                               <td key={k}>
                                 <button
                                   type="button"
-                                  className={`sc-cell ${state}${isSelected ? ' selected' : ''}`}
-                                  disabled={state !== 'free'}
-                                  aria-label={`${dayLabel(k)} ${pad2(h)}:00 · ${state === 'free' ? 'todos libres' : 'ocupado'}`}
-                                  onClick={() => set({ date: k, time: `${pad2(h)}:00` })}
+                                  className={`sc-cell ${state}${isSelected ? ' selected' : ''}${busyAt === `${k}_${h}` ? ' picked' : ''}`}
+                                  disabled={state === 'past' || state === 'none'}
+                                  title={state === 'busy' && who ? `Ocupado: ${who}` : undefined}
+                                  aria-label={`${dayLabel(k)} ${pad2(h)}:00 · ${state === 'free' ? 'todos libres' : `ocupado${who ? `: ${who}` : ''}`}`}
+                                  onClick={() => {
+                                    if (state === 'free') {
+                                      setBusyAt(null)
+                                      set({ date: k, time: `${pad2(h)}:00` })
+                                    } else setBusyAt(`${k}_${h}`)
+                                  }}
                                 />
                               </td>
                             )
@@ -265,8 +420,14 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
                 </div>
                 <p className="sc-legend">
                   <span className="free">Todos libres (pulsa para elegir)</span>
-                  <span>Alguien ocupado</span>
+                  <span>Alguien ocupado (pulsa para ver quién)</span>
                 </p>
+                {busyAt && (
+                  <p className="sc-busy-who">
+                    {dayLabel(busyAt.split('_')[0])} a las {pad2(Number(busyAt.split('_')[1]))}:00, ocupado:{' '}
+                    {(busyPeople.get(busyAt) || []).map(nameOf).join(', ') || 'nadie'}
+                  </p>
+                )}
               </>
             )}
             {allFreeAtChosen === false && <p className="sc-warning">A esa hora no estáis todos libres.</p>}
@@ -283,8 +444,21 @@ export default function MeetingFormModal({ client, meId, zone, meeting = null, o
         </label>
 
         {saveError && <p className="sc-message error">{saveError}</p>}
+        {warning && (
+          <div className="sc-warning">
+            {warning}{' '}
+            <button type="button" className="sc-btn" disabled={saving} onClick={() => save({ ignoreWarnings: true })}>
+              Guardar igualmente
+            </button>
+          </div>
+        )}
 
         <div className="sc-actions">
+          {canLocal && onMoreOptions && form.participants.length === 0 && (
+            <button type="button" className="sc-btn sc-more" onClick={() => onMoreOptions(localData())}>
+              Más opciones…
+            </button>
+          )}
           <button type="button" className="sc-btn" onClick={onClose}>
             Cancelar
           </button>

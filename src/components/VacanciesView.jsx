@@ -223,7 +223,7 @@ function CandidateDetail({
       <div className="contact-detail-actions">
         <button type="button" className="contact-action-btn primary" onClick={onFindInterview}>
           <Search size={14} strokeWidth={1.75} />
-          Buscar hueco para entrevista
+          Nueva reunión (entrevista)
         </button>
         {vacancy && (
           <button type="button" className="contact-action-btn team" onClick={onIncorporate}>
