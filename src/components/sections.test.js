@@ -15,6 +15,7 @@ describe('ceoGroups', () => {
       'vacancies',
       'team-tasks',
       'goals',
+      'boards',
       'clockins',
       'access',
       'courses',
@@ -43,6 +44,14 @@ describe('memberGroups', () => {
     expect(ids('direccion')).toContain('alliances')
     expect(ids('media')).not.toContain('alliances')
     expect(ids('media')).toContain('contacts')
+  })
+
+  it('el tablero de su área con su nombre; Directivo, «Tableros»', () => {
+    const items = (area) => allItems(memberGroups({}, area))
+    expect(items('media').find((i) => i.id === 'board').label).toBe('Publicaciones')
+    expect(items('moderacion').find((i) => i.id === 'board').label).toBe('Registro de moderación')
+    expect(items('direccion').map((i) => i.id)).toContain('boards')
+    expect(items('alianzas').some((i) => i.id === 'board' || i.id === 'boards')).toBe(false)
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {

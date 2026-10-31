@@ -12,10 +12,12 @@ import {
   LayoutDashboard,
   ListChecks,
   ListTodo,
+  SquareKanban,
   Target,
   UserRound,
   Users,
 } from 'lucide-react'
+import { boardOf } from '../lib/boards'
 
 // Menú de la app por grupos. En el ordenador, la barra lateral con los grupos como títulos; en el
 // móvil, la barra inferior con un botón por grupo (si tiene varias pantallas, al pulsarlo se
@@ -54,6 +56,7 @@ export const NAV_GROUPS = [
       { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
+      { id: 'boards', label: 'Tableros', Icon: SquareKanban, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],
@@ -76,10 +79,10 @@ export function ceoGroups(withSync) {
 }
 
 // Menú de una persona de equipo: «Mi panel», su «Calendario» (el compartido), «Tareas» (las del
-// equipo), «Objetivos» (los del mes de su área) y «Fichaje», siempre; y las pantallas a las que
-// tiene permiso. Mi calendario (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen:
-// el calendario aún no lo ve nadie del equipo, y los fichajes de todos los ve Directivo desde su
-// «Fichaje».
+// equipo), «Objetivos» (los del mes de su área), el tablero de su área (si tiene; Directivo,
+// «Tableros») y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi calendario
+// (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario aún no lo ve
+// nadie del equipo, y los fichajes de todos los ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.
 export function memberGroups(levels = {}, area = null) {
   return NAV_GROUPS.map((g) =>
@@ -91,6 +94,9 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
             { id: 'goals', label: 'Objetivos', Icon: Target },
+            // El tablero de su área (con su nombre) o, en Directivo, «Tableros» (todos).
+            ...(boardOf(area) ? [{ id: 'board', label: boardOf(area).title, Icon: SquareKanban }] : []),
+            ...(area === 'direccion' ? [{ id: 'boards', label: 'Tableros', Icon: SquareKanban }] : []),
             { id: 'clock', label: 'Fichaje', Icon: Clock },
           ],
         }

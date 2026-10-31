@@ -1,0 +1,354 @@
+/* Tableros de área (BoardView, BoardItemModal, MyBoard). Usa los colores del calendario
+   compartido (--sc-*, ver shared/SharedCalendar.css) y los filtros de team/TeamWork.css. */
+
+.bd-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bd-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  background: var(--sc-surface);
+  color: var(--sc-muted);
+}
+.bd-search input {
+  min-width: 0;
+  width: 180px;
+  border: none;
+  background: none;
+  color: var(--sc-text);
+  font: inherit;
+  outline: none;
+}
+.bd-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bd-filters select,
+.bd-move {
+  padding: 6px 8px;
+  border: 1px solid var(--sc-border);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 13px;
+}
+.bd-sensitive {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bd-board {
+  display: grid;
+  grid-template-columns: repeat(var(--bd-cols, 4), minmax(210px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.bd-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 210px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #eef1f6;
+}
+.bd-column h2 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 14px;
+}
+.bd-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 10px;
+  background: var(--sc-surface);
+}
+.bd-card.late {
+  border-color: #f3c4c4;
+  background: #fff7f7;
+}
+.bd-card.soon {
+  border-color: #f6d7a7;
+  background: #fffaf1;
+}
+.bd-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bd-card-main strong {
+  overflow-wrap: anywhere;
+}
+.bd-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+.bd-late {
+  color: #dc2626;
+  font-weight: 600;
+}
+.bd-soon {
+  color: #b45309;
+  font-weight: 600;
+}
+.bd-priority.grave,
+.bd-priority.urgente {
+  color: #dc2626;
+  font-weight: 600;
+}
+.bd-priority.alta {
+  color: #b45309;
+  font-weight: 600;
+}
+.bd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bd-list li {
+  position: relative;
+}
+.bd-list-status {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: var(--sc-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Calendario (Media) */
+.bd-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.bd-calendar-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.bd-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.bd-calendar-dow {
+  color: var(--sc-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.bd-day {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 84px;
+  padding: 4px;
+  border: 1px solid var(--sc-border);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  overflow: hidden;
+}
+.bd-day.other {
+  opacity: 0.5;
+}
+.bd-day.today {
+  border-color: var(--sc-blue);
+}
+.bd-day-num {
+  font-size: 12px;
+  font-weight: 600;
+}
+.bd-day-item {
+  overflow: hidden;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: var(--sc-blue-soft);
+  color: var(--sc-blue);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.bd-day-item.publicada {
+  background: #e3f5ea;
+  color: #1d7a45;
+}
+.bd-day-item.idea {
+  background: #f1f2f5;
+  color: var(--sc-muted);
+}
+
+/* Ficha */
+.bd-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff1dc;
+  color: #9a5b00;
+  font-weight: 600;
+}
+.bd-review.late {
+  color: #dc2626;
+  font-size: 12px;
+}
+.bd-review.soon {
+  color: #b45309;
+  font-size: 12px;
+}
+.bd-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bd-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sc-border);
+}
+.bd-comments h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.bd-comments ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bd-comments li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 30px 8px 10px;
+  border-radius: 8px;
+  background: var(--sc-bg);
+}
+.bd-comment-meta {
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+.bd-comment-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px;
+  border: none;
+  background: none;
+  color: var(--sc-muted);
+  cursor: pointer;
+}
+.bd-comment-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.bd-comment-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--sc-border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+@media (max-width: 860px) {
+  .bd-board {
+    grid-template-columns: repeat(var(--bd-cols, 4), 78vw);
+  }
+  .bd-day {
+    min-height: 60px;
+  }
+}
+.bd-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* «Tableros» (ceo y Directivo): el selector de área encima del tablero. */
+.bd-boards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.bd-boards-picker {
+  padding: 12px 20px 0;
+  background: #f6f7fb;
+}
+.bd-boards-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.bd-boards-picker select {
+  padding: 6px 10px;
+  border: 1px solid #e2e6ee;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+}
+
+/* Inicio */
+.bd-home-sub {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+.bd-home-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bd-home-link:hover {
+  text-decoration: underline;
+}

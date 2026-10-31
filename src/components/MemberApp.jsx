@@ -14,6 +14,10 @@ import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
 import MyClasses from './team/MyClasses.jsx'
 import { AllianceStatsCard, NextStepsCard } from './alliances/AllianceHome.jsx'
+import BoardView from './boards/BoardView.jsx'
+import BoardsView from './boards/BoardsView.jsx'
+import { BoardCountsCard, MyBoardCard } from './boards/BoardHome.jsx'
+import { boardOf } from '../lib/boards'
 import AreaGoals from './team/AreaGoals.jsx'
 import GoalsView from './team/GoalsView.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
@@ -155,6 +159,10 @@ export default function MemberApp({
           <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'goals' ? (
           <GoalsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'board' && boardOf(area) ? (
+          <BoardView client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} readOnly={readOnly} canEdit canComment />
+        ) : section === 'boards' && me.boss ? (
+          <BoardsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'clock' ? (
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : current && SECTION_SCREENS[section] ? (
@@ -186,6 +194,8 @@ export default function MemberApp({
             <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
             {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
             {me.boss && <AllianceStatsCard client={workClient} asId={workAs} />}
+            {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
+            {me.boss && <BoardCountsCard client={workClient} asId={workAs} onOpen={() => setSection('boards')} />}
 
             {error ? (
               <p className="member-panel-note">No se pudieron cargar tus permisos. Comprueba la conexión y vuelve a entrar.</p>

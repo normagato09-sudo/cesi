@@ -12,6 +12,7 @@ import GoalItem from './team/GoalItem.jsx'
 import { goalErrorText, goalsByArea, listGoals, monthStart, splitUnclosed } from '../lib/goals'
 import { nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
 import { allianceStats } from '../lib/alliances'
+import { BOARDS, boardCounts } from '../lib/boards'
 import './CeoTeamPanel.css'
 
 const ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
@@ -36,7 +37,12 @@ async function loadPanel(client, zone) {
     (row) => ({ ...row, error: null }),
     (err) => ({ closed_month: 0, negotiating: 0, error: err.message }),
   )
-  const [profiles, portals, areas, week, open, tasks, goalResult, alliances] = await Promise.all([
+  // Los tableros también aparte (sin la parte 17, sin cifras).
+  const boardRows = boardCounts(client).then(
+    (rows) => ({ rows: (rows || []).filter((r) => BOARDS[r.area]), error: null }),
+    (err) => ({ rows: [], error: err.message }),
+  )
+  const [profiles, portals, areas, week, open, tasks, goalResult, alliances, boards] = await Promise.all([
     listProfiles(client),
     listPortalsByAccount(client),
     listAreasForTasks(client),
@@ -45,6 +51,7 @@ async function loadPanel(client, zone) {
     listTeamTasks(client),
     goalRows,
     allianceRow,
+    boardRows,
   ])
   const { unclosed, current } = splitUnclosed(goalResult.rows, month)
   const goals = { error: goalResult.error, unclosed, byArea: goalsByArea(current, areas, { allAreas: true }) }
@@ -62,6 +69,7 @@ async function loadPanel(client, zone) {
     overdue: overdueTasks(tasks, r.today),
     goals,
     alliances,
+    boards,
   }
 }
 
@@ -230,6 +238,21 @@ export default function CeoTeamPanel({ client, meId, zone }) {
             <div className="tw-home-tasks">
               <MyTasksList tasks={data.tasks} today={data.today} onOpen={setOpenTask} />
             </div>
+          </Card>
+
+          <Card title="Tableros: abiertos por área">
+            {data.boards.error ? (
+              <p className="ceo-muted">{data.boards.error}</p>
+            ) : (
+              <ul className="ceo-list">
+                {data.boards.rows.map((r) => (
+                  <li key={r.area}>
+                    <span>{BOARDS[r.area].title}</span>
+                    <strong>{r.open_count}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
 
           <Card title="Alianzas">
