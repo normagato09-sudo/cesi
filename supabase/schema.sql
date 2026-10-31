@@ -2016,3 +2016,35 @@ revoke all on public.student_profiles from authenticated;
 grant select on public.student_profiles to authenticated;
 grant insert (id, full_name, discord, country, time_zone, birthday, availability, completed_at) on public.student_profiles to authenticated;
 grant update (full_name, discord, country, time_zone, birthday, availability, completed_at) on public.student_profiles to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 5: las 10 áreas del equipo (solo nombres y orden)
+-- ---------------------------------------------------------------------------
+-- Renombradas con el mismo id (quien las tiene y sus permisos no cambian): direccion → Directivo,
+-- formacion → Profesor, personas → RRHH. Nuevas sin permisos (todo 'none': solo ven Mi panel).
+-- Comunicación se quita: quien la tenía pasa a «Sin área» y se borran sus permisos de área (los
+-- permisos propios de cada persona, profile_permissions, se quedan).
+insert into public.areas (id, name, sort) values
+  ('direccion', 'Directivo', 1),
+  ('formacion', 'Profesor', 2),
+  ('alianzas', 'Alianzas', 3),
+  ('personas', 'RRHH', 4),
+  ('finanzas', 'Finanzas', 5),
+  ('legal', 'Legal', 6),
+  ('media', 'Media', 7),
+  ('tecnico', 'Técnico', 8),
+  ('ciberseguridad', 'Ciberseguridad', 9),
+  ('moderacion', 'Moderación', 10)
+on conflict (id) do update set name = excluded.name, sort = excluded.sort;
+
+-- Áreas nuevas: ninguna pantalla (solo las filas que falten; no toca las de las demás áreas).
+insert into public.area_permissions (area, screen, level)
+select a.id, s.screen, 'none'
+from unnest(array['finanzas', 'legal', 'media', 'tecnico', 'ciberseguridad', 'moderacion']) as a (id)
+cross join unnest(array['calendario', 'contactos', 'huecos', 'equipo', 'vacantes', 'fichajes', 'cursos', 'alumnos', 'asistencia']) as s (screen)
+on conflict (area, screen) do nothing;
+
+-- Quitar Comunicación.
+update public.profiles set area = null where area = 'comunicacion';
+delete from public.area_permissions where area = 'comunicacion';
+delete from public.areas where id = 'comunicacion';

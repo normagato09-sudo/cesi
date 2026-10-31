@@ -18,13 +18,18 @@ export const LEVELS = ['none', 'read', 'write']
 
 export const LEVEL_LABELS = { none: 'Ninguno', read: 'Ver', write: 'Editar' }
 
-// Las de supabase/parte2_papeles_permisos.sql (la tabla areas manda; esto es por si no se puede leer).
+// Las de supabase/parte5_areas.sql, en orden (la tabla areas manda; esto es por si no se puede leer).
 export const AREAS = [
-  { id: 'direccion', name: 'Dirección' },
-  { id: 'formacion', name: 'Formación' },
-  { id: 'comunicacion', name: 'Comunicación' },
+  { id: 'direccion', name: 'Directivo' },
+  { id: 'formacion', name: 'Profesor' },
   { id: 'alianzas', name: 'Alianzas' },
-  { id: 'personas', name: 'Personas' },
+  { id: 'personas', name: 'RRHH' },
+  { id: 'finanzas', name: 'Finanzas' },
+  { id: 'legal', name: 'Legal' },
+  { id: 'media', name: 'Media' },
+  { id: 'tecnico', name: 'Técnico' },
+  { id: 'ciberseguridad', name: 'Ciberseguridad' },
+  { id: 'moderacion', name: 'Moderación' },
 ]
 
 export function areaName(areaId, areas = AREAS) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SCREENS, allows, areaName, effectivePermissions, normalizeLevels } from './permissions'
+import { AREAS, SCREENS, allows, areaName, effectivePermissions, normalizeLevels } from './permissions'
 
 describe('allows', () => {
   it('editar incluye ver; ninguno no deja nada', () => {
@@ -46,5 +46,11 @@ describe('areaName', () => {
   it('nombre del área', () => {
     expect(areaName('alianzas')).toBe('Alianzas')
     expect(areaName(null)).toBe('')
+  })
+
+  it('las 10 áreas, en orden (sin Comunicación)', () => {
+    expect(AREAS.map((a) => a.name)).toEqual(['Directivo', 'Profesor', 'Alianzas', 'RRHH', 'Finanzas', 'Legal', 'Media', 'Técnico', 'Ciberseguridad', 'Moderación'])
+    expect(areaName('personas')).toBe('RRHH')
+    expect(areaName('comunicacion')).toBe('')
   })
 })
