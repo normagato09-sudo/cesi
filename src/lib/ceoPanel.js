@@ -59,19 +59,6 @@ export function overdueTasks(tasks, todayKey) {
     .sort((a, b) => b.daysLate - a.daysLate || a.title.localeCompare(b.title, 'es'))
 }
 
-/**
- * Progreso por área este mes: tareas con fecha límite este mes o, si no tienen fecha, creadas este
- * mes (en mi zona). [{ id, name, done, total }] para todas las áreas, en su orden.
- */
-export function areaProgress(tasks, areas, todayKey, zone) {
-  const month = todayKey.slice(0, 7)
-  const inMonth = (t) => (t.due_date ? t.due_date.slice(0, 7) === month : keyOf(new Date(t.created_at), zone).slice(0, 7) === month)
-  return areas.map((a) => {
-    const own = tasks.filter((t) => t.area === a.id && inMonth(t))
-    return { id: a.id, name: a.name, done: own.filter((t) => t.status === 'hecha').length, total: own.length }
-  })
-}
-
 // [inicio, fin) de hoy y mañana en mi zona, y de esta semana (lunes a domingo).
 export function panelRanges(now, zone) {
   const today = keyOf(now, zone)

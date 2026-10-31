@@ -6,7 +6,7 @@ import { keyOf } from './sharedCalendar'
 //
 // Tarea (cesi_team_tasks, parte 13): { id, title, description, area, area_name, assigned_area,
 //   assigned_area_name, assignees: [{ id, name, area, status, gone }], my_status (mi parte o null),
-//   done_count, total_count, missing_names, created_by, created_by_name,
+//   done_count, total_count, missing_names, goal_id, goal_title (parte 14), created_by, created_by_name,
 //   due_date: 'AAAA-MM-DD' | null, priority, status, can_edit, can_status }
 // Con personas asignadas, status sale de sus partes: «hecha» cuando todas la han terminado.
 // Fichaje (cesi_clock_entries): { id, profile_id, name, clock_in, clock_out, summary, fix_note,
@@ -119,6 +119,7 @@ export function emptyTaskForm(me) {
     mode: 'people',
     assignees: me.boss ? [] : [me.id],
     assignArea: '',
+    goalId: '',
     dueDate: '',
     priority: 'media',
     status: 'pendiente',
@@ -133,6 +134,7 @@ export function formFromTask(t) {
     mode: t.assigned_area ? 'area' : 'people',
     assignees: liveAssignees(t).map((a) => a.id),
     assignArea: t.assigned_area || '',
+    goalId: t.goal_id || '',
     dueDate: t.due_date || '',
     priority: t.priority,
     status: t.status,
@@ -236,6 +238,7 @@ export function saveTeamTask(client, id, form) {
     p_due_date: form.dueDate || null,
     p_priority: form.priority,
     p_status: form.status,
+    p_goal: form.goalId || null,
   })
 }
 

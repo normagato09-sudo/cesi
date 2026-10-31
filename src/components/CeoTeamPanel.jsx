@@ -7,7 +7,10 @@ import { listPortalsByAccount } from '../lib/studentPortal'
 import { dayLabel, hhmmOf, keyOf } from '../lib/sharedCalendar'
 import { MyTasksList } from './team/MyTeamTasks.jsx'
 import { formatMinutes, listAreasForTasks, listClockEntries, listTeamTasks, myOpenTasks } from '../lib/teamWork'
-import { areaProgress, nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
+import GoalEditModal from './team/GoalEditModal.jsx'
+import GoalItem from './team/GoalItem.jsx'
+import { goalErrorText, goalsByArea, listGoals, monthStart, splitUnclosed } from '../lib/goals'
+import { nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
 import './CeoTeamPanel.css'
 
 const ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
@@ -21,14 +24,23 @@ function check({ data, error }) {
 async function loadPanel(client, zone) {
   const now = new Date()
   const r = panelRanges(now, zone)
-  const [profiles, portals, areas, week, open, tasks] = await Promise.all([
+  const month = monthStart(r.today)
+  // Los objetivos aparte: sin la parte 14, el resto del panel se sigue viendo.
+  const goalRows = listGoals(client, month).then(
+    (rows) => ({ rows: rows || [], error: null }),
+    (err) => ({ rows: [], error: goalErrorText(err) }),
+  )
+  const [profiles, portals, areas, week, open, tasks, goalResult] = await Promise.all([
     listProfiles(client),
     listPortalsByAccount(client),
     listAreasForTasks(client),
     listClockEntries(client, r.week.start, r.week.end, { all: true }),
     client.from('clock_entries').select('*').is('clock_out', null).then(check),
     listTeamTasks(client),
+    goalRows,
   ])
+  const { unclosed, current } = splitUnclosed(goalResult.rows, month)
+  const goals = { error: goalResult.error, unclosed, byArea: goalsByArea(current, areas, { allAreas: true }) }
   const profilesById = new Map(profiles.map((p) => [p.id, p]))
   const nameFor = (id) => nameOf(id, profilesById, portals)
   const areaNameOf = (id) => areas.find((a) => a.id === id)?.name || 'Sin área'
@@ -41,7 +53,7 @@ async function loadPanel(client, zone) {
     hours: weekHoursByPerson(members, week, nameFor, areaNameOf),
     tasks,
     overdue: overdueTasks(tasks, r.today),
-    progress: areaProgress(tasks, areas, r.today, zone),
+    goals,
   }
 }
 
@@ -64,6 +76,7 @@ export default function CeoTeamPanel({ client, meId, zone }) {
   const [loading, setLoading] = useState(true)
   const [reload, setReload] = useState(0)
   const [openTask, setOpenTask] = useState(null)
+  const [openGoal, setOpenGoal] = useState(null)
   const [fixing, setFixing] = useState(null)
 
   useEffect(() => {
@@ -211,26 +224,44 @@ export default function CeoTeamPanel({ client, meId, zone }) {
             </div>
           </Card>
 
-          <Card title="Progreso por área (este mes)">
-            <ul className="ceo-list">
-              {data.progress.map((a) => (
-                <li key={a.id} className="ceo-progress">
-                  <span className="ceo-progress-name">{a.name}</span>
-                  <span className="ceo-bar" aria-hidden="true">
-                    <span style={{ width: `${a.total ? Math.round((a.done / a.total) * 100) : 0}%` }} />
-                  </span>
-                  <span className="ceo-progress-num">
-                    {a.done} / {a.total}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <Card title="Objetivos de cada área (este mes)" count={data.goals.unclosed.length ? `${data.goals.unclosed.length} sin cerrar` : null} wide>
+            {data.goals.error ? (
+              <p className="ceo-muted">{data.goals.error}</p>
+            ) : (
+              <div className="tw-home-tasks ceo-goals">
+                {data.goals.unclosed.length > 0 && (
+                  <div className="gl-area gl-unclosed">
+                    <h4>Sin cerrar</h4>
+                    <ul className="gl-goals">
+                      {data.goals.unclosed.map((g) => (
+                        <GoalItem key={g.id} goal={g} compact showMonth onOpen={setOpenGoal} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {data.goals.byArea.map((a) => (
+                  <div key={a.id || 'none'} className="gl-area">
+                    <h4>{a.name}</h4>
+                    {a.goals.length === 0 ? (
+                      <p className="ceo-muted">Sin objetivos este mes.</p>
+                    ) : (
+                      <ul className="gl-goals">
+                        {a.goals.map((g) => (
+                          <GoalItem key={g.id} goal={g} compact onOpen={setOpenGoal} />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
 
         </div>
       )}
 
-      {openTask && <TaskEditModal client={client} me={ME(meId)} task={openTask} areas={data.areas} onClose={() => setOpenTask(null)} onSaved={done(setOpenTask)} onChanged={refresh} />}
+      {openTask && <TaskEditModal client={client} me={ME(meId)} zone={zone} task={openTask} areas={data.areas} onClose={() => setOpenTask(null)} onSaved={done(setOpenTask)} onChanged={refresh} />}
+      {openGoal && <GoalEditModal client={client} goal={openGoal} areas={data.areas} onClose={() => setOpenGoal(null)} onSaved={done(setOpenGoal)} />}
       {fixing && <ClockFixModal client={client} entry={fixing} zone={zone} boss onClose={() => setFixing(null)} onSaved={done(setFixing)} />}
     </section>
   )

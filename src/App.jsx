@@ -119,6 +119,7 @@ const MeetingFormModal = lazy(() => import('./components/shared/MeetingFormModal
 // Yo, para las tareas del equipo y los fichajes (veo y gestiono todo).
 const CEO_ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
 const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
+const GoalsView = lazy(() => import('./components/team/GoalsView.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
 const CeoTeamPanel = lazy(() => import('./components/CeoTeamPanel.jsx'))
@@ -1039,6 +1040,14 @@ export default function App() {
           </div>
         )}
 
+        {section === 'goals' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <GoalsView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} />
+            </Suspense>
+          </div>
+        )}
+
         {section === 'access' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
@@ -1316,6 +1325,7 @@ export default function App() {
             <NewTeamTaskModal
               client={sync.client}
               me={CEO_ME(sync.userId)}
+              zone={myZone}
               prefill={teamTaskDraft}
               onClose={() => setTeamTaskDraft(null)}
               onSaved={() => setTeamTaskDraft(null)}

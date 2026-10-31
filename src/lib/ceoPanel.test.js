@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { areaProgress, nameOf, overdueTasks, panelRanges, splitOpenEntries, teamMeetings, weekHoursByPerson } from './ceoPanel'
+import { nameOf, overdueTasks, panelRanges, splitOpenEntries, teamMeetings, weekHoursByPerson } from './ceoPanel'
 
 const profiles = new Map([
   ['a', { id: 'a', display_name: 'Ana cuenta', email: 'a@x.com' }],
@@ -60,30 +60,6 @@ describe('tareas', () => {
     expect(rows.map((r) => [r.id, r.daysLate])).toEqual([
       ['semana', 7],
       ['ayer', 1],
-    ])
-  })
-
-  it('progreso por área este mes (fecha límite del mes o, sin fecha, creadas este mes)', () => {
-    const rows = areaProgress(
-      [
-        t('a', { due_date: '2030-11-10', status: 'hecha' }),
-        t('b', { due_date: '2030-11-20' }),
-        t('c', { due_date: '2030-10-20', status: 'hecha' }),
-        t('d', { created_at: '2030-11-02T10:00:00Z', status: 'hecha' }),
-        t('e', { area: 'legal', due_date: '2030-11-01' }),
-      ],
-      [
-        { id: 'media', name: 'Media' },
-        { id: 'legal', name: 'Legal' },
-        { id: 'finanzas', name: 'Finanzas' },
-      ],
-      '2030-11-04',
-      'Europe/Madrid',
-    )
-    expect(rows).toEqual([
-      { id: 'media', name: 'Media', done: 2, total: 3 },
-      { id: 'legal', name: 'Legal', done: 0, total: 1 },
-      { id: 'finanzas', name: 'Finanzas', done: 0, total: 0 },
     ])
   })
 })

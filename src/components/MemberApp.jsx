@@ -12,6 +12,8 @@ import SharedCalendar from './shared/SharedCalendar.jsx'
 import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
+import AreaGoals from './team/AreaGoals.jsx'
+import GoalsView from './team/GoalsView.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
 import { SECTION_SCREENS } from '../lib/screenData'
 import '../App.css'
@@ -149,6 +151,8 @@ export default function MemberApp({
           <SharedCalendar client={workClient} meId={me.id} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'team-tasks' ? (
           <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'goals' ? (
+          <GoalsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'clock' ? (
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : current && SECTION_SCREENS[section] ? (
@@ -171,6 +175,7 @@ export default function MemberApp({
             </header>
 
             <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
+            <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
 
             {error ? (
               <p className="member-panel-note">No se pudieron cargar tus permisos. Comprueba la conexión y vuelve a entrar.</p>

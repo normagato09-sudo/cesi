@@ -128,6 +128,7 @@ export default function TeamTasksView({ client, me, zone, asId = null, readOnly 
                         <span className="tw-task-meta">
                           {t.area_name && <span>{t.area_name}</span>}
                           <span>→ {assigneesLabel(t)}</span>
+                          {t.goal_title && <span>Objetivo: {t.goal_title}</span>}
                           {progress && <span className="tw-progress">{progress}</span>}
                           {missing && <span className={overdue ? 'tw-overdue' : undefined}>{missing}</span>}
                           {t.due_date && <span className={overdue ? 'tw-overdue' : undefined}>{overdue ? `Atrasada · ${dueLabel(t.due_date)}` : `Hasta el ${dueLabel(t.due_date)}`}</span>}
@@ -161,6 +162,7 @@ export default function TeamTasksView({ client, me, zone, asId = null, readOnly 
         <TaskEditModal
           client={client}
           me={me}
+          zone={zone}
           task={editing.task}
           areas={areas}
           readOnly={readOnly}

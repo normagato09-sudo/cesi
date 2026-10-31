@@ -5,7 +5,7 @@ import { errorText, listAreasForTasks } from '../../lib/teamWork'
 
 // «Convertir en tarea» desde el acta de una reunión: el formulario de tarea del equipo con el
 // texto ya puesto (se elige persona, área y fecha). Carga antes las áreas.
-export default function NewTeamTaskModal({ client, me, prefill, onClose, onSaved }) {
+export default function NewTeamTaskModal({ client, me, zone, prefill, onClose, onSaved }) {
   const [areas, setAreas] = useState(null)
   const [error, setError] = useState(null)
 
@@ -27,5 +27,5 @@ export default function NewTeamTaskModal({ client, me, prefill, onClose, onSaved
       </Modal>
     )
   }
-  return <TaskEditModal client={client} me={me} prefill={prefill} areas={areas} onClose={onClose} onSaved={onSaved} />
+  return <TaskEditModal client={client} me={me} zone={zone} prefill={prefill} areas={areas} onClose={onClose} onSaved={onSaved} />
 }

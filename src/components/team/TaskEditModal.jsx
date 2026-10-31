@@ -15,6 +15,8 @@ import {
   setTeamTaskStatus,
   validateTaskForm,
 } from '../../lib/teamWork'
+import { listGoals, monthLabel, taskMonth } from '../../lib/goals'
+import { keyOf } from '../../lib/sharedCalendar'
 import './TeamWork.css'
 
 // Nueva tarea del equipo o editar una (quien la creó, Directivo o la ceo). Directivo y la ceo
@@ -23,9 +25,13 @@ import './TeamWork.css'
 // cambiar la de cualquiera. Sin permiso para editarla (o en «Ver como»), solo se ve.
 // me: { id, area, boss }; areas: [{ id, name }]. prefill: datos de una tarea nueva ({ title,
 // description }, p. ej. desde el acta de una reunión). onChanged: al cambiar una parte (sin cerrar).
-export default function TaskEditModal({ client, me, task = null, prefill = null, areas, readOnly = false, onClose, onSaved, onChanged = null }) {
+// zone: para saber el mes de hoy (los objetivos que se pueden elegir son los del área de la tarea
+// en el mes de su fecha límite o, sin fecha, en el actual).
+export default function TaskEditModal({ client, me, zone, task = null, prefill = null, areas, readOnly = false, onClose, onSaved, onChanged = null }) {
   const [form, setForm] = useState(() => (task ? formFromTask(task) : { ...emptyTaskForm(me), ...prefill }))
   const [people, setPeople] = useState(null)
+  const [goals, setGoals] = useState(null) // null: sin cargar (o sin la parte 14)
+  const goalMonth = taskMonth(form.dueDate, keyOf(new Date(), zone))
   const [parts, setParts] = useState(() => task?.assignees || [])
   const [partBusy, setPartBusy] = useState(null)
   const [tried, setTried] = useState(false)
@@ -46,6 +52,25 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
       active = false
     }
   }, [client, canEdit, me.boss])
+
+  useEffect(() => {
+    if (!client || !form.area) return
+    let active = true
+    listGoals(client, goalMonth, { area: form.area, withUnclosed: false }).then(
+      (rows) => active && setGoals(rows || []),
+      () => active && setGoals(null),
+    )
+    return () => {
+      active = false
+    }
+  }, [client, form.area, goalMonth])
+
+  // El objetivo al que ya está unida aunque sea de otro mes.
+  const goalOptions = useMemo(() => {
+    const list = (form.area ? goals || [] : []).map((g) => ({ id: g.id, title: g.title }))
+    if (task?.goal_id && task.goal_id === form.goalId && !list.some((g) => g.id === task.goal_id)) list.push({ id: task.goal_id, title: task.goal_title || 'Objetivo' })
+    return list
+  }, [goals, form.area, form.goalId, task])
 
   const areaOptions = me.boss ? areas : areas.filter((a) => a.id === me.area)
   // Las personas asignadas aunque ya no estén en la lista.
@@ -110,7 +135,7 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
           <div className="sc-row">
             <label className={field('area')}>
               <span>Área</span>
-              <select value={form.area} onChange={(e) => set({ area: e.target.value })} disabled={!me.boss}>
+              <select value={form.area} onChange={(e) => set({ area: e.target.value, goalId: '' })} disabled={!me.boss}>
                 <option value="">Elige el área</option>
                 {areaOptions.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -127,6 +152,20 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
               {errors.dueDate && <span className="sc-error">{errors.dueDate}</span>}
             </label>
           </div>
+          {(goals !== null || form.goalId) && (
+            <label className="sc-field">
+              <span>Objetivo (opcional)</span>
+              <select value={form.goalId} onChange={(e) => set({ goalId: e.target.value })}>
+                <option value="">Sin objetivo</option>
+                {goalOptions.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+              {form.area && goals && goals.length === 0 && !form.goalId && <span className="sc-zone">El área no tiene objetivos de {monthLabel(goalMonth)}.</span>}
+            </label>
+          )}
           {canEdit && me.boss ? (
             people === null ? (
               <p className="sc-zone">Cargando personas…</p>

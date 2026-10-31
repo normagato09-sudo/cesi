@@ -176,33 +176,6 @@
   color: #dc2626;
 }
 
-.ceo-progress {
-  display: grid !important;
-  grid-template-columns: minmax(90px, 130px) 1fr auto;
-  align-items: center;
-  gap: 8px !important;
-}
-.ceo-progress-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ceo-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--bg);
-  overflow: hidden;
-}
-.ceo-bar span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-.ceo-progress-num {
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
 @media (max-width: 860px) {
   .ceo-panel {
     padding: 16px 16px 0;
@@ -210,4 +183,18 @@
   .ceo-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Objetivos de cada área (GoalItem, ver team/Goals.css). */
+.ceo-goals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.ceo-goals h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.ceo-goals .gl-unclosed {
+  grid-column: 1 / -1;
 }

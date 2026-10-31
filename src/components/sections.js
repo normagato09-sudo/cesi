@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   ListChecks,
   ListTodo,
+  Target,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -49,6 +50,7 @@ export const NAV_GROUPS = [
       { id: 'team', label: 'Equipo', Icon: BadgeCheck, screen: 'equipo' },
       { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
+      { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],
@@ -71,9 +73,10 @@ export function ceoGroups(withSync) {
 }
 
 // Menú de una persona de equipo: «Mi panel», su «Calendario» (el compartido), «Tareas» (las del
-// equipo) y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi calendario (permiso
-// 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario aún no lo ve nadie del
-// equipo, y los fichajes de todos los ve Directivo desde su «Fichaje».
+// equipo), «Objetivos» (los del mes de su área) y «Fichaje», siempre; y las pantallas a las que
+// tiene permiso. Mi calendario (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen:
+// el calendario aún no lo ve nadie del equipo, y los fichajes de todos los ve Directivo desde su
+// «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }.
 export function memberGroups(levels = {}) {
   return NAV_GROUPS.map((g) =>
@@ -84,6 +87,7 @@ export function memberGroups(levels = {}) {
             { id: 'home', label: 'Mi panel', Icon: LayoutDashboard },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
+            { id: 'goals', label: 'Objetivos', Icon: Target },
             { id: 'clock', label: 'Fichaje', Icon: Clock },
           ],
         }
