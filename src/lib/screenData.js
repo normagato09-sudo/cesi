@@ -22,6 +22,9 @@ const list = (value) => (Array.isArray(value) ? value : [])
 export function normalizeScreenData(data) {
   return {
     level: data?.level || 'read',
+    // Parte 15: solo los cursos de esa persona (área Profesor) y si puede pasar lista en ellos.
+    teacher: !!data?.teacher,
+    canMark: !!data?.canMark,
     contacts: migrateContacts(list(data?.contacts)).contacts.sort(byName),
     groups: list(data?.groups).sort(byName),
     vacancies: list(data?.vacancies).sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || '')),

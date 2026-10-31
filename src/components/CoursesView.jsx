@@ -51,7 +51,8 @@ export function ClassRow({ cls, students, attendance, onOpen, courseName = '' })
 // Cursos: la ficha de cada curso con sus clases (del horario y sueltas) y el pase de lista. Las
 // clases no salen en mi calendario.
 // readOnly: solo se ve (pantalla del equipo con permiso «Ver»): sin gestionar, editar ni pasar lista.
-export default function CoursesView({ tabs, students, courses, contacts, attendance, extraClasses, actions, onManageCourses, onUpdateCourse, readOnly = false }) {
+// canMark (con readOnly): el profesor sí pasa lista en sus clases. client: para las confirmaciones.
+export default function CoursesView({ tabs, students, courses, contacts, attendance, extraClasses, actions, onManageCourses, onUpdateCourse, readOnly = false, canMark = false, client = null }) {
   const now = useMinuteClock()
   const [selectedId, setSelectedId] = useState(null)
   const [editingCourse, setEditingCourse] = useState(false)
@@ -206,8 +207,9 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
           students={students}
           attendance={attendance}
           actions={actions}
-          readOnly={readOnly}
-          onEditExtra={openClass.extraId ? () => setExtraModal({ extra: extraClasses.find((x) => x.id === openClass.extraId) }) : null}
+          readOnly={readOnly && !canMark}
+          client={client}
+          onEditExtra={openClass.extraId && !readOnly ? () => setExtraModal({ extra: extraClasses.find((x) => x.id === openClass.extraId) }) : null}
           onClose={() => setOpenClassKey(null)}
         />
       )}

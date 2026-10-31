@@ -191,6 +191,17 @@ export function classRecords(records, cls) {
   return records.filter((r) => r.courseId === cls.courseId && r.classKey === cls.key)
 }
 
+// El registro de un alumno en una clase. Si hubiera dos (p. ej. la ceo sin conexión y el profesor
+// a la vez), el más reciente.
+export function pickRecord(records, cls, studentId) {
+  let best = null
+  for (const r of records) {
+    if (r.courseId !== cls.courseId || r.classKey !== cls.key || r.studentId !== studentId) continue
+    if (!best || (r.updatedAt || '') > (best.updatedAt || '')) best = r
+  }
+  return best
+}
+
 // Alumnos de la clase: los inscritos en el curso y los que tienen pase de lista en ella aunque ya
 // no estén. [{ student, record, enrolled }] en el orden de `students`.
 export function classStudents(cls, students, records) {
@@ -198,7 +209,7 @@ export function classStudents(cls, students, records) {
   return students
     .map((student) => ({
       student,
-      record: recs.find((r) => r.studentId === student.id) || null,
+      record: pickRecord(recs, cls, student.id),
       enrolled: (student.courseIds || []).includes(cls.courseId),
     }))
     .filter((row) => row.enrolled || row.record)
@@ -275,44 +286,55 @@ export function recordProblem(record) {
 }
 
 function findRecord(cls, studentId) {
-  return attendanceStore.getAll().find((r) => r.courseId === cls.courseId && r.classKey === cls.key && r.studentId === studentId) || null
+  return pickRecord(attendanceStore.getAll(), cls, studentId)
 }
 
-function saveRecord(cls, studentId, patch) {
-  const current = findRecord(cls, studentId)
-  const data = {
+// Los datos de la clase que se copian en el registro.
+export function classFields(cls, studentId) {
+  return {
     courseId: cls.courseId,
     classKey: cls.key,
     classStart: cls.start.toISOString(),
     classEnd: cls.end.toISOString(),
     timeZone: cls.timeZone,
     studentId,
-    ...patch,
   }
-  return current ? attendanceStore.update(current.id, data) : attendanceStore.create(data)
 }
+
+// Guarda en mis datos. Si hubiera otro registro del mismo alumno y clase, se borra (se queda este).
+function saveRecord(cls, studentId, patch) {
+  const current = findRecord(cls, studentId)
+  const data = { ...classFields(cls, studentId), ...patch }
+  const saved = current ? attendanceStore.update(current.id, data) : attendanceStore.create(data)
+  for (const r of attendanceStore.getAll()) {
+    if (r.id !== saved.id && r.courseId === cls.courseId && r.classKey === cls.key && r.studentId === studentId) attendanceStore.remove(r.id)
+  }
+  return saved
+}
+
+// Los cambios del pase de lista, sin guardar (los usan mis datos y el pase de lista del
+// profesor): cada uno recibe el registro actual (o null) y devuelve los campos que cambian, o
+// lanza un Error con el mensaje para el usuario.
 
 /**
- * Marca al alumno como presente, con retraso o falta. Al venir, la entrada y la salida son las que
- * tuviera o, si no, el inicio y el fin de la clase. Con retraso, los minutos salen de la entrada
- * (null si llegó a la hora: entonces hay que ponerlos).
+ * Presente, con retraso o falta. Al venir, la entrada y la salida son las que tuviera o, si no, el
+ * inicio y el fin de la clase. Con retraso, los minutos salen de la entrada (null si llegó a la
+ * hora: entonces hay que ponerlos).
  */
-export function markAttendance(cls, studentId, status) {
+export function markPatch(current, cls, status) {
   if (!STATUSES.some((s) => s.value === status)) throw new Error('Estado de asistencia no válido.')
   // Entre falta y retraso la justificación se conserva; si vino a la hora, se quita.
-  if (status === 'absent') return saveRecord(cls, studentId, { status, lateMinutes: null, arrivedAt: null, leftAt: null })
-  const current = findRecord(cls, studentId)
+  if (status === 'absent') return { status, lateMinutes: null, arrivedAt: null, leftAt: null }
   const arrivedAt = current?.arrivedAt || cls.start.toISOString()
   const leftAt = current?.leftAt || cls.end.toISOString()
-  if (status === 'present') return saveRecord(cls, studentId, { status, lateMinutes: null, arrivedAt, leftAt, justified: false, justification: '' })
+  if (status === 'present') return { status, lateMinutes: null, arrivedAt, leftAt, justified: false, justification: '' }
   const lateMinutes = (current?.status === 'late' && current.lateMinutes) || lateMinutesFor(arrivedAt, cls) || null
-  return saveRecord(cls, studentId, { status, lateMinutes, arrivedAt, leftAt })
+  return { status, lateMinutes, arrivedAt, leftAt }
 }
 
-// Cambia la entrada y la salida (horas 'HH:mm' en mi zona). Con retraso, los minutos se vuelven a
-// calcular desde la entrada. Lanza un Error si no son válidas.
-export function setAttendanceTimes(cls, studentId, { arrived, left }, myZone = SPAIN_ZONE) {
-  const current = findRecord(cls, studentId)
+// La entrada y la salida (horas 'HH:mm' en mi zona). Con retraso, los minutos se vuelven a
+// calcular desde la entrada.
+export function timesPatch(current, cls, { arrived, left }, myZone = SPAIN_ZONE) {
   if (!current || current.status === 'absent') throw new Error('Marca primero si vino.')
   const arrivedAt = instantForClass(arrived, cls, myZone)
   const leftAt = instantForClass(left, cls, myZone)
@@ -320,12 +342,11 @@ export function setAttendanceTimes(cls, studentId, { arrived, left }, myZone = S
   if (problem) throw new Error(problem)
   const patch = { arrivedAt: arrivedAt.toISOString(), leftAt: leftAt.toISOString() }
   if (current.status === 'late') patch.lateMinutes = lateMinutesFor(arrivedAt, cls) || null
-  return saveRecord(cls, studentId, patch)
+  return patch
 }
 
-// Cambia los minutos de retraso. Si la entrada era la hora de inicio, pasa a ser inicio + minutos.
-export function setLateMinutes(cls, studentId, minutes) {
-  const current = findRecord(cls, studentId)
+// Los minutos de retraso. Si la entrada era la hora de inicio, pasa a ser inicio + minutos.
+export function lateMinutesPatch(current, cls, minutes) {
   if (!current || current.status !== 'late') throw new Error('Marca primero el retraso.')
   const problem = validateLateMinutes(minutes)
   if (problem) throw new Error(problem)
@@ -335,32 +356,58 @@ export function setLateMinutes(cls, studentId, minutes) {
     const arrivedAt = new Date(cls.start.getTime() + n * MINUTE)
     if (!validateTimes(cls, arrivedAt, current.leftAt)) patch.arrivedAt = arrivedAt.toISOString()
   }
-  return saveRecord(cls, studentId, patch)
+  return patch
 }
 
-/**
- * Marca la falta o el retraso como justificado (o no) y guarda el motivo. Al quitar la
- * justificación se borra el motivo. Lanza un Error si no hay falta ni retraso o el motivo es muy largo.
- */
-export function setJustification(cls, studentId, { justified, justification = '' }) {
-  const current = findRecord(cls, studentId)
+// Justificada (o no) y el motivo. Al quitar la justificación se borra el motivo.
+export function justificationPatch(current, { justified, justification = '' }) {
   if (!current || (current.status !== 'late' && current.status !== 'absent')) throw new Error('Solo se justifica una falta o un retraso.')
   const reason = (justification || '').trim()
   if (reason.length > MAX_JUSTIFICATION_LENGTH) throw new Error(`El motivo puede tener como mucho ${MAX_JUSTIFICATION_LENGTH} caracteres.`)
-  return saveRecord(cls, studentId, justified ? { justified: true, justification: reason } : { justified: false, justification: '' })
+  return justified ? { justified: true, justification: reason } : { justified: false, justification: '' }
 }
 
-// Vuelve a dejar al alumno sin marcar.
+// Inscritos de la clase aún sin marcar (para «Todos presentes»).
+export function unmarkedStudents(cls, students, records) {
+  return classStudents(cls, students, records)
+    .filter((row) => row.enrolled && !row.record)
+    .map((row) => row.student)
+}
+
+// Marca al alumno como presente, con retraso o falta (ver markPatch).
+export function markAttendance(cls, studentId, status) {
+  return saveRecord(cls, studentId, markPatch(findRecord(cls, studentId), cls, status))
+}
+
+// Cambia la entrada y la salida (ver timesPatch). Lanza un Error si no son válidas.
+export function setAttendanceTimes(cls, studentId, times, myZone = SPAIN_ZONE) {
+  return saveRecord(cls, studentId, timesPatch(findRecord(cls, studentId), cls, times, myZone))
+}
+
+// Cambia los minutos de retraso (ver lateMinutesPatch).
+export function setLateMinutes(cls, studentId, minutes) {
+  return saveRecord(cls, studentId, lateMinutesPatch(findRecord(cls, studentId), cls, minutes))
+}
+
+/**
+ * Marca la falta o el retraso como justificado (o no) y guarda el motivo. Lanza un Error si no hay
+ * falta ni retraso o el motivo es muy largo.
+ */
+export function setJustification(cls, studentId, input) {
+  return saveRecord(cls, studentId, justificationPatch(findRecord(cls, studentId), input))
+}
+
+// Vuelve a dejar al alumno sin marcar (también un registro repetido, si lo hubiera).
 export function unmarkAttendance(cls, studentId) {
-  const current = findRecord(cls, studentId)
-  if (current) attendanceStore.remove(current.id)
+  for (const r of attendanceStore.getAll()) {
+    if (r.courseId === cls.courseId && r.classKey === cls.key && r.studentId === studentId) attendanceStore.remove(r.id)
+  }
 }
 
 // Marca como presentes a los inscritos que aún están sin marcar. Devuelve cuántos.
 export function markAllPresent(cls, students) {
-  const records = attendanceStore.getAll()
-  const pending = classStudents(cls, students, records).filter((row) => row.enrolled && !row.record)
-  for (const { student } of pending) markAttendance(cls, student.id, 'present')
+  const pending = unmarkedStudents(cls, students, attendanceStore.getAll())
+  for (const student of pending) markAttendance(cls, student.id, 'present')
   return pending.length
 }
 

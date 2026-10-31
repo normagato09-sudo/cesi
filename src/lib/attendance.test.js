@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  attendanceStore,
   attendanceCountOfCourse,
   attendanceCountOfStudent,
   classStudents,
@@ -154,6 +155,19 @@ describe('pase de lista', () => {
     expect(classSummary(c, students, getAllAttendance())).toMatchObject({ present: 0, late: 0, absent: 1, unmarked: 1 })
     expect(markAllPresent(c, students)).toBe(1)
     expect(classSummary(c, students, getAllAttendance())).toMatchObject({ present: 1, late: 0, absent: 1, unmarked: 0 })
+  })
+
+  it('si llega otro registro del mismo alumno y clase (p. ej. del profesor), vale el más reciente y al guardar queda uno', () => {
+    const c = cls()
+    markAttendance(c, 'ana', 'absent')
+    // El del profesor, más reciente, que llega por la sincronización.
+    attendanceStore.create({ courseId: c.courseId, classKey: c.key, studentId: 'ana', status: 'late', lateMinutes: 5 })
+    attendanceStore.replaceAll(getAllAttendance().map((r) => (r.status === 'late' ? { ...r, updatedAt: '2999-01-01T00:00:00.000Z' } : r)))
+    expect(classStudents(c, students, getAllAttendance()).find((r) => r.student.id === 'ana').record.status).toBe('late')
+    markAttendance(c, 'ana', 'present')
+    expect(getAllAttendance().filter((r) => r.studentId === 'ana')).toHaveLength(1)
+    unmarkAttendance(c, 'ana')
+    expect(getAllAttendance()).toEqual([])
   })
 
   it('salen los inscritos y los que tienen pase de lista aunque ya no estén en el curso', () => {

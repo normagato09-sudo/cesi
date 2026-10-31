@@ -135,6 +135,9 @@ export default function StudentsView({
   onCopyFromPortal = null,
   // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, borrar ni pasar lista.
   readOnly = false,
+  // Con readOnly, el profesor sí pasa lista en sus clases; client: para las confirmaciones.
+  canMark = false,
+  client = null,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   const [formModal, setFormModal] = useState(null)
@@ -220,6 +223,8 @@ export default function StudentsView({
           onManageCourses={() => setCoursesOpen(true)}
           onUpdateCourse={onUpdateCourse}
           readOnly={readOnly}
+          canMark={canMark}
+          client={client}
         />
         {coursesModal}
       </>

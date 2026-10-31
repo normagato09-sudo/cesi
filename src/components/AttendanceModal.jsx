@@ -14,11 +14,11 @@ import './StudentsView.css'
 // Lo que el alumno ha dicho en su calendario (calendario compartido): irá o no podrá ir.
 const CONFIRMATION_LABELS = { yes: 'Confirmó que irá', no: 'Dijo que no podrá ir' }
 
-// Confirmaciones de la clase (Map id del alumno → 'yes' | 'no'). Vacío sin sincronización o sin
-// el SQL de la parte 6.
-function useClassConfirmations(cls) {
+// Confirmaciones de la clase (Map id del alumno → 'yes' | 'no'), con mi sincronización o con el
+// cliente que se pase (el del profesor o el de «Ver como»). Vacío sin ninguno o sin la parte 6.
+function useClassConfirmations(cls, clientProp = null) {
   const sync = useSync()
-  const client = sync?.client || null
+  const client = clientProp || sync?.client || null
   const [map, setMap] = useState(() => new Map())
   useEffect(() => {
     if (!client) return
@@ -48,11 +48,16 @@ function AttendanceRow({ cls, row, actions, confirmation = null }) {
   const value = (field) => (draft && field in draft ? draft[field] : saved[field])
   const change = (field, v) => setDraft((d) => ({ ...(d || {}), [field]: v }))
 
+  // Las acciones guardan al momento (mis datos) o devuelven una promesa (el profesor, en Supabase).
+  const done = () => {
+    setDraft(null)
+    setError(null)
+  }
   const run = (fn) => {
     try {
-      fn()
-      setDraft(null)
-      setError(null)
+      const result = fn()
+      if (result && typeof result.then === 'function') result.then(done, (err) => setError(err.message))
+      else done()
     } catch (err) {
       setError(err.message)
     }
@@ -166,11 +171,21 @@ function AttendanceRow({ cls, row, actions, confirmation = null }) {
 }
 
 // Pase de lista de una clase. Las horas se escriben en mi hora (España) y se ven también en la del curso.
-// readOnly: solo se ve (pantalla del equipo con permiso «Ver»): todo desactivado.
-export default function AttendanceModal({ cls, course, contacts, students, attendance, actions, onEditExtra, onClose, readOnly = false }) {
+// readOnly: solo se ve (pantalla del equipo con permiso «Ver»): todo desactivado. client: para
+// leer las confirmaciones sin mi sincronización (app del equipo).
+export default function AttendanceModal({ cls, course, contacts, students, attendance, actions, onEditExtra, onClose, readOnly = false, client = null }) {
   const rows = classStudents(cls, students, attendance)
   const summary = classSummary(cls, students, attendance)
-  const confirmations = useClassConfirmations(cls)
+  const confirmations = useClassConfirmations(cls, client)
+  const [allError, setAllError] = useState(null)
+  const markAll = async () => {
+    setAllError(null)
+    try {
+      await actions.markAllPresent(cls)
+    } catch (err) {
+      setAllError(err.message)
+    }
+  }
   const { teacher } = teacherStatus(course, contacts)
 
   return (
@@ -215,12 +230,13 @@ export default function AttendanceModal({ cls, course, contacts, students, atten
                   {summary.present} presentes · {summary.late} retrasos · {summary.absent} faltas · {summary.unmarked} sin marcar
                 </span>
                 {summary.unmarked > 0 && !readOnly && (
-                  <button type="button" className="contact-action-btn" onClick={() => actions.markAllPresent(cls)}>
+                  <button type="button" className="contact-action-btn" onClick={markAll}>
                     <UserCheck size={14} strokeWidth={1.75} />
                     Marcar presentes a los que faltan
                   </button>
                 )}
               </div>
+              {allError && <p className="attendance-error">{allError}</p>}
               <fieldset className="attendance-fieldset" disabled={readOnly}>
                 <ul className="attendance-list">
                   {rows.map((row) => (

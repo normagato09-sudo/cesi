@@ -12,6 +12,7 @@ import SharedCalendar from './shared/SharedCalendar.jsx'
 import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
+import MyClasses from './team/MyClasses.jsx'
 import AreaGoals from './team/AreaGoals.jsx'
 import GoalsView from './team/GoalsView.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
@@ -174,6 +175,12 @@ export default function MemberApp({
               </button>
             </header>
 
+            <MyClasses
+              client={workClient}
+              zone={zone}
+              asId={workAs}
+              onOpen={allItems(groups).some((item) => item.id === 'attendance') ? () => setSection('attendance') : null}
+            />
             <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
             <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
 

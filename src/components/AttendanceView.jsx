@@ -9,8 +9,9 @@ import './StudentsView.css'
 import './SectionPage.css'
 
 // Formación → Asistencia: las clases de hoy y las que quedan sin pasar lista, de todos los cursos.
-// Al pulsar una se pasa lista, como desde su curso.
-export default function AttendanceView({ courses = [], students = [], contacts = [], attendance = [], extraClasses = [], actions, readOnly = false }) {
+// Al pulsar una se pasa lista, como desde su curso. canMark (con readOnly): el profesor sí pasa
+// lista en sus clases; client: para las confirmaciones (app del equipo).
+export default function AttendanceView({ courses = [], students = [], contacts = [], attendance = [], extraClasses = [], actions, readOnly = false, canMark = false, client = null }) {
   const now = useMinuteClock()
   const [open, setOpen] = useState(null) // { courseId, key }
 
@@ -79,7 +80,8 @@ export default function AttendanceView({ courses = [], students = [], contacts =
           attendance={attendance}
           actions={actions}
           onEditExtra={null}
-          readOnly={readOnly}
+          readOnly={readOnly && !canMark}
+          client={client}
           onClose={() => setOpen(null)}
         />
       )}
