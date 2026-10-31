@@ -6,22 +6,58 @@
 -- sincronización de la ceo: solo crea dos funciones de lectura.
 --
 -- Qué hace:
+--   · Permisos fijos por área (area_permissions), los de la tabla de abajo; el resto, «none».
+--     Borra los permisos propios de cada persona (las filas de profile_permissions; la tabla se
+--     queda) para que mande solo el área. Los permisos se cambian aquí, no desde la app.
 --   · cesi_screen_data(pantalla): lo que necesita una pantalla (contactos, equipo, vacantes,
 --     cursos, alumnos o asistencia), leído de los datos de la ceo, para una persona de equipo con
---     permiso «Ver» o «Editar» en esa pantalla (el suyo propio o, si no, el de su área). Sin
---     permiso, error. Solo devuelve lo de esa pantalla y nunca reuniones ni calendario.
+--     permiso «Ver» o «Editar» en esa pantalla. Sin permiso, error. Solo devuelve lo de esa
+--     pantalla y nunca reuniones ni calendario.
 --   · Con «Ver» quita, antes de enviarlo: email, teléfono, notas y foto de los contactos; el CV
 --     de los miembros del equipo; el CV y las notas de las candidaturas; y email, teléfono,
 --     cumpleaños, notas y Discord de los alumnos. Con «Editar» va todo.
---   · p_as: solo la ceo, para «Ver como» (con los permisos de esa persona y los mismos datos).
+--   · p_as / p_area: solo la ceo, para «Ver como» una persona o un área (con sus permisos y los
+--     mismos datos).
+--
+-- Permisos por área (Calendario, Tareas y Fichaje los tienen todos siempre; «calendario»,
+-- «huecos» y «fichajes» de area_permissions quedan en none):
+--   Directivo:  contactos, equipo, vacantes, alumnos, asistencia = Ver; cursos = Editar
+--   Profesor:   cursos, alumnos, asistencia = Ver
+--   RRHH:       equipo, vacantes = Ver
+--   Alianzas:   contactos = Ver
+--   Moderación, Media, Finanzas, Legal, Técnico, Ciberseguridad: nada por ahora
+--   (De momento todo se ve en solo lectura, también con «Editar».)
 
 do $$
 begin
   if to_regprocedure('public.cesi_my_level(text)') is null then
     raise exception 'Falta la parte 2 (supabase/parte2_papeles_permisos.sql): ejecútala antes.';
   end if;
+  if not exists (select 1 from public.areas where id = 'direccion') then
+    raise exception 'Faltan las áreas: ejecuta antes la parte 5 (supabase/parte5_areas.sql).';
+  end if;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Permisos fijos por área
+-- ---------------------------------------------------------------------------
+-- Sin permisos propios: manda solo el área.
+delete from public.profile_permissions;
+
+insert into public.area_permissions (area, screen, level)
+select a.id, s.screen,
+  case
+    when a.id = 'direccion' and s.screen in ('contactos', 'equipo', 'vacantes', 'alumnos', 'asistencia') then 'read'
+    when a.id = 'direccion' and s.screen = 'cursos' then 'write'
+    when a.id = 'formacion' and s.screen in ('cursos', 'alumnos', 'asistencia') then 'read'
+    when a.id = 'personas' and s.screen in ('equipo', 'vacantes') then 'read'
+    when a.id = 'alianzas' and s.screen = 'contactos' then 'read'
+    else 'none'
+  end
+from public.areas a
+cross join (values ('calendario'), ('contactos'), ('huecos'), ('equipo'), ('vacantes'), ('fichajes'), ('cursos'), ('alumnos'), ('asistencia')) as s (screen)
+on conflict (area, screen) do update set level = excluded.level;
 
 -- Nivel de una persona en una pantalla ('none' | 'read' | 'write'): como cesi_my_level, pero de
 -- cualquier cuenta (para «Ver como»).
@@ -47,10 +83,13 @@ as $$
   ), 'none');
 $$;
 
+-- La versión anterior (sin p_area) se sustituye por esta.
+drop function if exists public.cesi_screen_data(text, uuid);
+
 -- Lo que necesita una pantalla, para quien tenga permiso: { level, contacts, groups, vacancies,
 -- courses, students, attendance, extraClasses } (cada lista, los documentos tal cual se guardan;
 -- con «Ver», sin los datos sensibles).
-create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null)
+create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null, p_area text default null)
 returns jsonb
 language plpgsql
 stable
@@ -72,7 +111,15 @@ begin
   if p_screen is null or p_screen not in ('contactos', 'equipo', 'vacantes', 'cursos', 'alumnos', 'asistencia') then
     raise exception 'Pantalla no válida.' using errcode = '22023';
   end if;
-  v_level := public.cesi_level_for(v_who, p_screen);
+  if p_area is not null then
+    -- «Ver como» un área (solo la ceo): sus permisos.
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_level := coalesce((select ap.level from public.area_permissions ap where ap.area = p_area and ap.screen = p_screen), 'none');
+  else
+    v_level := public.cesi_level_for(v_who, p_screen);
+  end if;
   if v_level not in ('read', 'write') then
     raise exception 'No tienes acceso a esta pantalla.' using errcode = '42501';
   end if;
@@ -154,13 +201,18 @@ end;
 $$;
 
 revoke all on function public.cesi_level_for(uuid, text) from public, anon, authenticated;
-revoke all on function public.cesi_screen_data(text, uuid) from public, anon;
-grant execute on function public.cesi_screen_data(text, uuid) to authenticated;
+revoke all on function public.cesi_screen_data(text, uuid, text) from public, anon;
+grant execute on function public.cesi_screen_data(text, uuid, text) to authenticated;
 
 notify pgrst, 'reload schema';
 
--- Comprobación: la función de las pantallas, con permiso para las cuentas con sesión (true), y la
--- interna, sin él (false).
+-- Comprobación: la función de las pantallas con permiso para las cuentas con sesión (true), la
+-- interna sin él (false), 0 permisos propios y los permisos que no son «none», por área.
 select
-  has_function_privilege('authenticated', 'public.cesi_screen_data(text, uuid)', 'execute') as pantallas,
-  has_function_privilege('authenticated', 'public.cesi_level_for(uuid, text)', 'execute') as interna;
+  has_function_privilege('authenticated', 'public.cesi_screen_data(text, uuid, text)', 'execute') as pantallas,
+  has_function_privilege('authenticated', 'public.cesi_level_for(uuid, text)', 'execute') as interna,
+  (select count(*) from public.profile_permissions) as permisos_propios,
+  (select string_agg(a.name || ': ' || x.list, ' | ' order by a.sort)
+     from public.areas a
+     join (select area, string_agg(screen || '=' || level, ', ' order by screen) as list
+           from public.area_permissions where level <> 'none' group by area) x on x.area = a.id) as permisos_por_area;

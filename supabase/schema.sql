@@ -3641,6 +3641,26 @@ grant execute on function public.cesi_invitable_people_areas() to authenticated;
 -- ---------------------------------------------------------------------------
 -- Parte 11: las pantallas de la ceo para el equipo, en solo lectura
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Permisos fijos por área
+-- ---------------------------------------------------------------------------
+-- Sin permisos propios: manda solo el área.
+delete from public.profile_permissions;
+
+insert into public.area_permissions (area, screen, level)
+select a.id, s.screen,
+  case
+    when a.id = 'direccion' and s.screen in ('contactos', 'equipo', 'vacantes', 'alumnos', 'asistencia') then 'read'
+    when a.id = 'direccion' and s.screen = 'cursos' then 'write'
+    when a.id = 'formacion' and s.screen in ('cursos', 'alumnos', 'asistencia') then 'read'
+    when a.id = 'personas' and s.screen in ('equipo', 'vacantes') then 'read'
+    when a.id = 'alianzas' and s.screen = 'contactos' then 'read'
+    else 'none'
+  end
+from public.areas a
+cross join (values ('calendario'), ('contactos'), ('huecos'), ('equipo'), ('vacantes'), ('fichajes'), ('cursos'), ('alumnos'), ('asistencia')) as s (screen)
+on conflict (area, screen) do update set level = excluded.level;
+
 -- Nivel de una persona en una pantalla ('none' | 'read' | 'write'): como cesi_my_level, pero de
 -- cualquier cuenta (para «Ver como»).
 create or replace function public.cesi_level_for(p_profile uuid, p_screen text)
@@ -3665,10 +3685,13 @@ as $$
   ), 'none');
 $$;
 
+-- La versión anterior (sin p_area) se sustituye por esta.
+drop function if exists public.cesi_screen_data(text, uuid);
+
 -- Lo que necesita una pantalla, para quien tenga permiso: { level, contacts, groups, vacancies,
 -- courses, students, attendance, extraClasses } (cada lista, los documentos tal cual se guardan;
 -- con «Ver», sin los datos sensibles).
-create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null)
+create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null, p_area text default null)
 returns jsonb
 language plpgsql
 stable
@@ -3690,7 +3713,15 @@ begin
   if p_screen is null or p_screen not in ('contactos', 'equipo', 'vacantes', 'cursos', 'alumnos', 'asistencia') then
     raise exception 'Pantalla no válida.' using errcode = '22023';
   end if;
-  v_level := public.cesi_level_for(v_who, p_screen);
+  if p_area is not null then
+    -- «Ver como» un área (solo la ceo): sus permisos.
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_level := coalesce((select ap.level from public.area_permissions ap where ap.area = p_area and ap.screen = p_screen), 'none');
+  else
+    v_level := public.cesi_level_for(v_who, p_screen);
+  end if;
   if v_level not in ('read', 'write') then
     raise exception 'No tienes acceso a esta pantalla.' using errcode = '42501';
   end if;
@@ -3772,5 +3803,5 @@ end;
 $$;
 
 revoke all on function public.cesi_level_for(uuid, text) from public, anon, authenticated;
-revoke all on function public.cesi_screen_data(text, uuid) from public, anon;
-grant execute on function public.cesi_screen_data(text, uuid) to authenticated;
+revoke all on function public.cesi_screen_data(text, uuid, text) from public, anon;
+grant execute on function public.cesi_screen_data(text, uuid, text) to authenticated;

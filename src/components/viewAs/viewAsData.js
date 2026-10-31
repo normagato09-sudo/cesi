@@ -2,7 +2,7 @@
 // Todo se lee una vez al abrir el selector; las pantallas de vista previa no reciben el cliente de
 // Supabase, así que no pueden escribir nada.
 import { listProfiles } from '../../lib/profiles'
-import { AREAS, effectivePermissions, listAreaPermissions, listAreas, listProfilePermissions } from '../../lib/permissions'
+import { AREAS, effectivePermissions, listAreaPermissions, listAreas } from '../../lib/permissions'
 import { listPortalsByAccount, toggleHour, emptyHours, weekFromHours } from '../../lib/studentPortal'
 
 // Perfil completo inventado (disponible de lunes a viernes a esas horas y el sábado por la mañana).
@@ -44,22 +44,21 @@ export function exampleMember() {
 //   members: [{ id, label, detail, email, name, area, levels, account, profile }],
 //   areas: [{ id, name, levels }], permsError: bool }
 export async function loadViewAsOptions(client) {
-  const [profiles, portals, areas, areaRows, overrides] = await Promise.allSettled([
+  const [profiles, portals, areas, areaRows] = await Promise.allSettled([
     listProfiles(client),
     listPortalsByAccount(client),
     listAreas(client),
     listAreaPermissions(client),
-    listProfilePermissions(client),
   ])
   if (profiles.status !== 'fulfilled') throw profiles.reason
   const list = profiles.value
   const portalMap = portals.status === 'fulfilled' ? portals.value : new Map()
-  const permsOk = areas.status === 'fulfilled' && areaRows.status === 'fulfilled' && overrides.status === 'fulfilled'
+  const permsOk = areas.status === 'fulfilled' && areaRows.status === 'fulfilled'
   const areaList = permsOk && areas.value.length > 0 ? areas.value : AREAS
   const rows = permsOk ? areaRows.value : []
-  const own = permsOk ? overrides.value : []
-  const levelsOf = (area, profileId = null) => {
-    const perms = effectivePermissions(area, rows, own.filter((o) => o.profile_id === profileId))
+  // Los permisos van solo por área (parte 11).
+  const levelsOf = (area) => {
+    const perms = effectivePermissions(area, rows, [])
     return Object.fromEntries(Object.entries(perms).map(([screen, p]) => [screen, p.level]))
   }
   const areaName = (id) => areaList.find((a) => a.id === id)?.name || ''
@@ -89,7 +88,7 @@ export async function loadViewAsOptions(client) {
         email: p.email,
         name: p.display_name || '',
         area: p.area || null,
-        levels: levelsOf(p.area || null, p.id),
+        levels: levelsOf(p.area || null),
         account: p,
         profile,
       }

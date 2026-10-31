@@ -58,14 +58,15 @@ describe('loadViewAsOptions', () => {
     profile_permissions: [{ profile_id: 'e1', screen: 'calendario', level: 'none' }],
   })
 
-  it('alumnos con cuenta unida, personas de equipo con sus permisos y áreas', async () => {
+  it('alumnos con cuenta unida, personas de equipo con los permisos de su área y áreas', async () => {
     const options = await loadViewAsOptions(client)
     expect(options.students.map((s) => s.label)).toEqual(['Ana López'])
     expect(options.students[0].detail).toContain('sin completar el perfil')
     expect(options.members).toHaveLength(1)
     expect(options.members[0]).toMatchObject({ label: 'Eva Ruiz', detail: 'Formación' })
     expect(options.members[0].profile.completed_at).toBeTruthy()
-    expect(options.members[0].levels).toMatchObject({ cursos: 'write', calendario: 'none' })
+    // Solo manda el área: los permisos propios de cada persona ya no cuentan.
+    expect(options.members[0].levels).toMatchObject({ cursos: 'write', calendario: 'read' })
     expect(options.areas[0].levels).toMatchObject({ cursos: 'write', calendario: 'read', fichajes: 'none' })
     expect(options.permsError).toBe(false)
   })

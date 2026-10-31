@@ -32,8 +32,9 @@ export function normalizeScreenData(data) {
   }
 }
 
-export async function fetchScreenData(client, screen, asId = null) {
-  const { data, error } = await client.rpc('cesi_screen_data', { p_screen: screen, p_as: asId })
+// asId / asArea: «Ver como» una persona o un área (solo la ceo).
+export async function fetchScreenData(client, screen, asId = null, asArea = null) {
+  const { data, error } = await client.rpc('cesi_screen_data', { p_screen: screen, p_as: asId, p_area: asArea })
   if (error) throw error
   return normalizeScreenData(data)
 }

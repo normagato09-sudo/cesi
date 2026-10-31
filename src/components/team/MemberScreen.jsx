@@ -14,26 +14,27 @@ const noop = () => {}
 
 // Una pantalla de la ceo (Contactos externos, Equipo, Vacantes, Cursos, Alumnos o Asistencia) para
 // una persona de equipo con permiso: sus datos de cesi_screen_data (parte 11) en la misma pantalla
-// de la ceo, en solo lectura (en este paso, también con «Editar»). asId: «Ver como» de la ceo.
-export default function MemberScreen({ client, section, asId = null }) {
+// de la ceo, en solo lectura (en este paso, también con «Editar»). asId / asArea: «Ver como» de la
+// ceo (una persona o un área).
+export default function MemberScreen({ client, section, asId = null, asArea = null }) {
   const screen = SECTION_SCREENS[section]
   const now = useMinuteClock()
   const [state, setState] = useState({ key: null, data: null, error: null })
   const [selectedId, setSelectedId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
-  const key = `${screen}:${asId || ''}`
+  const key = `${screen}:${asId || ''}:${asArea || ''}`
 
   useEffect(() => {
     if (!client || !screen) return
     let active = true
-    fetchScreenData(client, screen, asId).then(
+    fetchScreenData(client, screen, asId, asArea).then(
       (data) => active && setState({ key, data, error: null }),
       (err) => active && setState({ key, data: null, error: screenErrorText(err) }),
     )
     return () => {
       active = false
     }
-  }, [client, screen, asId, key])
+  }, [client, screen, asId, asArea, key])
 
   // Al cambiar de pantalla, nada elegido.
   const [shownKey, setShownKey] = useState(key)

@@ -42,6 +42,9 @@ export default function MemberApp({
   readOnly = false,
   calendarClient = null,
   calendarAs = null,
+  // «Ver como» un área (sin cuenta): las pantallas se leen con el cliente de la ceo y esa área.
+  screensClient = null,
+  screensArea = null,
 }) {
   const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
@@ -149,7 +152,7 @@ export default function MemberApp({
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : current && SECTION_SCREENS[section] ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
-            <MemberScreen client={workClient} section={section} asId={workAs} />
+            <MemberScreen client={preview ? screensClient : client} section={section} asId={workAs} asArea={preview && !workAs ? screensArea : null} />
           </Suspense>
         ) : section === 'home' || !current ? (
           <div className="member-panel">

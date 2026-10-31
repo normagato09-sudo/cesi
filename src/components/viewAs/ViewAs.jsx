@@ -66,6 +66,8 @@ export default function ViewAs({ client, children }) {
                 preview={{ account: view.account, profile: view.profile }}
                 calendarClient={view.account?.id ? client : null}
                 calendarAs={view.account?.id || null}
+                screensClient={client}
+                screensArea={view.account?.id ? null : view.area}
                 readOnly
                 onSignOut={noop}
               />

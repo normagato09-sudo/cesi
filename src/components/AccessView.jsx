@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CircleCheck, CircleDashed, ChevronDown, KeyRound, RefreshCw, RotateCcw, Search, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
+import { CircleCheck, CircleDashed, ChevronDown, KeyRound, RefreshCw, Search, Trash2, UserPlus } from 'lucide-react'
 import Modal from './shared/Modal.jsx'
 import { useSync } from '../lib/sync/syncContext.js'
 import {
@@ -25,18 +25,7 @@ import {
   providerText,
   updateProfile,
 } from '../lib/profiles'
-import {
-  AREAS,
-  LEVELS,
-  LEVEL_LABELS,
-  SCREENS,
-  effectivePermissions,
-  listAreaPermissions,
-  listAreas,
-  listProfilePermissions,
-  resetProfilePermissions,
-  setProfilePermission,
-} from '../lib/permissions'
+import { AREAS, listAreas } from '../lib/permissions'
 import { listPortalsByAccount, newStudentFromPortal } from '../lib/studentPortal'
 import { todayKey } from '../lib/students'
 import './ContactsView.css'
@@ -169,60 +158,6 @@ function NameField({ value, disabled, onSave }) {
   )
 }
 
-// Permisos de una persona de equipo: pantallas × ninguno / ver / editar. Los que se cambian
-// sustituyen a los de su área; «Volver a los del área» los quita.
-function PermissionsTable({ profile, permissions, overridden, busy, onChange, onReset }) {
-  return (
-    <div className="access-perms">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Pantalla</th>
-            {LEVELS.map((level) => (
-              <th key={level} scope="col">
-                {LEVEL_LABELS[level]}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {SCREENS.map((screen) => {
-            const perm = permissions[screen.id]
-            return (
-              <tr key={screen.id} className={perm.overridden ? 'overridden' : undefined}>
-                <th scope="row">
-                  {screen.label}
-                  {perm.overridden && (
-                    <span className="access-perm-own" title={`En su área: ${LEVEL_LABELS[perm.areaLevel]}`}>
-                      propio
-                    </span>
-                  )}
-                </th>
-                {LEVELS.map((level) => (
-                  <td key={level}>
-                    <input
-                      type="radio"
-                      name={`perm-${profile.id}-${screen.id}`}
-                      checked={perm.level === level}
-                      disabled={busy}
-                      aria-label={`${screen.label}: ${LEVEL_LABELS[level]}`}
-                      onChange={() => onChange(screen.id, level)}
-                    />
-                  </td>
-                ))}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-      <button type="button" className="contacts-groups-btn" disabled={busy || !overridden} onClick={onReset}>
-        <RotateCcw size={14} strokeWidth={1.75} />
-        Volver a los del área
-      </button>
-    </div>
-  )
-}
-
 // Confirmación de «Eliminar cuenta»: hay que escribir ELIMINAR.
 function DeleteAccountDialog({ name, busy, error, onCancel, onConfirm }) {
   const [word, setWord] = useState('')
@@ -237,7 +172,7 @@ function DeleteAccountDialog({ name, busy, error, onCancel, onConfirm }) {
         }}
       >
         <p>
-          Se borra la cuenta de verdad: ya no podrá entrar, y se borran su perfil, sus permisos propios y sus respuestas a
+          Se borra la cuenta de verdad: ya no podrá entrar, y se borran su perfil y sus respuestas a
           reuniones. Sus fichajes y tareas se quedan, con «(cuenta eliminada)». Las reuniones que organizó y aún no han pasado se
           cancelan; las pasadas se quedan. <strong>No se puede deshacer.</strong>
         </p>
@@ -267,17 +202,15 @@ function DeleteAccountDialog({ name, busy, error, onCancel, onConfirm }) {
 }
 
 // Accesos: las cuentas que han entrado en la app, su papel, a quién están unidas y, si son de
-// equipo, su área y sus permisos. Solo la ceo.
+// equipo, su área (lo que puede ver va por área: ver la parte 11). Solo la ceo.
 export default function AccessView({ contacts = [], students = [], onCreateStudent = null }) {
   const sync = useSync()
   const client = sync?.client
   const userId = sync?.userId
   const [profiles, setProfiles] = useState(null)
-  // Áreas y permisos (null: falta el SQL de la parte 2 o no se pudieron leer).
-  const [perms, setPerms] = useState(null) // { areas, areaRows, overrides }
+  const [areas, setAreas] = useState(null) // las áreas (null: falta el SQL de la parte 2)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState({})
-  const [openPerms, setOpenPerms] = useState(null) // id de la cuenta con los permisos abiertos
   const [openId, setOpenId] = useState(null) // cuenta con el panel abierto
   const [filter, setFilter] = useState({ query: '', role: '', area: '' })
   const [deleting, setDeleting] = useState(null) // cuenta que se va a eliminar
@@ -289,11 +222,9 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
       Promise.allSettled([
         listProfiles(client),
         listAreas(client),
-        listAreaPermissions(client),
-        listProfilePermissions(client),
         listPortalsByAccount(client),
       ]).then(
-        ([list, areas, areaRows, overrides, portalMap]) => {
+        ([list, areaRows, portalMap]) => {
           if (portalMap.status === 'fulfilled') setPortals(portalMap.value)
           if (list.status === 'fulfilled') {
             setProfiles(list.value)
@@ -302,10 +233,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
             setError(profileErrorText(list.reason))
             setProfiles((current) => current || [])
           }
-          const ok = areas.status === 'fulfilled' && areaRows.status === 'fulfilled' && overrides.status === 'fulfilled'
-          setPerms(
-            ok ? { areas: areas.value.length > 0 ? areas.value : AREAS, areaRows: areaRows.value, overrides: overrides.value } : null,
-          )
+          setAreas(areaRows.status === 'fulfilled' ? (areaRows.value.length > 0 ? areaRows.value : AREAS) : null)
         },
       ),
     [client],
@@ -338,15 +266,6 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
       setProfiles((list) => list.map((p) => (p.id === updated.id ? updated : p)))
     })
 
-  const savePermission = (profile, screen, level) =>
-    withSaving(profile.id, async () => {
-      const row = await setProfilePermission(client, profile.id, screen, level)
-      setPerms((p) => ({
-        ...p,
-        overrides: [...p.overrides.filter((o) => !(o.profile_id === profile.id && o.screen === screen)), row],
-      }))
-    })
-
   // Ficha nueva en Alumnos con los datos de su perfil (ya con país, zona y disponibilidad) y la
   // cuenta unida a ella.
   const createStudentFor = (profile) => {
@@ -362,12 +281,6 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
     save(profile, linkPatch({ kind: 'student', id: student.id, label: student.name }, profile))
   }
 
-  const resetPermissions = (profile) =>
-    withSaving(profile.id, async () => {
-      await resetProfilePermissions(client, profile.id)
-      setPerms((p) => ({ ...p, overrides: p.overrides.filter((o) => o.profile_id !== profile.id) }))
-    })
-
   const removeAccount = (profile) =>
     withSaving(profile.id, async () => {
       await deleteAccount(client, profile.id)
@@ -376,7 +289,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
       setOpenId(null)
     })
 
-  const areaList = perms?.areas || AREAS
+  const areaList = areas || AREAS
   const areaLabel = (id) => areaList.find((a) => a.id === id)?.name || ''
   const shown = profiles ? filterProfiles(profiles, filter, portals) : []
 
@@ -385,10 +298,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
       <div className="contacts-header">
         <h1 className="contacts-title">Accesos</h1>
         <div className="access-header-row">
-          <p className="access-muted">
-            Las cuentas nuevas entran como pendientes. Pulsa una cuenta para cambiar su papel, su área, sus permisos o a quién está
-            unida.
-          </p>
+          <p className="access-muted">Las cuentas nuevas entran como pendientes. Pulsa una cuenta para cambiar su papel, su área o a quién está unida.</p>
           <button type="button" className="contacts-groups-btn" onClick={load} title="Volver a cargar">
             <RefreshCw size={14} strokeWidth={1.75} />
             Actualizar
@@ -449,9 +359,6 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
             const self = p.id === userId
             const busy = !!saving[p.id]
             const locked = !canChangeRole(p, userId)
-            const own = perms ? perms.overrides.filter((o) => o.profile_id === p.id) : []
-            const permissions = perms ? effectivePermissions(p.area, perms.areaRows, own) : null
-            const permsOpen = openPerms === p.id
             const open = openId === p.id
             const name = accountName(p, portals.get(p.id))
             const complete = !!portals.get(p.id)?.completed_at
@@ -549,47 +456,25 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
 
                     {p.role === 'equipo' && (
                       <div className="access-team">
-                        {!perms ? (
+                        {!areas ? (
                           <p className="access-muted">
-                            Para elegir su área y sus permisos falta ejecutar en Supabase el SQL de la parte 2
-                            (supabase/parte2_papeles_permisos.sql).
+                            Para elegir su área falta ejecutar en Supabase el SQL de la parte 2 (supabase/parte2_papeles_permisos.sql).
                           </p>
                         ) : (
-                          <>
-                            <div className="access-team-row">
-                              <label className="access-field access-area">
-                                <span className="access-field-label">Área</span>
-                                <select value={p.area || ''} disabled={busy} onChange={(e) => save(p, { area: e.target.value || null })}>
-                                  <option value="">Sin área</option>
-                                  {perms.areas.map((a) => (
-                                    <option key={a.id} value={a.id}>
-                                      {a.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <button
-                                type="button"
-                                className={`contacts-groups-btn${permsOpen ? ' on' : ''}`}
-                                aria-expanded={permsOpen}
-                                onClick={() => setOpenPerms(permsOpen ? null : p.id)}
-                              >
-                                <ShieldCheck size={14} strokeWidth={1.75} />
-                                {permsOpen ? 'Ocultar permisos' : 'Permisos'}
-                                {own.length > 0 && <span className="access-perm-own">{own.length} propios</span>}
-                              </button>
-                            </div>
-                            {permsOpen && (
-                              <PermissionsTable
-                                profile={p}
-                                permissions={permissions}
-                                overridden={own.length > 0}
-                                busy={busy}
-                                onChange={(screen, level) => savePermission(p, screen, level)}
-                                onReset={() => resetPermissions(p)}
-                              />
-                            )}
-                          </>
+                          <div className="access-team-row">
+                            <label className="access-field access-area">
+                              <span className="access-field-label">Área</span>
+                              <select value={p.area || ''} disabled={busy} onChange={(e) => save(p, { area: e.target.value || null })}>
+                                <option value="">Sin área</option>
+                                {areas.map((ar) => (
+                                  <option key={ar.id} value={ar.id}>
+                                    {ar.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <span className="access-muted">Lo que puede ver depende de su área.</span>
+                          </div>
                         )}
                       </div>
                     )}

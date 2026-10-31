@@ -134,9 +134,7 @@ export default function ViewAsPicker({ client, onPick, onClose }) {
 
               {tab === 'equipo' && (
                 <>
-                  {options.permsError && (
-                    <p className="event-form-error">Falta el SQL de la parte 2: los permisos salen vacíos.</p>
-                  )}
+                  {options.permsError && <p className="event-form-error">Falta el SQL de la parte 2: los permisos salen vacíos.</p>}
                   <h3 className="view-as-heading">Una persona</h3>
                   <ul className="view-as-list">
                     {members.length === 0 ? (
@@ -149,7 +147,7 @@ export default function ViewAsPicker({ client, onPick, onClose }) {
                       )
                     )}
                   </ul>
-                  <h3 className="view-as-heading">Solo un área (con sus permisos)</h3>
+                  <h3 className="view-as-heading">Solo un área</h3>
                   <ul className="view-as-list">
                     {options.areas
                       .filter((a) => matches({ label: a.name }, query))
