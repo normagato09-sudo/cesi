@@ -5,12 +5,16 @@ import { keyOf } from '../../lib/sharedCalendar'
 import {
   PRIORITY_LABEL,
   TASK_STATUSES,
+  asSeenByMe,
+  assigneesLabel,
   errorText,
   filterTasks,
   groupTasks,
   isOverdue,
   listAreasForTasks,
   listTeamTasks,
+  missingText,
+  progressText,
   setTeamTaskStatus,
 } from '../../lib/teamWork'
 import '../shared/SharedCalendar.css'
@@ -23,8 +27,8 @@ function dueLabel(key) {
   return `${Number(d)}/${Number(m)}/${y}`
 }
 
-// Tareas del equipo: lista con filtros (mías / de mi área / todas si puedo), agrupada por estado,
-// con las atrasadas en rojo. me: { id, role, area, boss }. asId + readOnly: «Ver como» de la ceo.
+// Tareas del equipo: lista con filtros (mías / de mi área / todas si puedo), agrupada por estado
+// (el de mi parte si estoy asignada), con las atrasadas en rojo, el progreso y quién falta. me: { id, role, area, boss }. asId + readOnly: «Ver como» de la ceo.
 export default function TeamTasksView({ client, me, zone, asId = null, readOnly = false, title = 'Tareas' }) {
   const [tasks, setTasks] = useState(null)
   const [areas, setAreas] = useState([])
@@ -55,7 +59,7 @@ export default function TeamTasksView({ client, me, zone, asId = null, readOnly 
   const today = keyOf(new Date(), zone)
   // Sin cliente (vista previa de un ejemplo, sin cuenta): ninguna.
   const shownTasks = client ? tasks : NO_TASKS
-  const groups = useMemo(() => (shownTasks ? groupTasks(filterTasks(shownTasks, filter, me), today) : null), [shownTasks, filter, me, today])
+  const groups = useMemo(() => (shownTasks ? groupTasks(filterTasks(shownTasks, filter, me).map(asSeenByMe), today) : null), [shownTasks, filter, me, today])
 
   const filters = [
     { id: 'mine', label: 'Mías' },
@@ -113,13 +117,19 @@ export default function TeamTasksView({ client, me, zone, asId = null, readOnly 
               <ul className="tw-list">
                 {group.tasks.map((t) => {
                   const overdue = isOverdue(t, today)
+                  // Mi parte o, sin nadie asignado, el estado de la tarea (si puedo editarla).
+                  const canChange = !readOnly && (!!t.my_status || (t.total_count === 0 && t.can_edit))
+                  const progress = progressText(t)
+                  const missing = t.task_status !== 'hecha' ? missingText(t) : ''
                   return (
                     <li key={t.id} className={`tw-task${overdue ? ' overdue' : ''}${t.status === 'hecha' ? ' done' : ''}`}>
                       <button type="button" className="tw-task-main" onClick={() => setEditing({ task: t })}>
                         <span className="tw-task-title">{t.title}</span>
                         <span className="tw-task-meta">
                           {t.area_name && <span>{t.area_name}</span>}
-                          <span>{t.assignee_name ? `→ ${t.assignee_name}` : 'Sin asignar'}</span>
+                          <span>→ {assigneesLabel(t)}</span>
+                          {progress && <span className="tw-progress">{progress}</span>}
+                          {missing && <span className={overdue ? 'tw-overdue' : undefined}>{missing}</span>}
                           {t.due_date && <span className={overdue ? 'tw-overdue' : undefined}>{overdue ? `Atrasada · ${dueLabel(t.due_date)}` : `Hasta el ${dueLabel(t.due_date)}`}</span>}
                           <span className={t.priority === 'alta' ? 'tw-priority-alta' : undefined}>Prioridad {PRIORITY_LABEL[t.priority].toLowerCase()}</span>
                         </span>
@@ -127,8 +137,9 @@ export default function TeamTasksView({ client, me, zone, asId = null, readOnly 
                       <select
                         className="tw-status"
                         value={t.status}
-                        aria-label={`Estado de «${t.title}»`}
-                        disabled={readOnly || !t.can_status || busyId === t.id}
+                        aria-label={t.my_status ? `Mi parte de «${t.title}»` : `Estado de «${t.title}»`}
+                        title={t.my_status ? 'Mi parte' : canChange ? undefined : 'Cada persona marca su parte: ábrela para ver quién falta.'}
+                        disabled={!canChange || busyId === t.id}
                         onChange={(e) => changeStatus(t, e.target.value)}
                       >
                         {TASK_STATUSES.map((s) => (
@@ -154,6 +165,7 @@ export default function TeamTasksView({ client, me, zone, asId = null, readOnly 
           areas={areas}
           readOnly={readOnly}
           onClose={() => setEditing(null)}
+          onChanged={refresh}
           onSaved={() => {
             setEditing(null)
             refresh()

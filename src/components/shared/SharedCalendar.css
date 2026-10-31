@@ -2,7 +2,8 @@
    Colores propios (--sc-*): se usa en el portal del alumno, en la app del equipo y en la mía. */
 
 .sc-root,
-.sc-backdrop {
+.sc-backdrop,
+.tw-home-tasks {
   --sc-bg: #f6f7fb;
   --sc-surface: #ffffff;
   --sc-border: #e2e6ee;

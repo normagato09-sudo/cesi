@@ -5,7 +5,8 @@ import ClockFixModal from './team/ClockFixModal.jsx'
 import { listProfiles } from '../lib/profiles'
 import { listPortalsByAccount } from '../lib/studentPortal'
 import { dayLabel, hhmmOf, keyOf } from '../lib/sharedCalendar'
-import { formatMinutes, listAreasForTasks, listClockEntries, listTeamTasks } from '../lib/teamWork'
+import { MyTasksList } from './team/MyTeamTasks.jsx'
+import { formatMinutes, listAreasForTasks, listClockEntries, listTeamTasks, myOpenTasks } from '../lib/teamWork'
 import { areaProgress, nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
 import './CeoTeamPanel.css'
 
@@ -38,6 +39,7 @@ async function loadPanel(client, zone) {
     areas,
     ...splitOpenEntries(open, nameFor, now),
     hours: weekHoursByPerson(members, week, nameFor, areaNameOf),
+    tasks,
     overdue: overdueTasks(tasks, r.today),
     progress: areaProgress(tasks, areas, r.today, zone),
   }
@@ -191,7 +193,7 @@ export default function CeoTeamPanel({ client, meId, zone }) {
                     <button type="button" className="ceo-link" onClick={() => setOpenTask(t)}>
                       <strong>{t.title}</strong>
                       <span className="ceo-muted">
-                        {t.assignee_name || 'Sin asignar'} · {t.area_name || 'Sin área'} ·{' '}
+                        {t.total_count ? `Falta: ${t.missing_names}` : 'Sin asignar'} · {t.area_name || 'Sin área'} ·{' '}
                         <span className="ceo-late">
                           {t.daysLate} {t.daysLate === 1 ? 'día' : 'días'} de retraso
                         </span>
@@ -201,6 +203,12 @@ export default function CeoTeamPanel({ client, meId, zone }) {
                 ))}
               </ul>
             )}
+          </Card>
+
+          <Card title="Mis tareas" count={myOpenTasks(data.tasks).length}>
+            <div className="tw-home-tasks">
+              <MyTasksList tasks={data.tasks} today={data.today} onOpen={setOpenTask} />
+            </div>
           </Card>
 
           <Card title="Progreso por área (este mes)">
@@ -222,7 +230,7 @@ export default function CeoTeamPanel({ client, meId, zone }) {
         </div>
       )}
 
-      {openTask && <TaskEditModal client={client} me={ME(meId)} task={openTask} areas={data.areas} onClose={() => setOpenTask(null)} onSaved={done(setOpenTask)} />}
+      {openTask && <TaskEditModal client={client} me={ME(meId)} task={openTask} areas={data.areas} onClose={() => setOpenTask(null)} onSaved={done(setOpenTask)} onChanged={refresh} />}
       {fixing && <ClockFixModal client={client} entry={fixing} zone={zone} boss onClose={() => setFixing(null)} onSaved={done(setFixing)} />}
     </section>
   )

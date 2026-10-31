@@ -4,8 +4,11 @@ import { keyOf } from './sharedCalendar'
 // personales (tasks) y de la sincronización: se leen y se escriben con funciones de Supabase.
 // «Directivo» (área direccion) y la ceo ven y gestionan todo.
 //
-// Tarea (cesi_team_tasks): { id, title, description, area, area_name, assignee_id, assignee_name,
-//   created_by, created_by_name, due_date: 'AAAA-MM-DD' | null, priority, status, can_edit, can_status }
+// Tarea (cesi_team_tasks, parte 13): { id, title, description, area, area_name, assigned_area,
+//   assigned_area_name, assignees: [{ id, name, area, status, gone }], my_status (mi parte o null),
+//   done_count, total_count, missing_names, created_by, created_by_name,
+//   due_date: 'AAAA-MM-DD' | null, priority, status, can_edit, can_status }
+// Con personas asignadas, status sale de sus partes: «hecha» cuando todas la han terminado.
 // Fichaje (cesi_clock_entries): { id, profile_id, name, clock_in, clock_out, summary, fix_note,
 //   fixed_by_name, fixed_at, can_fix }
 
@@ -41,12 +44,52 @@ export function isOverdue(task, todayKey) {
   return !!task.due_date && task.status !== 'hecha' && task.due_date < todayKey
 }
 
+// La tarea como la veo yo: si estoy asignada, con el estado de mi parte (task_status: el de la
+// tarea entera).
+export function asSeenByMe(task) {
+  return { ...task, status: task.my_status || task.status, task_status: task.status }
+}
+
+// Las que tengo asignadas y no he terminado (mi parte), por fecha límite (sin fecha, al final).
+export function myOpenTasks(tasks) {
+  return tasks
+    .filter((t) => t.my_status && t.my_status !== 'hecha')
+    .sort((a, b) => (a.due_date || '9999-99-99').localeCompare(b.due_date || '9999-99-99') || a.title.localeCompare(b.title, 'es'))
+}
+
+// Personas asignadas con cuenta (sin las de cuentas eliminadas).
+export function liveAssignees(task) {
+  return (task.assignees || []).filter((a) => !a.gone)
+}
+
+// «Toda el área Marketing», «Ana», «Ana y Luis», «Ana, Luis y 3 más» o «Sin asignar».
+export function assigneesLabel(task, max = 2) {
+  if (task.assigned_area_name) return `Toda el área ${task.assigned_area_name}`
+  const names = (task.assignees || []).map((a) => a.name)
+  if (names.length === 0) return 'Sin asignar'
+  if (names.length === 1) return names[0]
+  if (names.length <= max + 1) return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`
+  return `${names.slice(0, max).join(', ')} y ${names.length - max} más`
+}
+
+// «2 de 5 hechas» (solo con más de una persona).
+export function progressText(task) {
+  if ((task.total_count || 0) < 2) return ''
+  return `${task.done_count} de ${task.total_count} hechas`
+}
+
+// «Falta: Ana, Luis» (solo con más de una persona y si alguna no ha terminado).
+export function missingText(task) {
+  if ((task.total_count || 0) < 2 || !task.missing_names) return ''
+  return `Falta: ${task.missing_names}`
+}
+
 /**
  * Filtro de la lista: 'mine' (asignadas a mí o creadas por mí), 'area' (de mi área) o 'all'.
  * me: { id, area }.
  */
 export function filterTasks(tasks, filter, me) {
-  if (filter === 'mine') return tasks.filter((t) => t.assignee_id === me.id || t.created_by === me.id)
+  if (filter === 'mine') return tasks.filter((t) => !!t.my_status || t.created_by === me.id)
   if (filter === 'area') return tasks.filter((t) => !!me.area && t.area === me.area)
   return tasks
 }
@@ -66,8 +109,20 @@ export function groupTasks(tasks, todayKey) {
   return TASK_STATUSES.map((s) => ({ ...s, tasks: tasks.filter((t) => t.status === s.id).sort(compare) }))
 }
 
+// Asignada a: mode 'people' (assignees: ids; vacío = sin asignar) o 'area' (assignArea: toda el
+// área, a quienes la tienen al guardar). Los que no son Directivo, solo a sí mismos.
 export function emptyTaskForm(me) {
-  return { title: '', description: '', area: me.area || '', assignee: me.boss ? '' : me.id, dueDate: '', priority: 'media', status: 'pendiente' }
+  return {
+    title: '',
+    description: '',
+    area: me.area || '',
+    mode: 'people',
+    assignees: me.boss ? [] : [me.id],
+    assignArea: '',
+    dueDate: '',
+    priority: 'media',
+    status: 'pendiente',
+  }
 }
 
 export function formFromTask(t) {
@@ -75,7 +130,9 @@ export function formFromTask(t) {
     title: t.title,
     description: t.description || '',
     area: t.area || '',
-    assignee: t.assignee_id || '',
+    mode: t.assigned_area ? 'area' : 'people',
+    assignees: liveAssignees(t).map((a) => a.id),
+    assignArea: t.assigned_area || '',
     dueDate: t.due_date || '',
     priority: t.priority,
     status: t.status,
@@ -87,6 +144,7 @@ export function validateTaskForm(form) {
   if (!form.title.trim()) errors.title = 'Escribe un título.'
   else if (form.title.trim().length > 200) errors.title = 'El título es demasiado largo.'
   if (!form.area) errors.area = 'Elige el área.'
+  if (form.mode === 'area' && !form.assignArea) errors.assignArea = 'Elige a qué área asignarla.'
   if (form.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(form.dueDate)) errors.dueDate = 'Fecha no válida.'
   return errors
 }
@@ -173,15 +231,18 @@ export function saveTeamTask(client, id, form) {
     p_title: form.title.trim(),
     p_description: form.description.trim(),
     p_area: form.area,
-    p_assignee: form.assignee || null,
+    p_assignees: form.mode === 'area' ? [] : form.assignees,
+    p_assign_area: form.mode === 'area' ? form.assignArea : null,
     p_due_date: form.dueDate || null,
     p_priority: form.priority,
     p_status: form.status,
   })
 }
 
-export function setTeamTaskStatus(client, id, status) {
-  return rpc(client, 'cesi_task_set_status', { p_id: id, p_status: status })
+// Cambiar el estado: mi parte (profileId null), la de otra persona (quien la creó, Directivo o la
+// ceo) o, sin personas asignadas, el de la tarea.
+export function setTeamTaskStatus(client, id, status, profileId = null) {
+  return rpc(client, 'cesi_task_set_status', { p_id: id, p_status: status, p_profile: profileId })
 }
 
 export function deleteTeamTask(client, id) {
@@ -220,6 +281,6 @@ export function listOldOpenEntries(client, asId = null) {
 }
 
 export function errorText(err) {
-  if (err?.code === 'PGRST202' || err?.code === '42883') return 'Falta ejecutar en Supabase el SQL de las partes 7 y 8 (tareas y fichaje).'
+  if (err?.code === 'PGRST202' || err?.code === '42883') return 'Falta ejecutar en Supabase el SQL de las partes 7, 8 y 13 (tareas y fichaje).'
   return err?.message || 'No se pudo completar. Inténtalo de nuevo.'
 }

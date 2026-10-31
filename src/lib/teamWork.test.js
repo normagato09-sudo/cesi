@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  asSeenByMe,
+  assigneesLabel,
   emptyTaskForm,
+  formFromTask,
+  missingText,
+  myOpenTasks,
+  progressText,
   entriesByDay,
   entryMinutes,
   filterTasks,
@@ -17,7 +23,8 @@ const task = (id, extra = {}) => ({
   id,
   title: id,
   area: 'media',
-  assignee_id: null,
+  assignees: [],
+  my_status: null,
   created_by: 'dir',
   due_date: null,
   priority: 'media',
@@ -42,7 +49,7 @@ describe('tareas', () => {
   })
 
   it('filtros: mías, de mi área y todas', () => {
-    const tasks = [task('asignada', { assignee_id: 'yo' }), task('creada', { created_by: 'yo', area: 'legal' }), task('area'), task('otra', { area: 'legal' })]
+    const tasks = [task('asignada', { my_status: 'pendiente' }), task('creada', { created_by: 'yo', area: 'legal' }), task('area'), task('otra', { area: 'legal' })]
     const me = { id: 'yo', area: 'media' }
     expect(filterTasks(tasks, 'mine', me).map((t) => t.id)).toEqual(['asignada', 'creada'])
     expect(filterTasks(tasks, 'area', me).map((t) => t.id)).toEqual(['asignada', 'area'])
@@ -67,12 +74,53 @@ describe('tareas', () => {
   })
 
   it('formulario: los que no son Directivo, en su área y para sí mismos', () => {
-    expect(emptyTaskForm({ id: 'yo', area: 'media', boss: false })).toMatchObject({ area: 'media', assignee: 'yo' })
-    expect(emptyTaskForm({ id: 'yo', area: 'direccion', boss: true })).toMatchObject({ assignee: '' })
+    expect(emptyTaskForm({ id: 'yo', area: 'media', boss: false })).toMatchObject({ area: 'media', mode: 'people', assignees: ['yo'] })
+    expect(emptyTaskForm({ id: 'yo', area: 'direccion', boss: true })).toMatchObject({ assignees: [] })
     expect(validateTaskForm({ ...emptyTaskForm({ id: 'yo', area: '', boss: true }), title: ' ' })).toMatchObject({
       title: expect.any(String),
       area: expect.any(String),
     })
+    expect(validateTaskForm({ ...emptyTaskForm({ id: 'yo', area: 'media', boss: true }), title: 'A', mode: 'area' })).toMatchObject({
+      assignArea: expect.any(String),
+    })
+  })
+
+  it('formulario de una tarea con varias personas o un área entera', () => {
+    const people = [
+      { id: 'ana', name: 'Ana', status: 'hecha', gone: false },
+      { id: null, name: 'Eva (cuenta eliminada)', status: 'pendiente', gone: true },
+      { id: 'luis', name: 'Luis', status: 'pendiente', gone: false },
+    ]
+    expect(formFromTask(task('a', { assignees: people }))).toMatchObject({ mode: 'people', assignees: ['ana', 'luis'], assignArea: '' })
+    expect(formFromTask(task('a', { assignees: people, assigned_area: 'media' }))).toMatchObject({ mode: 'area', assignArea: 'media' })
+  })
+
+  it('a quién está asignada, el progreso y quién falta', () => {
+    const p = (name) => ({ id: name, name, status: 'pendiente', gone: false })
+    expect(assigneesLabel(task('a', { assignees: [] }))).toBe('Sin asignar')
+    expect(assigneesLabel(task('a', { assignees: [p('Ana')] }))).toBe('Ana')
+    expect(assigneesLabel(task('a', { assignees: [p('Ana'), p('Luis'), p('Eva')] }))).toBe('Ana, Luis y Eva')
+    expect(assigneesLabel(task('a', { assignees: [p('Ana'), p('Luis'), p('Eva'), p('Iker')] }))).toBe('Ana, Luis y 2 más')
+    expect(assigneesLabel(task('a', { assignees: [p('Ana')], assigned_area_name: 'Marketing' }))).toBe('Toda el área Marketing')
+    expect(progressText(task('a', { done_count: 2, total_count: 5 }))).toBe('2 de 5 hechas')
+    expect(progressText(task('a', { done_count: 0, total_count: 1 }))).toBe('')
+    expect(missingText(task('a', { total_count: 3, missing_names: 'Ana, Luis' }))).toBe('Falta: Ana, Luis')
+    expect(missingText(task('a', { total_count: 3, missing_names: '' }))).toBe('')
+  })
+
+  it('como la veo yo: con el estado de mi parte', () => {
+    expect(asSeenByMe(task('a', { status: 'en_curso', my_status: 'hecha' }))).toMatchObject({ status: 'hecha', task_status: 'en_curso' })
+    expect(asSeenByMe(task('a', { status: 'en_curso', my_status: null }))).toMatchObject({ status: 'en_curso', task_status: 'en_curso' })
+  })
+
+  it('mis tareas sin terminar, por fecha límite', () => {
+    const rows = [
+      task('sin fecha', { my_status: 'pendiente' }),
+      task('hecha', { my_status: 'hecha', due_date: '2030-11-01' }),
+      task('de otro', { due_date: '2030-11-01' }),
+      task('pronto', { my_status: 'en_curso', due_date: '2030-11-02' }),
+    ]
+    expect(myOpenTasks(rows).map((t) => t.id)).toEqual(['pronto', 'sin fecha'])
   })
 })
 

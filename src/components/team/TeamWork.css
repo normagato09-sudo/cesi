@@ -198,3 +198,89 @@
 .tw-table th.num {
   text-align: right;
 }
+
+/* «Asignada a»: varias personas (con buscador) o un área entera (AssigneePicker). */
+.tw-assign {
+  gap: 6px;
+}
+.tw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  background: var(--sc-blue-soft);
+  color: var(--sc-blue);
+  font-size: 13px;
+  font-weight: 600;
+}
+.tw-chip button {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.tw-pick-list {
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--sc-border);
+  border-radius: 10px;
+}
+.tw-pick-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.tw-pick-area {
+  margin-left: auto;
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+
+/* Partes de cada persona (TaskEditModal). */
+.tw-parts h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.tw-parts ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tw-parts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tw-parts li.done > span:first-child {
+  color: var(--sc-muted);
+  text-decoration: line-through;
+}
+.tw-part-status {
+  color: var(--sc-muted);
+  font-size: 13px;
+}
+.tw-progress {
+  font-weight: 600;
+}

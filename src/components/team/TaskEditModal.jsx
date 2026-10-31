@@ -1,25 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
 import Modal from '../shared/Modal.jsx'
+import AssigneePicker from './AssigneePicker.jsx'
 import {
+  STATUS_LABEL,
   TASK_PRIORITIES,
   TASK_STATUSES,
+  assigneesLabel,
   deleteTeamTask,
   emptyTaskForm,
   errorText,
   formFromTask,
   listTaskPeople,
   saveTeamTask,
+  setTeamTaskStatus,
   validateTaskForm,
 } from '../../lib/teamWork'
+import './TeamWork.css'
 
 // Nueva tarea del equipo o editar una (quien la creó, Directivo o la ceo). Directivo y la ceo
-// eligen área y persona; los demás, solo su área y para sí mismos. Sin permiso para editarla
-// (o en «Ver como»), solo se ve.
+// eligen área y a quién (una o varias personas, o un área entera); los demás, solo su área y para
+// sí mismos. Cada persona asignada marca su parte; quien la creó, Directivo y la ceo pueden
+// cambiar la de cualquiera. Sin permiso para editarla (o en «Ver como»), solo se ve.
 // me: { id, area, boss }; areas: [{ id, name }]. prefill: datos de una tarea nueva ({ title,
-// description }, p. ej. desde el acta de una reunión).
-export default function TaskEditModal({ client, me, task = null, prefill = null, areas, readOnly = false, onClose, onSaved }) {
+// description }, p. ej. desde el acta de una reunión). onChanged: al cambiar una parte (sin cerrar).
+export default function TaskEditModal({ client, me, task = null, prefill = null, areas, readOnly = false, onClose, onSaved, onChanged = null }) {
   const [form, setForm] = useState(() => (task ? formFromTask(task) : { ...emptyTaskForm(me), ...prefill }))
   const [people, setPeople] = useState(null)
+  const [parts, setParts] = useState(() => task?.assignees || [])
+  const [partBusy, setPartBusy] = useState(null)
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -40,12 +48,14 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
   }, [client, canEdit, me.boss])
 
   const areaOptions = me.boss ? areas : areas.filter((a) => a.id === me.area)
-  // La persona asignada aunque no esté en la lista (p. ej. al verla sin poder editar).
+  // Las personas asignadas aunque ya no estén en la lista.
   const peopleOptions = useMemo(() => {
     const list = [...(people || [])]
-    if (task?.assignee_id && !list.some((p) => p.id === task.assignee_id)) list.push({ id: task.assignee_id, name: task.assignee_name })
+    for (const a of task?.assignees || []) if (!a.gone && !list.some((p) => p.id === a.id)) list.push({ id: a.id, name: a.name, area: a.area })
     return list
   }, [people, task])
+  // El estado de la tarea se elige a mano solo si no tiene a nadie asignado.
+  const manualStatus = form.mode === 'people' && form.assignees.length === 0
 
   const run = async (action) => {
     setBusy(true)
@@ -59,6 +69,19 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
     }
   }
 
+  const changePart = async (part, status) => {
+    setPartBusy(part.id)
+    setError(null)
+    try {
+      await setTeamTaskStatus(client, task.id, status, part.id === me.id ? null : part.id)
+      setParts((list) => list.map((p) => (p.id === part.id && !p.gone ? { ...p, status } : p)))
+      onChanged?.()
+    } catch (err) {
+      setError(errorText(err))
+    }
+    setPartBusy(null)
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!canEdit) return
@@ -68,6 +91,8 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
   }
 
   const field = (name) => `sc-field${errors[name] ? ' invalid' : ''}`
+  const live = parts.filter((p) => !p.gone)
+  const doneCount = live.filter((p) => p.status === 'hecha').length
 
   return (
     <Modal title={task ? (canEdit ? 'Editar tarea' : 'Tarea') : 'Nueva tarea'} onClose={onClose}>
@@ -96,27 +121,24 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
               </select>
               {errors.area && <span className="sc-error">{errors.area}</span>}
             </label>
-            <label className="sc-field">
-              <span>Asignada a</span>
-              {me.boss ? (
-                <select value={form.assignee} onChange={(e) => set({ assignee: e.target.value })}>
-                  <option value="">Sin asignar</option>
-                  {peopleOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input type="text" value={task ? task.assignee_name || 'Sin asignar' : 'Tú'} disabled />
-              )}
-            </label>
             <label className={field('dueDate')}>
               <span>Fecha límite</span>
               <input type="date" value={form.dueDate} onChange={(e) => set({ dueDate: e.target.value })} />
               {errors.dueDate && <span className="sc-error">{errors.dueDate}</span>}
             </label>
           </div>
+          {canEdit && me.boss ? (
+            people === null ? (
+              <p className="sc-zone">Cargando personas…</p>
+            ) : (
+              <AssigneePicker people={peopleOptions} areas={areas} form={form} onChange={set} error={errors.assignArea} />
+            )
+          ) : (
+            <label className="sc-field">
+              <span>Asignada a</span>
+              <input type="text" value={task ? assigneesLabel(task, 4) : 'Tú'} disabled />
+            </label>
+          )}
           <div className="sc-row">
             <label className="sc-field">
               <span>Prioridad</span>
@@ -128,22 +150,59 @@ export default function TaskEditModal({ client, me, task = null, prefill = null,
                 ))}
               </select>
             </label>
-            <label className="sc-field">
-              <span>Estado</span>
-              <select value={form.status} onChange={(e) => set({ status: e.target.value })}>
-                {TASK_STATUSES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {manualStatus && (
+              <label className="sc-field">
+                <span>Estado</span>
+                <select value={form.status} onChange={(e) => set({ status: e.target.value })}>
+                  {TASK_STATUSES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         </fieldset>
+
+        {task && parts.length > 0 && (
+          <section className="tw-parts" aria-label="Partes de cada persona">
+            <h3>
+              {live.length > 1 ? `${doneCount} de ${live.length} hechas` : 'Su parte'}
+              {' · '}
+              <span className="sc-zone">La tarea queda hecha cuando todos la terminan.</span>
+            </h3>
+            <ul>
+              {parts.map((p) => {
+                const mayChange = !readOnly && !p.gone && (task.can_edit || p.id === me.id)
+                return (
+                  <li key={p.gone ? `gone:${p.name}` : p.id} className={p.status === 'hecha' ? 'done' : undefined}>
+                    <span>
+                      {p.name}
+                      {p.id === me.id ? ' (tú)' : ''}
+                    </span>
+                    {mayChange ? (
+                      <select className="tw-status" value={p.status} aria-label={`Parte de ${p.name}`} disabled={partBusy === p.id} onChange={(e) => changePart(p, e.target.value)}>
+                        {TASK_STATUSES.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="tw-part-status">{STATUS_LABEL[p.status]}</span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
+
         {task && (
           <p className="sc-zone">
             Creada por {task.created_by_name || '—'}
-            {task.assignee_name ? ` · asignada a ${task.assignee_name}` : ''}
+            {task.assigned_area_name ? ` · asignada a toda el área ${task.assigned_area_name}` : ''}
           </p>
         )}
 

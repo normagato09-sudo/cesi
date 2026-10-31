@@ -11,6 +11,7 @@ import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
 import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
+import MyTeamTasks from './team/MyTeamTasks.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
 import { SECTION_SCREENS } from '../lib/screenData'
 import '../App.css'
@@ -168,6 +169,8 @@ export default function MemberApp({
                 <Pencil size={16} strokeWidth={1.75} />
               </button>
             </header>
+
+            <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
 
             {error ? (
               <p className="member-panel-note">No se pudieron cargar tus permisos. Comprueba la conexión y vuelve a entrar.</p>
