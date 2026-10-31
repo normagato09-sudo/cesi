@@ -166,7 +166,8 @@ function AttendanceRow({ cls, row, actions, confirmation = null }) {
 }
 
 // Pase de lista de una clase. Las horas se escriben en mi hora (España) y se ven también en la del curso.
-export default function AttendanceModal({ cls, course, contacts, students, attendance, actions, onEditExtra, onClose }) {
+// readOnly: solo se ve (pantalla del equipo con permiso «Ver»): todo desactivado.
+export default function AttendanceModal({ cls, course, contacts, students, attendance, actions, onEditExtra, onClose, readOnly = false }) {
   const rows = classStudents(cls, students, attendance)
   const summary = classSummary(cls, students, attendance)
   const confirmations = useClassConfirmations(cls)
@@ -197,7 +198,7 @@ export default function AttendanceModal({ cls, course, contacts, students, atten
               {cls.note && ` · ${cls.note}`}
               {cls.extraId && !cls.note && ' · Clase suelta'}
             </p>
-            {onEditExtra && (
+            {onEditExtra && !readOnly && (
               <button type="button" className="contact-action-btn" onClick={onEditExtra}>
                 <Pencil size={14} strokeWidth={1.75} />
                 Cambiar o borrar la clase suelta
@@ -213,26 +214,30 @@ export default function AttendanceModal({ cls, course, contacts, students, atten
                 <span className="student-muted">
                   {summary.present} presentes · {summary.late} retrasos · {summary.absent} faltas · {summary.unmarked} sin marcar
                 </span>
-                {summary.unmarked > 0 && (
+                {summary.unmarked > 0 && !readOnly && (
                   <button type="button" className="contact-action-btn" onClick={() => actions.markAllPresent(cls)}>
                     <UserCheck size={14} strokeWidth={1.75} />
                     Marcar presentes a los que faltan
                   </button>
                 )}
               </div>
-              <ul className="attendance-list">
-                {rows.map((row) => (
-                  <AttendanceRow key={row.student.id} cls={cls} row={row} actions={actions} confirmation={confirmations.get(row.student.id) || null} />
-                ))}
-              </ul>
-              <p className="contact-form-hint">Se guarda solo. Entrada y salida, en tu hora. Sin marcar no cuenta como falta.</p>
+              <fieldset className="attendance-fieldset" disabled={readOnly}>
+                <ul className="attendance-list">
+                  {rows.map((row) => (
+                    <AttendanceRow key={row.student.id} cls={cls} row={row} actions={actions} confirmation={confirmations.get(row.student.id) || null} />
+                  ))}
+                </ul>
+              </fieldset>
+              <p className="contact-form-hint">
+                {readOnly ? 'Solo lectura. Horas de entrada y salida en hora de España.' : 'Se guarda solo. Entrada y salida, en tu hora. Sin marcar no cuenta como falta.'}
+              </p>
             </>
           )}
         </div>
 
         <div className="event-form-footer">
           <button type="button" className="event-form-submit" onClick={onClose}>
-            Hecho
+            {readOnly ? 'Cerrar' : 'Hecho'}
           </button>
         </div>
       </div>

@@ -3637,3 +3637,140 @@ $$;
 
 revoke all on function public.cesi_invitable_people_areas() from public, anon;
 grant execute on function public.cesi_invitable_people_areas() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 11: las pantallas de la ceo para el equipo, en solo lectura
+-- ---------------------------------------------------------------------------
+-- Nivel de una persona en una pantalla ('none' | 'read' | 'write'): como cesi_my_level, pero de
+-- cualquier cuenta (para «Ver como»).
+create or replace function public.cesi_level_for(p_profile uuid, p_screen text)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((
+    select case
+      when p.role = 'ceo' then 'write'
+      when p.role = 'equipo' then coalesce(
+        (select pp.level from public.profile_permissions pp where pp.profile_id = p.id and pp.screen = p_screen),
+        (select ap.level from public.area_permissions ap where ap.area = p.area and ap.screen = p_screen),
+        'none'
+      )
+      else 'none'
+    end
+    from public.profiles p
+    where p.id = p_profile
+  ), 'none');
+$$;
+
+-- Lo que necesita una pantalla, para quien tenga permiso: { level, contacts, groups, vacancies,
+-- courses, students, attendance, extraClasses } (cada lista, los documentos tal cual se guardan;
+-- con «Ver», sin los datos sensibles).
+create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_who uuid := (select auth.uid());
+  v_level text;
+  v_full boolean;
+  v_out jsonb;
+begin
+  if p_as is not null and p_as <> v_who then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_who := p_as;
+  end if;
+  if p_screen is null or p_screen not in ('contactos', 'equipo', 'vacantes', 'cursos', 'alumnos', 'asistencia') then
+    raise exception 'Pantalla no válida.' using errcode = '22023';
+  end if;
+  v_level := public.cesi_level_for(v_who, p_screen);
+  if v_level not in ('read', 'write') then
+    raise exception 'No tienes acceso a esta pantalla.' using errcode = '42501';
+  end if;
+  v_full := v_level = 'write';
+
+  with
+  ceo as (select id from public.profiles where role = 'ceo'),
+  -- Contactos (con «Ver», sin email, teléfono, notas ni foto; sin CV de equipo).
+  c_all as (
+    select case when v_full then c.data
+      else (c.data - 'email' - 'phone' - 'notes' - 'photo') #- '{teamProfile,cv}' end as data
+    from public.contacts c
+    where c.user_id in (select id from ceo) and c.deleted_at is null
+  ),
+  c_flags as (
+    select data,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object') as team,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object'
+        and coalesce(data -> 'teamProfile' ->> 'status', 'active') <> 'former'
+        and not coalesce((data ->> 'archived')::boolean, false)) as active,
+      (coalesce((data ->> 'candidateOnly')::boolean, false) and not (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object')) as candidate_only,
+      (jsonb_typeof(data -> 'candidacies') = 'array' and jsonb_array_length(data -> 'candidacies') > 0) as candidate
+    from c_all
+  ),
+  -- Candidaturas: con «Ver», sin CV ni notas.
+  c_cand as (
+    select case when v_full then data
+      else jsonb_set(data, '{candidacies}', coalesce((
+        select jsonb_agg(x - 'cv' - 'notes') from jsonb_array_elements(data -> 'candidacies') as x
+      ), '[]'::jsonb)) end as data
+    from c_flags
+    where candidate
+  ),
+  -- Profesores (para los cursos): solo lo que hace falta para nombrarlos y su disponibilidad.
+  c_teachers as (
+    select jsonb_build_object(
+      'id', data ->> 'id', 'name', data ->> 'name', 'country', data -> 'country', 'timeZone', data -> 'timeZone',
+      'availability', data -> 'availability',
+      'teamProfile', jsonb_build_object('status', data -> 'teamProfile' -> 'status', 'area', data -> 'teamProfile' -> 'area',
+        'role', data -> 'teamProfile' -> 'role', 'roles', data -> 'teamProfile' -> 'roles')
+    ) as data
+    from c_flags
+    where team
+  ),
+  -- Alumnos (con «Ver», sin email, teléfono, cumpleaños, notas ni Discord).
+  s_all as (
+    select case when v_full then s.data else s.data - 'email' - 'phone' - 'birthday' - 'notes' - 'discord' end as data
+    from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+  ),
+  courses as (
+    select co.data from public.courses co where co.user_id in (select id from ceo) and co.deleted_at is null
+  )
+  select jsonb_build_object(
+    'level', v_level,
+    'contacts', case p_screen
+      when 'contactos' then coalesce((select jsonb_agg(data - 'candidacies' - 'candidateOnly') from c_flags where not active and not candidate_only), '[]'::jsonb)
+      when 'equipo' then coalesce((select jsonb_agg(data - 'candidacies' - 'candidateOnly') from c_flags where team), '[]'::jsonb)
+      when 'vacantes' then coalesce((select jsonb_agg(data) from c_cand), '[]'::jsonb)
+      else coalesce((select jsonb_agg(data) from c_teachers), '[]'::jsonb)
+    end,
+    'groups', case when p_screen in ('contactos', 'equipo') then coalesce((
+        select jsonb_agg(g.data) from public.groups g where g.user_id in (select id from ceo) and g.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'vacancies', case when p_screen = 'vacantes' then coalesce((
+        select jsonb_agg(v.data) from public.vacancies v where v.user_id in (select id from ceo) and v.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'courses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from courses), '[]'::jsonb) else '[]'::jsonb end,
+    'students', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from s_all), '[]'::jsonb) else '[]'::jsonb end,
+    'attendance', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(a.data) from public.attendance a where a.user_id in (select id from ceo) and a.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'extraClasses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(x.data) from public.extra_classes x where x.user_id in (select id from ceo) and x.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end
+  ) into v_out;
+  return v_out;
+end;
+$$;
+
+revoke all on function public.cesi_level_for(uuid, text) from public, anon, authenticated;
+revoke all on function public.cesi_screen_data(text, uuid) from public, anon;
+grant execute on function public.cesi_screen_data(text, uuid) to authenticated;

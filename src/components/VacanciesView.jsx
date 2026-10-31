@@ -59,14 +59,14 @@ function CandidateCard({ contact, candidacy: c, onOpen }) {
   )
 }
 
-function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandidate, onOpenCandidate, onStatusChange }) {
+function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandidate, onOpenCandidate, onStatusChange, readOnly = false }) {
   const columns = candidatesByStatus(vacancy.id, contacts)
   const erased = (vacancy.erasedCandidates || []).length
   return (
     <div className="vacancy-detail">
       <button type="button" className="contact-back-btn team-back" onClick={onBack}>
         <ArrowLeft size={16} strokeWidth={1.75} />
-        Equipo
+        {readOnly ? 'Vacantes' : 'Equipo'}
       </button>
 
       <div className="vacancy-detail-head">
@@ -76,20 +76,25 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
             {[vacancy.area, `Abierta el ${formatDay(vacancy.openedAt)}`].filter(Boolean).join(' · ')}
           </p>
         </div>
-        <select
-          className="vacancy-status-select"
-          value={vacancy.status}
-          onChange={(e) => onStatusChange(e.target.value)}
-          aria-label="Estado de la vacante"
-        >
-          {Object.entries(VACANCY_STATUS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        {readOnly ? (
+          <span className="vacancy-status-select">{VACANCY_STATUS[vacancy.status] || ''}</span>
+        ) : (
+          <select
+            className="vacancy-status-select"
+            value={vacancy.status}
+            onChange={(e) => onStatusChange(e.target.value)}
+            aria-label="Estado de la vacante"
+          >
+            {Object.entries(VACANCY_STATUS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
+      {!readOnly && (
       <div className="contact-detail-actions">
         <button type="button" className="contact-action-btn primary" onClick={onAddCandidate}>
           <UserPlus size={14} strokeWidth={1.75} />
@@ -104,6 +109,7 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
           Borrar
         </button>
       </div>
+      )}
 
       {(vacancy.description || vacancy.requirements) && (
         <div className="vacancy-texts">
@@ -151,6 +157,7 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
 }
 
 function CandidateDetail({
+  readOnly = false,
   contact,
   candidacy: c,
   vacancy,
@@ -202,7 +209,7 @@ function CandidateDetail({
               ))}
             </p>
           )}
-          {c.cv && <CvLink cv={c.cv} className="cv-link" />}
+          {c.cv && !readOnly && <CvLink cv={c.cv} className="cv-link" />}
         </div>
       </div>
 
@@ -213,13 +220,15 @@ function CandidateDetail({
             type="button"
             className={`candidate-status-btn ${status}${c.status === status ? ' on' : ''}`}
             aria-pressed={c.status === status}
-            onClick={() => onStatus(status)}
+            disabled={readOnly && c.status !== status}
+            onClick={() => !readOnly && onStatus(status)}
           >
             {CANDIDATE_STATUS[status]}
           </button>
         ))}
       </div>
 
+      {!readOnly && (
       <div className="contact-detail-actions">
         <button type="button" className="contact-action-btn primary" onClick={onFindInterview}>
           <Search size={14} strokeWidth={1.75} />
@@ -240,6 +249,7 @@ function CandidateDetail({
           Eliminar
         </button>
       </div>
+      )}
 
       <section className="team-section">
         <h3>Historial</h3>
@@ -258,17 +268,19 @@ function CandidateDetail({
         )}
       </section>
 
-      <section className="team-section">
-        <h3>Notas de esta candidatura</h3>
-        {c.notes ? <p className="team-bio">{c.notes}</p> : <p className="team-empty">Sin notas.</p>}
-      </section>
+      {!readOnly && (
+        <section className="team-section">
+          <h3>Notas de esta candidatura</h3>
+          {c.notes ? <p className="team-bio">{c.notes}</p> : <p className="team-empty">Sin notas.</p>}
+        </section>
+      )}
 
       <section className="team-section">
         <h3>Datos</h3>
         <ContactFields contact={contact} />
       </section>
 
-      <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />
+      {!readOnly && <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
     </div>
   )
 }
@@ -296,6 +308,8 @@ export default function VacanciesView({
   onIncorporate,
   onOpenEvent,
   onOpenTeamMember,
+  // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, mover ni borrar.
+  readOnly = false,
 }) {
   const [vacancyForm, setVacancyForm] = useState(null) // { vacancy } (null = nueva)
   const [candidateForm, setCandidateForm] = useState(null) // { entry: { contact, candidacy } } (entry null = nueva)
@@ -346,6 +360,7 @@ export default function VacanciesView({
   if (selected) {
     content = (
       <CandidateDetail
+        readOnly={readOnly}
         contact={selected.contact}
         candidacy={selected.candidacy}
         vacancy={candidateVacancy}
@@ -369,6 +384,7 @@ export default function VacanciesView({
   } else if (selectedVacancy) {
     content = (
       <VacancyDetail
+        readOnly={readOnly}
         vacancy={selectedVacancy}
         contacts={contacts}
         onBack={() => onSelectVacancy(null)}

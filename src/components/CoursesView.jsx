@@ -50,7 +50,8 @@ export function ClassRow({ cls, students, attendance, onOpen, courseName = '' })
 
 // Cursos: la ficha de cada curso con sus clases (del horario y sueltas) y el pase de lista. Las
 // clases no salen en mi calendario.
-export default function CoursesView({ tabs, students, courses, contacts, attendance, extraClasses, actions, onManageCourses, onUpdateCourse }) {
+// readOnly: solo se ve (pantalla del equipo con permiso «Ver»): sin gestionar, editar ni pasar lista.
+export default function CoursesView({ tabs, students, courses, contacts, attendance, extraClasses, actions, onManageCourses, onUpdateCourse, readOnly = false }) {
   const now = useMinuteClock()
   const [selectedId, setSelectedId] = useState(null)
   const [editingCourse, setEditingCourse] = useState(false)
@@ -75,23 +76,29 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
         <div className="contacts-header">
           <h1 className="contacts-title">{tabs ? 'Alumnos' : 'Cursos'}</h1>
           {tabs}
-          <div className="contacts-header-actions">
-            <button type="button" className="contacts-groups-btn" onClick={onManageCourses} title="Crear, renombrar, editar o borrar cursos">
-              <Settings2 size={14} strokeWidth={1.75} />
-              Gestionar cursos
-            </button>
-          </div>
+          {!readOnly && (
+            <div className="contacts-header-actions">
+              <button type="button" className="contacts-groups-btn" onClick={onManageCourses} title="Crear, renombrar, editar o borrar cursos">
+                <Settings2 size={14} strokeWidth={1.75} />
+                Gestionar cursos
+              </button>
+            </div>
+          )}
         </div>
 
         {courses.length === 0 ? (
           <div className="contacts-empty">
             <BookOpen size={32} strokeWidth={1.5} />
-            <p className="contacts-empty-title">Todavía no tienes cursos</p>
-            <p>Crea un curso, ponle profesor y horario, y aquí podrás pasar lista en cada clase.</p>
-            <button type="button" className="contacts-new-btn" onClick={onManageCourses}>
-              <Settings2 size={15} strokeWidth={1.75} />
-              <span>Crear cursos</span>
-            </button>
+            <p className="contacts-empty-title">{readOnly ? 'Todavía no hay cursos' : 'Todavía no tienes cursos'}</p>
+            {!readOnly && (
+              <>
+                <p>Crea un curso, ponle profesor y horario, y aquí podrás pasar lista en cada clase.</p>
+                <button type="button" className="contacts-new-btn" onClick={onManageCourses}>
+                  <Settings2 size={15} strokeWidth={1.75} />
+                  <span>Crear cursos</span>
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <ul className="contacts-list">
@@ -136,6 +143,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
               </div>
             </div>
 
+            {!readOnly && (
             <div className="contact-detail-actions">
               <button type="button" className="contact-action-btn" onClick={() => setEditingCourse(true)}>
                 <Pencil size={14} strokeWidth={1.75} />
@@ -146,6 +154,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
                 Clase suelta
               </button>
             </div>
+            )}
 
             <CourseSummary course={selected} contacts={contacts} />
 
@@ -197,6 +206,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
           students={students}
           attendance={attendance}
           actions={actions}
+          readOnly={readOnly}
           onEditExtra={openClass.extraId ? () => setExtraModal({ extra: extraClasses.find((x) => x.id === openClass.extraId) }) : null}
           onClose={() => setOpenClassKey(null)}
         />

@@ -4,9 +4,8 @@
 
 export const SCREENS = [
   { id: 'calendario', label: 'Calendario' },
-  { id: 'contactos', label: 'Contactos' },
-  { id: 'huecos', label: 'Buscar hueco' },
-  { id: 'equipo', label: 'Personas' },
+  { id: 'contactos', label: 'Contactos externos' },
+  { id: 'equipo', label: 'Equipo' },
   { id: 'vacantes', label: 'Vacantes' },
   { id: 'fichajes', label: 'Fichajes' },
   { id: 'cursos', label: 'Cursos' },

@@ -10,7 +10,7 @@ import './SectionPage.css'
 
 // Formación → Asistencia: las clases de hoy y las que quedan sin pasar lista, de todos los cursos.
 // Al pulsar una se pasa lista, como desde su curso.
-export default function AttendanceView({ courses = [], students = [], contacts = [], attendance = [], extraClasses = [], actions }) {
+export default function AttendanceView({ courses = [], students = [], contacts = [], attendance = [], extraClasses = [], actions, readOnly = false }) {
   const now = useMinuteClock()
   const [open, setOpen] = useState(null) // { courseId, key }
 
@@ -79,6 +79,7 @@ export default function AttendanceView({ courses = [], students = [], contacts =
           attendance={attendance}
           actions={actions}
           onEditExtra={null}
+          readOnly={readOnly}
           onClose={() => setOpen(null)}
         />
       )}

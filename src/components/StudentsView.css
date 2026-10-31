@@ -425,3 +425,11 @@
   background: #fdecec;
   color: #dc2626;
 }
+
+/* Pase de lista en solo lectura: los controles se ven desactivados. */
+.attendance-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}

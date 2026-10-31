@@ -133,6 +133,8 @@ export default function StudentsView({
   tab: tabProp = null, // 'students' | 'courses': lo elige el menú (Formación) y no salen las pestañas
   portals = null, // Map(id del alumno → su perfil del portal), si tiene cuenta unida (ver studentPortal.js)
   onCopyFromPortal = null,
+  // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, borrar ni pasar lista.
+  readOnly = false,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   const [formModal, setFormModal] = useState(null)
@@ -217,6 +219,7 @@ export default function StudentsView({
           actions={attendanceActions}
           onManageCourses={() => setCoursesOpen(true)}
           onUpdateCourse={onUpdateCourse}
+          readOnly={readOnly}
         />
         {coursesModal}
       </>
@@ -240,16 +243,18 @@ export default function StudentsView({
                 aria-label="Buscar alumnos"
               />
             </label>
-            <button
-              type="button"
-              className="contacts-new-btn"
-              onClick={() => setFormModal({ student: null })}
-              aria-label="Nuevo alumno"
-              title="Nuevo alumno"
-            >
-              <UserPlus size={15} strokeWidth={1.75} />
-              <span>Nuevo alumno</span>
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                className="contacts-new-btn"
+                onClick={() => setFormModal({ student: null })}
+                aria-label="Nuevo alumno"
+                title="Nuevo alumno"
+              >
+                <UserPlus size={15} strokeWidth={1.75} />
+                <span>Nuevo alumno</span>
+              </button>
+            )}
           </div>
 
           <div className="contacts-group-filter" role="group" aria-label="Filtrar por curso">
@@ -275,10 +280,12 @@ export default function StudentsView({
                 {c.name} ({studentsInCourse(c.id, students).length})
               </button>
             ))}
-            <button type="button" className="contacts-groups-btn" onClick={() => setCoursesOpen(true)} title="Crear, renombrar o borrar cursos">
-              <BookOpen size={13} strokeWidth={1.75} />
-              {courses.length > 0 ? 'Gestionar cursos' : 'Crear cursos'}
-            </button>
+            {!readOnly && (
+              <button type="button" className="contacts-groups-btn" onClick={() => setCoursesOpen(true)} title="Crear, renombrar o borrar cursos">
+                <BookOpen size={13} strokeWidth={1.75} />
+                {courses.length > 0 ? 'Gestionar cursos' : 'Crear cursos'}
+              </button>
+            )}
           </div>
 
           <div className="students-filters">
@@ -299,12 +306,16 @@ export default function StudentsView({
         {students.length === 0 ? (
           <div className="contacts-empty">
             <GraduationCap size={32} strokeWidth={1.5} />
-            <p className="contacts-empty-title">Todavía no tienes alumnos</p>
-            <p>Guarda aquí a tus alumnos con sus cursos, su país y las horas en las que pueden.</p>
-            <button type="button" className="contacts-new-btn" onClick={() => setFormModal({ student: null })}>
-              <UserPlus size={15} strokeWidth={1.75} />
-              <span>Crear mi primer alumno</span>
-            </button>
+            <p className="contacts-empty-title">{readOnly ? 'Todavía no hay alumnos' : 'Todavía no tienes alumnos'}</p>
+            {!readOnly && (
+              <>
+                <p>Guarda aquí a tus alumnos con sus cursos, su país y las horas en las que pueden.</p>
+                <button type="button" className="contacts-new-btn" onClick={() => setFormModal({ student: null })}>
+                  <UserPlus size={15} strokeWidth={1.75} />
+                  <span>Crear mi primer alumno</span>
+                </button>
+              </>
+            )}
           </div>
         ) : filtered.length === 0 ? (
           <div className="contacts-empty">
@@ -376,6 +387,7 @@ export default function StudentsView({
               </div>
             </div>
 
+            {!readOnly && (
             <div className="contact-detail-actions">
               <button type="button" className="contact-action-btn" onClick={() => setFormModal({ student: selected })}>
                 <Pencil size={14} strokeWidth={1.75} />
@@ -386,6 +398,7 @@ export default function StudentsView({
                 Eliminar
               </button>
             </div>
+            )}
 
             <dl className="contact-fields">
               {selected.discord && (
@@ -456,7 +469,7 @@ export default function StudentsView({
               </div>
             </dl>
 
-            {portals?.get(selected.id) && (
+            {!readOnly && portals?.get(selected.id) && (
               <StudentAccountSection
                 portal={portals.get(selected.id)}
                 student={selected}

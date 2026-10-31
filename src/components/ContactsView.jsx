@@ -89,6 +89,9 @@ export default function ContactsView({
   onReturnToTeam,
   onOpenTeamMember,
   onOpenCandidate,
+  // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, archivar ni borrar, y
+  // sin mis reuniones con cada contacto.
+  readOnly = false,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
@@ -252,16 +255,18 @@ export default function ContactsView({
                 aria-label="Buscar contactos"
               />
             </label>
-            <button
-              type="button"
-              className="contacts-new-btn"
-              onClick={() => setFormModal({ contact: null })}
-              aria-label="Nuevo contacto"
-              title="Nuevo contacto"
-            >
-              <UserPlus size={15} strokeWidth={1.75} />
-              <span>Nuevo contacto</span>
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                className="contacts-new-btn"
+                onClick={() => setFormModal({ contact: null })}
+                aria-label="Nuevo contacto"
+                title="Nuevo contacto"
+              >
+                <UserPlus size={15} strokeWidth={1.75} />
+                <span>Nuevo contacto</span>
+              </button>
+            )}
           </div>
           <div className="contacts-group-filter" role="group" aria-label="Filtrar por grupo">
             {groups.length > 0 && (
@@ -298,15 +303,17 @@ export default function ContactsView({
                 Candidatos ({candidateCount})
               </button>
             )}
-            <button
-              type="button"
-              className="contacts-groups-btn"
-              onClick={() => setGroupsOpen(true)}
-              title="Crear, renombrar o borrar grupos"
-            >
-              <Tags size={13} strokeWidth={1.75} />
-              {groups.length > 0 ? 'Gestionar grupos' : 'Crear grupos'}
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                className="contacts-groups-btn"
+                onClick={() => setGroupsOpen(true)}
+                title="Crear, renombrar o borrar grupos"
+              >
+                <Tags size={13} strokeWidth={1.75} />
+                {groups.length > 0 ? 'Gestionar grupos' : 'Crear grupos'}
+              </button>
+            )}
             <button
               type="button"
               className="contacts-groups-btn"
@@ -337,12 +344,16 @@ export default function ContactsView({
         {people.length === 0 ? (
           <div className="contacts-empty">
             <Users size={32} strokeWidth={1.5} />
-            <p className="contacts-empty-title">Todavía no tienes contactos</p>
-            <p>Guarda aquí a las personas con las que te reúnes para tener a mano su email, teléfono y vuestras reuniones.</p>
-            <button type="button" className="contacts-new-btn" onClick={() => setFormModal({ contact: null })}>
-              <UserPlus size={15} strokeWidth={1.75} />
-              <span>Crear mi primer contacto</span>
-            </button>
+            <p className="contacts-empty-title">{readOnly ? 'Todavía no hay contactos' : 'Todavía no tienes contactos'}</p>
+            {!readOnly && (
+              <>
+                <p>Guarda aquí a las personas con las que te reúnes para tener a mano su email, teléfono y vuestras reuniones.</p>
+                <button type="button" className="contacts-new-btn" onClick={() => setFormModal({ contact: null })}>
+                  <UserPlus size={15} strokeWidth={1.75} />
+                  <span>Crear mi primer contacto</span>
+                </button>
+              </>
+            )}
           </div>
         ) : filtered.length === 0 ? (
           <div className="contacts-empty">
@@ -426,7 +437,7 @@ export default function ContactsView({
               </div>
             </div>
 
-            {showArchive ? (
+            {readOnly ? null : showArchive ? (
               <div className="contact-detail-actions">
                 <p className="contact-archived-badge">
                   <Archive size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -497,7 +508,7 @@ export default function ContactsView({
 
             <ContactFields contact={selected} />
 
-            <ContactMeetings contact={selected} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />
+            {!readOnly && <ContactMeetings contact={selected} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
           </div>
         )}
       </div>

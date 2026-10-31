@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { LogOut, Pencil } from 'lucide-react'
 import MobileNav from './MobileNav.jsx'
 import ComingSoonView from './ComingSoonView.jsx'
@@ -12,15 +12,20 @@ import SharedCalendar from './shared/SharedCalendar.jsx'
 import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
+import { SECTION_SCREENS } from '../lib/screenData'
 import '../App.css'
 import './Sidebar.css'
 import './ContactsView.css'
 import { viewZone } from '../lib/zoneView'
 import './MemberApp.css'
 
+// Las pantallas de la ceo (solo se cargan al abrir una).
+const MemberScreen = lazy(() => import('./team/MemberScreen.jsx'))
+
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
-// permiso (my_permissions(), ver supabase/schema.sql). De momento cada pantalla dice
-// «Próximamente»: todavía no ve ningún dato de la ceo.
+// permiso (my_permissions(), ver supabase/schema.sql). Las pantallas de la ceo (Contactos
+// externos, Equipo, Vacantes, Cursos, Alumnos, Asistencia) se ven con sus datos, de momento en
+// solo lectura (ver MemberScreen y la parte 11).
 // Como el alumno, hasta que completa su perfil (account_profiles) no puede hacer nada más.
 // Con `levels` y `preview` ({ account, profile }, vista previa de «Ver como») no se pide nada a
 // Supabase; readOnly desactiva guardar y cerrar sesión. El calendario de la vista previa se lee con
@@ -142,6 +147,10 @@ export default function MemberApp({
           <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'clock' ? (
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : current && SECTION_SCREENS[section] ? (
+          <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
+            <MemberScreen client={workClient} section={section} asId={workAs} />
+          </Suspense>
         ) : section === 'home' || !current ? (
           <div className="member-panel">
             <header className="member-panel-head">

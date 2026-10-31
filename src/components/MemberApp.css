@@ -127,3 +127,13 @@
   color: var(--accent);
   border-color: var(--accent);
 }
+
+/* Pantallas de la ceo en la app del equipo: cargando o sin acceso. */
+.member-screen-note {
+  margin: 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.member-screen-note.error {
+  color: #b91c1c;
+}

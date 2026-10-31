@@ -57,6 +57,7 @@ function MemberDetail({
   onOpenEvent,
   onNewMeeting,
   onOpenCandidate,
+  readOnly = false,
 }) {
   const p = milestonesToBio(contact.teamProfile)
   const seniority = tenureText(tenure(p, now))
@@ -101,6 +102,7 @@ function MemberDetail({
         </div>
       </div>
 
+      {!readOnly && (
       <div className="contact-detail-actions team-detail-actions">
         <button type="button" className="contact-action-btn primary" onClick={() => onNewMeeting(contact)}>
           <CalendarPlus size={14} strokeWidth={1.75} />
@@ -129,6 +131,7 @@ function MemberDetail({
           Quitar del equipo
         </button>
       </div>
+      )}
 
       <section className="team-section">
         <h3>Contacto</h3>
@@ -145,17 +148,17 @@ function MemberDetail({
               <a href={`tel:${contact.phone.replace(/\s+/g, '')}`}>{contact.phone}</a>
             </li>
           )}
-          {p.cv && (
+          {p.cv && !readOnly && (
             <li>
               <CvLink cv={p.cv} />
             </li>
           )}
-          {!contact.email && !contact.phone && !p.cv && <li className="team-empty">Sin email ni teléfono.</li>}
+          {!contact.email && !contact.phone && !(p.cv && !readOnly) && <li className="team-empty">{readOnly ? 'Sin datos de contacto a la vista.' : 'Sin email ni teléfono.'}</li>}
         </ul>
         <ContactFields contact={contact} skip={['email', 'phone', 'role', 'links']} />
       </section>
 
-      <TeamTrajectory profile={p} now={now} areas={areas} joinedAt={p.joinedAt || ''} onChange={onSaveRoles} />
+      <TeamTrajectory profile={p} now={now} areas={areas} joinedAt={p.joinedAt || ''} onChange={readOnly ? null : onSaveRoles} />
 
       {links.length > 0 && (
         <section className="team-section">
@@ -173,7 +176,7 @@ function MemberDetail({
         </section>
       )}
 
-      <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />
+      {!readOnly && <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
     </div>
   )
 }
@@ -285,6 +288,8 @@ export default function TeamView({
   onNewMeeting,
   onOpenCandidate,
   onReorder,
+  // Solo lectura (pantalla del equipo con permiso «Ver»): sin ordenar, editar ni avisos que cambien algo.
+  readOnly = false,
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
@@ -324,6 +329,7 @@ export default function TeamView({
           onOpenEvent={onOpenEvent}
           onNewMeeting={onNewMeeting}
           onOpenCandidate={onOpenCandidate}
+          readOnly={readOnly}
         />
         {archiving && (
           <ArchiveMemberDialog
@@ -381,13 +387,13 @@ export default function TeamView({
         </div>
       </div>
 
-      <FormerReview
+      {!readOnly && <FormerReview
         contacts={contacts}
         onMarkFormer={onMarkFormer}
         onKeepActive={onKeepActive}
-      />
+      />}
 
-      {unplaced.length > 0 && (
+      {!readOnly && unplaced.length > 0 && (
         <section className="team-former-review" aria-label="Sin área">
           <div className="team-former-review-block">
             <p>Han quedado en «Sin área» al pasar los departamentos a las áreas. Ábrelos y elige su área en «Trayectoria en CIFA»:</p>
@@ -419,7 +425,7 @@ export default function TeamView({
         <TeamGroups
           groups={groupsView}
           now={now}
-          canReorder={!query.trim()}
+          canReorder={!readOnly && !query.trim()}
           onOpen={onSelectMember}
           onReorder={onReorder}
         />
