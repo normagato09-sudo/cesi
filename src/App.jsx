@@ -123,6 +123,10 @@ const AccessView = lazy(() => import('./components/AccessView.jsx'))
 const MyProfileView = lazy(() => import('./components/MyProfileView.jsx'))
 const MeetingDetailModal = lazy(() => import('./components/shared/MeetingDetailModal.jsx'))
 const MeetingFormModal = lazy(() => import('./components/shared/MeetingFormModal.jsx'))
+// Yo, para las tareas del equipo y los fichajes (veo y gestiono todo).
+const CEO_ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
+const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
+const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
 const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
 const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
@@ -1154,6 +1158,14 @@ export default function App() {
           </div>
         )}
 
+        {section === 'team-tasks' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <TeamTasksView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} title="Tareas del equipo" />
+            </Suspense>
+          </div>
+        )}
+
         {section === 'access' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
@@ -1181,7 +1193,11 @@ export default function App() {
         {section === 'clockins' && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <ComingSoonView title="Fichajes" Icon={Clock} note="Aquí verás los fichajes del equipo." />
+              {sync ? (
+                <ClockView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} />
+              ) : (
+                <ComingSoonView title="Fichajes" Icon={Clock} note="Con la sincronización activa verás aquí los fichajes del equipo." />
+              )}
             </Suspense>
           </div>
         )}

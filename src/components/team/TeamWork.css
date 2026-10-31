@@ -1,0 +1,192 @@
+/* Tareas del equipo y fichaje (TeamTasksView, ClockView y sus ventanas). Usa los colores y
+   botones del calendario compartido (shared/SharedCalendar.css). */
+
+.tw-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tw-filter {
+  padding: 6px 12px;
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tw-filter.on {
+  border-color: var(--sc-blue);
+  background: var(--sc-blue-soft);
+  color: var(--sc-blue);
+}
+
+.tw-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tw-group h2 {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+.tw-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tw-task {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--sc-border);
+  border-radius: 12px;
+  background: var(--sc-surface);
+}
+.tw-task.overdue {
+  border-color: #f3c4c4;
+  background: #fff7f7;
+}
+.tw-task-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tw-task-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.tw-task.done .tw-task-title {
+  text-decoration: line-through;
+  color: var(--sc-muted);
+}
+.tw-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--sc-muted);
+  font-size: 12.5px;
+}
+.tw-overdue {
+  color: var(--sc-error);
+  font-weight: 700;
+}
+.tw-priority-alta {
+  color: var(--sc-error);
+  font-weight: 600;
+}
+.tw-status {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--sc-border);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* Fichaje */
+.tw-clock-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--sc-border);
+  border-radius: 14px;
+  background: var(--sc-surface);
+}
+.tw-clock-state {
+  margin: 0;
+  font-size: 15px;
+}
+.tw-clock-btn {
+  min-height: 52px;
+  padding: 12px 22px;
+  font-size: 17px;
+}
+.tw-clock-btn.out {
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+.tw-clock-card textarea {
+  width: 100%;
+  max-width: 560px;
+}
+.tw-total {
+  margin: 0;
+  font-weight: 700;
+}
+.tw-day h3 {
+  margin: 6px 0 4px;
+  font-size: 14px;
+  text-transform: capitalize;
+}
+.tw-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--sc-border);
+  border-radius: 12px;
+  background: var(--sc-surface);
+}
+.tw-entry + .tw-entry {
+  margin-top: 6px;
+}
+.tw-entry-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tw-entry-time {
+  font-weight: 600;
+}
+.tw-entry-text {
+  color: var(--sc-muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tw-open {
+  color: var(--sc-warn);
+  font-weight: 700;
+}
+.tw-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--sc-border);
+  border-radius: 12px;
+  background: var(--sc-surface);
+  font-size: 13.5px;
+}
+.tw-table th,
+.tw-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--sc-border);
+  text-align: left;
+}
+.tw-table td.num,
+.tw-table th.num {
+  text-align: right;
+}

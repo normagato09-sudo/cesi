@@ -9,6 +9,9 @@ import { LEVEL_LABELS, SCREENS, areaName, fetchMyPermissions } from '../lib/perm
 import { zoneShort } from '../lib/studentPortal'
 import { countryName, localTimeZone } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
+import TeamTasksView from './team/TeamTasksView.jsx'
+import ClockView from './team/ClockView.jsx'
+import { DIRECTIVO_AREA } from '../lib/teamWork'
 import '../App.css'
 import './Sidebar.css'
 import './ContactsView.css'
@@ -88,6 +91,12 @@ export default function MemberApp({
   }
 
   const shownName = profile.full_name || name
+  const zone = profile.time_zone || localTimeZone()
+  // Tareas, fichaje y calendario: con mi cuenta o, en «Ver como», con la de la ceo leyendo los de
+  // esa persona (calendarAs), en solo lectura.
+  const workClient = preview ? calendarClient : client
+  const workAs = preview ? calendarAs : null
+  const me = { id: preview ? calendarAs : userId, role: 'equipo', area, boss: area === DIRECTIVO_AREA }
 
   return (
     <div className="app member-app">
@@ -127,13 +136,11 @@ export default function MemberApp({
 
       <main className="app-main">
         {section === 'shared-calendar' ? (
-          <SharedCalendar
-            client={preview ? calendarClient : client}
-            meId={preview ? calendarAs : userId}
-            zone={profile.time_zone || localTimeZone()}
-            asId={preview ? calendarAs : null}
-            readOnly={readOnly}
-          />
+          <SharedCalendar client={workClient} meId={me.id} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'team-tasks' ? (
+          <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'clock' ? (
+          <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'home' || !current ? (
           <div className="member-panel">
             <header className="member-panel-head">
@@ -148,7 +155,6 @@ export default function MemberApp({
                 <Pencil size={16} strokeWidth={1.75} />
               </button>
             </header>
-            <p className="member-panel-note">Aquí verás tus tareas y tu fichaje muy pronto.</p>
 
             {error ? (
               <p className="member-panel-note">No se pudieron cargar tus permisos. Comprueba la conexión y vuelve a entrar.</p>

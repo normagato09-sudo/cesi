@@ -10,6 +10,7 @@ import {
   House,
   KeyRound,
   LayoutDashboard,
+  ListChecks,
   ListTodo,
   UserRound,
   Users,
@@ -50,6 +51,7 @@ export const NAV_GROUPS = [
     items: [
       { id: 'team', label: 'Personas', Icon: BadgeCheck, screen: 'equipo' },
       { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
+      { id: 'team-tasks', label: 'Tareas del equipo', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],
@@ -71,9 +73,10 @@ export function ceoGroups(withSync) {
   return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
 }
 
-// Menú de una persona de equipo: «Mi panel», su «Calendario» (el compartido, siempre) y las
-// pantallas a las que tiene permiso. Mi calendario (permiso 'calendario') aún no lo ve nadie del
-// equipo, así que no sale (habría dos «Calendario»).
+// Menú de una persona de equipo: «Mi panel», su «Calendario» (el compartido), «Tareas» (las del
+// equipo) y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi calendario (permiso
+// 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario aún no lo ve nadie del
+// equipo, y los fichajes de todos los ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }.
 export function memberGroups(levels = {}) {
   return NAV_GROUPS.map((g) =>
@@ -83,12 +86,14 @@ export function memberGroups(levels = {}) {
           items: [
             { id: 'home', label: 'Mi panel', Icon: LayoutDashboard },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
+            { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
+            { id: 'clock', label: 'Fichaje', Icon: Clock },
           ],
         }
       : {
           ...g,
           items: g.items.filter(
-            (item) => !item.ceoOnly && item.id !== 'calendar' && item.screen && levels[item.screen] && levels[item.screen] !== 'none',
+            (item) => !item.ceoOnly && item.id !== 'calendar' && item.id !== 'clockins' && item.screen && levels[item.screen] && levels[item.screen] !== 'none',
           ),
         },
   ).filter((g) => g.items.length > 0)
