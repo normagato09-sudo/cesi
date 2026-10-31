@@ -213,6 +213,8 @@ export default function HomeView({
   onOpenProposal,
   // Enlace de reservas (solo con la sincronización configurada): null si no se usa.
   bookings = null,
+  // «Mi equipo» (CeoTeamPanel), arriba de todo; null sin la sincronización.
+  teamPanel = null,
 }) {
   const meetings = meetingsTodayAndTomorrow(rawEvents, now)
   const due = dueTasks(tasks, today)
@@ -235,6 +237,8 @@ export default function HomeView({
           Ir al calendario
         </button>
       </header>
+
+      {teamPanel}
 
       <div className="home-grid">
         {bookings && (

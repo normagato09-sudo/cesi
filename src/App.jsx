@@ -127,6 +127,7 @@ const MeetingFormModal = lazy(() => import('./components/shared/MeetingFormModal
 const CEO_ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
 const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
+const CeoTeamPanel = lazy(() => import('./components/CeoTeamPanel.jsx'))
 const SlotsView = lazy(() => import('./components/SlotsView.jsx'))
 const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
@@ -1332,6 +1333,13 @@ export default function App() {
               onOpenTask={handleOpenTask}
               onOpenVacancy={handleOpenVacancy}
               onOpenProposal={setProposalModalId}
+              teamPanel={
+                sync ? (
+                  <Suspense fallback={null}>
+                    <CeoTeamPanel client={sync.client} meId={sync.userId} zone={myZone} />
+                  </Suspense>
+                ) : null
+              }
               bookings={
                 sync
                   ? {
