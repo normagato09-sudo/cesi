@@ -14,6 +14,7 @@ import {
   totalHours,
   validatePortalForm,
   weekFromHours,
+  zoneShort,
 } from './studentPortal'
 import { validateStudent } from './students'
 import { validateWeek } from './weeklySchedule'
@@ -75,6 +76,13 @@ describe('formulario', () => {
     const row = profileRowFromForm(form)
     expect(row).toMatchObject({ full_name: 'Ana López', country: 'MX', time_zone: 'America/Mexico_City', birthday: '03-05' })
     expect(formFromProfile(row, {}, detected)).toMatchObject({ birthdayDay: 5, birthdayMonth: 3 })
+  })
+
+  it('zona en formato corto, con la región en español', () => {
+    expect(zoneShort('Europe/Madrid')).toBe('Europa/Madrid')
+    expect(zoneShort('America/Guayaquil')).toBe('América/Guayaquil')
+    expect(zoneShort('America/Argentina/Buenos_Aires')).toBe('América/Argentina/Buenos Aires')
+    expect(zoneShort('')).toBe('')
   })
 
   it('iniciales', () => {

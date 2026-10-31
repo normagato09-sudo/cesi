@@ -1892,7 +1892,9 @@ begin
 end;
 $$;
 
-revoke all on function public.cesi_valid_student_week(jsonb) from public, anon, authenticated;
+-- La usa la comprobación de la columna availability, que se evalúa con los permisos del alumno.
+revoke all on function public.cesi_valid_student_week(jsonb) from public, anon;
+grant execute on function public.cesi_valid_student_week(jsonb) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Perfil del alumno

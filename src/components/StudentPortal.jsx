@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BookOpen, CalendarDays, House, LogOut, Mail, MessageCircle, NotebookPen, Pencil, RefreshCw } from 'lucide-react'
+import { Award, BookOpen, CalendarDays, House, LogOut, Mail, MessageCircle, Pencil, RefreshCw } from 'lucide-react'
 import StudentProfileForm from './StudentProfileForm.jsx'
-import { fetchMyPortal, initials, saveMyPortal } from '../lib/studentPortal'
-import { countryName, zoneLabel } from '../lib/timezones'
+import { fetchMyPortal, initials, saveMyPortal, zoneShort } from '../lib/studentPortal'
+import { countryName } from '../lib/timezones'
 import './StudentPortal.css'
 
 // Portal del alumno (papel 'alumno'). Consultas directas a Supabase (sin el motor de
@@ -13,16 +13,17 @@ const NAV = [
   { id: 'home', label: 'Inicio', Icon: House },
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
-  { id: 'notes', label: 'Notas', Icon: NotebookPen },
+  { id: 'grades', label: 'Calificaciones', Icon: Award },
+  { id: 'newsletter', label: 'Newsletter', Icon: Mail },
   { id: 'messages', label: 'Mensajes', Icon: MessageCircle },
 ]
 
 const CARDS = [
-  { id: 'calendar', label: 'Calendario', Icon: CalendarDays, text: 'Tus clases de la semana, en tu hora.' },
-  { id: 'courses', label: 'Cursos', Icon: BookOpen, text: 'Tus cursos y tu asistencia.' },
-  { id: 'notes', label: 'Notas', Icon: NotebookPen, text: 'Tus notas y apuntes.' },
+  { id: 'calendar', label: 'Calendario', Icon: CalendarDays, text: 'Tus clases y eventos de la semana, en tu hora.' },
+  { id: 'courses', label: 'Cursos', Icon: BookOpen, text: 'Tus cursos e inscripciones.' },
+  { id: 'grades', label: 'Calificaciones', Icon: Award, text: 'Tus calificaciones y tu asistencia.' },
   { id: 'newsletter', label: 'Newsletter', Icon: Mail, text: 'Las novedades de CIFA.' },
-  { id: 'messages', label: 'Mensajes', Icon: MessageCircle, text: 'Mensajes con tus profesores.' },
+  { id: 'messages', label: 'Mensajes', Icon: MessageCircle, text: 'Habla con tus compañeros de curso.' },
 ]
 
 function Brand() {
@@ -160,7 +161,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
               <div className="sp-hello-text">
                 <h1>Hola{name ? `, ${name}` : ''}</h1>
                 <p>
-                  Alumno/a · {countryName(profile.country)} · {zoneLabel(profile.time_zone)}
+                  {/* Siempre «Alumno»: lo que pone mi ficha de Alumnos no se enseña al alumno. */}
+                  Alumno · {countryName(profile.country)} · {zoneShort(profile.time_zone)}
                 </p>
               </div>
               <button type="button" className="sp-icon-btn sp-edit-btn" onClick={() => setEditing(true)} aria-label="Editar mi perfil" title="Editar mi perfil">

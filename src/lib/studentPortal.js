@@ -103,6 +103,27 @@ export function detectedZone() {
   return found ? { country: found.country.code, timeZone: zone } : { country: '', timeZone: '' }
 }
 
+const ZONE_REGIONS = {
+  Africa: 'África',
+  America: 'América',
+  Antarctica: 'Antártida',
+  Arctic: 'Ártico',
+  Asia: 'Asia',
+  Atlantic: 'Atlántico',
+  Australia: 'Australia',
+  Europe: 'Europa',
+  Indian: 'Índico',
+  Pacific: 'Pacífico',
+}
+
+// Zona en formato corto, como la IANA con la región en español: «Europa/Madrid»,
+// «América/Guayaquil», «América/Argentina/Buenos Aires».
+export function zoneShort(zoneId) {
+  if (!zoneId) return ''
+  const [region, ...rest] = zoneId.split('/')
+  return [ZONE_REGIONS[region] || region, ...rest].join('/').replace(/_/g, ' ')
+}
+
 export function countryZones(country) {
   return findCountry(country)?.zones || []
 }

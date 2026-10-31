@@ -414,7 +414,8 @@
   background: var(--sp-surface);
 }
 .sp-bottom-item {
-  flex: 1;
+  /* Seis secciones: cada una ocupa según su texto para que «Calificaciones» quepa entera. */
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 58px;
   display: flex;
@@ -521,6 +522,12 @@
   .sp-bottom-nav,
   .sp-mobile-signout {
     display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .sp-bottom-item {
+    font-size: 10.5px;
   }
 }
 
