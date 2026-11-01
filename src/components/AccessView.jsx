@@ -15,6 +15,8 @@ import {
   deleteAccount,
   filterProfiles,
   initialsOf,
+  isNewAccount,
+  NEW_STUDENTS_FILTER,
   filterLinkOptions,
   linkOptions,
   linkPatch,
@@ -298,7 +300,10 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
       <div className="contacts-header">
         <h1 className="contacts-title">Accesos</h1>
         <div className="access-header-row">
-          <p className="access-muted">Las cuentas nuevas entran como pendientes. Pulsa una cuenta para cambiar su papel, su área o a quién está unida.</p>
+          <p className="access-muted">
+            Las cuentas nuevas entran como alumnos (si es alguien del equipo, cámbiale el papel a Equipo). Pulsa una cuenta para cambiar su papel, su área o a
+            quién está unida.
+          </p>
           <button type="button" className="contacts-groups-btn" onClick={load} title="Volver a cargar">
             <RefreshCw size={14} strokeWidth={1.75} />
             Actualizar
@@ -322,6 +327,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                 {ROLE_LABELS[r]}
               </option>
             ))}
+            <option value={NEW_STUDENTS_FILTER}>Alumnos nuevos</option>
           </select>
           <select value={filter.area} onChange={(e) => setFilter((f) => ({ ...f, area: e.target.value }))} aria-label="Filtrar por área">
             <option value="">Todas las áreas</option>
@@ -372,6 +378,11 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                     <span className="access-name">
                       {name}
                       {self && <span className="access-you">Tú</span>}
+                      {!self && isNewAccount(p) && (
+                        <span className="access-new" title="Cuenta creada hace menos de 7 días">
+                          Nuevo
+                        </span>
+                      )}
                     </span>
                     <span className="access-muted access-email">{p.email || 'Sin email'}</span>
                   </span>

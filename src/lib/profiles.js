@@ -119,12 +119,27 @@ export function initialsOf(name) {
   return (words.length > 1 ? words[0][0] + words.at(-1)[0] : (words[0] || '?')[0]).toLocaleUpperCase('es')
 }
 
-// Filtro de Accesos: texto (nombre o email, sin distinguir mayúsculas ni acentos), papel ('' todos)
-// y área ('' todas, 'none' sin área: solo cuentas de equipo).
-export function filterProfiles(profiles, { query = '', role = '', area = '' } = {}, portals = new Map()) {
+// Días que una cuenta lleva la etiqueta «Nuevo» en Accesos.
+export const NEW_ACCOUNT_DAYS = 7
+
+// ¿Se creó la cuenta hace menos de NEW_ACCOUNT_DAYS días?
+export function isNewAccount(profile, now = new Date()) {
+  const created = Date.parse(profile?.created_at || '')
+  return Number.isFinite(created) && now.getTime() - created < NEW_ACCOUNT_DAYS * 86400000
+}
+
+// Valor del filtro de papel para ver solo los alumnos nuevos.
+export const NEW_STUDENTS_FILTER = 'alumnos_nuevos'
+
+// Filtro de Accesos: texto (nombre o email, sin distinguir mayúsculas ni acentos), papel ('' todos;
+// NEW_STUDENTS_FILTER: alumnos con la cuenta creada hace menos de una semana) y área ('' todas,
+// 'none' sin área: solo cuentas de equipo).
+export function filterProfiles(profiles, { query = '', role = '', area = '' } = {}, portals = new Map(), now = new Date()) {
   const q = normalizeName(query)
   return profiles.filter((p) => {
-    if (role && p.role !== role) return false
+    if (role === NEW_STUDENTS_FILTER) {
+      if (p.role !== 'alumno' || !isNewAccount(p, now)) return false
+    } else if (role && p.role !== role) return false
     if (area === 'none' && (p.role !== 'equipo' || p.area)) return false
     if (area && area !== 'none' && p.area !== area) return false
     if (!q) return true

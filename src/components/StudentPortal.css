@@ -406,13 +406,71 @@
   color: var(--sp-blue);
 }
 
-.sp-soon-page {
+/* Inicio sin cursos: «Apúntate a tu primer curso», destacada. */
+.sp-first-course {
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 40px 16px;
-  text-align: center;
+  gap: 12px;
+  border-color: var(--sp-blue);
+  background: var(--sp-blue-soft);
 }
-.sp-soon-page .sp-badge-soon {
-  align-self: center;
+.sp-first-course > div {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sp-first-course .sp-soon-icon {
+  background: var(--sp-blue);
+  color: #fff;
+}
+.sp-first-course .sp-btn-primary {
+  min-height: 42px;
+}
+
+/* «Próximamente: …», discreto, debajo de las tarjetas. */
+.sp-coming {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--sp-border);
+  border-radius: 12px;
+  color: var(--sp-muted);
+  font-size: 13.5px;
+}
+
+/* Recién completado el perfil, encima de Cursos. */
+.sp-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* Bienvenida de «Completa tu perfil» (alumno nuevo). */
+.sp-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--sp-blue-soft);
+}
+.sp-welcome strong {
+  color: var(--sp-blue);
+  font-size: 16px;
+}
+.sp-form-head .sp-welcome p {
+  color: var(--sp-text);
 }
 
 .sp-mobile-signout {
@@ -434,8 +492,8 @@
   background: var(--sp-surface);
 }
 .sp-bottom-item {
-  /* Seis secciones: cada una ocupa según su texto para que «Calificaciones» quepa entera. */
-  flex: 1 1 auto;
+  /* Tres secciones, del mismo ancho. */
+  flex: 1 1 0;
   min-width: 0;
   min-height: 58px;
   display: flex;

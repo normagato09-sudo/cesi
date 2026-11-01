@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { Award, BookOpen, CalendarDays, House, Mail, MessageCircle, Pencil } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { BookOpen, CalendarDays, CircleCheck, House, Pencil, Sparkles } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
 import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
 import StudentCourses from './StudentCourses.jsx'
+import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
 import './StudentPortal.css'
 
@@ -13,25 +14,52 @@ import './StudentPortal.css'
 // sincronización ni datos en el navegador): su cuenta (profiles) y su perfil (account_profiles).
 // Hasta que completa el perfil no puede hacer nada más.
 
+// Solo las secciones que ya funcionan. Calificaciones, Mensajes y Newsletter llegarán más adelante
+// (en Inicio, una línea lo avisa).
 const NAV = [
   { id: 'home', label: 'Inicio', Icon: House },
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
-  { id: 'grades', label: 'Calificaciones', Icon: Award },
-  { id: 'newsletter', label: 'Newsletter', Icon: Mail },
-  { id: 'messages', label: 'Mensajes', Icon: MessageCircle },
 ]
 
 const CARDS = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays, text: 'Tus clases y eventos de la semana, en tu hora.' },
   { id: 'courses', label: 'Cursos', Icon: BookOpen, text: 'Tus cursos e inscripciones.' },
-  { id: 'grades', label: 'Calificaciones', Icon: Award, text: 'Tus calificaciones y tu asistencia.' },
-  { id: 'newsletter', label: 'Newsletter', Icon: Mail, text: 'Las novedades de CIFA.' },
-  { id: 'messages', label: 'Mensajes', Icon: MessageCircle, text: 'Habla con tus compañeros de curso.' },
 ]
 
-// Secciones que ya funcionan (las demás dicen «Próximamente»).
-const READY = new Set(['calendar', 'courses'])
+// Tarjeta destacada de Inicio si el alumno aún no está en ningún curso (no sale mientras carga, si
+// falla ni en «Ver como»).
+function FirstCourseCard({ client, preview, onOpen }) {
+  const [empty, setEmpty] = useState(false)
+
+  useEffect(() => {
+    if (!client || preview) return
+    let active = true
+    listStudentCourses(client).then(
+      (rows) => active && setEmpty(!(rows || []).some((c) => c.mine)),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [client, preview])
+
+  if (!empty) return null
+  return (
+    <section className="sp-card sp-first-course">
+      <span className="sp-soon-icon" aria-hidden="true">
+        <BookOpen size={20} strokeWidth={1.75} />
+      </span>
+      <div>
+        <h2>Apúntate a tu primer curso</h2>
+        <p className="sp-text">Mira los cursos abiertos y elige el tuyo.</p>
+      </div>
+      <button type="button" className="sp-btn-primary" onClick={onOpen}>
+        Ver cursos
+      </button>
+    </section>
+  )
+}
 
 // Con `preview` ({ account, profile }, vista previa de «Ver como») no se pide ni se guarda nada en
 // Supabase; readOnly desactiva guardar y cerrar sesión. El calendario de la vista previa se lee con
@@ -40,12 +68,23 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
   const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
   const [editing, setEditing] = useState(false)
   const [section, setSection] = useState('home')
+  const [justDone, setJustDone] = useState(false) // acaba de completar el perfil por primera vez
 
   const handleSave = async (row) => {
     if (readOnly) return
+    const first = !data?.profile?.completed_at
     await save(row)
     setEditing(false)
+    if (first) {
+      setJustDone(true)
+      setSection('courses')
+    }
     window.scrollTo(0, 0)
+  }
+
+  const go = (id) => {
+    setJustDone(false)
+    setSection(id)
   }
 
   const signOutButton = <SignOutButton onSignOut={onSignOut} readOnly={readOnly} />
@@ -72,7 +111,6 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
   }
 
   const name = profile.full_name || account.display_name || ''
-  const current = NAV.find((n) => n.id === section) || NAV[0]
 
   return (
     <div className="student-portal sp-app">
@@ -85,7 +123,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
               type="button"
               className={`sp-nav-item${section === id ? ' active' : ''}`}
               aria-current={section === id ? 'page' : undefined}
-              onClick={() => setSection(id)}
+              onClick={() => go(id)}
             >
               <Icon size={19} strokeWidth={1.75} />
               {label}
@@ -114,37 +152,39 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
               </button>
             </header>
 
+            <FirstCourseCard client={client} preview={!!preview} onOpen={() => go('courses')} />
+
             <div className="sp-cards">
-              {CARDS.map(({ id, label, Icon, text }) =>
-                READY.has(id) ? (
-                  <button key={id} type="button" className="sp-card sp-soon-card sp-card-link" onClick={() => setSection(id)}>
-                    <span className="sp-soon-icon" aria-hidden="true">
-                      <Icon size={20} strokeWidth={1.75} />
-                    </span>
-                    <div>
-                      <h2>{label}</h2>
-                      <p className="sp-text">{text}</p>
-                    </div>
-                  </button>
-                ) : (
-                  <section key={id} className="sp-card sp-soon-card">
-                    <span className="sp-soon-icon" aria-hidden="true">
-                      <Icon size={20} strokeWidth={1.75} />
-                    </span>
-                    <div>
-                      <h2>{label}</h2>
-                      <p className="sp-text">{text}</p>
-                    </div>
-                    <span className="sp-badge-soon">Próximamente</span>
-                  </section>
-                ),
-              )}
+              {CARDS.map(({ id, label, Icon, text }) => (
+                <button key={id} type="button" className="sp-card sp-soon-card sp-card-link" onClick={() => go(id)}>
+                  <span className="sp-soon-icon" aria-hidden="true">
+                    <Icon size={20} strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <h2>{label}</h2>
+                    <p className="sp-text">{text}</p>
+                  </div>
+                </button>
+              ))}
             </div>
+
+            <p className="sp-coming">
+              <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />
+              Próximamente: calificaciones, mensajes y newsletter
+            </p>
 
             <div className="sp-mobile-signout">{signOutButton}</div>
           </>
         ) : section === 'courses' ? (
-          <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
+          <>
+            {justDone && (
+              <p className="sp-done" role="status">
+                <CircleCheck size={18} strokeWidth={2} aria-hidden="true" />
+                ¡Listo! Ya puedes apuntarte a los cursos
+              </p>
+            )}
+            <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
+          </>
         ) : section === 'calendar' ? (
           <SharedCalendar
             client={preview ? calendarClient : client}
@@ -153,15 +193,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             asId={preview ? calendarAs : null}
             readOnly={readOnly}
           />
-        ) : (
-          <section className="sp-card sp-soon-page">
-            <span className="sp-soon-icon" aria-hidden="true">
-              <current.Icon size={24} strokeWidth={1.75} />
-            </span>
-            <h1>{current.label}</h1>
-            <span className="sp-badge-soon">Próximamente</span>
-          </section>
-        )}
+        ) : null}
       </main>
 
       <nav className="sp-bottom-nav" aria-label="Secciones">
@@ -171,7 +203,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             type="button"
             className={`sp-bottom-item${section === id ? ' active' : ''}`}
             aria-current={section === id ? 'page' : undefined}
-            onClick={() => setSection(id)}
+            onClick={() => go(id)}
           >
             <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
             <span>{label}</span>

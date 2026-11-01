@@ -5,6 +5,8 @@ import {
   canDeleteAccount,
   filterProfiles,
   initialsOf,
+  isNewAccount,
+  NEW_STUDENTS_FILTER,
   fetchOwnRole,
   filterLinkOptions,
   linkOptions,
@@ -146,6 +148,15 @@ describe('Accesos: lista, filtros y eliminar cuenta', () => {
     expect(filterProfiles(all, { role: 'equipo' }).map((p) => p.id)).toEqual(['a', 's'])
     expect(filterProfiles(all, { area: 'media' }).map((p) => p.id)).toEqual(['a'])
     expect(filterProfiles(all, { area: 'none' }).map((p) => p.id)).toEqual(['s'])
+  })
+
+  it('cuentas nuevas (menos de 7 días) y el filtro de alumnos nuevos', () => {
+    const now = new Date('2030-11-10T12:00:00Z')
+    const nuevo = { ...alumno, id: 'n', created_at: '2030-11-05T09:00:00Z' }
+    const viejo = { ...alumno, id: 'v', created_at: '2030-11-01T09:00:00Z' }
+    const equipoNuevo = { ...ana, id: 'e', created_at: '2030-11-09T09:00:00Z' }
+    expect([nuevo, viejo, equipoNuevo, alumno].map((p) => isNewAccount(p, now))).toEqual([true, false, true, false])
+    expect(filterProfiles([nuevo, viejo, equipoNuevo, alumno], { role: NEW_STUDENTS_FILTER }, new Map(), now).map((p) => p.id)).toEqual(['n'])
   })
 
   it('nunca se puede eliminar la propia cuenta ni la de la ceo', () => {

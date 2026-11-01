@@ -102,7 +102,18 @@ export default function StudentProfileForm({ profile, account, required, onSave,
           )
         )}
         <h1>{required || !profile?.completed_at ? 'Completa tu perfil' : 'Editar mi perfil'}</h1>
-        <p>{texts.intro}</p>
+        {/* Alumno nuevo: la bienvenida en lugar del texto de siempre. */}
+        {required && audience === 'alumno' ? (
+          <div className="sp-welcome">
+            <strong>¡Bienvenido/a a CIFA!</strong>
+            <p>
+              Antes de empezar, completa tu perfil: con tu país, tu zona horaria y tu disponibilidad organizamos los horarios de los cursos. Solo te llevará 2
+              minutos.
+            </p>
+          </div>
+        ) : (
+          <p>{texts.intro}</p>
+        )}
       </header>
 
       <fieldset className="sp-fieldset" disabled={readOnly}>
