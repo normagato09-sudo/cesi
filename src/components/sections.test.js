@@ -16,6 +16,7 @@ describe('ceoGroups', () => {
       'team-tasks',
       'goals',
       'boards',
+      'notices',
       'clockins',
       'access',
       'courses',
@@ -30,12 +31,12 @@ describe('memberGroups', () => {
   it('Mi panel y solo las pantallas con permiso (nunca Accesos)', () => {
     const groups = memberGroups({ calendario: 'read', cursos: 'write', alumnos: 'none', fichajes: 'write' })
     expect(groups.map((g) => g.id)).toEqual(['panel', 'training'])
-    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'shared-calendar', 'team-tasks', 'goals', 'clock', 'courses'])
+    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'notices', 'shared-calendar', 'team-tasks', 'goals', 'clock', 'courses'])
     expect(groups[0].items[0].label).toBe('Mi panel')
   })
 
   it('sin permisos, Mi panel, Calendario, Tareas, Objetivos y Fichaje', () => {
-    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'shared-calendar', 'team-tasks', 'goals', 'clock'])
+    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'notices', 'shared-calendar', 'team-tasks', 'goals', 'clock'])
   })
 
   it('Alianzas solo para las áreas Alianzas y Directivo (con permiso de contactos)', () => {
@@ -56,7 +57,7 @@ describe('memberGroups', () => {
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {
     const items = allItems(memberGroups({ calendario: 'write', contactos: 'read' })).map((i) => i.id)
-    expect(items).toEqual(['home', 'shared-calendar', 'team-tasks', 'goals', 'clock', 'contacts'])
+    expect(items).toEqual(['home', 'notices', 'shared-calendar', 'team-tasks', 'goals', 'clock', 'contacts'])
   })
 })
 

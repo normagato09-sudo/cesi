@@ -18,6 +18,8 @@ import BoardView from './boards/BoardView.jsx'
 import BoardsView from './boards/BoardsView.jsx'
 import { BoardCountsCard, MyBoardCard } from './boards/BoardHome.jsx'
 import { boardOf } from '../lib/boards'
+import NoticesView from './notices/NoticesView.jsx'
+import { PendingNoticesCard, UnreadNotices } from './notices/NoticesHome.jsx'
 import AreaGoals from './team/AreaGoals.jsx'
 import GoalsView from './team/GoalsView.jsx'
 import { DIRECTIVO_AREA } from '../lib/teamWork'
@@ -159,6 +161,8 @@ export default function MemberApp({
           <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'goals' ? (
           <GoalsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'notices' ? (
+          <NoticesView client={workClient} me={me} asId={workAs} readOnly={readOnly} />
         ) : section === 'board' && boardOf(area) ? (
           <BoardView client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} readOnly={readOnly} canEdit canComment />
         ) : section === 'boards' && me.boss ? (
@@ -184,6 +188,7 @@ export default function MemberApp({
               </button>
             </header>
 
+            <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />
             <MyClasses
               client={workClient}
               zone={zone}
@@ -195,6 +200,7 @@ export default function MemberApp({
             {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
             {me.boss && <AllianceStatsCard client={workClient} asId={workAs} />}
             {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
+            {me.boss && <PendingNoticesCard client={workClient} asId={workAs} onOpen={() => setSection('notices')} />}
             {me.boss && <BoardCountsCard client={workClient} asId={workAs} onOpen={() => setSection('boards')} />}
 
             {error ? (

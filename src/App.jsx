@@ -122,6 +122,7 @@ const CEO_ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
 const TeamTasksView = lazy(() => import('./components/team/TeamTasksView.jsx'))
 const GoalsView = lazy(() => import('./components/team/GoalsView.jsx'))
 const BoardsView = lazy(() => import('./components/boards/BoardsView.jsx'))
+const NoticesView = lazy(() => import('./components/notices/NoticesView.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -1072,6 +1073,14 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <TeamTasksView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'notices' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <NoticesView client={sync.client} me={CEO_ME(sync.userId)} />
             </Suspense>
           </div>
         )}

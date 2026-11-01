@@ -1,0 +1,90 @@
+/* Avisos del equipo (NoticesView, NoticeCard y el Inicio). Usa los colores del calendario
+   compartido (--sc-*, ver shared/SharedCalendar.css). */
+
+.nt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nt-section h2,
+.nt-home h2 {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+.nt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--sc-border, #e2e6ee);
+  border-radius: 12px;
+  background: var(--sc-surface, #fff);
+}
+.nt-card.compact {
+  padding: 10px 12px;
+}
+.nt-card.important {
+  border-color: #f3c4c4;
+  background: #fff7f7;
+}
+.nt-card.important h3 {
+  color: #dc2626;
+}
+.nt-card.read:not(.important),
+.nt-card.expired {
+  opacity: 0.75;
+}
+.nt-card header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nt-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.nt-meta {
+  color: var(--sc-muted, #5b6474);
+  font-size: 12px;
+}
+.nt-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.nt-stats {
+  margin: 0;
+  color: var(--sc-muted, #5b6474);
+  font-size: 13px;
+  font-weight: 600;
+}
+.nt-stats.pending {
+  color: #b45309;
+}
+.nt-error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 13px;
+}
+.nt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.nt-home {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.nt-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}

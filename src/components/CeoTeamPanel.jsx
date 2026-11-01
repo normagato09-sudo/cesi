@@ -13,6 +13,7 @@ import { goalErrorText, goalsByArea, listGoals, monthStart, splitUnclosed } from
 import { nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
 import { allianceStats } from '../lib/alliances'
 import { BOARDS, boardCounts } from '../lib/boards'
+import { PendingNoticesList } from './notices/NoticesHome.jsx'
 import './CeoTeamPanel.css'
 
 const ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
@@ -238,6 +239,10 @@ export default function CeoTeamPanel({ client, meId, zone }) {
             <div className="tw-home-tasks">
               <MyTasksList tasks={data.tasks} today={data.today} onOpen={setOpenTask} />
             </div>
+          </Card>
+
+          <Card title="Avisos sin leer por el equipo">
+            <PendingNoticesList key={String(data.at)} client={client} />
           </Card>
 
           <Card title="Tableros: abiertos por área">

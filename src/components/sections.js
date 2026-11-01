@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   ListChecks,
   ListTodo,
+  Megaphone,
   SquareKanban,
   Target,
   UserRound,
@@ -57,6 +58,7 @@ export const NAV_GROUPS = [
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
       { id: 'boards', label: 'Tableros', Icon: SquareKanban, ceoOnly: true, needsSync: true },
+      { id: 'notices', label: 'Avisos', Icon: Megaphone, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],
@@ -78,11 +80,11 @@ export function ceoGroups(withSync) {
   return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
 }
 
-// Menú de una persona de equipo: «Mi panel», su «Calendario» (el compartido), «Tareas» (las del
-// equipo), «Objetivos» (los del mes de su área), el tablero de su área (si tiene; Directivo,
-// «Tableros») y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi calendario
-// (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario aún no lo ve
-// nadie del equipo, y los fichajes de todos los ve Directivo desde su «Fichaje».
+// Menú de una persona de equipo: «Mi panel», «Avisos», su «Calendario» (el compartido), «Tareas»
+// (las del equipo), «Objetivos» (los del mes de su área), el tablero de su área (si tiene;
+// Directivo, «Tableros») y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi
+// calendario (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario
+// aún no lo ve nadie del equipo, y los fichajes de todos los ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.
 export function memberGroups(levels = {}, area = null) {
   return NAV_GROUPS.map((g) =>
@@ -91,6 +93,7 @@ export function memberGroups(levels = {}, area = null) {
           ...g,
           items: [
             { id: 'home', label: 'Mi panel', Icon: LayoutDashboard },
+            { id: 'notices', label: 'Avisos', Icon: Megaphone },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
             { id: 'goals', label: 'Objetivos', Icon: Target },
