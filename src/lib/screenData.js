@@ -19,6 +19,7 @@ export const SECTION_SCREENS = {
 
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' })
 const list = (value) => (Array.isArray(value) ? value : [])
+const byId = (value) => new Map(list(value).map((d) => [d.id, d]))
 
 // Los datos tal como los usan las pantallas (mismo orden y forma que en la app de la ceo).
 export function normalizeScreenData(data) {
@@ -34,6 +35,14 @@ export function normalizeScreenData(data) {
     students: list(data?.students).sort(byName),
     attendance: list(data?.attendance),
     extraClasses: list(data?.extraClasses).sort((a, b) => new Date(a.start) - new Date(b.start)),
+    // Los documentos tal como llegaron (sin migrar), por tabla e id: para saber cómo estaban al
+    // editarlos (parte 20).
+    raw: {
+      contacts: byId(data?.contacts),
+      vacancies: byId(data?.vacancies),
+      courses: byId(data?.courses),
+      students: byId(data?.students),
+    },
   }
 }
 

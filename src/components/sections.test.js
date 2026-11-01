@@ -20,6 +20,7 @@ describe('ceoGroups', () => {
       'finance',
       'clockins',
       'access',
+      'team-edits',
       'courses',
       'students',
       'attendance',

@@ -97,9 +97,11 @@ function CourseRow({ course, courses, contacts, count, onRename, onEdit, onDelet
         <button type="button" className="group-row-delete" onClick={() => onEdit(course)} aria-label={`Editar el curso ${course.name}`}>
           <Pencil size={15} strokeWidth={1.75} />
         </button>
-        <button type="button" className="group-row-delete" onClick={handleDelete} aria-label={`Borrar el curso ${course.name}`}>
-          <Trash2 size={15} strokeWidth={1.75} />
-        </button>
+        {onDelete && (
+          <button type="button" className="group-row-delete" onClick={handleDelete} aria-label={`Borrar el curso ${course.name}`}>
+            <Trash2 size={15} strokeWidth={1.75} />
+          </button>
+        )}
       </div>
       {error && <p className="group-row-error">{error}</p>}
       <CourseSummary course={course} contacts={contacts} />
@@ -108,7 +110,7 @@ function CourseRow({ course, courses, contacts, count, onRename, onEdit, onDelet
 }
 
 // Crear, renombrar, editar (profesor, duración y horario) y borrar cursos (al borrar uno se quita
-// de sus alumnos).
+// de sus alumnos). Sin onDelete (Directivo), no se borran.
 export default function CoursesModal({ courses, students, contacts = [], onCreate, onRename, onUpdate, onDelete, onClose }) {
   const [name, setName] = useState('')
   const [error, setError] = useState(null)

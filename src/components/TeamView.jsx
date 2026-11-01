@@ -58,6 +58,8 @@ function MemberDetail({
   onNewMeeting,
   onOpenCandidate,
   readOnly = false,
+  // RRHH (app del equipo): edita y da de baja, pero sin reuniones, enlace ni quitar del equipo.
+  limited = false,
 }) {
   const p = milestonesToBio(contact.teamProfile)
   const seniority = tenureText(tenure(p, now))
@@ -104,18 +106,22 @@ function MemberDetail({
 
       {!readOnly && (
       <div className="contact-detail-actions team-detail-actions">
-        <button type="button" className="contact-action-btn primary" onClick={() => onNewMeeting(contact)}>
-          <CalendarPlus size={14} strokeWidth={1.75} />
-          Nueva reunión con esta persona
-        </button>
+        {!limited && (
+          <button type="button" className="contact-action-btn primary" onClick={() => onNewMeeting(contact)}>
+            <CalendarPlus size={14} strokeWidth={1.75} />
+            Nueva reunión con esta persona
+          </button>
+        )}
         <button type="button" className="contact-action-btn" onClick={onEdit}>
           <Pencil size={14} strokeWidth={1.75} />
           Editar
         </button>
-        <button type="button" className="contact-action-btn" onClick={onSendLink}>
-          <Link2 size={14} strokeWidth={1.75} />
-          Enviar link para que lo rellene
-        </button>
+        {!limited && (
+          <button type="button" className="contact-action-btn" onClick={onSendLink}>
+            <Link2 size={14} strokeWidth={1.75} />
+            Enviar link para que lo rellene
+          </button>
+        )}
         {isCandidate(contact) && (
           <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(contact.id)}>
             <Briefcase size={14} strokeWidth={1.75} />
@@ -126,10 +132,12 @@ function MemberDetail({
           <Archive size={14} strokeWidth={1.75} />
           Archivar
         </button>
-        <button type="button" className="contact-action-btn danger" onClick={onRemove}>
-          <UserMinus size={14} strokeWidth={1.75} />
-          Quitar del equipo
-        </button>
+        {!limited && (
+          <button type="button" className="contact-action-btn danger" onClick={onRemove}>
+            <UserMinus size={14} strokeWidth={1.75} />
+            Quitar del equipo
+          </button>
+        )}
       </div>
       )}
 
@@ -176,7 +184,7 @@ function MemberDetail({
         </section>
       )}
 
-      {!readOnly && <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
+      {!readOnly && !limited && <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
     </div>
   )
 }
@@ -290,6 +298,9 @@ export default function TeamView({
   onReorder,
   // Solo lectura (pantalla del equipo con permiso «Ver»): sin ordenar, editar ni avisos que cambien algo.
   readOnly = false,
+  // RRHH (app del equipo, parte 20): edita fichas y da de baja; sin ordenar, reuniones, enlaces,
+  // fotos ni quitar del equipo. Los cambios pueden devolver promesas.
+  limited = false,
 }) {
   const [query, setQuery] = useState('')
   const [area, setArea] = useState('')
@@ -330,6 +341,7 @@ export default function TeamView({
           onNewMeeting={onNewMeeting}
           onOpenCandidate={onOpenCandidate}
           readOnly={readOnly}
+          limited={limited}
         />
         {archiving && (
           <ArchiveMemberDialog
@@ -350,6 +362,7 @@ export default function TeamView({
             saveLabel="Guardar"
             areas={areas}
             groups={groups}
+            withPhoto={!limited}
             onSave={(data) => {
               onSaveProfile(selected.id, data)
               setEditing(false)
@@ -425,7 +438,7 @@ export default function TeamView({
         <TeamGroups
           groups={groupsView}
           now={now}
-          canReorder={!readOnly && !query.trim()}
+          canReorder={!readOnly && !limited && !query.trim()}
           onOpen={onSelectMember}
           onReorder={onReorder}
         />

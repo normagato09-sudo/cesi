@@ -38,7 +38,8 @@ function contactHint(contact) {
  *   candidacy: { appliedAt, cv, notes }.
  * onOpenCandidacy(id): abrir la candidatura que esa persona ya tiene en esta vacante.
  */
-export default function CandidateFormModal({ vacancy, contacts = [], initial = null, onSubmit, onOpenCandidacy, onClose: close }) {
+// linkOnly: el CV solo como enlace (app del equipo, que no sube archivos a los míos).
+export default function CandidateFormModal({ vacancy, contacts = [], initial = null, onSubmit, onOpenCandidacy, onClose: close, linkOnly = false }) {
   const editing = !!initial
   const candidacy = initial?.candidacy || null
   const seed = initial?.contact || {}
@@ -55,7 +56,7 @@ export default function CandidateFormModal({ vacancy, contacts = [], initial = n
   const [notes, setNotes] = useState(candidacy?.notes || '')
   // CV: archivo PDF guardado o enlace.
   const initialCv = candidacy?.cv || null
-  const [cvMode, setCvMode] = useState(initialCv?.url ? 'link' : 'file')
+  const [cvMode, setCvMode] = useState(initialCv?.url || linkOnly ? 'link' : 'file')
   const [cvFile, setCvFile] = useState(initialCv && !initialCv.url ? initialCv : null)
   const [cvUrl, setCvUrl] = useState(initialCv?.url || '')
   const [uploading, setUploading] = useState(false)
@@ -344,14 +345,16 @@ export default function CandidateFormModal({ vacancy, contacts = [], initial = n
 
           <div className="event-form-field">
             <span>CV (opcional)</span>
-            <div className="view-switch candidate-cv-switch" role="group" aria-label="Tipo de CV">
-              <button type="button" className={`view-switch-btn ${cvMode === 'file' ? 'active' : ''}`} onClick={() => setCvMode('file')}>
-                Archivo PDF
-              </button>
-              <button type="button" className={`view-switch-btn ${cvMode === 'link' ? 'active' : ''}`} onClick={() => setCvMode('link')}>
-                Enlace
-              </button>
-            </div>
+            {!linkOnly && (
+              <div className="view-switch candidate-cv-switch" role="group" aria-label="Tipo de CV">
+                <button type="button" className={`view-switch-btn ${cvMode === 'file' ? 'active' : ''}`} onClick={() => setCvMode('file')}>
+                  Archivo PDF
+                </button>
+                <button type="button" className={`view-switch-btn ${cvMode === 'link' ? 'active' : ''}`} onClick={() => setCvMode('link')}>
+                  Enlace
+                </button>
+              </div>
+            )}
             {cvMode === 'file' ? (
               <div className="candidate-cv-file">
                 {cvFile ? (

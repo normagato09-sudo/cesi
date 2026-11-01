@@ -14,6 +14,7 @@ import { keyOf } from '../../lib/sharedCalendar'
 import { addNoteRemote, listAlliancePeople, removeNoteRemote, saveAlliance, saveExternalContact } from '../../lib/alliances'
 import AlliancePanel from '../alliances/AlliancePanel.jsx'
 import AlliancesView from '../alliances/AlliancesView.jsx'
+import { directivoActions, docWriter, rrhhActions } from '../../lib/teamEdits'
 
 const noop = () => {}
 const NO_RECORDS = []
@@ -24,6 +25,8 @@ const NO_RECORDS = []
 // ceo (una persona o un área). El área Profesor solo ve sus cursos y, con su cuenta, pasa lista en
 // sus clases (parte 15); en «Ver como», también en solo lectura. Alianzas crea y edita los
 // contactos externos y su seguimiento (parte 16; Directivo, solo ver), y tiene la pantalla Alianzas.
+// RRHH edita Equipo y Vacantes, y Directivo gestiona Cursos (parte 20): con la misma lógica que
+// la app de la ceo y cesi_ceo_doc_patch; tras cada cambio se vuelven a leer los datos.
 // zone: la de la persona (para «hoy»).
 export default function MemberScreen({ client, section, zone, asId = null, asArea = null }) {
   const screen = SECTION_SCREENS[section]
@@ -32,6 +35,7 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
   const [selectedId, setSelectedId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
   const key = `${screen}:${asId || ''}:${asArea || ''}`
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     if (!client || !screen) return
@@ -43,7 +47,7 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
     return () => {
       active = false
     }
-  }, [client, screen, asId, asArea, key])
+  }, [client, screen, asId, asArea, key, reload])
 
   // Al cambiar de pantalla, nada elegido.
   const [shownKey, setShownKey] = useState(key)
@@ -103,6 +107,34 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
     removeNote: async (contactId, noteId) => putContact(await removeNoteRemote(client, contactId, noteId)),
   }
   const today = keyOf(now, zone)
+
+  // RRHH y Directivo (parte 20), solo con su propia cuenta (en «Ver como», solo lectura).
+  const own = !asId && !asArea
+  const level = state.key === key ? state.data?.level : null
+  const rrhhEdit = own && level === 'write' && (section === 'team' || section === 'vacancies')
+  const coursesEdit = own && level === 'write' && section === 'courses'
+  const writer = docWriter(client, (table, id) => state.data?.raw?.[table]?.get(id) || null)
+  const current = () => state.data || { contacts: [], vacancies: [], courses: [], students: [] }
+  // Los errores de validación salen en el formulario; los del servidor, en un aviso. Después de
+  // guardar, se vuelve a leer.
+  const guard = (fn) => (...args) => {
+    const out = fn(...args)
+    if (!out || typeof out.then !== 'function') return out
+    return out.then(
+      (value) => {
+        setReload((n) => n + 1)
+        return value
+      },
+      (err) => {
+        window.alert(err.message)
+        setReload((n) => n + 1)
+        return null
+      },
+    )
+  }
+  const guardAll = (actions) => Object.fromEntries(Object.entries(actions).map(([k, fn]) => [k, guard(fn)]))
+  const rrhh = rrhhEdit ? guardAll(rrhhActions(writer, current)) : null
+  const dir = coursesEdit ? guardAll(directivoActions(writer, current)) : null
   const renderAlliance = allianceOn ? (c) => <AlliancePanel contact={c} canEdit={allianceEdit} people={people} api={allianceApi} today={today} /> : null
 
   if (!screen) return null
@@ -151,7 +183,8 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
   if (section === 'team') {
     return (
       <TeamView
-        readOnly
+        readOnly={!rrhh}
+        limited={!!rrhh}
         contacts={contacts}
         groups={groups}
         rawEvents={[]}
@@ -159,9 +192,9 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
         areas={DEFAULT_DEPARTMENTS}
         selectedMemberId={selectedId}
         onSelectMember={setSelectedId}
-        onSaveProfile={noop}
-        onMarkFormer={noop}
-        onKeepActive={noop}
+        onSaveProfile={rrhh ? rrhh.saveTeamProfile : noop}
+        onMarkFormer={rrhh ? rrhh.markFormer : noop}
+        onKeepActive={rrhh ? rrhh.keepActive : noop}
         onRemoveFromTeam={noop}
         onOpenEvent={noop}
         onNewMeeting={noop}
@@ -173,10 +206,12 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
 
   if (section === 'vacancies') {
     const open = selectedId || (selectedCandidacyId && findCandidacy(contacts, selectedCandidacyId))
-    if (!open) return <VacancyListView vacancies={vacancies} contacts={contacts} now={now} areas={DEFAULT_DEPARTMENTS} onOpenVacancy={setSelectedId} />
+    if (!open)
+      return <VacancyListView vacancies={vacancies} contacts={contacts} now={now} areas={DEFAULT_DEPARTMENTS} onOpenVacancy={setSelectedId} onCreateVacancy={rrhh ? rrhh.createVacancy : null} />
     return (
       <VacanciesView
-        readOnly
+        readOnly={!rrhh}
+        limited={!!rrhh}
         vacancies={vacancies}
         contacts={contacts}
         rawEvents={[]}
@@ -187,15 +222,15 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
         onSelectVacancy={setSelectedId}
         selectedCandidacyId={selectedCandidacyId}
         onSelectCandidacy={setSelectedCandidacyId}
-        onCreateVacancy={noop}
-        onUpdateVacancy={noop}
+        onCreateVacancy={rrhh ? rrhh.createVacancy : noop}
+        onUpdateVacancy={rrhh ? rrhh.updateVacancy : noop}
         onDeleteVacancy={noop}
-        onAddCandidacy={noop}
-        onEditCandidacy={noop}
+        onAddCandidacy={rrhh ? rrhh.addCandidacy : noop}
+        onEditCandidacy={rrhh ? rrhh.editCandidacy : noop}
         onRemoveCandidacy={noop}
-        onCandidateStatus={noop}
+        onCandidateStatus={rrhh ? rrhh.candidateStatusChange : noop}
         onFindInterviewSlot={noop}
-        onIncorporate={noop}
+        onIncorporate={rrhh ? rrhh.incorporate : noop}
         onOpenEvent={noop}
         onOpenTeamMember={noop}
       />
@@ -228,19 +263,32 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
       contacts={contacts}
       attendance={attendance}
       extraClasses={extraClasses}
-      attendanceActions={teacherActions}
+      attendanceActions={
+        dir
+          ? {
+              ...teacherActions,
+              // Directivo solo crea clases sueltas (cambiarlas toca el pase de lista: la ceo).
+              saveExtraClass: (courseId, values, timeZone, id) => {
+                if (id) throw new Error('Solo la dirección puede cambiar una clase suelta.')
+                return dir.createExtraClass(courseId, values, timeZone)
+              },
+            }
+          : teacherActions
+      }
       canMark={canMark}
       client={client}
+      manageCourses={!!dir}
+      onEnroll={dir ? dir.setEnrolled : null}
       now={now}
       selectedStudentId={selectedId}
       onSelectStudent={setSelectedId}
       onAddStudent={noop}
       onEditStudent={noop}
       onRemoveStudent={noop}
-      onCreateCourse={noop}
-      onRenameCourse={noop}
-      onUpdateCourse={noop}
-      onDeleteCourse={noop}
+      onCreateCourse={dir ? dir.createCourse : noop}
+      onRenameCourse={dir ? dir.renameCourse : noop}
+      onUpdateCourse={dir ? dir.updateCourse : noop}
+      onDeleteCourse={dir ? null : noop}
     />
   )
 }

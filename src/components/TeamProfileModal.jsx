@@ -32,6 +32,8 @@ export default function TeamProfileModal({
   onAddArea,
   onSave,
   onClose: close,
+  // false en la app del equipo (RRHH), que no sube fotos a mis archivos.
+  withPhoto = true,
 }) {
   const seed = emptyTeamProfile(milestonesToBio(migrateProfileLinks(initialProfile || contact.teamProfile || teamProfileDefaults(contact))))
   // Perfil nuevo: el cargo, el departamento y la fecha son su primer rol.
@@ -237,7 +239,7 @@ export default function TeamProfileModal({
           <fieldset className="team-fieldset">
             <legend>Datos de contacto</legend>
             <p className="team-fieldset-hint">Son los datos del contacto: si los cambias aquí, se cambian también en Contactos.</p>
-            <ContactEditorFields draft={draft} skip={['organization', 'role']} />
+            <ContactEditorFields draft={draft} skip={withPhoto ? ['organization', 'role'] : ['organization', 'role', 'photo']} />
           </fieldset>
 
           <fieldset className="team-fieldset">

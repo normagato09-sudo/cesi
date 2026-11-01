@@ -59,14 +59,14 @@ function CandidateCard({ contact, candidacy: c, onOpen }) {
   )
 }
 
-function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandidate, onOpenCandidate, onStatusChange, readOnly = false }) {
+function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandidate, onOpenCandidate, onStatusChange, readOnly = false, limited = false }) {
   const columns = candidatesByStatus(vacancy.id, contacts)
   const erased = (vacancy.erasedCandidates || []).length
   return (
     <div className="vacancy-detail">
       <button type="button" className="contact-back-btn team-back" onClick={onBack}>
         <ArrowLeft size={16} strokeWidth={1.75} />
-        {readOnly ? 'Vacantes' : 'Equipo'}
+        {readOnly || limited ? 'Vacantes' : 'Equipo'}
       </button>
 
       <div className="vacancy-detail-head">
@@ -104,10 +104,12 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
           <Pencil size={14} strokeWidth={1.75} />
           Editar vacante
         </button>
-        <button type="button" className="contact-action-btn danger" onClick={onDelete}>
-          <Trash2 size={14} strokeWidth={1.75} />
-          Borrar
-        </button>
+        {!limited && (
+          <button type="button" className="contact-action-btn danger" onClick={onDelete}>
+            <Trash2 size={14} strokeWidth={1.75} />
+            Borrar
+          </button>
+        )}
       </div>
       )}
 
@@ -158,6 +160,8 @@ function VacancyDetail({ vacancy, contacts, onBack, onEdit, onDelete, onAddCandi
 
 function CandidateDetail({
   readOnly = false,
+  // RRHH (app del equipo): cambia estado, notas e incorpora; sin entrevistas, eliminar ni reuniones.
+  limited = false,
   contact,
   candidacy: c,
   vacancy,
@@ -230,10 +234,12 @@ function CandidateDetail({
 
       {!readOnly && (
       <div className="contact-detail-actions">
-        <button type="button" className="contact-action-btn primary" onClick={onFindInterview}>
-          <Search size={14} strokeWidth={1.75} />
-          Nueva reunión (entrevista)
-        </button>
+        {!limited && (
+          <button type="button" className="contact-action-btn primary" onClick={onFindInterview}>
+            <Search size={14} strokeWidth={1.75} />
+            Nueva reunión (entrevista)
+          </button>
+        )}
         {vacancy && (
           <button type="button" className="contact-action-btn team" onClick={onIncorporate}>
             <BadgeCheck size={14} strokeWidth={1.75} />
@@ -244,10 +250,12 @@ function CandidateDetail({
           <Pencil size={14} strokeWidth={1.75} />
           Editar
         </button>
-        <button type="button" className="contact-action-btn danger" onClick={onDelete}>
-          <Trash2 size={14} strokeWidth={1.75} />
-          Eliminar
-        </button>
+        {!limited && (
+          <button type="button" className="contact-action-btn danger" onClick={onDelete}>
+            <Trash2 size={14} strokeWidth={1.75} />
+            Eliminar
+          </button>
+        )}
       </div>
       )}
 
@@ -280,7 +288,7 @@ function CandidateDetail({
         <ContactFields contact={contact} />
       </section>
 
-      {!readOnly && <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
+      {!readOnly && !limited && <ContactMeetings contact={contact} contacts={contacts} rawEvents={rawEvents} now={now} onOpenEvent={onOpenEvent} />}
     </div>
   )
 }
@@ -310,6 +318,9 @@ export default function VacanciesView({
   onOpenTeamMember,
   // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, mover ni borrar.
   readOnly = false,
+  // RRHH (app del equipo, parte 20): crea y edita vacantes y candidaturas e incorpora; sin borrar,
+  // entrevistas, reuniones ni subir archivos. Los cambios pueden devolver promesas.
+  limited = false,
 }) {
   const [vacancyForm, setVacancyForm] = useState(null) // { vacancy } (null = nueva)
   const [candidateForm, setCandidateForm] = useState(null) // { entry: { contact, candidacy } } (entry null = nueva)
@@ -361,6 +372,7 @@ export default function VacanciesView({
     content = (
       <CandidateDetail
         readOnly={readOnly}
+        limited={limited}
         contact={selected.contact}
         candidacy={selected.candidacy}
         vacancy={candidateVacancy}
@@ -385,6 +397,7 @@ export default function VacanciesView({
     content = (
       <VacancyDetail
         readOnly={readOnly}
+        limited={limited}
         vacancy={selectedVacancy}
         contacts={contacts}
         onBack={() => onSelectVacancy(null)}
@@ -418,9 +431,12 @@ export default function VacanciesView({
           initialVacancy={vacancyForm.vacancy}
           areas={areas}
           onAddArea={onAddArea}
-          onSubmit={(data) => {
-            if (vacancyForm.vacancy) onUpdateVacancy(vacancyForm.vacancy.id, data)
-            else onSelectVacancy(onCreateVacancy(data).id)
+          onSubmit={async (data) => {
+            if (vacancyForm.vacancy) await onUpdateVacancy(vacancyForm.vacancy.id, data)
+            else {
+              const created = await onCreateVacancy(data)
+              if (created) onSelectVacancy(created.id)
+            }
           }}
           onClose={() => setVacancyForm(null)}
         />
@@ -431,9 +447,10 @@ export default function VacanciesView({
           vacancy={candidateForm.entry ? candidateVacancy : selectedVacancy}
           contacts={contacts}
           initial={candidateForm.entry}
-          onSubmit={(data) => {
-            if (candidateForm.entry) onEditCandidacy(candidateForm.entry.contact, candidateForm.entry.candidacy.id, data)
-            else onAddCandidacy(selectedVacancy.id, data)
+          linkOnly={limited}
+          onSubmit={async (data) => {
+            if (candidateForm.entry) await onEditCandidacy(candidateForm.entry.contact, candidateForm.entry.candidacy.id, data)
+            else await onAddCandidacy(selectedVacancy.id, data)
           }}
           onOpenCandidacy={openCandidacy}
           onClose={() => setCandidateForm(null)}
@@ -459,6 +476,7 @@ export default function VacanciesView({
           initialProfile={incorporationDraft(candidateVacancy, now)}
           title={`Incorporar a ${incorporating.contact.name} al equipo`}
           saveLabel="Incorporar al equipo"
+          withPhoto={!limited}
           onAddArea={onAddArea}
           onSave={handleIncorporated}
           onClose={() => setIncorporating(null)}

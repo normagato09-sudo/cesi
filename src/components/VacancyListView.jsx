@@ -59,7 +59,10 @@ export default function VacancyListView({ vacancies = [], contacts = [], now, ar
       {creating && (
         <VacancyFormModal
           areas={areas}
-          onSubmit={(data) => onOpenVacancy(onCreateVacancy(data).id)}
+          onSubmit={async (data) => {
+            const created = await onCreateVacancy(data)
+            if (created) onOpenVacancy(created.id)
+          }}
           onClose={() => setCreating(false)}
         />
       )}

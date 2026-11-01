@@ -138,6 +138,9 @@ export default function StudentsView({
   // Con readOnly, el profesor sí pasa lista en sus clases; client: para las confirmaciones.
   canMark = false,
   client = null,
+  // Con readOnly, Directivo gestiona cursos (sin borrarlos), crea clases sueltas e inscribe alumnos.
+  manageCourses = false,
+  onEnroll = null,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   const [formModal, setFormModal] = useState(null)
@@ -225,6 +228,8 @@ export default function StudentsView({
           readOnly={readOnly}
           canMark={canMark}
           client={client}
+          manage={manageCourses}
+          onEnroll={onEnroll}
         />
         {coursesModal}
       </>

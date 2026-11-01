@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, BookOpen, CalendarPlus, ClipboardCheck, Pencil, Settings2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, CalendarPlus, ClipboardCheck, Pencil, Settings2, Users } from 'lucide-react'
 import AttendanceModal from './AttendanceModal.jsx'
 import CourseFormModal from './CourseFormModal.jsx'
 import ExtraClassModal from './ExtraClassModal.jsx'
+import EnrollModal from './EnrollModal.jsx'
 import { CourseSummary } from './CoursesModal.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { classSummary, classWhen, courseClasses, groupClasses } from '../lib/attendance'
@@ -52,7 +53,26 @@ export function ClassRow({ cls, students, attendance, onOpen, courseName = '' })
 // clases no salen en mi calendario.
 // readOnly: solo se ve (pantalla del equipo con permiso «Ver»): sin gestionar, editar ni pasar lista.
 // canMark (con readOnly): el profesor sí pasa lista en sus clases. client: para las confirmaciones.
-export default function CoursesView({ tabs, students, courses, contacts, attendance, extraClasses, actions, onManageCourses, onUpdateCourse, readOnly = false, canMark = false, client = null }) {
+// manage (con readOnly): Directivo gestiona cursos (sin borrarlos) y crea clases sueltas; con
+// onEnroll(courseId, studentIds), inscribe y desinscribe alumnos.
+export default function CoursesView({
+  tabs,
+  students,
+  courses,
+  contacts,
+  attendance,
+  extraClasses,
+  actions,
+  onManageCourses,
+  onUpdateCourse,
+  readOnly = false,
+  canMark = false,
+  client = null,
+  manage = false,
+  onEnroll = null,
+}) {
+  const canManage = !readOnly || manage
+  const [enrolling, setEnrolling] = useState(false)
   const now = useMinuteClock()
   const [selectedId, setSelectedId] = useState(null)
   const [editingCourse, setEditingCourse] = useState(false)
@@ -77,7 +97,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
         <div className="contacts-header">
           <h1 className="contacts-title">{tabs ? 'Alumnos' : 'Cursos'}</h1>
           {tabs}
-          {!readOnly && (
+          {canManage && (
             <div className="contacts-header-actions">
               <button type="button" className="contacts-groups-btn" onClick={onManageCourses} title="Crear, renombrar, editar o borrar cursos">
                 <Settings2 size={14} strokeWidth={1.75} />
@@ -91,7 +111,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
           <div className="contacts-empty">
             <BookOpen size={32} strokeWidth={1.5} />
             <p className="contacts-empty-title">{readOnly ? 'Todavía no hay cursos' : 'Todavía no tienes cursos'}</p>
-            {!readOnly && (
+            {canManage && (
               <>
                 <p>Crea un curso, ponle profesor y horario, y aquí podrás pasar lista en cada clase.</p>
                 <button type="button" className="contacts-new-btn" onClick={onManageCourses}>
@@ -144,7 +164,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
               </div>
             </div>
 
-            {!readOnly && (
+            {canManage && (
             <div className="contact-detail-actions">
               <button type="button" className="contact-action-btn" onClick={() => setEditingCourse(true)}>
                 <Pencil size={14} strokeWidth={1.75} />
@@ -154,6 +174,12 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
                 <CalendarPlus size={14} strokeWidth={1.75} />
                 Clase suelta
               </button>
+              {onEnroll && (
+                <button type="button" className="contact-action-btn" onClick={() => setEnrolling(true)}>
+                  <Users size={14} strokeWidth={1.75} />
+                  Inscribir alumnos
+                </button>
+              )}
             </div>
             )}
 
@@ -162,7 +188,7 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
             <section className="course-section">
               <h3>Alumnos inscritos ({enrolled.length})</h3>
               {enrolled.length === 0 ? (
-                <p className="student-muted">Nadie todavía. Se inscriben desde la ficha de cada alumno.</p>
+                <p className="student-muted">Nadie todavía. {onEnroll ? 'Usa «Inscribir alumnos».' : 'Se inscriben desde la ficha de cada alumno.'}</p>
               ) : (
                 <p className="course-enrolled">{enrolled.map((s) => s.name).join(', ')}</p>
               )}
@@ -228,6 +254,10 @@ export default function CoursesView({ tabs, students, courses, contacts, attenda
           }}
           onClose={() => setExtraModal(null)}
         />
+      )}
+
+      {enrolling && selected && onEnroll && (
+        <EnrollModal course={selected} students={students} onSave={(ids) => onEnroll(selected.id, ids)} onClose={() => setEnrolling(false)} />
       )}
     </div>
   )

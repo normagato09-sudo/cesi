@@ -51,7 +51,8 @@ import { deleteFile } from './lib/files/files.js'
 import { planCandidacy } from './lib/applications.js'
 import { AREAS_KEY, getStoredTeamAreas, isActiveMember, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
 import { orderPatches } from './lib/teamOrder.js'
-import { markFormerProfile, returnToTeamProfile, statusChangePatch } from './lib/formerMembers.js'
+import { markFormerProfile, returnToTeamProfile } from './lib/formerMembers.js'
+import { withStatusChange } from './lib/teamEdits.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
 import { DEFAULT_DEPARTMENTS, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -124,6 +125,7 @@ const GoalsView = lazy(() => import('./components/team/GoalsView.jsx'))
 const BoardsView = lazy(() => import('./components/boards/BoardsView.jsx'))
 const NoticesView = lazy(() => import('./components/notices/NoticesView.jsx'))
 const FinanceView = lazy(() => import('./components/finance/FinanceView.jsx'))
+const TeamEditsView = lazy(() => import('./components/TeamEditsView.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -793,13 +795,8 @@ export default function App() {
   const openNewMeeting = (prefill = {}) => setFormModal({ prefill })
   const handleNewMeeting = () => openNewMeeting()
 
-  // Pasar a antiguo miembro lo archiva y volver al equipo (o entrar en él) lo desarchiva.
-  // Devuelve el cambio del contacto completo (ver formerMembers.js y archive.js).
-  const withStatusChange = (contact, patch) => {
-    const out = { ...patch, ...statusChangePatch({ before: contact.teamProfile, after: patch.teamProfile }) }
-    if (contact.archived && out.teamProfile && out.teamProfile.status !== 'former') Object.assign(out, unarchivePatch())
-    return out
-  }
+  // Pasar a antiguo miembro lo archiva y volver al equipo (o entrar en él) lo desarchiva: ver
+  // withStatusChange (teamEdits.js, la misma que usa RRHH).
 
   // Archivo de contactos (Contactos › Archivados). Un miembro activo pasa antes a antiguo miembro.
   const handleArchiveContact = (id) => editContact(id, archivePatch())
@@ -1074,6 +1071,14 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <TeamTasksView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'team-edits' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <TeamEditsView client={sync.client} />
             </Suspense>
           </div>
         )}

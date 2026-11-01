@@ -7,6 +7,7 @@ import {
   Clock,
   GraduationCap,
   Handshake,
+  History,
   House,
   KeyRound,
   LayoutDashboard,
@@ -63,6 +64,7 @@ export const NAV_GROUPS = [
       { id: 'finance', label: 'Finanzas', Icon: Wallet, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
+      { id: 'team-edits', label: 'Cambios del equipo', Icon: History, ceoOnly: true, needsSync: true },
     ],
   },
   {
