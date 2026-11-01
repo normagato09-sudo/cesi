@@ -3805,3 +3805,4394 @@ $$;
 revoke all on function public.cesi_level_for(uuid, text) from public, anon, authenticated;
 revoke all on function public.cesi_screen_data(text, uuid, text) from public, anon;
 grant execute on function public.cesi_screen_data(text, uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 12: Inicio del equipo y de Directivo (alertas y resumen en cifras)
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Cuándo se aceptó cada cuenta
+-- -----------------------------------------------------------------------------
+alter table public.profiles add column if not exists role_set_at timestamptz;
+
+-- Las que ya están aceptadas y no tienen fecha: la de creación de la cuenta (o una antigua), no
+-- la de hoy, para que no salgan como «nuevas».
+update public.profiles
+set role_set_at = coalesce(created_at, timestamptz '2000-01-01 00:00:00+00')
+where role_set_at is null and role <> 'pendiente';
+
+create or replace function public.cesi_profiles_role_set_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.role is distinct from old.role then
+    new.role_set_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.cesi_profiles_role_set_at() from public, anon, authenticated;
+
+drop trigger if exists profiles_role_set_at on public.profiles;
+create trigger profiles_role_set_at
+  before update on public.profiles
+  for each row execute function public.cesi_profiles_role_set_at();
+
+-- -----------------------------------------------------------------------------
+-- Cuándo se hizo cada tarea
+-- -----------------------------------------------------------------------------
+alter table public.team_tasks add column if not exists done_at timestamptz;
+
+update public.team_tasks set done_at = updated_at where status = 'hecha' and done_at is null;
+
+create or replace function public.cesi_team_tasks_done_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.status <> 'hecha' then
+    new.done_at := null;
+  elsif tg_op = 'INSERT' or old.status is distinct from 'hecha' then
+    new.done_at := now();
+  else
+    new.done_at := old.done_at;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.cesi_team_tasks_done_at() from public, anon, authenticated;
+
+drop trigger if exists team_tasks_done_at on public.team_tasks;
+create trigger team_tasks_done_at
+  before insert or update on public.team_tasks
+  for each row execute function public.cesi_team_tasks_done_at();
+
+-- -----------------------------------------------------------------------------
+-- «Marcar como vistas»
+-- -----------------------------------------------------------------------------
+create table if not exists public.home_alerts_seen (
+  profile_id uuid primary key references public.profiles (id) on delete cascade,
+  seen_at timestamptz not null default now()
+);
+
+alter table public.home_alerts_seen enable row level security;
+revoke all on table public.home_alerts_seen from anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- Texto → fecha y hora (null si no lo es). Para createdAt / enrolledAt de los datos de la ceo.
+create or replace function public.cesi_try_ts(p text)
+returns timestamptz
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if p is null or p !~ '^\d{4}-\d{2}-\d{2}' then
+    return null;
+  end if;
+  return p::timestamptz;
+exception when others then
+  return null;
+end;
+$$;
+
+-- Quién mira el Inicio: la cuenta (o, con p_as, la que la ceo está viendo). Error si no es
+-- Directivo ni la ceo.
+create or replace function public.cesi_home_viewer(p_as uuid)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if v_me is null or not public.cesi_is_boss(v_me) then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  return v_me;
+end;
+$$;
+
+revoke all on function public.cesi_try_ts(text) from public, anon, authenticated;
+revoke all on function public.cesi_home_viewer(uuid) from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Alertas (últimos 7 días)
+-- kind: 'team_new' | 'student_new' | 'account_pending' | 'clock_open' | 'task_overdue'
+-- name: la persona (o la tarea); detail: una línea más (área, vacante, responsable…).
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_home_alerts(p_as uuid default null)
+returns table (kind text, at timestamptz, name text, detail text, seen boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_home_viewer(p_as);
+  v_zone text := public.cesi_zone_of(v_me);
+  v_since timestamptz := now() - interval '7 days';
+  v_today date := (now() at time zone v_zone)::date;
+  v_seen timestamptz := coalesce((select s.seen_at from public.home_alerts_seen s where s.profile_id = v_me), '-infinity');
+begin
+  return query
+  with ceo as (
+    select id from public.profiles where role = 'ceo'
+  ),
+  shown_name as (
+    select p.id, coalesce(nullif(trim(ap.full_name), ''), nullif(trim(p.display_name), ''), 'Sin nombre') as name
+    from public.profiles p
+    left join public.account_profiles ap on ap.id = p.id
+  ),
+  alerts as (
+    -- Cuenta aceptada como equipo.
+    select 'team_new'::text as kind, p.role_set_at as at, n.name,
+      coalesce('Cuenta de equipo · ' || a.name, 'Cuenta de equipo') as detail
+    from public.profiles p
+    join shown_name n on n.id = p.id
+    left join public.areas a on a.id = p.area
+    where p.role = 'equipo' and p.role_set_at >= v_since
+
+    union all
+    -- Añadida a Equipo desde una vacante (candidatura aceptada).
+    select 'team_new', h.at, coalesce(nullif(trim(c.data ->> 'name'), ''), 'Sin nombre'),
+      coalesce('Desde la vacante «' || nullif(trim(v.data ->> 'title'), '') || '»', 'Desde una vacante')
+    from public.contacts c
+    cross join lateral jsonb_array_elements(case when jsonb_typeof(c.data -> 'candidacies') = 'array' then c.data -> 'candidacies' else '[]'::jsonb end) cand
+    cross join lateral (
+      select max(public.cesi_try_ts(e ->> 'at')) as at
+      from jsonb_array_elements(case when jsonb_typeof(cand -> 'history') = 'array' then cand -> 'history' else '[]'::jsonb end) e
+      where e ->> 'status' = 'accepted'
+    ) h
+    left join public.vacancies v on v.user_id = c.user_id and v.id = cand ->> 'vacancyId' and v.deleted_at is null
+    where c.user_id in (select id from ceo) and c.deleted_at is null
+      and c.data ? 'teamProfile' and cand ->> 'status' = 'accepted' and h.at >= v_since
+
+    union all
+    -- Cuenta aceptada como alumno.
+    select 'student_new', p.role_set_at, n.name, 'Cuenta de alumno'
+    from public.profiles p
+    join shown_name n on n.id = p.id
+    where p.role = 'alumno' and p.role_set_at >= v_since
+
+    union all
+    -- Alumno nuevo en la lista (sin los que ya salen por su cuenta recién aceptada).
+    select 'student_new', public.cesi_try_ts(s.data ->> 'createdAt'),
+      coalesce(nullif(trim(s.data ->> 'name'), ''), 'Sin nombre'), 'Nuevo en la lista de alumnos'
+    from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+      and public.cesi_try_ts(s.data ->> 'createdAt') >= v_since
+      and not exists (
+        select 1 from public.profiles p
+        where p.role = 'alumno' and p.linked_student_id = s.id and p.role_set_at >= v_since
+      )
+
+    union all
+    -- Cuentas pendientes de aceptar (solo aviso).
+    select 'account_pending', p.created_at, n.name, 'Pendiente de aceptar'
+    from public.profiles p
+    join shown_name n on n.id = p.id
+    where p.role = 'pendiente' and p.created_at >= v_since
+
+    union all
+    -- Fichajes sin salida (más de 16 horas abiertos).
+    select 'clock_open', ce.clock_in, public.cesi_name_or_gone(ce.profile_id, null), 'Entrada sin salida'
+    from public.clock_entries ce
+    where ce.clock_out is null and ce.clock_in >= v_since and ce.clock_in < now() - interval '16 hours'
+
+    union all
+    -- Tareas del equipo atrasadas (con la fecha límite en los últimos 7 días).
+    select 'task_overdue', ((t.due_date + 1)::timestamp at time zone v_zone), t.title,
+      coalesce(public.cesi_name_or_gone(t.assignee_id, t.assignee_gone_name), 'Sin responsable')
+    from public.team_tasks t
+    where t.status <> 'hecha' and t.due_date is not null and t.due_date < v_today
+      and t.due_date >= v_today - 7
+  )
+  select al.kind, al.at, al.name, al.detail, al.at <= v_seen
+  from alerts al
+  where al.at is not null
+  order by al.at desc
+  limit 100;
+end;
+$$;
+
+create or replace function public.cesi_home_alerts_seen()
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_home_viewer(null);
+begin
+  insert into public.home_alerts_seen (profile_id, seen_at) values (v_me, now())
+  on conflict (profile_id) do update set seen_at = excluded.seen_at;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Resumen en cifras (solo números)
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_home_stats(p_as uuid default null)
+returns table (
+  students_total integer, students_new_month integer, courses_active integer,
+  team_members integer, week_minutes integer, tasks_done_month integer
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_home_viewer(p_as);
+  v_zone text := public.cesi_zone_of(v_me);
+  v_month timestamptz := date_trunc('month', now() at time zone v_zone) at time zone v_zone;
+  v_week timestamptz := date_trunc('week', now() at time zone v_zone) at time zone v_zone;
+begin
+  return query
+  with ceo as (
+    select id from public.profiles where role = 'ceo'
+  ),
+  st as (
+    select s.data from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+  )
+  select
+    (select count(*) from st)::integer,
+    (select count(*) from st
+      where coalesce(public.cesi_try_ts(st.data ->> 'enrolledAt'), public.cesi_try_ts(st.data ->> 'createdAt')) >= v_month)::integer,
+    (select count(*) from public.courses co where co.user_id in (select id from ceo) and co.deleted_at is null)::integer,
+    (select count(*) from public.contacts c
+      where c.user_id in (select id from ceo) and c.deleted_at is null
+        and jsonb_typeof(c.data -> 'teamProfile') = 'object'
+        and coalesce(c.data -> 'teamProfile' ->> 'status', 'active') <> 'former'
+        and coalesce(c.data ->> 'archived', 'false') <> 'true')::integer,
+    (select coalesce(sum(extract(epoch from (ce.clock_out - ce.clock_in)) / 60), 0)
+      from public.clock_entries ce
+      where ce.clock_out is not null and ce.clock_in >= v_week)::integer,
+    (select count(*) from public.team_tasks t where t.status = 'hecha' and t.done_at >= v_month)::integer;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Esta semana (de quien lo pide; cualquier persona de equipo)
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_my_week(p_as uuid default null)
+returns table (week_minutes integer, tasks_done integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_zone text;
+  v_week timestamptz;
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if coalesce((select p.role from public.profiles p where p.id = v_me), '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_zone := public.cesi_zone_of(v_me);
+  v_week := date_trunc('week', now() at time zone v_zone) at time zone v_zone;
+  return query
+  select
+    (select coalesce(sum(extract(epoch from (ce.clock_out - ce.clock_in)) / 60), 0)
+      from public.clock_entries ce
+      where ce.profile_id = v_me and ce.clock_out is not null and ce.clock_in >= v_week)::integer,
+    (select count(*) from public.team_tasks t
+      where t.assignee_id = v_me and t.status = 'hecha' and t.done_at >= v_week)::integer;
+end;
+$$;
+
+revoke all on function public.cesi_home_alerts(uuid) from public, anon;
+revoke all on function public.cesi_home_alerts_seen() from public, anon;
+revoke all on function public.cesi_home_stats(uuid) from public, anon;
+revoke all on function public.cesi_my_week(uuid) from public, anon;
+grant execute on function public.cesi_home_alerts(uuid) to authenticated;
+grant execute on function public.cesi_home_alerts_seen() to authenticated;
+grant execute on function public.cesi_home_stats(uuid) to authenticated;
+grant execute on function public.cesi_my_week(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 13: tareas para varias personas o para un área entera
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Personas asignadas
+-- -----------------------------------------------------------------------------
+--   profile_id  persona (null si se eliminó su cuenta; gone_name guarda su nombre)
+--   status      su parte: 'pendiente' | 'en_curso' | 'hecha';  done_at: cuándo la terminó
+create table if not exists public.team_task_assignees (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references public.team_tasks (id) on delete cascade,
+  profile_id uuid references public.profiles (id) on delete set null,
+  gone_name text not null default '',
+  status text not null default 'pendiente' check (status in ('pendiente', 'en_curso', 'hecha')),
+  done_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint team_task_assignees_unique unique (task_id, profile_id)
+);
+create index if not exists team_task_assignees_profile_idx on public.team_task_assignees (profile_id);
+
+alter table public.team_tasks add column if not exists assigned_area text references public.areas (id) on update cascade on delete set null;
+
+-- ¿Ya está en el formato nuevo? Las que ya existían empiezan en false y se pasan abajo; las que
+-- se creen a partir de ahora, true.
+alter table public.team_tasks add column if not exists assignees_moved boolean not null default false;
+alter table public.team_tasks alter column assignees_moved set default true;
+
+-- Pasar las tareas que aún no están en el formato nuevo (su persona, su estado y cuándo se hizo).
+insert into public.team_task_assignees (task_id, profile_id, gone_name, status, done_at, created_at, updated_at)
+select t.id, t.assignee_id, coalesce(t.assignee_gone_name, ''), t.status,
+  case when t.status = 'hecha' then coalesce(t.done_at, t.updated_at) end, t.created_at, t.updated_at
+from public.team_tasks t
+where not t.assignees_moved
+  and (t.assignee_id is not null or coalesce(t.assignee_gone_name, '') <> '')
+  and not exists (
+    select 1 from public.team_task_assignees a
+    where a.task_id = t.id and a.profile_id is not distinct from t.assignee_id
+  );
+update public.team_tasks set assignees_moved = true where not assignees_moved;
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- ¿Puede `p_me` ver esa tarea? Directivo y la ceo, todas; los demás, las suyas (asignadas o
+-- creadas) y las de su área.
+create or replace function public.cesi_task_visible(p_me uuid, p_task public.team_tasks)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.cesi_is_boss(p_me)
+    or p_task.created_by = p_me
+    or exists (select 1 from public.team_task_assignees a where a.task_id = p_task.id and a.profile_id = p_me)
+    or (p_task.area is not null and p_task.area = (select area from public.profiles where id = p_me and role = 'equipo'));
+$$;
+
+-- Estado de la tarea según las partes de las personas con cuenta (si no hay, no lo toca).
+create or replace function public.cesi_task_recalc(p_task uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_total integer;
+  v_done integer;
+  v_started integer;
+begin
+  select count(*), count(*) filter (where status = 'hecha'), count(*) filter (where status <> 'pendiente')
+  into v_total, v_done, v_started
+  from public.team_task_assignees
+  where task_id = p_task and profile_id is not null;
+  if v_total = 0 then
+    return;
+  end if;
+  update public.team_tasks
+  set status = case when v_done = v_total then 'hecha' when v_started > 0 then 'en_curso' else 'pendiente' end,
+      updated_at = now()
+  where id = p_task
+    and status is distinct from case when v_done = v_total then 'hecha' when v_started > 0 then 'en_curso' else 'pendiente' end;
+end;
+$$;
+
+revoke all on function public.cesi_task_recalc(uuid) from public, anon, authenticated;
+
+-- Las tareas que ya estaban: el estado según sus partes (no cambia nada si solo tenían una persona).
+do $$
+declare
+  v_id uuid;
+begin
+  for v_id in select distinct task_id from public.team_task_assignees loop
+    perform public.cesi_task_recalc(v_id);
+  end loop;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Reglas de acceso (solo leer; escribir, con las funciones)
+-- -----------------------------------------------------------------------------
+alter table public.team_task_assignees enable row level security;
+
+drop policy if exists "team_task_assignees: leer las de tareas que puedo ver" on public.team_task_assignees;
+create policy "team_task_assignees: leer las de tareas que puedo ver" on public.team_task_assignees
+  for select to authenticated
+  using (exists (
+    select 1 from public.team_tasks t
+    where t.id = team_task_assignees.task_id and public.cesi_task_visible((select auth.uid()), t)
+  ));
+
+revoke all on public.team_task_assignees from anon;
+revoke all on public.team_task_assignees from authenticated;
+grant select on public.team_task_assignees to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Tareas que ve la cuenta actual (o, solo la ceo, otra con p_as: «Ver como»)
+-- -----------------------------------------------------------------------------
+--   assignees      [{ id, name, area, status, gone }] (gone: cuenta eliminada), por nombre
+--   assigned_area  área entera a la que se asignó (o null) y su nombre
+--   my_status      mi parte (null si no estoy asignada)
+--   done_count / total_count  partes hechas / personas con cuenta
+--   missing_names  quién falta (con cuenta), separado por comas
+--   can_edit: editar y borrar; can_status: cambiar partes (la mía, o todas si la creé o soy
+--   Directivo o la ceo)
+drop function if exists public.cesi_team_tasks(uuid);
+create function public.cesi_team_tasks(p_as uuid default null)
+returns table (
+  id uuid, title text, description text, area text, area_name text,
+  assigned_area text, assigned_area_name text, assignees jsonb, my_status text,
+  done_count integer, total_count integer, missing_names text,
+  created_by uuid, created_by_name text,
+  due_date date, priority text, status text, created_at timestamptz, updated_at timestamptz,
+  can_edit boolean, can_status boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := (select auth.uid());
+  v_boss boolean;
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if coalesce((select p.role from public.profiles p where p.id = v_me), '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_boss := public.cesi_is_boss(v_me);
+  return query
+    select t.id, t.title, t.description, t.area, coalesce(a.name, ''),
+      t.assigned_area, coalesce(aa.name, ''), coalesce(p.list, '[]'::jsonb), p.mine,
+      coalesce(p.done, 0), coalesce(p.total, 0), coalesce(p.missing, ''),
+      t.created_by, public.cesi_name_or_gone(t.created_by, t.creator_gone_name),
+      t.due_date, t.priority, t.status, t.created_at, t.updated_at,
+      v_boss or coalesce(t.created_by = v_me, false),
+      v_boss or coalesce(t.created_by = v_me, false) or p.mine is not null
+    from public.team_tasks t
+    left join public.areas a on a.id = t.area
+    left join public.areas aa on aa.id = t.assigned_area
+    left join lateral (
+      select
+        jsonb_agg(jsonb_build_object(
+          'id', x.profile_id, 'name', x.name, 'area', x.area, 'status', x.status, 'gone', x.profile_id is null
+        ) order by x.name) as list,
+        max(x.status) filter (where x.profile_id = v_me) as mine,
+        (count(*) filter (where x.profile_id is not null and x.status = 'hecha'))::integer as done,
+        (count(*) filter (where x.profile_id is not null))::integer as total,
+        string_agg(x.name, ', ' order by x.name) filter (where x.profile_id is not null and x.status <> 'hecha') as missing
+      from (
+        select ta.profile_id, ta.status, pr.area, public.cesi_name_or_gone(ta.profile_id, ta.gone_name) as name
+        from public.team_task_assignees ta
+        left join public.profiles pr on pr.id = ta.profile_id
+        where ta.task_id = t.id
+      ) x
+    ) p on true
+    where public.cesi_task_visible(v_me, t)
+    order by t.due_date nulls last, t.created_at;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Crear (p_id null) o editar una tarea
+-- -----------------------------------------------------------------------------
+-- p_assignees: personas (Directivo y la ceo: de equipo o la ceo; los demás, solo ellos mismos).
+-- p_assign_area: en vez de personas, un área entera: se asigna a las personas de equipo que la
+-- tienen ahora (solo Directivo y la ceo). Al editar, quien sigue asignado conserva su parte; a
+-- quien se quita se le borra; las partes de cuentas eliminadas se quedan.
+-- p_status solo cuenta si la tarea no tiene personas asignadas (si no, sale de las partes).
+drop function if exists public.cesi_task_save(uuid, text, text, text, uuid, date, text, text);
+create or replace function public.cesi_task_save(
+  p_id uuid, p_title text, p_description text, p_area text, p_assignees uuid[], p_assign_area text,
+  p_due_date date, p_priority text, p_status text
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_role text;
+  v_area text;
+  v_boss boolean;
+  v_id uuid := p_id;
+  v_old public.team_tasks;
+  v_people uuid[];
+  v_assign_area text := nullif(p_assign_area, '');
+begin
+  select role, area into v_role, v_area from public.profiles where id = v_me;
+  if coalesce(v_role, '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_boss := public.cesi_is_boss(v_me);
+  if length(trim(coalesce(p_title, ''))) = 0 then
+    raise exception 'Escribe un título.' using errcode = '22023';
+  end if;
+  if coalesce(p_priority, '') not in ('baja', 'media', 'alta') or coalesce(p_status, '') not in ('pendiente', 'en_curso', 'hecha') then
+    raise exception 'Prioridad o estado no válidos.' using errcode = '22023';
+  end if;
+  if p_area is null or not exists (select 1 from public.areas where id = p_area) then
+    raise exception 'Elige el área.' using errcode = '22023';
+  end if;
+
+  if v_boss then
+    if v_assign_area is not null then
+      if not exists (select 1 from public.areas where id = v_assign_area) then
+        raise exception 'Esa área no existe.' using errcode = '22023';
+      end if;
+      select coalesce(array_agg(id), '{}') into v_people
+      from public.profiles where role = 'equipo' and area = v_assign_area;
+      if cardinality(v_people) = 0 then
+        raise exception 'Nadie del equipo tiene esa área todavía.' using errcode = '22023';
+      end if;
+    else
+      select coalesce(array_agg(distinct x), '{}') into v_people from unnest(coalesce(p_assignees, '{}')) x where x is not null;
+      if exists (
+        select 1 from unnest(v_people) x
+        where not exists (select 1 from public.profiles where id = x and role in ('equipo', 'ceo'))
+      ) then
+        raise exception 'Solo se puede asignar a personas de equipo o a la dirección.' using errcode = '22023';
+      end if;
+    end if;
+  else
+    if v_area is null or p_area <> v_area then
+      raise exception 'Solo puedes crear tareas de tu área.' using errcode = '42501';
+    end if;
+    v_assign_area := null;
+    v_people := array[v_me];
+  end if;
+
+  if v_id is null then
+    insert into public.team_tasks (title, description, area, assigned_area, created_by, due_date, priority, status)
+    values (trim(p_title), coalesce(p_description, ''), p_area, v_assign_area, v_me, p_due_date, p_priority,
+            case when cardinality(v_people) > 0 then 'pendiente' else p_status end)
+    returning id into v_id;
+  else
+    select * into v_old from public.team_tasks where id = v_id for update;
+    if not found or not (v_boss or v_old.created_by = v_me) then
+      raise exception 'Solo quien la creó, Directivo o la dirección pueden editarla.' using errcode = '42501';
+    end if;
+    -- Quien la creó sin ser Directivo ni la ceo no cambia a quién está asignada.
+    if not v_boss then
+      select coalesce(array_agg(profile_id), '{}') into v_people
+      from public.team_task_assignees where task_id = v_id and profile_id is not null;
+      v_assign_area := v_old.assigned_area;
+    end if;
+    update public.team_tasks
+    set title = trim(p_title), description = coalesce(p_description, ''), area = p_area, assigned_area = v_assign_area,
+        due_date = p_due_date, priority = p_priority, status = p_status, updated_at = now()
+    where id = v_id;
+    delete from public.team_task_assignees
+    where task_id = v_id and profile_id is not null and not (profile_id = any (v_people));
+  end if;
+
+  insert into public.team_task_assignees (task_id, profile_id)
+  select v_id, x from unnest(v_people) x
+  on conflict (task_id, profile_id) do nothing;
+  perform public.cesi_task_recalc(v_id);
+  return v_id;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Cambiar el estado
+-- -----------------------------------------------------------------------------
+-- Con personas asignadas: cada una cambia su parte (p_profile null: la mía); quien la creó,
+-- Directivo y la ceo pueden cambiar la de cualquiera. Sin personas: el de la tarea (quien la creó,
+-- Directivo o la ceo).
+drop function if exists public.cesi_task_set_status(uuid, text);
+create or replace function public.cesi_task_set_status(p_id uuid, p_status text, p_profile uuid default null)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_task public.team_tasks;
+  v_manager boolean;
+  v_target uuid := coalesce(p_profile, v_me);
+begin
+  if coalesce(p_status, '') not in ('pendiente', 'en_curso', 'hecha') then
+    raise exception 'Estado no válido.' using errcode = '22023';
+  end if;
+  select * into v_task from public.team_tasks where id = p_id for update;
+  if not found then
+    raise exception 'No puedes cambiar el estado de esa tarea.' using errcode = '42501';
+  end if;
+  v_manager := public.cesi_is_boss(v_me) or coalesce(v_task.created_by = v_me, false);
+
+  if exists (select 1 from public.team_task_assignees where task_id = p_id and profile_id is not null) then
+    if v_target <> v_me and not v_manager then
+      raise exception 'Solo puedes cambiar tu parte.' using errcode = '42501';
+    end if;
+    update public.team_task_assignees
+    set status = p_status,
+        done_at = case when p_status <> 'hecha' then null when status = 'hecha' then done_at else now() end,
+        updated_at = now()
+    where task_id = p_id and profile_id = v_target;
+    if not found then
+      raise exception 'Esa persona no está asignada a la tarea.' using errcode = '42501';
+    end if;
+    perform public.cesi_task_recalc(p_id);
+  else
+    if not v_manager then
+      raise exception 'No puedes cambiar el estado de esa tarea.' using errcode = '42501';
+    end if;
+    update public.team_tasks set status = p_status, updated_at = now() where id = p_id;
+  end if;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Eliminar una cuenta (como en la parte 8, guardando también su nombre en sus partes)
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_delete_account(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_role text;
+  v_name text;
+begin
+  if not public.is_ceo() then
+    raise exception 'Solo la dirección puede eliminar cuentas.' using errcode = '42501';
+  end if;
+  if p_id is null or p_id = v_me then
+    raise exception 'No puedes eliminar tu propia cuenta.' using errcode = '42501';
+  end if;
+  select role into v_role from public.profiles where id = p_id;
+  if v_role = 'ceo' then
+    raise exception 'No se puede eliminar la cuenta de la dirección.' using errcode = '42501';
+  end if;
+  if not exists (select 1 from auth.users where id = p_id) then
+    raise exception 'Esa cuenta ya no existe.' using errcode = '22023';
+  end if;
+
+  v_name := left(coalesce(nullif(public.cesi_person_name(p_id), ''), 'Sin nombre'), 200);
+  update public.clock_entries set owner_gone_name = v_name where profile_id = p_id;
+  update public.team_tasks set assignee_gone_name = v_name where assignee_id = p_id;
+  update public.team_tasks set creator_gone_name = v_name where created_by = p_id;
+  update public.team_task_assignees set gone_name = v_name where profile_id = p_id;
+  update public.shared_meetings
+  set organizer_gone_name = v_name,
+      cancelled_at = case when starts_at > now() then coalesce(cancelled_at, now()) else cancelled_at end,
+      updated_at = now()
+  where organizer_id = p_id;
+
+  delete from auth.users where id = p_id;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Alertas del Inicio (como en la parte 12; las tareas atrasadas dicen quién falta)
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_home_alerts(p_as uuid default null)
+returns table (kind text, at timestamptz, name text, detail text, seen boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_home_viewer(p_as);
+  v_zone text := public.cesi_zone_of(v_me);
+  v_since timestamptz := now() - interval '7 days';
+  v_today date := (now() at time zone v_zone)::date;
+  v_seen timestamptz := coalesce((select s.seen_at from public.home_alerts_seen s where s.profile_id = v_me), '-infinity');
+begin
+  return query
+  with ceo as (
+    select id from public.profiles where role = 'ceo'
+  ),
+  shown_name as (
+    select p.id, coalesce(nullif(trim(ap.full_name), ''), nullif(trim(p.display_name), ''), 'Sin nombre') as name
+    from public.profiles p
+    left join public.account_profiles ap on ap.id = p.id
+  ),
+  alerts as (
+    -- Cuenta aceptada como equipo.
+    select 'team_new'::text as kind, p.role_set_at as at, n.name,
+      coalesce('Cuenta de equipo · ' || a.name, 'Cuenta de equipo') as detail
+    from public.profiles p
+    join shown_name n on n.id = p.id
+    left join public.areas a on a.id = p.area
+    where p.role = 'equipo' and p.role_set_at >= v_since
+
+    union all
+    -- Añadida a Equipo desde una vacante (candidatura aceptada).
+    select 'team_new', h.at, coalesce(nullif(trim(c.data ->> 'name'), ''), 'Sin nombre'),
+      coalesce('Desde la vacante «' || nullif(trim(v.data ->> 'title'), '') || '»', 'Desde una vacante')
+    from public.contacts c
+    cross join lateral jsonb_array_elements(case when jsonb_typeof(c.data -> 'candidacies') = 'array' then c.data -> 'candidacies' else '[]'::jsonb end) cand
+    cross join lateral (
+      select max(public.cesi_try_ts(e ->> 'at')) as at
+      from jsonb_array_elements(case when jsonb_typeof(cand -> 'history') = 'array' then cand -> 'history' else '[]'::jsonb end) e
+      where e ->> 'status' = 'accepted'
+    ) h
+    left join public.vacancies v on v.user_id = c.user_id and v.id = cand ->> 'vacancyId' and v.deleted_at is null
+    where c.user_id in (select id from ceo) and c.deleted_at is null
+      and c.data ? 'teamProfile' and cand ->> 'status' = 'accepted' and h.at >= v_since
+
+    union all
+    -- Cuenta aceptada como alumno.
+    select 'student_new', p.role_set_at, n.name, 'Cuenta de alumno'
+    from public.profiles p
+    join shown_name n on n.id = p.id
+    where p.role = 'alumno' and p.role_set_at >= v_since
+
+    union all
+    -- Alumno nuevo en la lista (sin los que ya salen por su cuenta recién aceptada).
+    select 'student_new', public.cesi_try_ts(s.data ->> 'createdAt'),
+      coalesce(nullif(trim(s.data ->> 'name'), ''), 'Sin nombre'), 'Nuevo en la lista de alumnos'
+    from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+      and public.cesi_try_ts(s.data ->> 'createdAt') >= v_since
+      and not exists (
+        select 1 from public.profiles p
+        where p.role = 'alumno' and p.linked_student_id = s.id and p.role_set_at >= v_since
+      )
+
+    union all
+    -- Cuentas pendientes de aceptar (solo aviso).
+    select 'account_pending', p.created_at, n.name, 'Pendiente de aceptar'
+    from public.profiles p
+    join shown_name n on n.id = p.id
+    where p.role = 'pendiente' and p.created_at >= v_since
+
+    union all
+    -- Fichajes sin salida (más de 16 horas abiertos).
+    select 'clock_open', ce.clock_in, public.cesi_name_or_gone(ce.profile_id, null), 'Entrada sin salida'
+    from public.clock_entries ce
+    where ce.clock_out is null and ce.clock_in >= v_since and ce.clock_in < now() - interval '16 hours'
+
+    union all
+    -- Tareas del equipo atrasadas (con la fecha límite en los últimos 7 días): quién falta.
+    select 'task_overdue', ((t.due_date + 1)::timestamp at time zone v_zone), t.title,
+      coalesce(
+        (select 'Falta: ' || string_agg(public.cesi_person_name(ta.profile_id), ', ' order by public.cesi_person_name(ta.profile_id))
+         from public.team_task_assignees ta
+         where ta.task_id = t.id and ta.profile_id is not null and ta.status <> 'hecha'),
+        'Sin responsable')
+    from public.team_tasks t
+    where t.status <> 'hecha' and t.due_date is not null and t.due_date < v_today
+      and t.due_date >= v_today - 7
+  )
+  select al.kind, al.at, al.name, al.detail, al.at <= v_seen
+  from alerts al
+  where al.at is not null
+  order by al.at desc
+  limit 100;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Esta semana (como en la parte 12; las tareas hechas son las partes que terminé)
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_my_week(p_as uuid default null)
+returns table (week_minutes integer, tasks_done integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_zone text;
+  v_week timestamptz;
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if coalesce((select p.role from public.profiles p where p.id = v_me), '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_zone := public.cesi_zone_of(v_me);
+  v_week := date_trunc('week', now() at time zone v_zone) at time zone v_zone;
+  return query
+  select
+    (select coalesce(sum(extract(epoch from (ce.clock_out - ce.clock_in)) / 60), 0)
+      from public.clock_entries ce
+      where ce.profile_id = v_me and ce.clock_out is not null and ce.clock_in >= v_week)::integer,
+    (select count(*) from public.team_task_assignees ta
+      where ta.profile_id = v_me and ta.status = 'hecha' and ta.done_at >= v_week)::integer;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_task_visible(uuid, public.team_tasks) from public, anon;
+revoke all on function public.cesi_team_tasks(uuid) from public, anon;
+revoke all on function public.cesi_task_save(uuid, text, text, text, uuid[], text, date, text, text) from public, anon;
+revoke all on function public.cesi_task_set_status(uuid, text, uuid) from public, anon;
+revoke all on function public.cesi_delete_account(uuid) from public, anon;
+revoke all on function public.cesi_home_alerts(uuid) from public, anon;
+revoke all on function public.cesi_my_week(uuid) from public, anon;
+grant execute on function public.cesi_task_visible(uuid, public.team_tasks) to authenticated;
+grant execute on function public.cesi_team_tasks(uuid) to authenticated;
+grant execute on function public.cesi_task_save(uuid, text, text, text, uuid[], text, date, text, text) to authenticated;
+grant execute on function public.cesi_task_set_status(uuid, text, uuid) to authenticated;
+grant execute on function public.cesi_delete_account(uuid) to authenticated;
+grant execute on function public.cesi_home_alerts(uuid) to authenticated;
+grant execute on function public.cesi_my_week(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 14: objetivos del mes por área
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Objetivos
+-- -----------------------------------------------------------------------------
+--   month       primer día del mes (2030-11-01)
+--   owner_id    responsable (null: sin responsable); owner_gone_name si se eliminó su cuenta
+--   status      'en_curso' | 'conseguido' | 'no_conseguido';  closed_at: cuándo se cerró
+create table if not exists public.team_goals (
+  id uuid primary key default gen_random_uuid(),
+  area text references public.areas (id) on update cascade on delete set null,
+  month date not null check (extract(day from month) = 1),
+  title text not null check (length(trim(title)) between 1 and 200),
+  description text not null default '' check (length(description) <= 2000),
+  owner_id uuid references public.profiles (id) on delete set null,
+  owner_gone_name text not null default '',
+  status text not null default 'en_curso' check (status in ('en_curso', 'conseguido', 'no_conseguido')),
+  closed_at timestamptz,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists team_goals_area_month_idx on public.team_goals (area, month);
+
+alter table public.team_tasks add column if not exists goal_id uuid references public.team_goals (id) on delete set null;
+create index if not exists team_tasks_goal_idx on public.team_tasks (goal_id);
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- ¿Puede `p_me` ver ese objetivo? Directivo y la ceo, todos; los demás, los de su área y los que
+-- tienen como responsables.
+create or replace function public.cesi_goal_visible(p_me uuid, p_goal public.team_goals)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.cesi_is_boss(p_me)
+    or p_goal.owner_id = p_me
+    or (p_goal.area is not null and p_goal.area = (select area from public.profiles where id = p_me and role = 'equipo'));
+$$;
+
+-- Primer día del mes actual en la zona de `p_me`.
+create or replace function public.cesi_month_of(p_me uuid)
+returns date
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select date_trunc('month', (now() at time zone public.cesi_zone_of(p_me))::date)::date;
+$$;
+
+revoke all on function public.cesi_month_of(uuid) from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Reglas de acceso (solo leer; escribir, con las funciones)
+-- -----------------------------------------------------------------------------
+alter table public.team_goals enable row level security;
+
+drop policy if exists "team_goals: leer los que puedo ver" on public.team_goals;
+create policy "team_goals: leer los que puedo ver" on public.team_goals
+  for select to authenticated
+  using (public.cesi_goal_visible((select auth.uid()), team_goals));
+
+revoke all on public.team_goals from anon;
+revoke all on public.team_goals from authenticated;
+grant select on public.team_goals to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Objetivos que ve la cuenta actual (o, solo la ceo, otra con p_as: «Ver como»)
+-- -----------------------------------------------------------------------------
+-- p_month: primer día del mes. p_area: solo esa área (null: todas las que puedo ver).
+-- p_with_unclosed: también los de meses anteriores que siguen en curso («Sin cerrar»).
+--   unclosed      de un mes ya pasado y en curso
+--   parts_done / parts_total  partes hechas / total de sus tareas;  tasks_count: cuántas tareas
+--   can_edit      Directivo o la ceo
+create or replace function public.cesi_team_goals(p_month date, p_area text default null, p_with_unclosed boolean default true, p_as uuid default null)
+returns table (
+  id uuid, area text, area_name text, month date, title text, description text,
+  owner_id uuid, owner_name text, status text, unclosed boolean, closed_at timestamptz,
+  parts_done integer, parts_total integer, tasks_count integer,
+  created_by_name text, can_edit boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := (select auth.uid());
+  v_boss boolean;
+  v_now date;
+  v_month date := date_trunc('month', p_month)::date;
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if coalesce((select p.role from public.profiles p where p.id = v_me), '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  if v_month is null then
+    raise exception 'Elige el mes.' using errcode = '22023';
+  end if;
+  v_boss := public.cesi_is_boss(v_me);
+  v_now := public.cesi_month_of(v_me);
+  return query
+    select g.id, g.area, coalesce(a.name, ''), g.month, g.title, g.description,
+      g.owner_id, case when g.owner_id is null and g.owner_gone_name = '' then '' else public.cesi_name_or_gone(g.owner_id, g.owner_gone_name) end,
+      g.status, g.month < v_now and g.status = 'en_curso', g.closed_at,
+      coalesce(pr.done, 0)::integer, coalesce(pr.total, 0)::integer, coalesce(pr.tasks, 0)::integer,
+      case when g.created_by is null then '' else public.cesi_person_name(g.created_by) end,
+      v_boss
+    from public.team_goals g
+    left join public.areas a on a.id = g.area
+    left join lateral (
+      select
+        sum(case when x.total > 0 then x.done else (t.status = 'hecha')::integer end) as done,
+        sum(greatest(x.total, 1)) as total,
+        count(*) as tasks
+      from public.team_tasks t
+      cross join lateral (
+        select count(*) filter (where ta.profile_id is not null) as total,
+          count(*) filter (where ta.profile_id is not null and ta.status = 'hecha') as done
+        from public.team_task_assignees ta
+        where ta.task_id = t.id
+      ) x
+      where t.goal_id = g.id
+    ) pr on true
+    where public.cesi_goal_visible(v_me, g)
+      and (p_area is null or g.area = p_area)
+      and (g.month = v_month or (p_with_unclosed and g.month < v_month and g.status = 'en_curso'))
+    order by g.month, a.sort nulls last, g.created_at;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Crear (p_id null) o editar un objetivo (Directivo o la ceo). Como mucho 3 por área y mes.
+-- Al cerrarlo (conseguido / no conseguido) se guarda cuándo; si vuelve a «en curso», se borra.
+-- Si cambia de área o de mes, sus tareas de otra área o de otro mes se quedan sin objetivo.
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_goal_save(
+  p_id uuid, p_area text, p_month date, p_title text, p_description text, p_owner uuid, p_status text
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_id uuid := p_id;
+  v_month date := date_trunc('month', p_month)::date;
+  v_old public.team_goals;
+begin
+  if not public.cesi_is_boss(v_me) then
+    raise exception 'Solo Directivo y la dirección pueden crear o cambiar objetivos.' using errcode = '42501';
+  end if;
+  if length(trim(coalesce(p_title, ''))) = 0 then
+    raise exception 'Escribe un título.' using errcode = '22023';
+  end if;
+  if coalesce(p_status, '') not in ('en_curso', 'conseguido', 'no_conseguido') then
+    raise exception 'Estado no válido.' using errcode = '22023';
+  end if;
+  if p_area is null or not exists (select 1 from public.areas where id = p_area) then
+    raise exception 'Elige el área.' using errcode = '22023';
+  end if;
+  if v_month is null then
+    raise exception 'Elige el mes.' using errcode = '22023';
+  end if;
+  if p_owner is not null and not exists (select 1 from public.profiles where id = p_owner and role in ('equipo', 'ceo')) then
+    raise exception 'El responsable tiene que ser del equipo o de la dirección.' using errcode = '22023';
+  end if;
+
+  -- Uno a la vez por área y mes, para contar bien los 3.
+  perform pg_advisory_xact_lock(hashtext('cesi_goal:' || p_area || ':' || v_month::text));
+  if (select count(*) from public.team_goals g
+      where g.area = p_area and g.month = v_month and g.id is distinct from v_id) >= 3 then
+    raise exception 'Esa área ya tiene 3 objetivos ese mes.' using errcode = '22023';
+  end if;
+
+  if v_id is null then
+    insert into public.team_goals (area, month, title, description, owner_id, status, closed_at, created_by)
+    values (p_area, v_month, trim(p_title), coalesce(p_description, ''), p_owner, p_status,
+            case when p_status <> 'en_curso' then now() end, v_me)
+    returning id into v_id;
+  else
+    select * into v_old from public.team_goals where id = v_id for update;
+    if not found then
+      raise exception 'Ese objetivo ya no existe.' using errcode = '22023';
+    end if;
+    update public.team_goals
+    set area = p_area, month = v_month, title = trim(p_title), description = coalesce(p_description, ''),
+        owner_id = p_owner,
+        owner_gone_name = case when p_owner is null then owner_gone_name else '' end,
+        status = p_status,
+        closed_at = case when p_status = 'en_curso' then null when v_old.status = 'en_curso' then now() else closed_at end,
+        updated_at = now()
+    where id = v_id;
+    if p_area is distinct from v_old.area or v_month <> v_old.month then
+      update public.team_tasks t
+      set goal_id = null, updated_at = now()
+      where t.goal_id = v_id
+        and (t.area is distinct from p_area
+             or (t.due_date is not null and date_trunc('month', t.due_date)::date <> v_month));
+    end if;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- Borrar un objetivo (Directivo o la ceo). Sus tareas se quedan, sin objetivo.
+create or replace function public.cesi_goal_delete(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.cesi_is_boss((select auth.uid())) then
+    raise exception 'Solo Directivo y la dirección pueden borrar objetivos.' using errcode = '42501';
+  end if;
+  delete from public.team_goals where id = p_id;
+  if not found then
+    raise exception 'Ese objetivo ya no existe.' using errcode = '22023';
+  end if;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Tareas que ve la cuenta actual (como en la parte 13, con su objetivo)
+-- -----------------------------------------------------------------------------
+--   goal_id, goal_title  objetivo al que está unida (o null)
+drop function if exists public.cesi_team_tasks(uuid);
+create function public.cesi_team_tasks(p_as uuid default null)
+returns table (
+  id uuid, title text, description text, area text, area_name text,
+  assigned_area text, assigned_area_name text, assignees jsonb, my_status text,
+  done_count integer, total_count integer, missing_names text,
+  goal_id uuid, goal_title text,
+  created_by uuid, created_by_name text,
+  due_date date, priority text, status text, created_at timestamptz, updated_at timestamptz,
+  can_edit boolean, can_status boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := (select auth.uid());
+  v_boss boolean;
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if coalesce((select p.role from public.profiles p where p.id = v_me), '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_boss := public.cesi_is_boss(v_me);
+  return query
+    select t.id, t.title, t.description, t.area, coalesce(a.name, ''),
+      t.assigned_area, coalesce(aa.name, ''), coalesce(p.list, '[]'::jsonb), p.mine,
+      coalesce(p.done, 0), coalesce(p.total, 0), coalesce(p.missing, ''),
+      t.goal_id, coalesce(g.title, ''),
+      t.created_by, public.cesi_name_or_gone(t.created_by, t.creator_gone_name),
+      t.due_date, t.priority, t.status, t.created_at, t.updated_at,
+      v_boss or coalesce(t.created_by = v_me, false),
+      v_boss or coalesce(t.created_by = v_me, false) or p.mine is not null
+    from public.team_tasks t
+    left join public.areas a on a.id = t.area
+    left join public.areas aa on aa.id = t.assigned_area
+    left join public.team_goals g on g.id = t.goal_id
+    left join lateral (
+      select
+        jsonb_agg(jsonb_build_object(
+          'id', x.profile_id, 'name', x.name, 'area', x.area, 'status', x.status, 'gone', x.profile_id is null
+        ) order by x.name) as list,
+        max(x.status) filter (where x.profile_id = v_me) as mine,
+        (count(*) filter (where x.profile_id is not null and x.status = 'hecha'))::integer as done,
+        (count(*) filter (where x.profile_id is not null))::integer as total,
+        string_agg(x.name, ', ' order by x.name) filter (where x.profile_id is not null and x.status <> 'hecha') as missing
+      from (
+        select ta.profile_id, ta.status, pr.area, public.cesi_name_or_gone(ta.profile_id, ta.gone_name) as name
+        from public.team_task_assignees ta
+        left join public.profiles pr on pr.id = ta.profile_id
+        where ta.task_id = t.id
+      ) x
+    ) p on true
+    where public.cesi_task_visible(v_me, t)
+    order by t.due_date nulls last, t.created_at;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Crear o editar una tarea (como en la parte 13, con p_goal)
+-- -----------------------------------------------------------------------------
+-- p_goal: objetivo de la misma área y del mes de la fecha límite (sin fecha: el mes actual), o
+-- null. Si no cambia (ya estaba unida a él), no se vuelve a comprobar el mes.
+drop function if exists public.cesi_task_save(uuid, text, text, text, uuid[], text, date, text, text);
+create or replace function public.cesi_task_save(
+  p_id uuid, p_title text, p_description text, p_area text, p_assignees uuid[], p_assign_area text,
+  p_due_date date, p_priority text, p_status text, p_goal uuid default null
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_role text;
+  v_area text;
+  v_boss boolean;
+  v_id uuid := p_id;
+  v_old public.team_tasks;
+  v_people uuid[];
+  v_assign_area text := nullif(p_assign_area, '');
+  v_goal public.team_goals;
+begin
+  select role, area into v_role, v_area from public.profiles where id = v_me;
+  if coalesce(v_role, '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_boss := public.cesi_is_boss(v_me);
+  if length(trim(coalesce(p_title, ''))) = 0 then
+    raise exception 'Escribe un título.' using errcode = '22023';
+  end if;
+  if coalesce(p_priority, '') not in ('baja', 'media', 'alta') or coalesce(p_status, '') not in ('pendiente', 'en_curso', 'hecha') then
+    raise exception 'Prioridad o estado no válidos.' using errcode = '22023';
+  end if;
+  if p_area is null or not exists (select 1 from public.areas where id = p_area) then
+    raise exception 'Elige el área.' using errcode = '22023';
+  end if;
+
+  if v_boss then
+    if v_assign_area is not null then
+      if not exists (select 1 from public.areas where id = v_assign_area) then
+        raise exception 'Esa área no existe.' using errcode = '22023';
+      end if;
+      select coalesce(array_agg(id), '{}') into v_people
+      from public.profiles where role = 'equipo' and area = v_assign_area;
+      if cardinality(v_people) = 0 then
+        raise exception 'Nadie del equipo tiene esa área todavía.' using errcode = '22023';
+      end if;
+    else
+      select coalesce(array_agg(distinct x), '{}') into v_people from unnest(coalesce(p_assignees, '{}')) x where x is not null;
+      if exists (
+        select 1 from unnest(v_people) x
+        where not exists (select 1 from public.profiles where id = x and role in ('equipo', 'ceo'))
+      ) then
+        raise exception 'Solo se puede asignar a personas de equipo o a la dirección.' using errcode = '22023';
+      end if;
+    end if;
+  else
+    if v_area is null or p_area <> v_area then
+      raise exception 'Solo puedes crear tareas de tu área.' using errcode = '42501';
+    end if;
+    v_assign_area := null;
+    v_people := array[v_me];
+  end if;
+
+  if v_id is not null then
+    select * into v_old from public.team_tasks where id = v_id for update;
+    if not found or not (v_boss or v_old.created_by = v_me) then
+      raise exception 'Solo quien la creó, Directivo o la dirección pueden editarla.' using errcode = '42501';
+    end if;
+  end if;
+
+  -- El objetivo: de la misma área y (si es otro) del mes de la tarea.
+  if p_goal is not null then
+    select * into v_goal from public.team_goals where id = p_goal;
+    if not found or not public.cesi_goal_visible(v_me, v_goal) then
+      raise exception 'Ese objetivo no existe.' using errcode = '22023';
+    end if;
+    if v_goal.area is distinct from p_area then
+      raise exception 'El objetivo es de otra área.' using errcode = '22023';
+    end if;
+    if p_goal is distinct from v_old.goal_id
+       and v_goal.month <> coalesce(date_trunc('month', p_due_date)::date, public.cesi_month_of(v_me)) then
+      raise exception 'El objetivo es de otro mes que la tarea.' using errcode = '22023';
+    end if;
+  end if;
+
+  if v_id is null then
+    insert into public.team_tasks (title, description, area, assigned_area, goal_id, created_by, due_date, priority, status)
+    values (trim(p_title), coalesce(p_description, ''), p_area, v_assign_area, p_goal, v_me, p_due_date, p_priority,
+            case when cardinality(v_people) > 0 then 'pendiente' else p_status end)
+    returning id into v_id;
+  else
+    -- Quien la creó sin ser Directivo ni la ceo no cambia a quién está asignada.
+    if not v_boss then
+      select coalesce(array_agg(profile_id), '{}') into v_people
+      from public.team_task_assignees where task_id = v_id and profile_id is not null;
+      v_assign_area := v_old.assigned_area;
+    end if;
+    update public.team_tasks
+    set title = trim(p_title), description = coalesce(p_description, ''), area = p_area, assigned_area = v_assign_area,
+        goal_id = p_goal, due_date = p_due_date, priority = p_priority, status = p_status, updated_at = now()
+    where id = v_id;
+    delete from public.team_task_assignees
+    where task_id = v_id and profile_id is not null and not (profile_id = any (v_people));
+  end if;
+
+  insert into public.team_task_assignees (task_id, profile_id)
+  select v_id, x from unnest(v_people) x
+  on conflict (task_id, profile_id) do nothing;
+  perform public.cesi_task_recalc(v_id);
+  return v_id;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Eliminar una cuenta: guardar también su nombre en los objetivos de los que era responsable
+-- (antes de que cesi_delete_account la borre; un trigger para no tocar esa función otra vez).
+-- -----------------------------------------------------------------------------
+create or replace function public.cesi_goals_owner_gone()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.team_goals
+  set owner_gone_name = left(coalesce(nullif(public.cesi_person_name(old.id), ''), 'Sin nombre'), 200)
+  where owner_id = old.id;
+  return old;
+end;
+$$;
+
+revoke all on function public.cesi_goals_owner_gone() from public, anon, authenticated;
+
+drop trigger if exists profiles_goals_owner_gone on public.profiles;
+create trigger profiles_goals_owner_gone
+  before delete on public.profiles
+  for each row execute function public.cesi_goals_owner_gone();
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_goal_visible(uuid, public.team_goals) from public, anon;
+revoke all on function public.cesi_team_goals(date, text, boolean, uuid) from public, anon;
+revoke all on function public.cesi_goal_save(uuid, text, date, text, text, uuid, text) from public, anon;
+revoke all on function public.cesi_goal_delete(uuid) from public, anon;
+revoke all on function public.cesi_team_tasks(uuid) from public, anon;
+revoke all on function public.cesi_task_save(uuid, text, text, text, uuid[], text, date, text, text, uuid) from public, anon;
+grant execute on function public.cesi_goal_visible(uuid, public.team_goals) to authenticated;
+grant execute on function public.cesi_team_goals(date, text, boolean, uuid) to authenticated;
+grant execute on function public.cesi_goal_save(uuid, text, date, text, text, uuid, text) to authenticated;
+grant execute on function public.cesi_goal_delete(uuid) to authenticated;
+grant execute on function public.cesi_team_tasks(uuid) to authenticated;
+grant execute on function public.cesi_task_save(uuid, text, text, text, uuid[], text, date, text, text, uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 15: el Profesor ve solo sus cursos y sus alumnos, y pasa lista
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- Instante en el formato de la app (como Date.toISOString(): 2030-11-04T17:00:00.000Z).
+create or replace function public.cesi_iso(p timestamptz)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select to_char(p at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+$$;
+
+-- ¿Es `p_profile` del área Profesor (y no Directivo ni la ceo)? Entonces solo ve sus cursos.
+create or replace function public.cesi_is_teacher_only(p_profile uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.profiles where id = p_profile and role = 'equipo' and area = 'formacion');
+$$;
+
+revoke all on function public.cesi_iso(timestamptz) from public, anon, authenticated;
+revoke all on function public.cesi_is_teacher_only(uuid) from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Lo que necesita una pantalla (como en la parte 11; al Profesor, solo lo de sus cursos)
+-- -----------------------------------------------------------------------------
+--   teacher   true si solo se ven los cursos de esa persona (área Profesor)
+--   canMark   puede pasar lista en sus clases (su propia cuenta, no «Ver como»)
+-- «Ver como» el área Profesor sin elegir persona: sin cursos (no hay de quién).
+create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null, p_area text default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_who uuid := v_me;
+  v_level text;
+  v_full boolean;
+  v_teacher boolean;
+  v_out jsonb;
+begin
+  if p_as is not null and p_as <> v_who then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_who := p_as;
+  end if;
+  if p_screen is null or p_screen not in ('contactos', 'equipo', 'vacantes', 'cursos', 'alumnos', 'asistencia') then
+    raise exception 'Pantalla no válida.' using errcode = '22023';
+  end if;
+  if p_area is not null then
+    -- «Ver como» un área (solo la ceo): sus permisos.
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_level := coalesce((select ap.level from public.area_permissions ap where ap.area = p_area and ap.screen = p_screen), 'none');
+    v_teacher := p_area = 'formacion';
+  else
+    v_level := public.cesi_level_for(v_who, p_screen);
+    v_teacher := public.cesi_is_teacher_only(v_who);
+  end if;
+  if v_level not in ('read', 'write') then
+    raise exception 'No tienes acceso a esta pantalla.' using errcode = '42501';
+  end if;
+  v_full := v_level = 'write';
+
+  with
+  ceo as (select id from public.profiles where role = 'ceo'),
+  -- Cursos del profesor (ninguno en «Ver como» un área sin persona).
+  my_courses as (
+    select c.id from public.cesi_teacher_courses(case when p_area is null then v_who end) as c (id)
+  ),
+  -- Contactos (con «Ver», sin email, teléfono, notas ni foto; sin CV de equipo).
+  c_all as (
+    select case when v_full then c.data
+      else (c.data - 'email' - 'phone' - 'notes' - 'photo') #- '{teamProfile,cv}' end as data
+    from public.contacts c
+    where c.user_id in (select id from ceo) and c.deleted_at is null
+  ),
+  c_flags as (
+    select data,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object') as team,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object'
+        and coalesce(data -> 'teamProfile' ->> 'status', 'active') <> 'former'
+        and not coalesce((data ->> 'archived')::boolean, false)) as active,
+      (coalesce((data ->> 'candidateOnly')::boolean, false) and not (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object')) as candidate_only,
+      (jsonb_typeof(data -> 'candidacies') = 'array' and jsonb_array_length(data -> 'candidacies') > 0) as candidate
+    from c_all
+  ),
+  -- Candidaturas: con «Ver», sin CV ni notas.
+  c_cand as (
+    select case when v_full then data
+      else jsonb_set(data, '{candidacies}', coalesce((
+        select jsonb_agg(x - 'cv' - 'notes') from jsonb_array_elements(data -> 'candidacies') as x
+      ), '[]'::jsonb)) end as data
+    from c_flags
+    where candidate
+  ),
+  -- Profesores (para los cursos): solo lo que hace falta para nombrarlos y su disponibilidad.
+  c_teachers as (
+    select jsonb_build_object(
+      'id', data ->> 'id', 'name', data ->> 'name', 'country', data -> 'country', 'timeZone', data -> 'timeZone',
+      'availability', data -> 'availability',
+      'teamProfile', jsonb_build_object('status', data -> 'teamProfile' -> 'status', 'area', data -> 'teamProfile' -> 'area',
+        'role', data -> 'teamProfile' -> 'role', 'roles', data -> 'teamProfile' -> 'roles')
+    ) as data
+    from c_flags
+    where team
+  ),
+  courses as (
+    select co.data from public.courses co
+    where co.user_id in (select id from ceo) and co.deleted_at is null
+      and (not v_teacher or co.id in (select id from my_courses))
+  ),
+  -- Alumnos (con «Ver», sin email, teléfono, cumpleaños, notas ni Discord). Al profesor, solo los
+  -- de sus cursos y, en courseIds, solo esos cursos.
+  s_rows as (
+    select case when v_full then s.data else s.data - 'email' - 'phone' - 'birthday' - 'notes' - 'discord' end as data
+    from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+      and (not v_teacher or (
+        jsonb_typeof(s.data -> 'courseIds') = 'array'
+        and exists (select 1 from jsonb_array_elements_text(s.data -> 'courseIds') x where x in (select id from my_courses))
+      ))
+  ),
+  s_all as (
+    select case when v_teacher then jsonb_set(data, '{courseIds}', coalesce((
+        select jsonb_agg(x) from jsonb_array_elements_text(data -> 'courseIds') x where x in (select id from my_courses)
+      ), '[]'::jsonb)) else data end as data
+    from s_rows
+  )
+  select jsonb_build_object(
+    'level', v_level,
+    'teacher', v_teacher,
+    'canMark', v_teacher and p_area is null and v_who = v_me,
+    'contacts', case p_screen
+      when 'contactos' then coalesce((select jsonb_agg(data - 'candidacies' - 'candidateOnly') from c_flags where not active and not candidate_only), '[]'::jsonb)
+      when 'equipo' then coalesce((select jsonb_agg(data - 'candidacies' - 'candidateOnly') from c_flags where team), '[]'::jsonb)
+      when 'vacantes' then coalesce((select jsonb_agg(data) from c_cand), '[]'::jsonb)
+      else coalesce((select jsonb_agg(data) from c_teachers), '[]'::jsonb)
+    end,
+    'groups', case when p_screen in ('contactos', 'equipo') then coalesce((
+        select jsonb_agg(g.data) from public.groups g where g.user_id in (select id from ceo) and g.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'vacancies', case when p_screen = 'vacantes' then coalesce((
+        select jsonb_agg(v.data) from public.vacancies v where v.user_id in (select id from ceo) and v.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'courses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from courses), '[]'::jsonb) else '[]'::jsonb end,
+    'students', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from s_all), '[]'::jsonb) else '[]'::jsonb end,
+    'attendance', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(a.data) from public.attendance a
+        where a.user_id in (select id from ceo) and a.deleted_at is null
+          and (not v_teacher or a.data ->> 'courseId' in (select id from my_courses))
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'extraClasses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(x.data) from public.extra_classes x
+        where x.user_id in (select id from ceo) and x.deleted_at is null
+          and (not v_teacher or x.data ->> 'courseId' in (select id from my_courses))
+      ), '[]'::jsonb) else '[]'::jsonb end
+  ) into v_out;
+  return v_out;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Pasar lista (el profesor, en las clases de sus cursos)
+-- -----------------------------------------------------------------------------
+
+-- La clase de un curso del profesor: { course, ceo, start, end, timeZone }. Error si el curso no
+-- es suyo, el alumno no está en él o la clase no existe (del horario, suelta o, si cambió el
+-- horario, la que ya tiene pase de lista).
+create or replace function public.cesi_teacher_class(p_course_id text, p_class_key text, p_student_id text,
+  out o_ceo uuid, out o_start timestamptz, out o_end timestamptz, out o_zone text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_course public.courses;
+  v_day date;
+  v_extra jsonb;
+begin
+  if not public.cesi_is_teacher_only(v_me) or p_course_id is null
+     or p_course_id not in (select c from public.cesi_teacher_courses(v_me) as c) then
+    raise exception 'Solo puedes pasar lista en tus cursos.' using errcode = '42501';
+  end if;
+  select * into v_course from public.courses
+  where id = p_course_id and deleted_at is null and user_id in (select id from public.profiles where role = 'ceo')
+  limit 1;
+  if not found then
+    raise exception 'Ese curso ya no existe.' using errcode = '22023';
+  end if;
+  o_ceo := v_course.user_id;
+
+  if not exists (
+    select 1 from public.students s
+    where s.user_id = o_ceo and s.id = p_student_id and s.deleted_at is null
+      and jsonb_typeof(s.data -> 'courseIds') = 'array' and (s.data -> 'courseIds') ? p_course_id
+  ) then
+    raise exception 'Ese alumno no está en el curso.' using errcode = '22023';
+  end if;
+
+  if p_class_key like 'extra:%' then
+    select x.data into v_extra from public.extra_classes x
+    where x.user_id = o_ceo and x.id = substr(p_class_key, 7) and x.deleted_at is null and x.data ->> 'courseId' = p_course_id;
+    if v_extra is not null then
+      o_start := (v_extra ->> 'start')::timestamptz;
+      o_end := (v_extra ->> 'end')::timestamptz;
+      o_zone := v_extra ->> 'timeZone';
+    end if;
+  elsif p_class_key ~ '^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$' then
+    v_day := substr(p_class_key, 1, 10)::date;
+    select k.starts_at, k.ends_at into o_start, o_end
+    from public.cesi_course_classes(v_course, (v_day - 2)::timestamptz, (v_day + 3)::timestamptz) k
+    where k.class_key = p_class_key and not k.is_extra
+    limit 1;
+    o_zone := v_course.data -> 'schedule' ->> 'timeZone';
+  end if;
+
+  -- Si el horario cambió, la clase que ya tiene pase de lista.
+  if o_start is null then
+    select (a.data ->> 'classStart')::timestamptz, (a.data ->> 'classEnd')::timestamptz, a.data ->> 'timeZone'
+    into o_start, o_end, o_zone
+    from public.attendance a
+    where a.user_id = o_ceo and a.deleted_at is null and a.data ->> 'courseId' = p_course_id and a.data ->> 'classKey' = p_class_key
+    order by a.updated_at desc
+    limit 1;
+  end if;
+  if o_start is null or o_end is null then
+    raise exception 'Esa clase no existe.' using errcode = '22023';
+  end if;
+  o_zone := coalesce(nullif(o_zone, ''), 'Europe/Madrid');
+end;
+$$;
+
+-- Marcar a un alumno: p_data { status, lateMinutes, arrivedAt, leftAt, justified, justification }
+-- (lo demás lo pone la función). Devuelve el registro guardado (el de la app de la ceo).
+create or replace function public.cesi_teacher_attendance_save(p_course_id text, p_class_key text, p_student_id text, p_data jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_class record;
+  v_status text := p_data ->> 'status';
+  v_late integer;
+  v_arrived timestamptz;
+  v_left timestamptz;
+  v_justified boolean := coalesce((p_data ->> 'justified')::boolean, false);
+  v_reason text := trim(coalesce(p_data ->> 'justification', ''));
+  v_old public.attendance;
+  v_id text;
+  v_stamp timestamptz;
+  v_data jsonb;
+begin
+  select * into v_class from public.cesi_teacher_class(p_course_id, p_class_key, p_student_id);
+
+  if coalesce(v_status, '') not in ('present', 'late', 'absent') then
+    raise exception 'Estado de asistencia no válido.' using errcode = '22023';
+  end if;
+  if v_status = 'late' and (p_data ->> 'lateMinutes') is not null then
+    v_late := case when (p_data ->> 'lateMinutes') ~ '^\d{1,3}$' then (p_data ->> 'lateMinutes')::integer end;
+    if v_late is null or v_late not between 1 and 600 then
+      raise exception 'Los minutos de retraso tienen que ser un número del 1 al 600.' using errcode = '22023';
+    end if;
+  end if;
+  if v_status <> 'absent' then
+    begin
+      v_arrived := (p_data ->> 'arrivedAt')::timestamptz;
+      v_left := (p_data ->> 'leftAt')::timestamptz;
+    exception when others then
+      raise exception 'Hora de entrada o de salida no válida.' using errcode = '22023';
+    end;
+    if v_arrived is null or v_left is null or v_left <= v_arrived
+       or v_arrived < v_class.o_start - interval '3 hours' or v_left > v_class.o_end + interval '3 hours' then
+      raise exception 'La entrada y la salida tienen que estar entre 3 h antes del inicio y 3 h después del fin de la clase.' using errcode = '22023';
+    end if;
+  end if;
+  if v_status = 'present' then
+    v_justified := false;
+    v_reason := '';
+  end if;
+  if not v_justified then
+    v_reason := '';
+  end if;
+  if length(v_reason) > 500 then
+    raise exception 'El motivo puede tener como mucho 500 caracteres.' using errcode = '22023';
+  end if;
+
+  -- El registro de ese alumno y clase (el más reciente si hubiera varios).
+  select * into v_old from public.attendance a
+  where a.user_id = v_class.o_ceo and a.deleted_at is null
+    and a.data ->> 'courseId' = p_course_id and a.data ->> 'classKey' = p_class_key and a.data ->> 'studentId' = p_student_id
+  order by a.updated_at desc
+  limit 1
+  for update;
+
+  -- Siempre más reciente que lo guardado (aunque el reloj de un dispositivo vaya adelantado).
+  v_stamp := greatest(clock_timestamp(), coalesce(v_old.updated_at + interval '1 millisecond', '-infinity'));
+  v_id := coalesce(v_old.id, gen_random_uuid()::text);
+  v_data := coalesce(v_old.data, '{}'::jsonb) || jsonb_build_object(
+    'id', v_id,
+    'courseId', p_course_id,
+    'classKey', p_class_key,
+    'classStart', public.cesi_iso(v_class.o_start),
+    'classEnd', public.cesi_iso(v_class.o_end),
+    'timeZone', v_class.o_zone,
+    'studentId', p_student_id,
+    'status', v_status,
+    'lateMinutes', v_late,
+    'arrivedAt', case when v_status = 'absent' then null else public.cesi_iso(v_arrived) end,
+    'leftAt', case when v_status = 'absent' then null else public.cesi_iso(v_left) end,
+    'justified', v_justified,
+    'justification', v_reason,
+    'createdAt', coalesce(v_old.data ->> 'createdAt', public.cesi_iso(v_stamp)),
+    'updatedAt', public.cesi_iso(v_stamp)
+  );
+
+  insert into public.attendance (user_id, id, data, updated_at, deleted_at)
+  values (v_class.o_ceo, v_id, v_data, v_stamp, null)
+  on conflict (user_id, id) do update set data = excluded.data, updated_at = excluded.updated_at, deleted_at = null;
+
+  -- Otros registros del mismo alumno y clase: se borran (como en la app, se queda el más reciente).
+  update public.attendance a
+  set deleted_at = v_stamp, updated_at = greatest(v_stamp, a.updated_at + interval '1 millisecond')
+  where a.user_id = v_class.o_ceo and a.deleted_at is null and a.id <> v_id
+    and a.data ->> 'courseId' = p_course_id and a.data ->> 'classKey' = p_class_key and a.data ->> 'studentId' = p_student_id;
+
+  return v_data;
+end;
+$$;
+
+-- Dejar a un alumno sin marcar en una clase de un curso del profesor.
+create or replace function public.cesi_teacher_attendance_clear(p_course_id text, p_class_key text, p_student_id text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_class record;
+  v_now timestamptz := clock_timestamp();
+begin
+  select * into v_class from public.cesi_teacher_class(p_course_id, p_class_key, p_student_id);
+  update public.attendance a
+  set deleted_at = v_now, updated_at = greatest(v_now, a.updated_at + interval '1 millisecond')
+  where a.user_id = v_class.o_ceo and a.deleted_at is null
+    and a.data ->> 'courseId' = p_course_id and a.data ->> 'classKey' = p_class_key and a.data ->> 'studentId' = p_student_id;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_teacher_class(text, text, text) from public, anon, authenticated;
+revoke all on function public.cesi_screen_data(text, uuid, text) from public, anon;
+revoke all on function public.cesi_teacher_attendance_save(text, text, text, jsonb) from public, anon;
+revoke all on function public.cesi_teacher_attendance_clear(text, text, text) from public, anon;
+grant execute on function public.cesi_screen_data(text, uuid, text) to authenticated;
+grant execute on function public.cesi_teacher_attendance_save(text, text, text, jsonb) to authenticated;
+grant execute on function public.cesi_teacher_attendance_clear(text, text, text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 16: Alianzas (seguimiento de patrocinadores y colaboraciones)
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Permisos: Alianzas puede editar Contactos externos
+-- -----------------------------------------------------------------------------
+insert into public.area_permissions (area, screen, level)
+values ('alianzas', 'contactos', 'write')
+on conflict (area, screen) do update set level = excluded.level;
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- Qué puede hacer `p_profile` con las alianzas: 'edit' (Alianzas y la ceo), 'view' (Directivo) o null.
+create or replace function public.cesi_alliance_role(p_profile uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p.role = 'ceo' then 'edit'
+    when p.role = 'equipo' and p.area = 'alianzas' then 'edit'
+    when p.role = 'equipo' and p.area = 'direccion' then 'view'
+  end
+  from public.profiles p
+  where p.id = p_profile;
+$$;
+
+-- ¿Es un contacto externo? (no es del equipo, ni candidato, ni está archivado)
+create or replace function public.cesi_is_external_contact(p_data jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select not (p_data ? 'teamProfile' and jsonb_typeof(p_data -> 'teamProfile') = 'object')
+    and not (jsonb_typeof(p_data -> 'candidacies') = 'array' and jsonb_array_length(p_data -> 'candidacies') > 0)
+    and not coalesce((p_data ->> 'candidateOnly')::boolean, false)
+    and not coalesce((p_data ->> 'archived')::boolean, false);
+$$;
+
+-- Solo una persona de Alianzas escribe con estas funciones (la ceo, desde su app).
+create or replace function public.cesi_alliance_writer()
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  if not exists (select 1 from public.profiles where id = v_me and role = 'equipo' and area = 'alianzas') then
+    raise exception 'Solo Alianzas puede cambiar los contactos externos y su seguimiento.' using errcode = '42501';
+  end if;
+  return v_me;
+end;
+$$;
+
+-- 'AAAA-MM-DD' válido o ''.
+create or replace function public.cesi_day_or_empty(p text)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if coalesce(p, '') = '' then
+    return '';
+  end if;
+  if p !~ '^\d{4}-\d{2}-\d{2}$' then
+    raise exception 'Fecha no válida.' using errcode = '22023';
+  end if;
+  perform p::date;
+  return p;
+exception when invalid_datetime_format or datetime_field_overflow then
+  raise exception 'Fecha no válida.' using errcode = '22023';
+end;
+$$;
+
+revoke all on function public.cesi_alliance_role(uuid) from public, anon, authenticated;
+revoke all on function public.cesi_is_external_contact(jsonb) from public, anon, authenticated;
+revoke all on function public.cesi_alliance_writer() from public, anon, authenticated;
+revoke all on function public.cesi_day_or_empty(text) from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Lo que necesita una pantalla (como en la parte 15; el seguimiento de alianza solo para
+-- Alianzas, Directivo y la ceo)
+-- -----------------------------------------------------------------------------
+--   alliance      ve el seguimiento de alianza
+--   allianceEdit  puede crear y editar contactos externos y su seguimiento (su propia cuenta)
+create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null, p_area text default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_who uuid := v_me;
+  v_level text;
+  v_full boolean;
+  v_teacher boolean;
+  v_alliance text;
+  v_out jsonb;
+begin
+  if p_as is not null and p_as <> v_who then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_who := p_as;
+  end if;
+  if p_screen is null or p_screen not in ('contactos', 'equipo', 'vacantes', 'cursos', 'alumnos', 'asistencia') then
+    raise exception 'Pantalla no válida.' using errcode = '22023';
+  end if;
+  if p_area is not null then
+    -- «Ver como» un área (solo la ceo): sus permisos.
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_level := coalesce((select ap.level from public.area_permissions ap where ap.area = p_area and ap.screen = p_screen), 'none');
+    v_teacher := p_area = 'formacion';
+    v_alliance := case when p_area = 'alianzas' then 'edit' when p_area = 'direccion' then 'view' end;
+  else
+    v_level := public.cesi_level_for(v_who, p_screen);
+    v_teacher := public.cesi_is_teacher_only(v_who);
+    v_alliance := public.cesi_alliance_role(v_who);
+  end if;
+  if v_level not in ('read', 'write') then
+    raise exception 'No tienes acceso a esta pantalla.' using errcode = '42501';
+  end if;
+  v_full := v_level = 'write';
+
+  with
+  ceo as (select id from public.profiles where role = 'ceo'),
+  -- Cursos del profesor (ninguno en «Ver como» un área sin persona).
+  my_courses as (
+    select c.id from public.cesi_teacher_courses(case when p_area is null then v_who end) as c (id)
+  ),
+  -- Contactos (con «Ver», sin email, teléfono, notas ni foto; sin CV de equipo).
+  c_all as (
+    select case when v_full then c0.data
+      else (c0.data - 'email' - 'phone' - 'notes' - 'photo') #- '{teamProfile,cv}' end as data
+    from (select case when v_alliance is null then c.data - 'alliance' else c.data end as data, c.user_id, c.deleted_at from public.contacts c) c0
+    where c0.user_id in (select id from ceo) and c0.deleted_at is null
+  ),
+  c_flags as (
+    select data,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object') as team,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object'
+        and coalesce(data -> 'teamProfile' ->> 'status', 'active') <> 'former'
+        and not coalesce((data ->> 'archived')::boolean, false)) as active,
+      (coalesce((data ->> 'candidateOnly')::boolean, false) and not (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object')) as candidate_only,
+      (jsonb_typeof(data -> 'candidacies') = 'array' and jsonb_array_length(data -> 'candidacies') > 0) as candidate,
+      public.cesi_is_external_contact(data) as external
+    from c_all
+  ),
+  -- Candidaturas: con «Ver», sin CV ni notas.
+  c_cand as (
+    select case when v_full then data
+      else jsonb_set(data, '{candidacies}', coalesce((
+        select jsonb_agg(x - 'cv' - 'notes') from jsonb_array_elements(data -> 'candidacies') as x
+      ), '[]'::jsonb)) end as data
+    from c_flags
+    where candidate
+  ),
+  -- Profesores (para los cursos): solo lo que hace falta para nombrarlos y su disponibilidad.
+  c_teachers as (
+    select jsonb_build_object(
+      'id', data ->> 'id', 'name', data ->> 'name', 'country', data -> 'country', 'timeZone', data -> 'timeZone',
+      'availability', data -> 'availability',
+      'teamProfile', jsonb_build_object('status', data -> 'teamProfile' -> 'status', 'area', data -> 'teamProfile' -> 'area',
+        'role', data -> 'teamProfile' -> 'role', 'roles', data -> 'teamProfile' -> 'roles')
+    ) as data
+    from c_flags
+    where team
+  ),
+  courses as (
+    select co.data from public.courses co
+    where co.user_id in (select id from ceo) and co.deleted_at is null
+      and (not v_teacher or co.id in (select id from my_courses))
+  ),
+  -- Alumnos (con «Ver», sin email, teléfono, cumpleaños, notas ni Discord). Al profesor, solo los
+  -- de sus cursos y, en courseIds, solo esos cursos.
+  s_rows as (
+    select case when v_full then s.data else s.data - 'email' - 'phone' - 'birthday' - 'notes' - 'discord' end as data
+    from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+      and (not v_teacher or (
+        jsonb_typeof(s.data -> 'courseIds') = 'array'
+        and exists (select 1 from jsonb_array_elements_text(s.data -> 'courseIds') x where x in (select id from my_courses))
+      ))
+  ),
+  s_all as (
+    select case when v_teacher then jsonb_set(data, '{courseIds}', coalesce((
+        select jsonb_agg(x) from jsonb_array_elements_text(data -> 'courseIds') x where x in (select id from my_courses)
+      ), '[]'::jsonb)) else data end as data
+    from s_rows
+  )
+  select jsonb_build_object(
+    'level', v_level,
+    'teacher', v_teacher,
+    'canMark', v_teacher and p_area is null and v_who = v_me,
+    'alliance', v_alliance is not null,
+    'allianceEdit', coalesce(v_alliance = 'edit', false) and p_area is null and v_who = v_me and not public.is_ceo(),
+    'contacts', case p_screen
+      -- external: contacto externo (lo puede editar Alianzas).
+      when 'contactos' then coalesce((select jsonb_agg((data - 'candidacies' - 'candidateOnly') || jsonb_build_object('external', external)) from c_flags where not active and not candidate_only), '[]'::jsonb)
+      when 'equipo' then coalesce((select jsonb_agg(data - 'candidacies' - 'candidateOnly') from c_flags where team), '[]'::jsonb)
+      when 'vacantes' then coalesce((select jsonb_agg(data) from c_cand), '[]'::jsonb)
+      else coalesce((select jsonb_agg(data) from c_teachers), '[]'::jsonb)
+    end,
+    'groups', case when p_screen in ('contactos', 'equipo') then coalesce((
+        select jsonb_agg(g.data) from public.groups g where g.user_id in (select id from ceo) and g.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'vacancies', case when p_screen = 'vacantes' then coalesce((
+        select jsonb_agg(v.data) from public.vacancies v where v.user_id in (select id from ceo) and v.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'courses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from courses), '[]'::jsonb) else '[]'::jsonb end,
+    'students', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from s_all), '[]'::jsonb) else '[]'::jsonb end,
+    'attendance', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(a.data) from public.attendance a
+        where a.user_id in (select id from ceo) and a.deleted_at is null
+          and (not v_teacher or a.data ->> 'courseId' in (select id from my_courses))
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'extraClasses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(x.data) from public.extra_classes x
+        where x.user_id in (select id from ceo) and x.deleted_at is null
+          and (not v_teacher or x.data ->> 'courseId' in (select id from my_courses))
+      ), '[]'::jsonb) else '[]'::jsonb end
+  ) into v_out;
+  return v_out;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Escribir en los contactos de la ceo
+-- -----------------------------------------------------------------------------
+
+-- Guarda la ficha y la deja como la más reciente (aunque el reloj de un dispositivo de la ceo vaya
+-- adelantado). Devuelve la ficha guardada.
+create or replace function public.cesi_contact_write(p_ceo uuid, p_id text, p_data jsonb, p_old_stamp timestamptz)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_stamp timestamptz := greatest(clock_timestamp(), coalesce(p_old_stamp + interval '1 millisecond', '-infinity'));
+  v_data jsonb := p_data || jsonb_build_object('id', p_id, 'updatedAt', public.cesi_iso(v_stamp));
+begin
+  insert into public.contacts (user_id, id, data, updated_at, deleted_at)
+  values (p_ceo, p_id, v_data, v_stamp, null)
+  on conflict (user_id, id) do update set data = excluded.data, updated_at = excluded.updated_at, deleted_at = null;
+  return v_data;
+end;
+$$;
+
+-- La ficha de un contacto externo de la ceo, bloqueada para cambiarla. Error si no es externo.
+create or replace function public.cesi_external_contact(p_id text, out o_ceo uuid, out o_data jsonb, out o_stamp timestamptz)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  select c.user_id, c.data, c.updated_at into o_ceo, o_data, o_stamp
+  from public.contacts c
+  where c.id = p_id and c.deleted_at is null and c.user_id in (select id from public.profiles where role = 'ceo')
+  limit 1
+  for update;
+  if o_ceo is null then
+    raise exception 'Ese contacto ya no existe.' using errcode = '22023';
+  end if;
+  if not public.cesi_is_external_contact(o_data) then
+    raise exception 'Solo se pueden cambiar los contactos externos (no las fichas de Equipo, alumnos ni candidatos).' using errcode = '42501';
+  end if;
+end;
+$$;
+
+revoke all on function public.cesi_contact_write(uuid, text, jsonb, timestamptz) from public, anon, authenticated;
+revoke all on function public.cesi_external_contact(text) from public, anon, authenticated;
+
+-- Crear (p_id null) o editar un contacto externo (Alianzas). p_data: { name, email, phone,
+-- organization, role, notes, groupIds, country, timeZone, availability }; lo demás de la ficha se
+-- queda como está. Devuelve la ficha guardada.
+create or replace function public.cesi_external_contact_save(p_id text, p_data jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_alliance_writer();
+  v_ceo uuid;
+  v_old jsonb := '{}'::jsonb;
+  v_stamp timestamptz;
+  v_id text := p_id;
+  v_name text := trim(coalesce(p_data ->> 'name', ''));
+  v_patch jsonb;
+begin
+  if length(v_name) = 0 or length(v_name) > 200 then
+    raise exception 'Escribe el nombre (como mucho 200 caracteres).' using errcode = '22023';
+  end if;
+  if coalesce(p_data ->> 'country', '') = '' or coalesce(p_data ->> 'timeZone', '') = '' then
+    raise exception 'El país es obligatorio.' using errcode = '22023';
+  end if;
+  if length(coalesce(p_data ->> 'notes', '')) > 4000 or length(coalesce(p_data ->> 'email', '')) > 200
+     or length(coalesce(p_data ->> 'phone', '')) > 60 or length(coalesce(p_data ->> 'organization', '')) > 200
+     or length(coalesce(p_data ->> 'role', '')) > 200 then
+    raise exception 'Algún dato es demasiado largo.' using errcode = '22023';
+  end if;
+
+  if v_id is null then
+    select id into v_ceo from public.profiles where role = 'ceo' order by created_at limit 1;
+    if v_ceo is null then
+      raise exception 'No hay cuenta de la dirección.' using errcode = '22023';
+    end if;
+    v_id := gen_random_uuid()::text;
+    v_old := jsonb_build_object('photo', null, 'createdAt', public.cesi_iso(clock_timestamp()));
+  else
+    select o_ceo, o_data, o_stamp into v_ceo, v_old, v_stamp from public.cesi_external_contact(v_id);
+  end if;
+
+  v_patch := jsonb_build_object(
+    'name', v_name,
+    'email', trim(coalesce(p_data ->> 'email', '')),
+    'phone', trim(coalesce(p_data ->> 'phone', '')),
+    'organization', trim(coalesce(p_data ->> 'organization', '')),
+    'role', trim(coalesce(p_data ->> 'role', '')),
+    'notes', trim(coalesce(p_data ->> 'notes', '')),
+    'groupIds', case when jsonb_typeof(p_data -> 'groupIds') = 'array' then p_data -> 'groupIds' else '[]'::jsonb end,
+    'country', p_data ->> 'country',
+    'timeZone', p_data ->> 'timeZone',
+    'countryUnreviewed', false,
+    'availability', case when jsonb_typeof(p_data -> 'availability') = 'object' then p_data -> 'availability' else 'null'::jsonb end
+  );
+  return public.cesi_contact_write(v_ceo, v_id, v_old || v_patch, v_stamp);
+end;
+$$;
+
+-- Guardar el seguimiento de alianza de un contacto externo (Alianzas). p_alliance: { type, status,
+-- offer, amount, startDate, endDate, nextStep, nextStepDate, ownerId }. Las notas no se tocan
+-- (van con las funciones de abajo). Al pasar a «cerrado» se guarda cuándo (closedAt).
+create or replace function public.cesi_alliance_save(p_contact_id text, p_alliance jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_alliance_writer();
+  v_ceo uuid;
+  v_data jsonb;
+  v_stamp timestamptz;
+  v_old jsonb;
+  v_status text := p_alliance ->> 'status';
+  v_type text := p_alliance ->> 'type';
+  v_amount numeric;
+  v_owner uuid;
+  v_start text;
+  v_end text;
+begin
+  select o_ceo, o_data, o_stamp into v_ceo, v_data, v_stamp from public.cesi_external_contact(p_contact_id);
+  v_old := case when jsonb_typeof(v_data -> 'alliance') = 'object' then v_data -> 'alliance' else '{}'::jsonb end;
+
+  if coalesce(v_type, '') not in ('patrocinador', 'colaborador', 'partner', 'otro') then
+    raise exception 'Elige el tipo.' using errcode = '22023';
+  end if;
+  if coalesce(v_status, '') not in ('por_contactar', 'contactado', 'negociacion', 'cerrado', 'descartado') then
+    raise exception 'Estado no válido.' using errcode = '22023';
+  end if;
+  if length(coalesce(p_alliance ->> 'offer', '')) > 2000 or length(coalesce(p_alliance ->> 'nextStep', '')) > 500 then
+    raise exception 'El texto es demasiado largo.' using errcode = '22023';
+  end if;
+  if coalesce(p_alliance ->> 'amount', '') <> '' then
+    if (p_alliance ->> 'amount') !~ '^\d{1,9}(\.\d{1,2})?$' then
+      raise exception 'El importe tiene que ser un número de euros (sin signos).' using errcode = '22023';
+    end if;
+    v_amount := (p_alliance ->> 'amount')::numeric;
+  end if;
+  v_start := public.cesi_day_or_empty(p_alliance ->> 'startDate');
+  v_end := public.cesi_day_or_empty(p_alliance ->> 'endDate');
+  if v_start <> '' and v_end <> '' and v_end < v_start then
+    raise exception 'El fin del acuerdo tiene que ser después del inicio.' using errcode = '22023';
+  end if;
+  if coalesce(p_alliance ->> 'ownerId', '') <> '' then
+    begin
+      v_owner := (p_alliance ->> 'ownerId')::uuid;
+    exception when others then
+      raise exception 'Responsable no válido.' using errcode = '22023';
+    end;
+    if not exists (select 1 from public.profiles where id = v_owner and role = 'equipo' and area in ('alianzas', 'direccion')) then
+      raise exception 'El responsable tiene que ser de Alianzas o Directivo.' using errcode = '22023';
+    end if;
+  end if;
+
+  v_data := v_data || jsonb_build_object('alliance', v_old || jsonb_build_object(
+    'type', v_type,
+    'status', v_status,
+    'offer', trim(coalesce(p_alliance ->> 'offer', '')),
+    'amount', v_amount,
+    'startDate', v_start,
+    'endDate', v_end,
+    'nextStep', trim(coalesce(p_alliance ->> 'nextStep', '')),
+    'nextStepDate', public.cesi_day_or_empty(p_alliance ->> 'nextStepDate'),
+    'ownerId', v_owner,
+    'ownerName', case when v_owner is null then '' else public.cesi_person_name(v_owner) end,
+    'notes', case when jsonb_typeof(v_old -> 'notes') = 'array' then v_old -> 'notes' else '[]'::jsonb end,
+    'closedAt', case
+      when v_status <> 'cerrado' then null
+      when v_old ->> 'status' = 'cerrado' and v_old ? 'closedAt' then v_old -> 'closedAt'
+      else to_jsonb(public.cesi_iso(clock_timestamp()))
+    end,
+    'updatedAt', public.cesi_iso(clock_timestamp())
+  ));
+  return public.cesi_contact_write(v_ceo, p_contact_id, v_data, v_stamp);
+end;
+$$;
+
+-- Añadir una nota al historial (Alianzas). Si el contacto aún no tenía seguimiento, se crea (otro,
+-- por contactar).
+create or replace function public.cesi_alliance_note_add(p_contact_id text, p_text text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_alliance_writer();
+  v_ceo uuid;
+  v_data jsonb;
+  v_stamp timestamptz;
+  v_alliance jsonb;
+  v_text text := trim(coalesce(p_text, ''));
+begin
+  if length(v_text) = 0 or length(v_text) > 1000 then
+    raise exception 'Escribe la nota (como mucho 1000 caracteres).' using errcode = '22023';
+  end if;
+  select o_ceo, o_data, o_stamp into v_ceo, v_data, v_stamp from public.cesi_external_contact(p_contact_id);
+  v_alliance := case when jsonb_typeof(v_data -> 'alliance') = 'object' then v_data -> 'alliance'
+    else jsonb_build_object('type', 'otro', 'status', 'por_contactar', 'offer', '', 'amount', null, 'startDate', '', 'endDate', '',
+      'nextStep', '', 'nextStepDate', '', 'ownerId', null, 'ownerName', '', 'closedAt', null) end;
+  v_alliance := v_alliance || jsonb_build_object(
+    'notes', (case when jsonb_typeof(v_alliance -> 'notes') = 'array' then v_alliance -> 'notes' else '[]'::jsonb end)
+      || jsonb_build_array(jsonb_build_object(
+        'id', gen_random_uuid()::text, 'at', public.cesi_iso(clock_timestamp()), 'text', v_text,
+        'byId', v_me, 'by', public.cesi_person_name(v_me))),
+    'updatedAt', public.cesi_iso(clock_timestamp()));
+  return public.cesi_contact_write(v_ceo, p_contact_id, v_data || jsonb_build_object('alliance', v_alliance), v_stamp);
+end;
+$$;
+
+-- Quitar una nota del historial (Alianzas).
+create or replace function public.cesi_alliance_note_remove(p_contact_id text, p_note_id text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_alliance_writer();
+  v_ceo uuid;
+  v_data jsonb;
+  v_stamp timestamptz;
+  v_alliance jsonb;
+begin
+  select o_ceo, o_data, o_stamp into v_ceo, v_data, v_stamp from public.cesi_external_contact(p_contact_id);
+  if jsonb_typeof(v_data -> 'alliance') <> 'object' or jsonb_typeof(v_data -> 'alliance' -> 'notes') <> 'array' then
+    return v_data;
+  end if;
+  v_alliance := (v_data -> 'alliance') || jsonb_build_object(
+    'notes', coalesce((select jsonb_agg(n) from jsonb_array_elements(v_data -> 'alliance' -> 'notes') n where n ->> 'id' is distinct from p_note_id), '[]'::jsonb),
+    'updatedAt', public.cesi_iso(clock_timestamp()));
+  return public.cesi_contact_write(v_ceo, p_contact_id, v_data || jsonb_build_object('alliance', v_alliance), v_stamp);
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Responsables y cifras
+-- -----------------------------------------------------------------------------
+
+-- Responsables posibles: las personas de Alianzas y de Directivo (para quien ve las alianzas).
+create or replace function public.cesi_alliance_people()
+returns table (id uuid, name text, area text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  if public.cesi_alliance_role((select auth.uid())) is null then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  return query
+    select p.id, public.cesi_person_name(p.id), p.area
+    from public.profiles p
+    where p.role = 'equipo' and p.area in ('alianzas', 'direccion')
+    order by 2;
+end;
+$$;
+
+-- Alianzas cerradas este mes (en la zona de quien mira) y en negociación. Directivo y la ceo
+-- (p_as: «Ver como» de la ceo).
+create or replace function public.cesi_alliance_stats(p_as uuid default null)
+returns table (closed_month integer, negotiating integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_home_viewer(p_as);
+  v_zone text := public.cesi_zone_of(v_me);
+  v_month timestamptz := date_trunc('month', now() at time zone v_zone) at time zone v_zone;
+begin
+  return query
+  with a as (
+    select c.data -> 'alliance' as al
+    from public.contacts c
+    where c.user_id in (select id from public.profiles where role = 'ceo') and c.deleted_at is null
+      and jsonb_typeof(c.data -> 'alliance') = 'object' and public.cesi_is_external_contact(c.data)
+  )
+  select
+    (select count(*) from a where al ->> 'status' = 'cerrado' and public.cesi_try_ts(al ->> 'closedAt') >= v_month)::integer,
+    (select count(*) from a where al ->> 'status' = 'negociacion')::integer;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_screen_data(text, uuid, text) from public, anon;
+revoke all on function public.cesi_external_contact_save(text, jsonb) from public, anon;
+revoke all on function public.cesi_alliance_save(text, jsonb) from public, anon;
+revoke all on function public.cesi_alliance_note_add(text, text) from public, anon;
+revoke all on function public.cesi_alliance_note_remove(text, text) from public, anon;
+revoke all on function public.cesi_alliance_people() from public, anon;
+revoke all on function public.cesi_alliance_stats(uuid) from public, anon;
+grant execute on function public.cesi_screen_data(text, uuid, text) to authenticated;
+grant execute on function public.cesi_external_contact_save(text, jsonb) to authenticated;
+grant execute on function public.cesi_alliance_save(text, jsonb) to authenticated;
+grant execute on function public.cesi_alliance_note_add(text, text) to authenticated;
+grant execute on function public.cesi_alliance_note_remove(text, text) to authenticated;
+grant execute on function public.cesi_alliance_people() to authenticated;
+grant execute on function public.cesi_alliance_stats(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 17: tablero de cada área (Moderación, Media, Técnico, Ciberseguridad y Legal)
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Configuración de cada tablero
+-- -----------------------------------------------------------------------------
+--   statuses        estados en orden (las columnas)
+--   done_statuses   los que cuentan como terminados (no salen como pendientes)
+--   priorities      prioridad o gravedad (null: el tablero no la usa)
+--   with_time       la fecha lleva hora (publicaciones)
+--   fields          { campo: [opciones] | null (texto libre) }
+create table if not exists public.board_configs (
+  area text primary key references public.areas (id) on update cascade on delete cascade,
+  statuses text[] not null,
+  done_statuses text[] not null default '{}',
+  priorities text[],
+  with_time boolean not null default false,
+  fields jsonb not null default '{}'::jsonb
+);
+
+insert into public.board_configs (area, statuses, done_statuses, priorities, with_time, fields) values
+  ('moderacion', array['abierto', 'en_revision', 'resuelto'], array['resuelto'], array['leve', 'media', 'grave'], false,
+    '{"type": ["aviso", "sancion", "incidencia", "expulsion"], "discordUser": null, "channel": null, "reason": null}'),
+  ('media', array['idea', 'preparacion', 'programada', 'publicada'], array['publicada'], null, true,
+    '{"network": ["instagram", "tiktok", "youtube", "x", "discord", "otra"], "link": null}'),
+  ('tecnico', array['nueva', 'en_curso', 'en_pruebas', 'resuelta'], array['resuelta'], array['baja', 'media', 'alta', 'urgente'], false,
+    '{"type": ["error", "peticion", "mejora"], "system": ["web", "app", "bot", "otro"], "requestedBy": null}'),
+  ('ciberseguridad', array['abierto', 'en_analisis', 'resuelto'], array['resuelto'], array['leve', 'media', 'grave'], false,
+    '{"type": ["incidente", "revision", "alerta"], "system": null}'),
+  ('legal', array['borrador', 'en_vigor', 'a_revisar'], array['en_vigor'], null, false,
+    '{"type": ["norma", "contrato", "privacidad", "otro"], "link": null}')
+on conflict (area) do update set
+  statuses = excluded.statuses, done_statuses = excluded.done_statuses, priorities = excluded.priorities,
+  with_time = excluded.with_time, fields = excluded.fields;
+
+-- -----------------------------------------------------------------------------
+-- Elementos y comentarios
+-- -----------------------------------------------------------------------------
+create table if not exists public.board_items (
+  id uuid primary key default gen_random_uuid(),
+  area text not null references public.areas (id) on update cascade on delete cascade,
+  title text not null check (length(trim(title)) between 1 and 200),
+  description text not null default '' check (length(description) <= 4000),
+  owner_id uuid references public.profiles (id) on delete set null,
+  owner_gone_name text not null default '',
+  due_date date,
+  due_time time,
+  priority text,
+  status text not null,
+  fields jsonb not null default '{}'::jsonb,
+  created_by uuid references public.profiles (id) on delete set null,
+  creator_gone_name text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  done_at timestamptz
+);
+create index if not exists board_items_area_idx on public.board_items (area, status);
+create index if not exists board_items_owner_idx on public.board_items (owner_id);
+
+create table if not exists public.board_comments (
+  id uuid primary key default gen_random_uuid(),
+  item_id uuid not null references public.board_items (id) on delete cascade,
+  author_id uuid references public.profiles (id) on delete set null,
+  author_gone_name text not null default '',
+  text text not null check (length(trim(text)) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists board_comments_item_idx on public.board_comments (item_id, created_at);
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- Qué puede hacer `p_profile` en el tablero de `p_area`: 'edit' (las personas del área y la ceo),
+-- 'comment' (Directivo: ver y comentar) o null (nada; tampoco si el área no tiene tablero).
+create or replace function public.cesi_board_role(p_profile uuid, p_area text)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when not exists (select 1 from public.board_configs where area = p_area) then null
+    when p.role = 'ceo' then 'edit'
+    when p.role = 'equipo' and p.area = p_area then 'edit'
+    when p.role = 'equipo' and p.area = 'direccion' then 'comment'
+  end
+  from public.profiles p
+  where p.id = p_profile;
+$$;
+
+-- Quién mira: la cuenta o, solo la ceo, otra con p_as («Ver como»).
+create or replace function public.cesi_board_viewer(p_as uuid)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    return p_as;
+  end if;
+  return v_me;
+end;
+$$;
+
+-- La usan las reglas de acceso de abajo (con la cuenta que lee): tiene que poder ejecutarla.
+revoke all on function public.cesi_board_role(uuid, text) from public, anon;
+grant execute on function public.cesi_board_role(uuid, text) to authenticated;
+revoke all on function public.cesi_board_viewer(uuid) from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Reglas de acceso (solo leer; escribir, con las funciones)
+-- -----------------------------------------------------------------------------
+alter table public.board_configs enable row level security;
+alter table public.board_items enable row level security;
+alter table public.board_comments enable row level security;
+
+drop policy if exists "board_configs: leer" on public.board_configs;
+create policy "board_configs: leer" on public.board_configs
+  for select to authenticated using (true);
+
+drop policy if exists "board_items: leer los de mis tableros" on public.board_items;
+create policy "board_items: leer los de mis tableros" on public.board_items
+  for select to authenticated
+  using (public.cesi_board_role((select auth.uid()), area) is not null);
+
+drop policy if exists "board_comments: leer los de mis tableros" on public.board_comments;
+create policy "board_comments: leer los de mis tableros" on public.board_comments
+  for select to authenticated
+  using (exists (
+    select 1 from public.board_items i
+    where i.id = board_comments.item_id and public.cesi_board_role((select auth.uid()), i.area) is not null
+  ));
+
+revoke all on public.board_configs, public.board_items, public.board_comments from anon;
+revoke all on public.board_configs, public.board_items, public.board_comments from authenticated;
+grant select on public.board_configs, public.board_items, public.board_comments to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Leer
+-- -----------------------------------------------------------------------------
+
+-- Los elementos del tablero de un área (para quien lo ve), con el nombre del responsable,
+-- cuántos comentarios tiene y lo que puedo hacer (can_edit: crear, editar, mover y borrar;
+-- can_comment: comentar).
+create or replace function public.cesi_board_items(p_area text, p_as uuid default null)
+returns table (
+  id uuid, area text, title text, description text, owner_id uuid, owner_name text,
+  due_date date, due_time text, priority text, status text, fields jsonb,
+  created_by_name text, created_at timestamptz, updated_at timestamptz, done_at timestamptz,
+  comments_count integer, can_edit boolean, can_comment boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_board_viewer(p_as);
+  v_role text := public.cesi_board_role(v_me, p_area);
+begin
+  if v_role is null then
+    raise exception 'No tienes acceso a este tablero.' using errcode = '42501';
+  end if;
+  return query
+    select i.id, i.area, i.title, i.description, i.owner_id,
+      case when i.owner_id is null and i.owner_gone_name = '' then '' else public.cesi_name_or_gone(i.owner_id, i.owner_gone_name) end,
+      i.due_date, to_char(i.due_time, 'HH24:MI'), i.priority, i.status, i.fields,
+      case when i.created_by is null and i.creator_gone_name = '' then '' else public.cesi_name_or_gone(i.created_by, i.creator_gone_name) end,
+      i.created_at, i.updated_at, i.done_at,
+      (select count(*)::integer from public.board_comments c where c.item_id = i.id),
+      v_role = 'edit', true
+    from public.board_items i
+    where i.area = p_area
+    order by i.due_date nulls last, i.due_time nulls last, i.created_at;
+end;
+$$;
+
+-- Comentarios de un elemento (del más antiguo al más nuevo). can_delete: los míos (la ceo, todos).
+create or replace function public.cesi_board_comments(p_item uuid, p_as uuid default null)
+returns table (id uuid, author_id uuid, author_name text, text text, created_at timestamptz, can_delete boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_board_viewer(p_as);
+  v_area text := (select i.area from public.board_items i where i.id = p_item);
+begin
+  if v_area is null or public.cesi_board_role(v_me, v_area) is null then
+    raise exception 'No tienes acceso a este tablero.' using errcode = '42501';
+  end if;
+  return query
+    select c.id, c.author_id, public.cesi_name_or_gone(c.author_id, c.author_gone_name), c.text, c.created_at,
+      p_as is null and (c.author_id = v_me or public.is_ceo())
+    from public.board_comments c
+    where c.item_id = p_item
+    order by c.created_at;
+end;
+$$;
+
+-- Responsables posibles de un tablero: las personas de equipo de esa área.
+create or replace function public.cesi_board_people(p_area text)
+returns table (id uuid, name text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  if public.cesi_board_role((select auth.uid()), p_area) is null then
+    raise exception 'No tienes acceso a este tablero.' using errcode = '42501';
+  end if;
+  return query
+    select p.id, public.cesi_person_name(p.id)
+    from public.profiles p
+    where p.role = 'equipo' and p.area = p_area
+    order by 2;
+end;
+$$;
+
+-- Elementos abiertos (sin terminar) por área, para «Mi equipo» y el Inicio de Directivo.
+create or replace function public.cesi_board_counts(p_as uuid default null)
+returns table (area text, open_count integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_home_viewer(p_as);
+begin
+  return query
+    select b.area,
+      (select count(*)::integer from public.board_items i where i.area = b.area and not (i.status = any (b.done_statuses)))
+    from public.board_configs b
+    join public.areas a on a.id = b.area
+    order by a.sort;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Escribir
+-- -----------------------------------------------------------------------------
+
+-- Crear (p_id null) o editar un elemento (las personas del área y la ceo). p_fields: los campos
+-- propios del área ({ campo: texto }); los que tienen opciones, solo esas (o vacío).
+create or replace function public.cesi_board_save(
+  p_id uuid, p_area text, p_title text, p_description text, p_owner uuid,
+  p_due_date date, p_due_time text, p_priority text, p_status text, p_fields jsonb
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_cfg public.board_configs;
+  v_old public.board_items;
+  v_id uuid := p_id;
+  v_fields jsonb := '{}'::jsonb;
+  v_key text;
+  v_value jsonb;
+  v_time time;
+begin
+  select * into v_cfg from public.board_configs where area = p_area;
+  if not found then
+    raise exception 'Esa área no tiene tablero.' using errcode = '22023';
+  end if;
+  if public.cesi_board_role(v_me, p_area) is distinct from 'edit' then
+    raise exception 'Solo las personas del área (y la dirección) pueden cambiar este tablero.' using errcode = '42501';
+  end if;
+  if length(trim(coalesce(p_title, ''))) = 0 or length(trim(p_title)) > 200 then
+    raise exception 'Escribe un título (como mucho 200 caracteres).' using errcode = '22023';
+  end if;
+  if length(coalesce(p_description, '')) > 4000 then
+    raise exception 'La descripción es demasiado larga.' using errcode = '22023';
+  end if;
+  if not (coalesce(p_status, '') = any (v_cfg.statuses)) then
+    raise exception 'Estado no válido.' using errcode = '22023';
+  end if;
+  if p_priority is not null and (v_cfg.priorities is null or not (p_priority = any (v_cfg.priorities))) then
+    raise exception 'Prioridad o gravedad no válida.' using errcode = '22023';
+  end if;
+  if p_owner is not null and not exists (select 1 from public.profiles where id = p_owner and role = 'equipo' and area = p_area) then
+    raise exception 'El responsable tiene que ser una persona de esa área.' using errcode = '22023';
+  end if;
+  if coalesce(p_due_time, '') <> '' then
+    if not v_cfg.with_time or p_due_date is null or p_due_time !~ '^([01]\d|2[0-3]):[0-5]\d$' then
+      raise exception 'Hora no válida.' using errcode = '22023';
+    end if;
+    v_time := p_due_time::time;
+  end if;
+
+  -- Campos propios: solo los del área, en texto, y con sus opciones.
+  if p_fields is not null and jsonb_typeof(p_fields) = 'object' then
+    for v_key, v_value in select * from jsonb_each(p_fields) loop
+      if not (v_cfg.fields ? v_key) then
+        raise exception 'Campo no válido: %.', v_key using errcode = '22023';
+      end if;
+      if jsonb_typeof(v_value) = 'null' or (jsonb_typeof(v_value) = 'string' and v_value #>> '{}' = '') then
+        continue;
+      end if;
+      if jsonb_typeof(v_value) <> 'string' or length(v_value #>> '{}') > 1000 then
+        raise exception 'Campo no válido: %.', v_key using errcode = '22023';
+      end if;
+      if jsonb_typeof(v_cfg.fields -> v_key) = 'array' and not ((v_cfg.fields -> v_key) ? (v_value #>> '{}')) then
+        raise exception 'Opción no válida en %.', v_key using errcode = '22023';
+      end if;
+      v_fields := v_fields || jsonb_build_object(v_key, trim(v_value #>> '{}'));
+    end loop;
+  end if;
+
+  if v_id is null then
+    insert into public.board_items (area, title, description, owner_id, due_date, due_time, priority, status, fields, created_by, done_at)
+    values (p_area, trim(p_title), coalesce(p_description, ''), p_owner, p_due_date, v_time, p_priority, p_status, v_fields, v_me,
+            case when p_status = any (v_cfg.done_statuses) then now() end)
+    returning id into v_id;
+  else
+    select * into v_old from public.board_items where id = v_id for update;
+    if not found or v_old.area <> p_area then
+      raise exception 'Ese elemento ya no existe.' using errcode = '22023';
+    end if;
+    update public.board_items
+    set title = trim(p_title), description = coalesce(p_description, ''), owner_id = p_owner,
+        owner_gone_name = case when p_owner is null then owner_gone_name else '' end,
+        due_date = p_due_date, due_time = v_time, priority = p_priority, status = p_status, fields = v_fields,
+        updated_at = now(),
+        done_at = case when not (p_status = any (v_cfg.done_statuses)) then null else coalesce(done_at, now()) end
+    where id = v_id;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- Mover a otra columna (cambiar el estado).
+create or replace function public.cesi_board_move(p_id uuid, p_status text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_item public.board_items;
+  v_cfg public.board_configs;
+begin
+  select * into v_item from public.board_items where id = p_id for update;
+  if not found then
+    raise exception 'Ese elemento ya no existe.' using errcode = '22023';
+  end if;
+  select * into v_cfg from public.board_configs where area = v_item.area;
+  if public.cesi_board_role((select auth.uid()), v_item.area) is distinct from 'edit' then
+    raise exception 'Solo las personas del área (y la dirección) pueden cambiar este tablero.' using errcode = '42501';
+  end if;
+  if not (coalesce(p_status, '') = any (v_cfg.statuses)) then
+    raise exception 'Estado no válido.' using errcode = '22023';
+  end if;
+  update public.board_items
+  set status = p_status, updated_at = now(),
+      done_at = case when not (p_status = any (v_cfg.done_statuses)) then null else coalesce(done_at, now()) end
+  where id = p_id;
+end;
+$$;
+
+-- Borrar un elemento (las personas del área y la ceo), con sus comentarios.
+create or replace function public.cesi_board_delete(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_area text := (select area from public.board_items where id = p_id);
+begin
+  if v_area is null then
+    raise exception 'Ese elemento ya no existe.' using errcode = '22023';
+  end if;
+  if public.cesi_board_role((select auth.uid()), v_area) is distinct from 'edit' then
+    raise exception 'Solo las personas del área (y la dirección) pueden borrar en este tablero.' using errcode = '42501';
+  end if;
+  delete from public.board_items where id = p_id;
+end;
+$$;
+
+-- Comentar (las personas del área, Directivo y la ceo).
+create or replace function public.cesi_board_comment_add(p_item uuid, p_text text)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_area text := (select area from public.board_items where id = p_item);
+  v_id uuid;
+begin
+  if v_area is null or public.cesi_board_role(v_me, v_area) is null then
+    raise exception 'No tienes acceso a este tablero.' using errcode = '42501';
+  end if;
+  if length(trim(coalesce(p_text, ''))) = 0 or length(trim(p_text)) > 2000 then
+    raise exception 'Escribe el comentario (como mucho 2000 caracteres).' using errcode = '22023';
+  end if;
+  insert into public.board_comments (item_id, author_id, text) values (p_item, v_me, trim(p_text)) returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- Borrar un comentario: quien lo escribió o la ceo.
+create or replace function public.cesi_board_comment_delete(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  delete from public.board_comments where id = p_id and (author_id = v_me or public.is_ceo());
+  if not found then
+    raise exception 'Solo quien lo escribió o la dirección pueden borrarlo.' using errcode = '42501';
+  end if;
+end;
+$$;
+
+-- Al eliminar una cuenta, sus elementos y comentarios se quedan con su nombre.
+create or replace function public.cesi_board_gone()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text := left(coalesce(nullif(public.cesi_person_name(old.id), ''), 'Sin nombre'), 200);
+begin
+  update public.board_items set owner_gone_name = v_name where owner_id = old.id;
+  update public.board_items set creator_gone_name = v_name where created_by = old.id;
+  update public.board_comments set author_gone_name = v_name where author_id = old.id;
+  return old;
+end;
+$$;
+
+revoke all on function public.cesi_board_gone() from public, anon, authenticated;
+
+drop trigger if exists profiles_board_gone on public.profiles;
+create trigger profiles_board_gone
+  before delete on public.profiles
+  for each row execute function public.cesi_board_gone();
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_board_items(text, uuid) from public, anon;
+revoke all on function public.cesi_board_comments(uuid, uuid) from public, anon;
+revoke all on function public.cesi_board_people(text) from public, anon;
+revoke all on function public.cesi_board_counts(uuid) from public, anon;
+revoke all on function public.cesi_board_save(uuid, text, text, text, uuid, date, text, text, text, jsonb) from public, anon;
+revoke all on function public.cesi_board_move(uuid, text) from public, anon;
+revoke all on function public.cesi_board_delete(uuid) from public, anon;
+revoke all on function public.cesi_board_comment_add(uuid, text) from public, anon;
+revoke all on function public.cesi_board_comment_delete(uuid) from public, anon;
+grant execute on function public.cesi_board_items(text, uuid) to authenticated;
+grant execute on function public.cesi_board_comments(uuid, uuid) to authenticated;
+grant execute on function public.cesi_board_people(text) to authenticated;
+grant execute on function public.cesi_board_counts(uuid) to authenticated;
+grant execute on function public.cesi_board_save(uuid, text, text, text, uuid, date, text, text, text, jsonb) to authenticated;
+grant execute on function public.cesi_board_move(uuid, text) to authenticated;
+grant execute on function public.cesi_board_delete(uuid) to authenticated;
+grant execute on function public.cesi_board_comment_add(uuid, text) to authenticated;
+grant execute on function public.cesi_board_comment_delete(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 18: avisos del equipo
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Tablas
+-- -----------------------------------------------------------------------------
+--   area        null: todo el equipo; si no, solo esa área (si se borra el área, se borra el aviso)
+--   show_until  último día en que se muestra (null: siempre)
+create table if not exists public.team_notices (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (length(trim(title)) between 1 and 200),
+  body text not null default '' check (length(body) <= 4000),
+  area text references public.areas (id) on update cascade on delete cascade,
+  important boolean not null default false,
+  show_until date,
+  created_by uuid references public.profiles (id) on delete set null,
+  creator_gone_name text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists team_notices_created_idx on public.team_notices (created_at desc);
+
+create table if not exists public.team_notice_reads (
+  notice_id uuid not null references public.team_notices (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  read_at timestamptz not null default now(),
+  primary key (notice_id, profile_id)
+);
+create index if not exists team_notice_reads_profile_idx on public.team_notice_reads (profile_id);
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- ¿Publica avisos? (la ceo y Directivo)
+create or replace function public.cesi_notice_publisher(p_profile uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = p_profile and (role = 'ceo' or (role = 'equipo' and area = 'direccion'))
+  );
+$$;
+
+-- ¿Es `p_profile` una de las personas a las que va el aviso? (de equipo y, si es para un área, de esa)
+create or replace function public.cesi_notice_for(p_profile uuid, p_area text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = p_profile and role = 'equipo' and (p_area is null or area = p_area)
+  );
+$$;
+
+-- Las usan las reglas de acceso de abajo (con la cuenta que lee): tienen que poder ejecutarse.
+revoke all on function public.cesi_notice_publisher(uuid) from public, anon;
+revoke all on function public.cesi_notice_for(uuid, text) from public, anon;
+grant execute on function public.cesi_notice_publisher(uuid) to authenticated;
+grant execute on function public.cesi_notice_for(uuid, text) to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Reglas de acceso (solo leer; escribir, con las funciones)
+-- -----------------------------------------------------------------------------
+alter table public.team_notices enable row level security;
+alter table public.team_notice_reads enable row level security;
+
+drop policy if exists "team_notices: leer los míos (quien publica, todos)" on public.team_notices;
+create policy "team_notices: leer los míos (quien publica, todos)" on public.team_notices
+  for select to authenticated
+  using (public.cesi_notice_publisher((select auth.uid())) or public.cesi_notice_for((select auth.uid()), area));
+
+drop policy if exists "team_notice_reads: leer los míos (quien publica, todos)" on public.team_notice_reads;
+create policy "team_notice_reads: leer los míos (quien publica, todos)" on public.team_notice_reads
+  for select to authenticated
+  using (profile_id = (select auth.uid()) or public.cesi_notice_publisher((select auth.uid())));
+
+revoke all on public.team_notices, public.team_notice_reads from anon;
+revoke all on public.team_notices, public.team_notice_reads from authenticated;
+grant select on public.team_notices, public.team_notice_reads to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Leer
+-- -----------------------------------------------------------------------------
+-- Los avisos de la cuenta actual (o, solo la ceo, de otra con p_as: «Ver como»), del más nuevo al
+-- más antiguo. A quien publica: todos (también los caducados) y, en cada uno, cuántos lo han leído
+-- y quién falta. A los demás: los suyos que aún se muestran.
+--   for_me      va para mí;  read_at: cuándo lo leí (null: sin leer)
+--   expired     ya pasó su fecha (en mi zona)
+--   can_edit    lo publiqué yo o soy la ceo
+--   recipients / read_count / missing_names: solo para quien publica (si no, 0, 0 y '')
+create or replace function public.cesi_notices(p_as uuid default null)
+returns table (
+  id uuid, title text, body text, area text, area_name text, important boolean, show_until date,
+  created_by uuid, created_by_name text, created_at timestamptz, updated_at timestamptz,
+  for_me boolean, read_at timestamptz, expired boolean, can_edit boolean,
+  recipients integer, read_count integer, missing_names text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := (select auth.uid());
+  v_publisher boolean;
+  v_ceo boolean;
+  v_today date;
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if coalesce((select p.role from public.profiles p where p.id = v_me), '') not in ('ceo', 'equipo') then
+    raise exception 'Sin permiso.' using errcode = '42501';
+  end if;
+  v_publisher := public.cesi_notice_publisher(v_me);
+  v_ceo := exists (select 1 from public.profiles p where p.id = v_me and p.role = 'ceo');
+  v_today := (now() at time zone public.cesi_zone_of(v_me))::date;
+  return query
+    select n.id, n.title, n.body, n.area, coalesce(a.name, ''), n.important, n.show_until,
+      n.created_by,
+      case when n.created_by is null and n.creator_gone_name = '' then '' else public.cesi_name_or_gone(n.created_by, n.creator_gone_name) end,
+      n.created_at, n.updated_at,
+      public.cesi_notice_for(v_me, n.area),
+      (select r.read_at from public.team_notice_reads r where r.notice_id = n.id and r.profile_id = v_me),
+      n.show_until is not null and n.show_until < v_today,
+      v_ceo or coalesce(n.created_by = v_me, false),
+      case when v_publisher then coalesce(s.total, 0) else 0 end,
+      case when v_publisher then coalesce(s.done, 0) else 0 end,
+      case when v_publisher then coalesce(s.missing, '') else '' end
+    from public.team_notices n
+    left join public.areas a on a.id = n.area
+    left join lateral (
+      select count(*)::integer as total,
+        (count(*) filter (where r.profile_id is not null))::integer as done,
+        string_agg(x.name, ', ' order by x.name) filter (where r.profile_id is null) as missing
+      from (
+        select p.id, public.cesi_person_name(p.id) as name
+        from public.profiles p
+        where p.role = 'equipo' and (n.area is null or p.area = n.area)
+      ) x
+      left join public.team_notice_reads r on r.notice_id = n.id and r.profile_id = x.id
+    ) s on v_publisher
+    where v_publisher
+       or (public.cesi_notice_for(v_me, n.area) and (n.show_until is null or n.show_until >= v_today))
+    order by n.created_at desc;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Escribir
+-- -----------------------------------------------------------------------------
+
+-- Publicar (p_id null) o editar un aviso. Publican la ceo y Directivo; editan quien lo publicó y la
+-- ceo. p_area: null (todo el equipo) o un área. Devuelve el id.
+create or replace function public.cesi_notice_save(
+  p_id uuid, p_title text, p_body text, p_area text, p_important boolean, p_show_until date
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_id uuid := p_id;
+  v_old public.team_notices;
+begin
+  if not public.cesi_notice_publisher(v_me) then
+    raise exception 'Solo la dirección y Directivo pueden publicar avisos.' using errcode = '42501';
+  end if;
+  if length(trim(coalesce(p_title, ''))) = 0 or length(trim(p_title)) > 200 then
+    raise exception 'Escribe un título (como mucho 200 caracteres).' using errcode = '22023';
+  end if;
+  if length(coalesce(p_body, '')) > 4000 then
+    raise exception 'El texto es demasiado largo (como mucho 4000 caracteres).' using errcode = '22023';
+  end if;
+  if p_area is not null and not exists (select 1 from public.areas where id = p_area) then
+    raise exception 'Esa área no existe.' using errcode = '22023';
+  end if;
+
+  if v_id is null then
+    insert into public.team_notices (title, body, area, important, show_until, created_by)
+    values (trim(p_title), coalesce(p_body, ''), p_area, coalesce(p_important, false), p_show_until, v_me)
+    returning id into v_id;
+  else
+    select * into v_old from public.team_notices where id = v_id for update;
+    if not found or not (public.is_ceo() or coalesce(v_old.created_by = v_me, false)) then
+      raise exception 'Solo quien lo publicó o la dirección pueden cambiarlo.' using errcode = '42501';
+    end if;
+    update public.team_notices
+    set title = trim(p_title), body = coalesce(p_body, ''), area = p_area, important = coalesce(p_important, false),
+        show_until = p_show_until, updated_at = now()
+    where id = v_id;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- Borrar un aviso: quien lo publicó o la ceo.
+create or replace function public.cesi_notice_delete(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  delete from public.team_notices
+  where id = p_id and (public.is_ceo() or created_by = v_me);
+  if not found then
+    raise exception 'Solo quien lo publicó o la dirección pueden borrarlo.' using errcode = '42501';
+  end if;
+end;
+$$;
+
+-- «Leído» (p_read true) o volver a «sin leer» (false): la persona a la que va el aviso.
+create or replace function public.cesi_notice_read(p_id uuid, p_read boolean default true)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_area text;
+begin
+  select area into v_area from public.team_notices where id = p_id;
+  if not found then
+    raise exception 'Ese aviso ya no existe.' using errcode = '22023';
+  end if;
+  if not public.cesi_notice_for(v_me, v_area) then
+    raise exception 'Ese aviso no es para ti.' using errcode = '42501';
+  end if;
+  if coalesce(p_read, true) then
+    insert into public.team_notice_reads (notice_id, profile_id) values (p_id, v_me)
+    on conflict (notice_id, profile_id) do nothing;
+  else
+    delete from public.team_notice_reads where notice_id = p_id and profile_id = v_me;
+  end if;
+end;
+$$;
+
+-- Al eliminar una cuenta, sus avisos se quedan con su nombre.
+create or replace function public.cesi_notices_gone()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.team_notices
+  set creator_gone_name = left(coalesce(nullif(public.cesi_person_name(old.id), ''), 'Sin nombre'), 200)
+  where created_by = old.id;
+  return old;
+end;
+$$;
+
+revoke all on function public.cesi_notices_gone() from public, anon, authenticated;
+
+drop trigger if exists profiles_notices_gone on public.profiles;
+create trigger profiles_notices_gone
+  before delete on public.profiles
+  for each row execute function public.cesi_notices_gone();
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_notices(uuid) from public, anon;
+revoke all on function public.cesi_notice_save(uuid, text, text, text, boolean, date) from public, anon;
+revoke all on function public.cesi_notice_delete(uuid) from public, anon;
+revoke all on function public.cesi_notice_read(uuid, boolean) from public, anon;
+grant execute on function public.cesi_notices(uuid) to authenticated;
+grant execute on function public.cesi_notice_save(uuid, text, text, text, boolean, date) to authenticated;
+grant execute on function public.cesi_notice_delete(uuid) to authenticated;
+grant execute on function public.cesi_notice_read(uuid, boolean) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 19: Finanzas
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Tablas
+-- -----------------------------------------------------------------------------
+--   kind         'ingreso' | 'gasto'
+--   amount_cents cantidad en céntimos (siempre positiva; el tipo dice si suma o resta)
+--   category     ingreso: patrocinio, donacion, colaboracion, otro
+--                gasto: dominio_web, herramientas, premios, publicidad, material, otro
+--   method       transferencia, paypal, tarjeta, efectivo, otro
+--   contact_id / contact_name  contacto externo de Alianzas (solo en ingresos; el nombre, copiado)
+create table if not exists public.finance_movements (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('ingreso', 'gasto')),
+  day date not null,
+  concept text not null check (length(trim(concept)) between 1 and 200),
+  amount_cents bigint not null check (amount_cents > 0 and amount_cents <= 100000000000),
+  category text not null,
+  area text references public.areas (id) on update cascade on delete set null,
+  method text not null default 'transferencia' check (method in ('transferencia', 'paypal', 'tarjeta', 'efectivo', 'otro')),
+  receipt_url text not null default '' check (length(receipt_url) <= 1000),
+  notes text not null default '' check (length(notes) <= 2000),
+  contact_id text,
+  contact_name text not null default '',
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint finance_movements_category check (
+    (kind = 'ingreso' and category in ('patrocinio', 'donacion', 'colaboracion', 'otro'))
+    or (kind = 'gasto' and category in ('dominio_web', 'herramientas', 'premios', 'publicidad', 'material', 'otro'))
+  )
+);
+create index if not exists finance_movements_day_idx on public.finance_movements (day);
+
+create table if not exists public.finance_budgets (
+  area text primary key references public.areas (id) on update cascade on delete cascade,
+  monthly_cents bigint not null check (monthly_cents >= 0 and monthly_cents <= 100000000000),
+  updated_by uuid references public.profiles (id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+--   action  'alta' | 'edicion' | 'borrado' | 'presupuesto'
+--   who_name  el nombre de quien lo hizo (se queda aunque se elimine su cuenta)
+create table if not exists public.finance_log (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  who uuid references public.profiles (id) on delete set null,
+  who_name text not null default '',
+  action text not null,
+  movement_id uuid,
+  area text,
+  before jsonb,
+  after jsonb
+);
+create index if not exists finance_log_at_idx on public.finance_log (at desc);
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- Qué puede hacer `p_profile` en Finanzas: 'edit' (Finanzas y la ceo), 'view' (Directivo) o null.
+create or replace function public.cesi_finance_role(p_profile uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p.role = 'ceo' then 'edit'
+    when p.role = 'equipo' and p.area = 'finanzas' then 'edit'
+    when p.role = 'equipo' and p.area = 'direccion' then 'view'
+  end
+  from public.profiles p
+  where p.id = p_profile;
+$$;
+
+-- Quién mira (o, solo la ceo, otra cuenta con p_as: «Ver como»). Error si no ve Finanzas.
+create or replace function public.cesi_finance_viewer(p_as uuid)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  if p_as is not null and p_as <> v_me then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_me := p_as;
+  end if;
+  if public.cesi_finance_role(v_me) is null then
+    raise exception 'No tienes acceso a Finanzas.' using errcode = '42501';
+  end if;
+  return v_me;
+end;
+$$;
+
+-- Solo Finanzas y la ceo escriben.
+create or replace function public.cesi_finance_writer()
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  if public.cesi_finance_role(v_me) is distinct from 'edit' then
+    raise exception 'Solo Finanzas y la dirección pueden cambiar las finanzas.' using errcode = '42501';
+  end if;
+  return v_me;
+end;
+$$;
+
+-- La usan las reglas de acceso de abajo (con la cuenta que lee): tiene que poder ejecutarse.
+revoke all on function public.cesi_finance_role(uuid) from public, anon;
+grant execute on function public.cesi_finance_role(uuid) to authenticated;
+revoke all on function public.cesi_finance_viewer(uuid) from public, anon, authenticated;
+revoke all on function public.cesi_finance_writer() from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Reglas de acceso (solo leer; escribir, con las funciones)
+-- -----------------------------------------------------------------------------
+alter table public.finance_movements enable row level security;
+alter table public.finance_budgets enable row level security;
+alter table public.finance_log enable row level security;
+
+drop policy if exists "finance_movements: leer (Finanzas, Directivo y la ceo)" on public.finance_movements;
+create policy "finance_movements: leer (Finanzas, Directivo y la ceo)" on public.finance_movements
+  for select to authenticated using (public.cesi_finance_role((select auth.uid())) is not null);
+
+drop policy if exists "finance_budgets: leer (Finanzas, Directivo y la ceo)" on public.finance_budgets;
+create policy "finance_budgets: leer (Finanzas, Directivo y la ceo)" on public.finance_budgets
+  for select to authenticated using (public.cesi_finance_role((select auth.uid())) is not null);
+
+drop policy if exists "finance_log: leer (Finanzas, Directivo y la ceo)" on public.finance_log;
+create policy "finance_log: leer (Finanzas, Directivo y la ceo)" on public.finance_log
+  for select to authenticated using (public.cesi_finance_role((select auth.uid())) is not null);
+
+revoke all on public.finance_movements, public.finance_budgets, public.finance_log from anon;
+revoke all on public.finance_movements, public.finance_budgets, public.finance_log from authenticated;
+grant select on public.finance_movements, public.finance_budgets, public.finance_log to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Leer
+-- -----------------------------------------------------------------------------
+
+-- Los movimientos (del más reciente al más antiguo), con el nombre del área y de quién los creó
+-- y cambió. can_edit: Finanzas y la ceo (no en «Ver como»).
+create or replace function public.cesi_finance_movements(p_as uuid default null)
+returns table (
+  id uuid, kind text, day date, concept text, amount_cents bigint, category text, area text, area_name text,
+  method text, receipt_url text, notes text, contact_id text, contact_name text,
+  created_by_name text, updated_by_name text, created_at timestamptz, updated_at timestamptz, can_edit boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_finance_viewer(p_as);
+  v_edit boolean := public.cesi_finance_role(v_me) = 'edit' and (p_as is null or p_as = (select auth.uid()));
+begin
+  return query
+    select m.id, m.kind, m.day, m.concept, m.amount_cents, m.category, m.area, coalesce(a.name, ''),
+      m.method, m.receipt_url, m.notes, m.contact_id, m.contact_name,
+      case when m.created_by is null then '' else public.cesi_person_name(m.created_by) end,
+      case when m.updated_by is null then '' else public.cesi_person_name(m.updated_by) end,
+      m.created_at, m.updated_at, v_edit
+    from public.finance_movements m
+    left join public.areas a on a.id = m.area
+    order by m.day desc, m.created_at desc;
+end;
+$$;
+
+-- Resumen: { month, income, expense, balance, total_balance, months: [{ month, income, expense }]
+-- (los últimos 6, del más antiguo al actual), by_category: [{ category, cents }] (gastos del mes),
+-- budgets: [{ area, area_name, monthly, spent }] (todas las áreas; monthly null si no tiene) }.
+-- p_month: primer día del mes (null: el actual en mi zona). Cantidades en céntimos.
+create or replace function public.cesi_finance_summary(p_month date default null, p_as uuid default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_finance_viewer(p_as);
+  v_month date := date_trunc('month', coalesce(p_month, (now() at time zone public.cesi_zone_of(v_me))::date))::date;
+  v_next date := (v_month + interval '1 month')::date;
+begin
+  return jsonb_build_object(
+    'month', v_month,
+    'income', (select coalesce(sum(amount_cents), 0) from public.finance_movements where kind = 'ingreso' and day >= v_month and day < v_next),
+    'expense', (select coalesce(sum(amount_cents), 0) from public.finance_movements where kind = 'gasto' and day >= v_month and day < v_next),
+    'balance', (select coalesce(sum(case when kind = 'ingreso' then amount_cents else -amount_cents end), 0)
+                from public.finance_movements where day >= v_month and day < v_next),
+    'total_balance', (select coalesce(sum(case when kind = 'ingreso' then amount_cents else -amount_cents end), 0)
+                      from public.finance_movements where day < v_next),
+    'months', (
+      select jsonb_agg(jsonb_build_object(
+        'month', mm.m,
+        'income', (select coalesce(sum(amount_cents), 0) from public.finance_movements
+                   where kind = 'ingreso' and day >= mm.m and day < (mm.m + interval '1 month')::date),
+        'expense', (select coalesce(sum(amount_cents), 0) from public.finance_movements
+                    where kind = 'gasto' and day >= mm.m and day < (mm.m + interval '1 month')::date)
+      ) order by mm.m)
+      from (select (v_month - make_interval(months => g))::date as m from generate_series(0, 5) g) mm
+    ),
+    'by_category', coalesce((
+      select jsonb_agg(jsonb_build_object('category', category, 'cents', cents) order by cents desc)
+      from (select category, sum(amount_cents) as cents from public.finance_movements
+            where kind = 'gasto' and day >= v_month and day < v_next group by category) c
+    ), '[]'::jsonb),
+    'budgets', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'area', a.id, 'area_name', a.name, 'monthly', b.monthly_cents,
+        'spent', (select coalesce(sum(amount_cents), 0) from public.finance_movements
+                  where kind = 'gasto' and area = a.id and day >= v_month and day < v_next)
+      ) order by a.sort)
+      from public.areas a
+      left join public.finance_budgets b on b.area = a.id
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- Saldo del mes (para «Mi equipo» y el Inicio de Directivo y de Finanzas).
+create or replace function public.cesi_finance_month_balance(p_as uuid default null)
+returns table (income bigint, expense bigint, balance bigint)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_finance_viewer(p_as);
+  v_month date := date_trunc('month', (now() at time zone public.cesi_zone_of(v_me))::date)::date;
+  v_next date := (v_month + interval '1 month')::date;
+begin
+  return query
+    select
+      coalesce(sum(m.amount_cents) filter (where m.kind = 'ingreso'), 0)::bigint,
+      coalesce(sum(m.amount_cents) filter (where m.kind = 'gasto'), 0)::bigint,
+      coalesce(sum(case when m.kind = 'ingreso' then m.amount_cents else -m.amount_cents end), 0)::bigint
+    from public.finance_movements m
+    where m.day >= v_month and m.day < v_next;
+end;
+$$;
+
+-- Historial de cambios (los 200 más recientes).
+create or replace function public.cesi_finance_log(p_as uuid default null)
+returns table (id bigint, at timestamptz, who_name text, action text, movement_id uuid, area text, before jsonb, after jsonb)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_finance_viewer(p_as);
+begin
+  return query
+    select l.id, l.at, l.who_name, l.action, l.movement_id, l.area, l.before, l.after
+    from public.finance_log l
+    order by l.at desc, l.id desc
+    limit 200;
+end;
+$$;
+
+-- Contactos externos con seguimiento de alianza (para unir un ingreso): solo el id y el nombre.
+create or replace function public.cesi_finance_contacts()
+returns table (id text, name text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  perform public.cesi_finance_writer();
+  return query
+    select c.id, coalesce(nullif(trim(c.data ->> 'name'), ''), 'Sin nombre')
+    from public.contacts c
+    where c.user_id in (select id from public.profiles where role = 'ceo') and c.deleted_at is null
+      and jsonb_typeof(c.data -> 'alliance') = 'object' and public.cesi_is_external_contact(c.data)
+    order by 2;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Escribir
+-- -----------------------------------------------------------------------------
+
+-- El movimiento como se guarda en el historial.
+create or replace function public.cesi_finance_row(m public.finance_movements)
+returns jsonb
+language sql
+immutable
+set search_path = ''
+as $$
+  select jsonb_build_object('kind', m.kind, 'day', m.day, 'concept', m.concept, 'amount_cents', m.amount_cents,
+    'category', m.category, 'area', m.area, 'method', m.method, 'receipt_url', m.receipt_url, 'notes', m.notes,
+    'contact_name', m.contact_name);
+$$;
+
+revoke all on function public.cesi_finance_row(public.finance_movements) from public, anon, authenticated;
+
+-- Crear (p_id null) o editar un movimiento (Finanzas y la ceo). p_contact: contacto externo de
+-- Alianzas (solo en ingresos). Devuelve el id.
+create or replace function public.cesi_finance_save(
+  p_id uuid, p_kind text, p_day date, p_concept text, p_amount_cents bigint, p_category text, p_area text,
+  p_method text, p_receipt_url text, p_notes text, p_contact text
+)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_finance_writer();
+  v_id uuid := p_id;
+  v_old public.finance_movements;
+  v_new public.finance_movements;
+  v_contact text := nullif(p_contact, '');
+  v_contact_name text := '';
+begin
+  if coalesce(p_kind, '') not in ('ingreso', 'gasto') then
+    raise exception 'Elige si es un ingreso o un gasto.' using errcode = '22023';
+  end if;
+  if p_day is null then
+    raise exception 'Pon la fecha.' using errcode = '22023';
+  end if;
+  if not ((p_kind = 'ingreso' and coalesce(p_category, '') in ('patrocinio', 'donacion', 'colaboracion', 'otro'))
+       or (p_kind = 'gasto' and coalesce(p_category, '') in ('dominio_web', 'herramientas', 'premios', 'publicidad', 'material', 'otro'))) then
+    raise exception 'Elige una categoría de %.', p_kind using errcode = '22023';
+  end if;
+  if coalesce(p_method, '') not in ('', 'transferencia', 'paypal', 'tarjeta', 'efectivo', 'otro') then
+    raise exception 'Método no válido.' using errcode = '22023';
+  end if;
+  if length(trim(coalesce(p_concept, ''))) = 0 or length(trim(p_concept)) > 200 then
+    raise exception 'Escribe el concepto (como mucho 200 caracteres).' using errcode = '22023';
+  end if;
+  if p_amount_cents is null or p_amount_cents <= 0 or p_amount_cents > 100000000000 then
+    raise exception 'Pon una cantidad mayor que 0.' using errcode = '22023';
+  end if;
+  if p_area is not null and not exists (select 1 from public.areas where id = p_area) then
+    raise exception 'Esa área no existe.' using errcode = '22023';
+  end if;
+  if coalesce(p_receipt_url, '') <> '' and p_receipt_url !~* '^https?://\S+$' then
+    raise exception 'El justificante tiene que ser un enlace que empiece por https://' using errcode = '22023';
+  end if;
+  if v_contact is not null then
+    if p_kind <> 'ingreso' then
+      raise exception 'Solo un ingreso puede venir de una alianza.' using errcode = '22023';
+    end if;
+    select coalesce(nullif(trim(c.data ->> 'name'), ''), 'Sin nombre') into v_contact_name
+    from public.contacts c
+    where c.id = v_contact and c.deleted_at is null and c.user_id in (select id from public.profiles where role = 'ceo')
+      and public.cesi_is_external_contact(c.data);
+    if v_contact_name is null then
+      raise exception 'Ese contacto externo ya no existe.' using errcode = '22023';
+    end if;
+  end if;
+
+  if v_id is null then
+    insert into public.finance_movements (kind, day, concept, amount_cents, category, area, method, receipt_url, notes,
+      contact_id, contact_name, created_by, updated_by)
+    values (p_kind, p_day, trim(p_concept), p_amount_cents, p_category, p_area, coalesce(nullif(p_method, ''), 'transferencia'),
+      trim(coalesce(p_receipt_url, '')), trim(coalesce(p_notes, '')), v_contact, coalesce(v_contact_name, ''), v_me, v_me)
+    returning * into v_new;
+    insert into public.finance_log (who, who_name, action, movement_id, area, before, after)
+    values (v_me, public.cesi_person_name(v_me), 'alta', v_new.id, v_new.area, null, public.cesi_finance_row(v_new));
+    return v_new.id;
+  end if;
+
+  select * into v_old from public.finance_movements where id = v_id for update;
+  if not found then
+    raise exception 'Ese movimiento ya no existe.' using errcode = '22023';
+  end if;
+  update public.finance_movements
+  set kind = p_kind, day = p_day, concept = trim(p_concept), amount_cents = p_amount_cents, category = p_category,
+      area = p_area, method = coalesce(nullif(p_method, ''), 'transferencia'), receipt_url = trim(coalesce(p_receipt_url, '')),
+      notes = trim(coalesce(p_notes, '')), contact_id = v_contact, contact_name = coalesce(v_contact_name, ''),
+      updated_by = v_me, updated_at = now()
+  where id = v_id
+  returning * into v_new;
+  insert into public.finance_log (who, who_name, action, movement_id, area, before, after)
+  values (v_me, public.cesi_person_name(v_me), 'edicion', v_id, v_new.area, public.cesi_finance_row(v_old), public.cesi_finance_row(v_new));
+  return v_id;
+end;
+$$;
+
+-- Borrar un movimiento (Finanzas y la ceo). Queda en el historial.
+create or replace function public.cesi_finance_delete(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_finance_writer();
+  v_old public.finance_movements;
+begin
+  delete from public.finance_movements where id = p_id returning * into v_old;
+  if not found then
+    raise exception 'Ese movimiento ya no existe.' using errcode = '22023';
+  end if;
+  insert into public.finance_log (who, who_name, action, movement_id, area, before, after)
+  values (v_me, public.cesi_person_name(v_me), 'borrado', p_id, v_old.area, public.cesi_finance_row(v_old), null);
+end;
+$$;
+
+-- Presupuesto mensual de un área (Finanzas y la ceo). p_monthly_cents null: sin presupuesto.
+create or replace function public.cesi_finance_budget_set(p_area text, p_monthly_cents bigint)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_finance_writer();
+  v_old bigint;
+begin
+  if p_area is null or not exists (select 1 from public.areas where id = p_area) then
+    raise exception 'Esa área no existe.' using errcode = '22023';
+  end if;
+  if p_monthly_cents is not null and (p_monthly_cents < 0 or p_monthly_cents > 100000000000) then
+    raise exception 'Presupuesto no válido.' using errcode = '22023';
+  end if;
+  select monthly_cents into v_old from public.finance_budgets where area = p_area;
+  if p_monthly_cents is null then
+    delete from public.finance_budgets where area = p_area;
+  else
+    insert into public.finance_budgets (area, monthly_cents, updated_by, updated_at)
+    values (p_area, p_monthly_cents, v_me, now())
+    on conflict (area) do update set monthly_cents = excluded.monthly_cents, updated_by = excluded.updated_by, updated_at = now();
+  end if;
+  insert into public.finance_log (who, who_name, action, area, before, after)
+  values (v_me, public.cesi_person_name(v_me), 'presupuesto', p_area,
+    case when v_old is null then null else jsonb_build_object('monthly_cents', v_old) end,
+    case when p_monthly_cents is null then null else jsonb_build_object('monthly_cents', p_monthly_cents) end);
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_finance_movements(uuid) from public, anon;
+revoke all on function public.cesi_finance_summary(date, uuid) from public, anon;
+revoke all on function public.cesi_finance_month_balance(uuid) from public, anon;
+revoke all on function public.cesi_finance_log(uuid) from public, anon;
+revoke all on function public.cesi_finance_contacts() from public, anon;
+revoke all on function public.cesi_finance_save(uuid, text, date, text, bigint, text, text, text, text, text, text) from public, anon;
+revoke all on function public.cesi_finance_delete(uuid) from public, anon;
+revoke all on function public.cesi_finance_budget_set(text, bigint) from public, anon;
+grant execute on function public.cesi_finance_movements(uuid) to authenticated;
+grant execute on function public.cesi_finance_summary(date, uuid) to authenticated;
+grant execute on function public.cesi_finance_month_balance(uuid) to authenticated;
+grant execute on function public.cesi_finance_log(uuid) to authenticated;
+grant execute on function public.cesi_finance_contacts() to authenticated;
+grant execute on function public.cesi_finance_save(uuid, text, date, text, bigint, text, text, text, text, text, text) to authenticated;
+grant execute on function public.cesi_finance_delete(uuid) to authenticated;
+grant execute on function public.cesi_finance_budget_set(text, bigint) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 20: editar según permisos (RRHH y Directivo)
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Permisos: RRHH puede editar Equipo y Vacantes
+-- -----------------------------------------------------------------------------
+insert into public.area_permissions (area, screen, level) values
+  ('personas', 'equipo', 'write'),
+  ('personas', 'vacantes', 'write')
+on conflict (area, screen) do update set level = excluded.level;
+
+-- -----------------------------------------------------------------------------
+-- Registro de cambios
+-- -----------------------------------------------------------------------------
+--   doc_table  'contacts' | 'vacancies' | 'courses' | 'students' | 'extra_classes'
+--   action     'alta' | 'edicion'
+--   before / after  solo los campos que cambiaron
+create table if not exists public.team_edit_log (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  who uuid references public.profiles (id) on delete set null,
+  who_name text not null default '',
+  who_area text,
+  doc_table text not null,
+  doc_id text not null,
+  doc_name text not null default '',
+  action text not null,
+  before jsonb,
+  after jsonb
+);
+create index if not exists team_edit_log_at_idx on public.team_edit_log (at desc);
+
+alter table public.team_edit_log enable row level security;
+drop policy if exists "team_edit_log: leer (la ceo)" on public.team_edit_log;
+create policy "team_edit_log: leer (la ceo)" on public.team_edit_log
+  for select to authenticated using (public.is_ceo());
+revoke all on public.team_edit_log from anon, authenticated;
+grant select on public.team_edit_log to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Lo que necesita una pantalla (como en la parte 16; los alumnos, según el permiso de Alumnos)
+-- -----------------------------------------------------------------------------
+-- Con «Editar» en Cursos pero no en Alumnos (Directivo), los alumnos llegan como con «Ver»: sin
+-- email, teléfono, cumpleaños, notas ni Discord (sí su disponibilidad y su zona horaria, para
+-- organizar horarios).
+create or replace function public.cesi_screen_data(p_screen text, p_as uuid default null, p_area text default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_who uuid := v_me;
+  v_level text;
+  v_full boolean;
+  v_teacher boolean;
+  v_alliance text;
+  v_students_full boolean;
+  v_out jsonb;
+begin
+  if p_as is not null and p_as <> v_who then
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_who := p_as;
+  end if;
+  if p_screen is null or p_screen not in ('contactos', 'equipo', 'vacantes', 'cursos', 'alumnos', 'asistencia') then
+    raise exception 'Pantalla no válida.' using errcode = '22023';
+  end if;
+  if p_area is not null then
+    -- «Ver como» un área (solo la ceo): sus permisos.
+    if not public.is_ceo() then
+      raise exception 'Sin permiso.' using errcode = '42501';
+    end if;
+    v_level := coalesce((select ap.level from public.area_permissions ap where ap.area = p_area and ap.screen = p_screen), 'none');
+    v_teacher := p_area = 'formacion';
+    v_alliance := case when p_area = 'alianzas' then 'edit' when p_area = 'direccion' then 'view' end;
+  else
+    v_level := public.cesi_level_for(v_who, p_screen);
+    v_teacher := public.cesi_is_teacher_only(v_who);
+    v_alliance := public.cesi_alliance_role(v_who);
+  end if;
+  if v_level not in ('read', 'write') then
+    raise exception 'No tienes acceso a esta pantalla.' using errcode = '42501';
+  end if;
+  v_full := v_level = 'write';
+  -- Los alumnos, con su propio permiso (Alumnos): con «Editar» en Cursos no llegan completos.
+  v_students_full := case when p_screen = 'alumnos' then v_full
+    when p_area is not null then coalesce((select ap.level from public.area_permissions ap where ap.area = p_area and ap.screen = 'alumnos'), 'none') = 'write'
+    else public.cesi_level_for(v_who, 'alumnos') = 'write' end;
+
+  with
+  ceo as (select id from public.profiles where role = 'ceo'),
+  -- Cursos del profesor (ninguno en «Ver como» un área sin persona).
+  my_courses as (
+    select c.id from public.cesi_teacher_courses(case when p_area is null then v_who end) as c (id)
+  ),
+  -- Contactos (con «Ver», sin email, teléfono, notas ni foto; sin CV de equipo).
+  c_all as (
+    select case when v_full then c0.data
+      else (c0.data - 'email' - 'phone' - 'notes' - 'photo') #- '{teamProfile,cv}' end as data
+    from (select case when v_alliance is null then c.data - 'alliance' else c.data end as data, c.user_id, c.deleted_at from public.contacts c) c0
+    where c0.user_id in (select id from ceo) and c0.deleted_at is null
+  ),
+  c_flags as (
+    select data,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object') as team,
+      (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object'
+        and coalesce(data -> 'teamProfile' ->> 'status', 'active') <> 'former'
+        and not coalesce((data ->> 'archived')::boolean, false)) as active,
+      (coalesce((data ->> 'candidateOnly')::boolean, false) and not (data ? 'teamProfile' and jsonb_typeof(data -> 'teamProfile') = 'object')) as candidate_only,
+      (jsonb_typeof(data -> 'candidacies') = 'array' and jsonb_array_length(data -> 'candidacies') > 0) as candidate,
+      public.cesi_is_external_contact(data) as external
+    from c_all
+  ),
+  -- Candidaturas: con «Ver», sin CV ni notas.
+  c_cand as (
+    select case when v_full then data
+      else jsonb_set(data, '{candidacies}', coalesce((
+        select jsonb_agg(x - 'cv' - 'notes') from jsonb_array_elements(data -> 'candidacies') as x
+      ), '[]'::jsonb)) end as data
+    from c_flags
+    where candidate
+  ),
+  -- Profesores (para los cursos): solo lo que hace falta para nombrarlos y su disponibilidad.
+  c_teachers as (
+    select jsonb_build_object(
+      'id', data ->> 'id', 'name', data ->> 'name', 'country', data -> 'country', 'timeZone', data -> 'timeZone',
+      'availability', data -> 'availability',
+      'teamProfile', jsonb_build_object('status', data -> 'teamProfile' -> 'status', 'area', data -> 'teamProfile' -> 'area',
+        'role', data -> 'teamProfile' -> 'role', 'roles', data -> 'teamProfile' -> 'roles')
+    ) as data
+    from c_flags
+    where team
+  ),
+  courses as (
+    select co.data from public.courses co
+    where co.user_id in (select id from ceo) and co.deleted_at is null
+      and (not v_teacher or co.id in (select id from my_courses))
+  ),
+  -- Alumnos (con «Ver», sin email, teléfono, cumpleaños, notas ni Discord). Al profesor, solo los
+  -- de sus cursos y, en courseIds, solo esos cursos.
+  s_rows as (
+    select case when v_students_full then s.data else s.data - 'email' - 'phone' - 'birthday' - 'notes' - 'discord' end as data
+    from public.students s
+    where s.user_id in (select id from ceo) and s.deleted_at is null
+      and (not v_teacher or (
+        jsonb_typeof(s.data -> 'courseIds') = 'array'
+        and exists (select 1 from jsonb_array_elements_text(s.data -> 'courseIds') x where x in (select id from my_courses))
+      ))
+  ),
+  s_all as (
+    select case when v_teacher then jsonb_set(data, '{courseIds}', coalesce((
+        select jsonb_agg(x) from jsonb_array_elements_text(data -> 'courseIds') x where x in (select id from my_courses)
+      ), '[]'::jsonb)) else data end as data
+    from s_rows
+  )
+  select jsonb_build_object(
+    'level', v_level,
+    'teacher', v_teacher,
+    'canMark', v_teacher and p_area is null and v_who = v_me,
+    'alliance', v_alliance is not null,
+    'allianceEdit', coalesce(v_alliance = 'edit', false) and p_area is null and v_who = v_me and not public.is_ceo(),
+    'contacts', case p_screen
+      -- external: contacto externo (lo puede editar Alianzas).
+      when 'contactos' then coalesce((select jsonb_agg((data - 'candidacies' - 'candidateOnly') || jsonb_build_object('external', external)) from c_flags where not active and not candidate_only), '[]'::jsonb)
+      when 'equipo' then coalesce((select jsonb_agg(data - 'candidacies' - 'candidateOnly') from c_flags where team), '[]'::jsonb)
+      when 'vacantes' then coalesce((select jsonb_agg(data) from c_cand), '[]'::jsonb)
+      else coalesce((select jsonb_agg(data) from c_teachers), '[]'::jsonb)
+    end,
+    'groups', case when p_screen in ('contactos', 'equipo') then coalesce((
+        select jsonb_agg(g.data) from public.groups g where g.user_id in (select id from ceo) and g.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'vacancies', case when p_screen = 'vacantes' then coalesce((
+        select jsonb_agg(v.data) from public.vacancies v where v.user_id in (select id from ceo) and v.deleted_at is null
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'courses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from courses), '[]'::jsonb) else '[]'::jsonb end,
+    'students', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((select jsonb_agg(data) from s_all), '[]'::jsonb) else '[]'::jsonb end,
+    'attendance', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(a.data) from public.attendance a
+        where a.user_id in (select id from ceo) and a.deleted_at is null
+          and (not v_teacher or a.data ->> 'courseId' in (select id from my_courses))
+      ), '[]'::jsonb) else '[]'::jsonb end,
+    'extraClasses', case when p_screen in ('cursos', 'alumnos', 'asistencia') then coalesce((
+        select jsonb_agg(x.data) from public.extra_classes x
+        where x.user_id in (select id from ceo) and x.deleted_at is null
+          and (not v_teacher or x.data ->> 'courseId' in (select id from my_courses))
+      ), '[]'::jsonb) else '[]'::jsonb end
+  ) into v_out;
+  return v_out;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Escribir en los datos de la ceo
+-- -----------------------------------------------------------------------------
+-- p_table: 'contacts' | 'vacancies' | 'courses' | 'students' | 'extra_classes'
+-- p_id: el id del documento (al crear, el que ha generado la app).
+-- p_patch: los campos que cambian ({ campo: valor nuevo }; null para quitarlo).
+-- p_before: cómo estaban esos campos al abrir la ficha (para no pisar un cambio de otro).
+-- p_create: crear el documento (si ya existe, error).
+-- Quién puede qué:
+--   RRHH          contacts (fichas de equipo y candidatos: ni fotos, ni alianzas; crear solo un
+--                 candidato) y vacancies (crear y editar)
+--   Directivo     courses (crear y editar), students (solo courseIds) y extra_classes (crear)
+-- Nadie borra con esta función. Devuelve el documento guardado.
+create or replace function public.cesi_ceo_doc_patch(p_table text, p_id text, p_patch jsonb, p_before jsonb, p_create boolean default false)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_area text;
+  v_ceo uuid;
+  v_old jsonb;
+  v_stamp_old timestamptz;
+  v_new jsonb;
+  v_stamp timestamptz;
+  v_key text;
+  v_changed jsonb := '{}'::jsonb;
+  v_was jsonb := '{}'::jsonb;
+  v_patch jsonb := coalesce(p_patch, '{}'::jsonb);
+  v_before jsonb := coalesce(p_before, '{}'::jsonb);
+  v_rrhh boolean;
+  v_dir boolean;
+begin
+  select area into v_area from public.profiles where id = v_me and role = 'equipo';
+  v_rrhh := v_area = 'personas';
+  v_dir := v_area = 'direccion';
+  if p_table is null or p_table not in ('contacts', 'vacancies', 'courses', 'students', 'extra_classes') then
+    raise exception 'Tabla no válida.' using errcode = '22023';
+  end if;
+  if not coalesce(case p_table
+      when 'contacts' then v_rrhh
+      when 'vacancies' then v_rrhh
+      else v_dir
+    end, false) then
+    raise exception 'No tienes permiso para cambiar estos datos.' using errcode = '42501';
+  end if;
+  if p_id is null or length(p_id) not between 1 and 200 or jsonb_typeof(v_patch) <> 'object' or v_patch = '{}'::jsonb then
+    raise exception 'Cambio no válido.' using errcode = '22023';
+  end if;
+  if v_patch ?| array['id', 'createdAt', 'updatedAt'] then
+    raise exception 'Cambio no válido.' using errcode = '22023';
+  end if;
+
+  -- Qué campos puede tocar cada uno.
+  if p_table = 'contacts' and v_patch ?| array['photo', 'alliance', 'external'] then
+    raise exception 'RRHH no puede cambiar la foto ni la alianza de un contacto.' using errcode = '42501';
+  end if;
+  if p_table = 'students' and (select count(*) from jsonb_object_keys(v_patch) k where k <> 'courseIds') > 0 then
+    raise exception 'De los alumnos solo se pueden cambiar sus cursos.' using errcode = '42501';
+  end if;
+  if p_table = 'students' and p_create then
+    raise exception 'Directivo no puede crear alumnos.' using errcode = '42501';
+  end if;
+  if p_table = 'extra_classes' and not p_create then
+    raise exception 'Directivo solo puede crear clases sueltas.' using errcode = '42501';
+  end if;
+
+  select id into v_ceo from public.profiles where role = 'ceo' order by created_at limit 1;
+  if v_ceo is null then
+    raise exception 'No hay cuenta de la dirección.' using errcode = '22023';
+  end if;
+  execute format('select data, updated_at from public.%I where user_id = $1 and id = $2 and deleted_at is null for update', p_table)
+    into v_old, v_stamp_old using v_ceo, p_id;
+
+  if p_create then
+    if v_old is not null then
+      raise exception 'Ya existe.' using errcode = '22023';
+    end if;
+    v_old := jsonb_build_object('createdAt', public.cesi_iso(clock_timestamp()));
+  elsif v_old is null then
+    raise exception 'Esa ficha ya no existe.' using errcode = '22023';
+  else
+    -- Si alguno de los campos ya no está como estaba al abrir la ficha, no se guarda nada.
+    for v_key in select jsonb_object_keys(v_patch) loop
+      if coalesce(v_old -> v_key, 'null'::jsonb) is distinct from coalesce(v_before -> v_key, 'null'::jsonb) then
+        raise exception 'Esta ficha ha cambiado mientras la editabas; vuelve a cargarla.' using errcode = '40001';
+      end if;
+    end loop;
+  end if;
+
+  -- Contactos (RRHH): solo fichas de equipo o de candidatos (antes y después).
+  if p_table = 'contacts' then
+    if not p_create and not (
+      (jsonb_typeof(v_old -> 'teamProfile') = 'object')
+      or (jsonb_typeof(v_old -> 'candidacies') = 'array' and jsonb_array_length(v_old -> 'candidacies') > 0)
+    ) then
+      raise exception 'RRHH solo puede cambiar fichas de equipo y de candidatos.' using errcode = '42501';
+    end if;
+    if p_create and not (jsonb_typeof(v_patch -> 'candidacies') = 'array' and jsonb_array_length(v_patch -> 'candidacies') > 0) then
+      raise exception 'RRHH solo puede crear candidatos.' using errcode = '42501';
+    end if;
+  end if;
+  -- Clase suelta: de un curso que existe.
+  if p_table = 'extra_classes' and not exists (
+    select 1 from public.courses co where co.user_id = v_ceo and co.id = v_patch ->> 'courseId' and co.deleted_at is null
+  ) then
+    raise exception 'Ese curso no existe.' using errcode = '22023';
+  end if;
+  -- Inscripciones: solo en cursos que existen.
+  if p_table = 'students' and jsonb_typeof(v_patch -> 'courseIds') <> 'array' then
+    raise exception 'Cursos no válidos.' using errcode = '22023';
+  end if;
+  if p_table = 'students' and exists (
+    select 1 from jsonb_array_elements_text(v_patch -> 'courseIds') x
+    where not exists (select 1 from public.courses co where co.user_id = v_ceo and co.id = x and co.deleted_at is null)
+      and not ((v_old -> 'courseIds') ? x)
+  ) then
+    raise exception 'Alguno de esos cursos no existe.' using errcode = '22023';
+  end if;
+
+  -- Los campos que de verdad cambian (para el registro).
+  for v_key in select jsonb_object_keys(v_patch) loop
+    if coalesce(v_old -> v_key, 'null'::jsonb) is distinct from (v_patch -> v_key) then
+      v_changed := v_changed || jsonb_build_object(v_key, v_patch -> v_key);
+      v_was := v_was || jsonb_build_object(v_key, coalesce(v_old -> v_key, 'null'::jsonb));
+    end if;
+  end loop;
+  if v_changed = '{}'::jsonb and not p_create then
+    return v_old;
+  end if;
+
+  v_stamp := greatest(clock_timestamp(), coalesce(v_stamp_old + interval '1 millisecond', '-infinity'));
+  v_new := v_old || v_patch || jsonb_build_object('id', p_id, 'updatedAt', public.cesi_iso(v_stamp));
+  execute format(
+    'insert into public.%I (user_id, id, data, updated_at, deleted_at) values ($1, $2, $3, $4, null)
+     on conflict (user_id, id) do update set data = excluded.data, updated_at = excluded.updated_at, deleted_at = null',
+    p_table) using v_ceo, p_id, v_new, v_stamp;
+
+  insert into public.team_edit_log (who, who_name, who_area, doc_table, doc_id, doc_name, action, before, after)
+  values (v_me, public.cesi_person_name(v_me), v_area, p_table, p_id,
+    left(coalesce(nullif(v_new ->> 'name', ''), nullif(v_new ->> 'title', ''), nullif(v_new ->> 'note', ''), ''), 200),
+    case when p_create then 'alta' else 'edicion' end,
+    case when p_create then null else v_was end, v_changed);
+  return v_new;
+end;
+$$;
+
+-- Registro de cambios de RRHH y Directivo en los datos de la ceo (solo la ceo), los más nuevos
+-- primero.
+create or replace function public.cesi_team_edit_log(p_limit integer default 300)
+returns table (
+  id bigint, at timestamptz, who_name text, who_area text, doc_table text, doc_id text, doc_name text,
+  action text, before jsonb, after jsonb
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  if not public.is_ceo() then
+    raise exception 'Solo la dirección ve el registro de cambios.' using errcode = '42501';
+  end if;
+  return query
+    select l.id, l.at, l.who_name, l.who_area, l.doc_table, l.doc_id, l.doc_name, l.action, l.before, l.after
+    from public.team_edit_log l
+    order by l.at desc, l.id desc
+    limit least(greatest(coalesce(p_limit, 300), 1), 1000);
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_screen_data(text, uuid, text) from public, anon;
+revoke all on function public.cesi_ceo_doc_patch(text, text, jsonb, jsonb, boolean) from public, anon;
+revoke all on function public.cesi_team_edit_log(integer) from public, anon;
+grant execute on function public.cesi_screen_data(text, uuid, text) to authenticated;
+grant execute on function public.cesi_ceo_doc_patch(text, text, jsonb, jsonb, boolean) to authenticated;
+grant execute on function public.cesi_team_edit_log(integer) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Parte 21: mensajes del equipo
+-- ---------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- Tablas
+-- -----------------------------------------------------------------------------
+--   pair_key  en las privadas, los dos ids ordenados ('a:b'), para no repetir la conversación
+create table if not exists public.chat_conversations (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('private', 'area', 'team')),
+  area text references public.areas (id) on update cascade on delete cascade,
+  pair_key text,
+  created_at timestamptz not null default now(),
+  last_message_at timestamptz,
+  constraint chat_conversations_kind check (
+    (kind = 'private' and pair_key is not null and area is null)
+    or (kind = 'area' and area is not null and pair_key is null)
+    or (kind = 'team' and area is null and pair_key is null)
+  )
+);
+create unique index if not exists chat_conversations_area_idx on public.chat_conversations (area) where kind = 'area';
+create unique index if not exists chat_conversations_pair_idx on public.chat_conversations (pair_key) where kind = 'private';
+create unique index if not exists chat_conversations_team_idx on public.chat_conversations (kind) where kind = 'team';
+
+create table if not exists public.chat_members (
+  conversation_id uuid not null references public.chat_conversations (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  primary key (conversation_id, profile_id)
+);
+create index if not exists chat_members_profile_idx on public.chat_members (profile_id);
+
+create table if not exists public.chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.chat_conversations (id) on delete cascade,
+  author_id uuid references public.profiles (id) on delete set null,
+  author_gone_name text not null default '',
+  body text not null default '' check (length(body) <= 4000),
+  created_at timestamptz not null default now(),
+  edited_at timestamptz,
+  deleted_at timestamptz
+);
+create index if not exists chat_messages_conv_idx on public.chat_messages (conversation_id, created_at desc);
+
+create table if not exists public.chat_reads (
+  conversation_id uuid not null references public.chat_conversations (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (conversation_id, profile_id)
+);
+
+-- Las de área y «Todo el equipo».
+insert into public.chat_conversations (kind) select 'team'
+where not exists (select 1 from public.chat_conversations where kind = 'team');
+insert into public.chat_conversations (kind, area)
+select 'area', a.id from public.areas a
+where not exists (select 1 from public.chat_conversations c where c.kind = 'area' and c.area = a.id);
+
+create or replace function public.cesi_chat_area_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.chat_conversations (kind, area) values ('area', new.id)
+  on conflict do nothing;
+  return new;
+end;
+$$;
+
+revoke all on function public.cesi_chat_area_created() from public, anon, authenticated;
+
+drop trigger if exists areas_chat_created on public.areas;
+create trigger areas_chat_created
+  after insert on public.areas
+  for each row execute function public.cesi_chat_area_created();
+
+-- -----------------------------------------------------------------------------
+-- Quién ve qué
+-- -----------------------------------------------------------------------------
+-- ¿Puede `p_me` leer (y escribir en) esa conversación?
+create or replace function public.cesi_chat_can(p_me uuid, p_conversation uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.chat_conversations c
+    join public.profiles p on p.id = p_me and p.role in ('ceo', 'equipo')
+    where c.id = p_conversation
+      and case c.kind
+        when 'team' then true
+        when 'area' then p.role = 'ceo' or p.area = 'direccion' or p.area = c.area
+        else exists (select 1 from public.chat_members m where m.conversation_id = c.id and m.profile_id = p_me)
+      end
+  );
+$$;
+
+-- La usan las reglas de acceso de abajo (con la cuenta que lee): tiene que poder ejecutarse.
+revoke all on function public.cesi_chat_can(uuid, uuid) from public, anon;
+grant execute on function public.cesi_chat_can(uuid, uuid) to authenticated;
+
+alter table public.chat_conversations enable row level security;
+alter table public.chat_members enable row level security;
+alter table public.chat_messages enable row level security;
+alter table public.chat_reads enable row level security;
+
+drop policy if exists "chat_conversations: las mías" on public.chat_conversations;
+create policy "chat_conversations: las mías" on public.chat_conversations
+  for select to authenticated using (public.cesi_chat_can((select auth.uid()), id));
+
+drop policy if exists "chat_members: de mis conversaciones" on public.chat_members;
+create policy "chat_members: de mis conversaciones" on public.chat_members
+  for select to authenticated using (public.cesi_chat_can((select auth.uid()), conversation_id));
+
+drop policy if exists "chat_messages: de mis conversaciones" on public.chat_messages;
+create policy "chat_messages: de mis conversaciones" on public.chat_messages
+  for select to authenticated using (public.cesi_chat_can((select auth.uid()), conversation_id));
+
+drop policy if exists "chat_reads: de mis conversaciones" on public.chat_reads;
+create policy "chat_reads: de mis conversaciones" on public.chat_reads
+  for select to authenticated using (public.cesi_chat_can((select auth.uid()), conversation_id));
+
+revoke all on public.chat_conversations, public.chat_members, public.chat_messages, public.chat_reads from anon;
+revoke all on public.chat_conversations, public.chat_members, public.chat_messages, public.chat_reads from authenticated;
+grant select on public.chat_conversations, public.chat_members, public.chat_messages, public.chat_reads to authenticated;
+
+-- Realtime: los mensajes y las lecturas llegan solos (cada uno, solo los que puede ver).
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['chat_messages', 'chat_reads'] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception
+      when duplicate_object then null;
+      when undefined_object then null;
+    end;
+  end loop;
+end;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Ayudas
+-- -----------------------------------------------------------------------------
+
+-- La cuenta actual, si es de equipo o la ceo (si no, error). Nunca otra («Ver como» no vale aquí).
+create or replace function public.cesi_chat_me()
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+begin
+  if not exists (select 1 from public.profiles where id = v_me and role in ('ceo', 'equipo')) then
+    raise exception 'Los mensajes son solo para el equipo.' using errcode = '42501';
+  end if;
+  return v_me;
+end;
+$$;
+
+-- Desde cuándo cuentan los no leídos de alguien que aún no ha abierto la conversación: desde que
+-- entró en el equipo (para no tener todo el historial sin leer).
+create or replace function public.cesi_chat_since(p_me uuid)
+returns timestamptz
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select coalesce(role_set_at, created_at) from public.profiles where id = p_me), now());
+$$;
+
+revoke all on function public.cesi_chat_me() from public, anon, authenticated;
+revoke all on function public.cesi_chat_since(uuid) from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Leer
+-- -----------------------------------------------------------------------------
+
+-- Mis conversaciones, con la más reciente primero.
+--   title        el área, «Todo el equipo» o la otra persona
+--   other_id     en las privadas, la otra persona; other_read_at: hasta cuándo ha leído («visto»)
+--   last_body    la última línea ('' si se borró: last_deleted), last_at, last_author_name
+--   unread       mensajes de otros sin leer
+create or replace function public.cesi_chat_list()
+returns table (
+  id uuid, kind text, area text, title text, other_id uuid, other_read_at timestamptz,
+  last_body text, last_deleted boolean, last_at timestamptz, last_author_id uuid, last_author_name text,
+  unread integer, my_read_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_chat_me();
+  v_since timestamptz := public.cesi_chat_since(v_me);
+begin
+  return query
+    select c.id, c.kind, c.area,
+      case c.kind when 'team' then 'Todo el equipo' when 'area' then coalesce(a.name, c.area)
+        else coalesce(public.cesi_name_or_gone(o.profile_id, null), 'Cuenta eliminada') end,
+      o.profile_id,
+      (select r.last_read_at from public.chat_reads r where r.conversation_id = c.id and r.profile_id = o.profile_id),
+      case when lm.deleted_at is null then left(coalesce(lm.body, ''), 200) else '' end,
+      lm.deleted_at is not null,
+      lm.created_at, lm.author_id,
+      case when lm.id is null then '' else public.cesi_name_or_gone(lm.author_id, lm.author_gone_name) end,
+      (select count(*)::integer from public.chat_messages m
+        where m.conversation_id = c.id and m.deleted_at is null and m.author_id is distinct from v_me
+          and m.created_at > coalesce(mr.last_read_at, v_since)),
+      mr.last_read_at
+    from public.chat_conversations c
+    left join public.areas a on a.id = c.area
+    left join lateral (
+      select m.profile_id from public.chat_members m where m.conversation_id = c.id and m.profile_id <> v_me limit 1
+    ) o on c.kind = 'private'
+    left join public.chat_reads mr on mr.conversation_id = c.id and mr.profile_id = v_me
+    left join lateral (
+      select m.id, m.body, m.created_at, m.author_id, m.author_gone_name, m.deleted_at
+      from public.chat_messages m where m.conversation_id = c.id
+      order by m.created_at desc limit 1
+    ) lm on true
+    where public.cesi_chat_can(v_me, c.id)
+    order by coalesce(lm.created_at, c.created_at) desc, c.kind, a.sort nulls last;
+end;
+$$;
+
+-- Mensajes de una conversación (los más recientes; p_before: los anteriores a esa hora), del más
+-- antiguo al más nuevo. mine: los míos (se pueden editar y borrar).
+create or replace function public.cesi_chat_messages(p_conversation uuid, p_before timestamptz default null, p_limit integer default 100)
+returns table (
+  id uuid, conversation_id uuid, author_id uuid, author_name text, body text,
+  created_at timestamptz, edited_at timestamptz, deleted boolean, mine boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_chat_me();
+begin
+  if not public.cesi_chat_can(v_me, p_conversation) then
+    raise exception 'No puedes ver esta conversación.' using errcode = '42501';
+  end if;
+  return query
+    select x.id, x.conversation_id, x.author_id, x.author_name, x.body, x.created_at, x.edited_at, x.deleted, x.mine
+    from (
+      select m.id, m.conversation_id, m.author_id, public.cesi_name_or_gone(m.author_id, m.author_gone_name) as author_name,
+        case when m.deleted_at is null then m.body else '' end as body,
+        m.created_at, m.edited_at, m.deleted_at is not null as deleted, m.author_id = v_me as mine
+      from public.chat_messages m
+      where m.conversation_id = p_conversation and (p_before is null or m.created_at < p_before)
+      order by m.created_at desc
+      limit least(greatest(coalesce(p_limit, 100), 1), 300)
+    ) x
+    order by x.created_at;
+end;
+$$;
+
+-- Personas con las que se puede abrir una privada: el equipo y la ceo (sin mí).
+create or replace function public.cesi_chat_people()
+returns table (id uuid, name text, area text, area_name text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_me uuid := public.cesi_chat_me();
+begin
+  return query
+    select p.id, public.cesi_person_name(p.id), p.area,
+      case when p.role = 'ceo' then 'Dirección' else coalesce(a.name, '') end
+    from public.profiles p
+    left join public.areas a on a.id = p.area
+    where p.role in ('ceo', 'equipo') and p.id <> v_me
+    order by 2;
+end;
+$$;
+
+-- Total de mensajes sin leer (para el menú y el Inicio).
+create or replace function public.cesi_chat_unread()
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(sum(unread), 0)::integer from public.cesi_chat_list();
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Escribir
+-- -----------------------------------------------------------------------------
+
+-- Abrir (o crear) la conversación privada con otra persona del equipo o la ceo. Devuelve su id.
+create or replace function public.cesi_chat_open_private(p_other uuid)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_chat_me();
+  v_key text;
+  v_id uuid;
+begin
+  if p_other is null or p_other = v_me or not exists (select 1 from public.profiles where id = p_other and role in ('ceo', 'equipo')) then
+    raise exception 'Solo puedes escribir a otra persona del equipo.' using errcode = '22023';
+  end if;
+  v_key := least(v_me::text, p_other::text) || ':' || greatest(v_me::text, p_other::text);
+  select c.id into v_id from public.chat_conversations c where c.kind = 'private' and c.pair_key = v_key;
+  if v_id is null then
+    insert into public.chat_conversations (kind, pair_key) values ('private', v_key)
+    on conflict do nothing
+    returning id into v_id;
+    if v_id is null then
+      select c.id into v_id from public.chat_conversations c where c.kind = 'private' and c.pair_key = v_key;
+    end if;
+  end if;
+  insert into public.chat_members (conversation_id, profile_id) values (v_id, v_me), (v_id, p_other)
+  on conflict do nothing;
+  return v_id;
+end;
+$$;
+
+-- Escribir un mensaje. Devuelve su id. También marca la conversación como leída.
+create or replace function public.cesi_chat_send(p_conversation uuid, p_body text)
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_chat_me();
+  v_body text := trim(coalesce(p_body, ''));
+  v_id uuid;
+begin
+  if not public.cesi_chat_can(v_me, p_conversation) then
+    raise exception 'No puedes escribir en esta conversación.' using errcode = '42501';
+  end if;
+  if length(v_body) = 0 or length(v_body) > 4000 then
+    raise exception 'Escribe el mensaje (como mucho 4000 caracteres).' using errcode = '22023';
+  end if;
+  insert into public.chat_messages (conversation_id, author_id, body) values (p_conversation, v_me, v_body)
+  returning id into v_id;
+  update public.chat_conversations set last_message_at = now() where id = p_conversation;
+  insert into public.chat_reads (conversation_id, profile_id, last_read_at) values (p_conversation, v_me, now())
+  on conflict (conversation_id, profile_id) do update set last_read_at = excluded.last_read_at;
+  return v_id;
+end;
+$$;
+
+-- Editar un mensaje mío (que no esté borrado).
+create or replace function public.cesi_chat_edit(p_id uuid, p_body text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_chat_me();
+  v_body text := trim(coalesce(p_body, ''));
+begin
+  if length(v_body) = 0 or length(v_body) > 4000 then
+    raise exception 'Escribe el mensaje (como mucho 4000 caracteres).' using errcode = '22023';
+  end if;
+  update public.chat_messages set body = v_body, edited_at = now()
+  where id = p_id and author_id = v_me and deleted_at is null
+    and public.cesi_chat_can(v_me, conversation_id);
+  if not found then
+    raise exception 'Solo puedes editar tus mensajes.' using errcode = '42501';
+  end if;
+end;
+$$;
+
+-- Borrar un mensaje mío: se borra el texto y queda «Mensaje eliminado».
+create or replace function public.cesi_chat_delete(p_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_chat_me();
+begin
+  update public.chat_messages set body = '', deleted_at = now()
+  where id = p_id and author_id = v_me and deleted_at is null;
+  if not found then
+    raise exception 'Solo puedes borrar tus mensajes.' using errcode = '42501';
+  end if;
+end;
+$$;
+
+-- Marcar como leída una conversación (hasta ahora).
+create or replace function public.cesi_chat_read(p_conversation uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := public.cesi_chat_me();
+begin
+  if not public.cesi_chat_can(v_me, p_conversation) then
+    raise exception 'No puedes ver esta conversación.' using errcode = '42501';
+  end if;
+  insert into public.chat_reads (conversation_id, profile_id, last_read_at) values (p_conversation, v_me, now())
+  on conflict (conversation_id, profile_id) do update set last_read_at = greatest(public.chat_reads.last_read_at, excluded.last_read_at);
+end;
+$$;
+
+-- Al eliminar una cuenta, sus mensajes se quedan con su nombre.
+create or replace function public.cesi_chat_gone()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.chat_messages
+  set author_gone_name = left(coalesce(nullif(public.cesi_person_name(old.id), ''), 'Sin nombre'), 200)
+  where author_id = old.id;
+  return old;
+end;
+$$;
+
+revoke all on function public.cesi_chat_gone() from public, anon, authenticated;
+
+drop trigger if exists profiles_chat_gone on public.profiles;
+create trigger profiles_chat_gone
+  before delete on public.profiles
+  for each row execute function public.cesi_chat_gone();
+
+-- -----------------------------------------------------------------------------
+-- Permisos de las funciones
+-- -----------------------------------------------------------------------------
+revoke all on function public.cesi_chat_list() from public, anon;
+revoke all on function public.cesi_chat_messages(uuid, timestamptz, integer) from public, anon;
+revoke all on function public.cesi_chat_people() from public, anon;
+revoke all on function public.cesi_chat_unread() from public, anon;
+revoke all on function public.cesi_chat_open_private(uuid) from public, anon;
+revoke all on function public.cesi_chat_send(uuid, text) from public, anon;
+revoke all on function public.cesi_chat_edit(uuid, text) from public, anon;
+revoke all on function public.cesi_chat_delete(uuid) from public, anon;
+revoke all on function public.cesi_chat_read(uuid) from public, anon;
+grant execute on function public.cesi_chat_list() to authenticated;
+grant execute on function public.cesi_chat_messages(uuid, timestamptz, integer) to authenticated;
+grant execute on function public.cesi_chat_people() to authenticated;
+grant execute on function public.cesi_chat_unread() to authenticated;
+grant execute on function public.cesi_chat_open_private(uuid) to authenticated;
+grant execute on function public.cesi_chat_send(uuid, text) to authenticated;
+grant execute on function public.cesi_chat_edit(uuid, text) to authenticated;
+grant execute on function public.cesi_chat_delete(uuid) to authenticated;
+grant execute on function public.cesi_chat_read(uuid) to authenticated;
