@@ -16,6 +16,7 @@ import WeekView from './components/CalendarView/WeekView.jsx'
 import DayView from './components/CalendarView/DayView.jsx'
 import EventModal from './components/EventModal.jsx'
 import FindSlotModal from './components/FindSlotModal.jsx'
+import AllianceShare from './components/alliances/AllianceShare.jsx'
 import RecurrenceScopeDialog from './components/RecurrenceScopeDialog.jsx'
 import MeetingWarningDialog from './components/MeetingWarningDialog.jsx'
 import { meetingsWithUnavailable, unavailableWarning } from './lib/unavailableParticipants.js'
@@ -1053,7 +1054,12 @@ export default function App() {
                 onReturnToTeam={handleReturnToTeam}
                 onOpenTeamMember={handleOpenTeamMember}
                 onOpenCandidate={handleOpenCandidate}
-                renderAlliance={(c) => <AlliancePanel contact={c} canEdit people={alliancePeople} api={allianceApi} today={todayInMyZone} />}
+                renderAlliance={(c) => (
+                  <>
+                    <AllianceShare contact={c} onChange={(shared) => editContact(c.id, { allianceShared: shared })} />
+                    <AlliancePanel contact={c} canEdit people={alliancePeople} api={allianceApi} today={todayInMyZone} />
+                  </>
+                )}
               />
             </Suspense>
           </div>

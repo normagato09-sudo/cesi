@@ -238,3 +238,32 @@
     grid-template-columns: repeat(5, 78vw);
   }
 }
+
+/* «Compartir con Alianzas» en mi ficha (AllianceShare). */
+.al-share {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 13px;
+  cursor: pointer;
+}
+.al-share input {
+  margin-top: 2px;
+}
+.al-share span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+}
+.al-share em {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+}

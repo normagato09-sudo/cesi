@@ -98,6 +98,10 @@ export default function ContactsView({
   editExternal = false,
   // El seguimiento de alianza en la ficha (Alianzas, Directivo y yo): (contacto) => contenido.
   renderAlliance = null,
+  // Contactos personales de una persona de equipo (con readOnly y editExternal): también borra y
+  // gestiona sus grupos. title: el título de la pantalla.
+  personal = false,
+  title = null,
 }) {
   const [query, setQuery] = useState('')
   const [formModal, setFormModal] = useState(null)
@@ -250,7 +254,7 @@ export default function ContactsView({
       ) : (
       <div className="contacts-list-pane">
         <div className="contacts-header">
-          <h1 className="contacts-title">Contactos externos</h1>
+          <h1 className="contacts-title">{title || 'Contactos externos'}</h1>
           <div className="contacts-header-actions">
             <label className="contacts-search">
               <Search size={15} strokeWidth={1.75} />
@@ -310,7 +314,7 @@ export default function ContactsView({
                 Candidatos ({candidateCount})
               </button>
             )}
-            {!readOnly && (
+            {(!readOnly || personal) && (
               <button
                 type="button"
                 className="contacts-groups-btn"
@@ -321,18 +325,20 @@ export default function ContactsView({
                 {groups.length > 0 ? 'Gestionar grupos' : 'Crear grupos'}
               </button>
             )}
-            <button
-              type="button"
-              className="contacts-groups-btn"
-              onClick={() => {
-                setArchiveOpen(true)
-                onSelectContact(null)
-              }}
-              title="Contactos archivados y antiguos miembros"
-            >
-              <Archive size={13} strokeWidth={1.75} />
-              Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
-            </button>
+            {!personal && (
+              <button
+                type="button"
+                className="contacts-groups-btn"
+                onClick={() => {
+                  setArchiveOpen(true)
+                  onSelectContact(null)
+                }}
+                title="Contactos archivados y antiguos miembros"
+              >
+                <Archive size={13} strokeWidth={1.75} />
+                Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}
+              </button>
+            )}
           </div>
           {unreviewedCount > 0 && (
             <div className="contacts-unreviewed" role="status">
@@ -351,8 +357,8 @@ export default function ContactsView({
         {people.length === 0 ? (
           <div className="contacts-empty">
             <Users size={32} strokeWidth={1.5} />
-            <p className="contacts-empty-title">{readOnly ? 'Todavía no hay contactos' : 'Todavía no tienes contactos'}</p>
-            {!readOnly && (
+            <p className="contacts-empty-title">{readOnly && !personal ? 'Todavía no hay contactos' : 'Todavía no tienes contactos'}</p>
+            {(!readOnly || personal) && (
               <>
                 <p>Guarda aquí a las personas con las que te reúnes para tener a mano su email, teléfono y vuestras reuniones.</p>
                 <button type="button" className="contacts-new-btn" onClick={() => setFormModal({ contact: null })}>
@@ -451,6 +457,12 @@ export default function ContactsView({
                     <Pencil size={14} strokeWidth={1.75} />
                     Editar
                   </button>
+                  {personal && (
+                    <button type="button" className="contact-action-btn danger" onClick={handleDelete}>
+                      <Trash2 size={14} strokeWidth={1.75} />
+                      Eliminar
+                    </button>
+                  )}
                 </div>
               ) : null
             ) : showArchive ? (

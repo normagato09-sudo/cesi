@@ -14,6 +14,8 @@ import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
 import MyClasses from './team/MyClasses.jsx'
 import AreaSummary from './team/AreaSummary.jsx'
+import MemberContacts from './team/MemberContacts.jsx'
+import { useExternalContacts } from './team/useExternalContacts'
 import { AllianceStatsCard, NextStepsCard } from './alliances/AllianceHome.jsx'
 import BoardView from './boards/BoardView.jsx'
 import BoardsView from './boards/BoardsView.jsx'
@@ -71,6 +73,8 @@ export default function MemberApp({
   const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
   // Mensajes sin leer (nunca en «Ver como»: los mensajes son privados).
   const unread = useChatUnread(preview ? null : client)
+  // Mis contactos (y los de Alianzas) para «Nueva reunión»; en «Ver como», ninguno (son privados).
+  const externalContacts = useExternalContacts(preview ? null : client, area)
 
   useEffect(() => {
     if (previewLevels || !client) return
@@ -168,13 +172,23 @@ export default function MemberApp({
 
       <main className="app-main">
         {section === 'shared-calendar' ? (
-          <SharedCalendar client={workClient} meId={me.id} zone={zone} asId={workAs} readOnly={readOnly} />
+          <SharedCalendar client={workClient} meId={me.id} zone={zone} asId={workAs} readOnly={readOnly} externalContacts={externalContacts} />
         ) : section === 'team-tasks' ? (
           <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'goals' ? (
           <GoalsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'finance' && (area === 'finanzas' || me.boss) ? (
           <FinanceView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'contacts' ? (
+          <MemberContacts
+            client={client}
+            area={area}
+            zone={zone}
+            preview={!!preview}
+            screensClient={screensClient}
+            asId={workAs}
+            asArea={preview && !workAs ? screensArea : null}
+          />
         ) : section === 'messages' ? (
           preview ? <MessagesPrivate /> : <MessagesView client={client} meId={userId} zone={zone} />
         ) : section === 'notices' ? (

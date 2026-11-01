@@ -214,7 +214,14 @@ export default function MeetingFormModal({
     if (!q) return baseRows
     const match = (text) => plain(text).includes(q)
     const found = baseRows.filter((r) => match(`${r.name} ${r.tag}`))
-    if (!isCeo || meeting) return found
+    if (meeting) return found
+    // El equipo: sus contactos (y los de Alianzas) como externos (parte 24).
+    if (!isCeo) {
+      const mine = contacts
+        .filter((c) => match(`${c.name} ${c.email || ''} ${c.organization || ''}`))
+        .map((c) => ({ key: `e:${c.id}`, type: 'contact', id: c.id, name: c.name || c.email, tag: c.alliance || c.allianceShared ? 'Alianzas' : 'Mi contacto', external: true }))
+      return [...found, ...mine]
+    }
     // La ceo busca también en Contactos externos y en sus grupos.
     const externalRows = contacts
       .filter((c) => !c.archived && !isActiveMember(c) && !isCandidateOnly(c) && match(`${c.name} ${c.email || ''} ${c.organization || ''}`))
@@ -534,7 +541,7 @@ export default function MeetingFormModal({
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder={isCeo && !meeting ? 'Buscar personas, contactos externos o grupos' : 'Buscar por nombre'}
+                    placeholder={isCeo && !meeting ? 'Buscar personas, contactos externos o grupos' : !meeting && contacts.length > 0 ? 'Buscar personas o tus contactos' : 'Buscar por nombre'}
                     aria-label="Buscar participantes"
                   />
                 </label>

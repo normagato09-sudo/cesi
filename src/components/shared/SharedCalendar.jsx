@@ -27,7 +27,9 @@ const NO_HOURS = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, enabled: false, slot
 // vista elegida se recuerda), en la zona de su perfil, con sus reuniones compartidas y sus clases.
 // «Nueva reunión» (o pulsar un hueco) abre el formulario, y al pulsar algo, su ficha.
 // asId + readOnly: «Ver como» de la ceo (lee el calendario de esa persona, sin poder cambiar nada).
-export default function SharedCalendar({ client, meId, zone, asId = null, readOnly = false }) {
+// externalContacts: los contactos que esa persona puede añadir como externos en «Nueva reunión»
+// (los suyos y, en Alianzas, los del área; parte 24).
+export default function SharedCalendar({ client, meId, zone, asId = null, readOnly = false, externalContacts = [] }) {
   const compactWeek = useMediaQuery('(max-width: 640px)')
   const [view, setViewState] = useState(() => readView())
   const [currentDate, setCurrentDate] = useState(() => toWall(new Date(), zone))
@@ -165,6 +167,7 @@ export default function SharedCalendar({ client, meId, zone, asId = null, readOn
             zone={zone}
             meeting={form.meeting}
             prefill={form.prefill}
+            contacts={externalContacts}
             onClose={() => setForm(null)}
             onSaved={() => {
               setForm(null)

@@ -86,11 +86,12 @@ export function ceoGroups(withSync) {
   return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
 }
 
-// Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el compartido), «Tareas»
-// (las del equipo), «Objetivos» (los del mes de su área), el tablero de su área (si tiene;
-// Directivo, «Tableros») y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi
-// calendario (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario
-// aún no lo ve nadie del equipo, y los fichajes de todos los ve Directivo desde su «Fichaje».
+// Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el
+// compartido), «Tareas» (las del equipo), «Objetivos» (los del mes de su área), el tablero de su
+// área (si tiene; Directivo, «Tableros»), «Contactos» (los suyos) y «Fichaje», siempre; y las
+// pantallas a las que tiene permiso. Mi calendario (permiso 'calendario') y mis Fichajes (permiso
+// 'fichajes') no salen: el calendario aún no lo ve nadie del equipo, y los fichajes de todos los
+// ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.
 export function memberGroups(levels = {}, area = null) {
   return NAV_GROUPS.map((g) =>
@@ -114,16 +115,17 @@ export function memberGroups(levels = {}, area = null) {
         }
       : {
           ...g,
-          items: g.items.filter(
-            (item) =>
-              !item.ceoOnly &&
-              (!item.areas || item.areas.includes(area)) &&
-              item.id !== 'calendar' &&
-              item.id !== 'clockins' &&
-              item.screen &&
-              levels[item.screen] &&
-              levels[item.screen] !== 'none',
-          ),
+          items: g.items
+            .filter(
+              (item) =>
+                !item.ceoOnly &&
+                (!item.areas || item.areas.includes(area)) &&
+                item.id !== 'calendar' &&
+                item.id !== 'clockins' &&
+                // «Contactos» (los suyos) lo tiene todo el equipo; lo demás, con permiso.
+                (item.id === 'contacts' || (item.screen && levels[item.screen] && levels[item.screen] !== 'none')),
+            )
+            .map((item) => (item.id === 'contacts' ? { ...item, label: 'Contactos' } : item)),
         },
   ).filter((g) => g.items.length > 0)
 }
