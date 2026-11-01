@@ -4,7 +4,6 @@ import { es } from 'date-fns/locale'
 import {
   ArrowLeft,
   AtSign,
-  BookOpen,
   Cake,
   CalendarClock,
   CalendarDays,
@@ -25,7 +24,8 @@ import CoursesModal from './CoursesModal.jsx'
 import CoursesView from './CoursesView.jsx'
 import StudentAccountSection from './StudentAccountSection.jsx'
 import { portalDiffers } from '../lib/studentPortal'
-import { attendanceCountOfStudent } from '../lib/attendance'
+import { STATUSES, attendanceCountOfStudent } from '../lib/attendance'
+import { ACCOUNT_LABEL, accountState, attendanceTone, lastClasses, studentAttendance, studentHeadline } from '../lib/courseOverview'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { coursesOfStudent, studentsInCourse } from '../lib/courses'
 import {
@@ -43,19 +43,19 @@ import { SPAIN_ZONE, countryFlag, countryLabel, formatOffsetDiff, formatTimeInZo
 import './ContactsView.css'
 import './GroupsModal.css'
 import './StudentsView.css'
+import './CoursesPage.css'
 
-const COURSE_COLOR = 'var(--accent)'
+const STATUS_LABEL = Object.fromEntries(STATUSES.map((s) => [s.value, s.label]))
 
-function CourseChips({ student, courses }) {
-  const list = coursesOfStudent(student, courses)
-  if (list.length === 0) return null
+// La asistencia con su barrita de color (verde, naranja o rojo).
+function AttendanceBar({ percent }) {
+  const tone = attendanceTone(percent)
   return (
-    <span className="group-chips">
-      {list.map((c) => (
-        <span key={c.id} className="group-chip" style={{ '--group-color': COURSE_COLOR }}>
-          {c.name}
-        </span>
-      ))}
+    <span className={`cp-att ${tone}`}>
+      <span className="cp-att-bar" aria-hidden="true">
+        <span style={{ width: `${percent ?? 0}%` }} />
+      </span>
+      {percent === null ? '—' : `${percent} %`}
     </span>
   )
 }
@@ -143,6 +143,8 @@ export default function StudentsView({
   onEnroll = null,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
+  // Estado: '' | 'active' (con clases este mes) | 'linked' | 'pending' | 'none' (cuenta).
+  const [state, setState] = useState('')
   const [formModal, setFormModal] = useState(null)
   const [coursesOpen, setCoursesOpen] = useState(false)
   const [ownTab, setTab] = useState('students') // 'students' | 'courses'
@@ -158,6 +160,15 @@ export default function StudentsView({
     [students, filter, activeCourse, activeCountry],
   )
   const filtering = !!(filter.query.trim() || activeCourse || activeCountry)
+  const rows = useMemo(() => {
+    if (!state) return filtered
+    if (state === 'active') {
+      const month = format(now, 'yyyy-MM')
+      const active = new Set(attendance.filter((r) => (r.classStart || '').slice(0, 7) === month).map((r) => r.studentId))
+      return filtered.filter((s) => active.has(s.id))
+    }
+    return filtered.filter((s) => accountState(portals?.get(s.id)) === state)
+  }, [filtered, state, attendance, portals, now])
   const selected = students.find((s) => s.id === selectedStudentId) || null
 
   const handleFormSubmit = (values) => {
@@ -223,8 +234,9 @@ export default function StudentsView({
           attendance={attendance}
           extraClasses={extraClasses}
           actions={attendanceActions}
-          onManageCourses={() => setCoursesOpen(true)}
           onUpdateCourse={onUpdateCourse}
+          onCreateCourse={onCreateCourse}
+          onDeleteCourse={onDeleteCourse}
           readOnly={readOnly}
           canMark={canMark}
           client={client}
@@ -236,80 +248,71 @@ export default function StudentsView({
     )
   }
 
+  const today = format(now, 'yyyy-MM-dd')
+  const headline = studentHeadline(students, attendance, today)
+  const withAccounts = !!portals
+  const courseName = (id) => courses.find((c) => c.id === id)?.name || 'Curso borrado'
+  const selectedAtt = selected ? studentAttendance(attendance, selected.id).percent : null
+  const selectedCourses = selected ? coursesOfStudent(selected, courses) : []
+
   return (
-    <div className={`contacts-view${selected ? ' has-selection' : ''}`}>
-      <div className="contacts-list-pane">
-        <div className="contacts-header">
-          <h1 className="contacts-title">Alumnos</h1>
-          {tabs}
-          <div className="contacts-header-actions">
-            <label className="contacts-search">
-              <Search size={15} strokeWidth={1.75} />
-              <input
-                type="search"
-                value={filter.query}
-                onChange={(e) => set({ query: e.target.value })}
-                placeholder="Buscar por nombre, Discord, email, teléfono..."
-                aria-label="Buscar alumnos"
-              />
-            </label>
+    <div className={`cp-root cp-students contacts-view${selected ? ' has-selection' : ''}`}>
+      <div className="contacts-list-pane cp-list-pane">
+        <div className="cp-list-head">
+          <div className="cp-title-row">
+            <div>
+              <h1 className="contacts-title">Alumnos</h1>
+              <p className="cp-headline">
+                {headline.total} {headline.total === 1 ? 'alumno' : 'alumnos'} · {headline.activeMonth} activos este mes · {headline.newWeek}{' '}
+                {headline.newWeek === 1 ? 'nuevo' : 'nuevos'} esta semana
+              </p>
+            </div>
             {!readOnly && (
-              <button
-                type="button"
-                className="contacts-new-btn"
-                onClick={() => setFormModal({ student: null })}
-                aria-label="Nuevo alumno"
-                title="Nuevo alumno"
-              >
+              <button type="button" className="cp-btn primary" onClick={() => setFormModal({ student: null })} aria-label="Nuevo alumno" title="Nuevo alumno">
                 <UserPlus size={15} strokeWidth={1.75} />
                 <span>Nuevo alumno</span>
               </button>
             )}
           </div>
-
-          <div className="contacts-group-filter" role="group" aria-label="Filtrar por curso">
-            {courses.length > 0 && (
-              <button
-                type="button"
-                className={`contacts-group-filter-btn${activeCourse ? '' : ' on'}`}
-                onClick={() => set({ courseId: null })}
-                aria-pressed={!activeCourse}
-              >
-                Todos los cursos
-              </button>
-            )}
-            {courses.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`group-chip${activeCourse?.id === c.id ? ' on' : ''}`}
-                style={{ '--group-color': COURSE_COLOR }}
-                onClick={() => set({ courseId: activeCourse?.id === c.id ? null : c.id })}
-                aria-pressed={activeCourse?.id === c.id}
-              >
-                {c.name} ({studentsInCourse(c.id, students).length})
-              </button>
-            ))}
-            {!readOnly && (
-              <button type="button" className="contacts-groups-btn" onClick={() => setCoursesOpen(true)} title="Crear, renombrar o borrar cursos">
-                <BookOpen size={13} strokeWidth={1.75} />
-                {courses.length > 0 ? 'Gestionar cursos' : 'Crear cursos'}
-              </button>
-            )}
-          </div>
-
-          <div className="students-filters">
-            <label className="students-country-filter">
-              <span className="sr-only">Filtrar por país</span>
-              <select value={activeCountry} onChange={(e) => set({ country: e.target.value })} disabled={countries.length === 0}>
-                <option value="">Todos los países</option>
-                {countries.map((code) => (
-                  <option key={code} value={code}>
-                    {countryLabel(code)}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {tabs}
+          <label className="cp-search">
+            <Search size={15} strokeWidth={1.75} />
+            <input
+              type="search"
+              value={filter.query}
+              onChange={(e) => set({ query: e.target.value })}
+              placeholder="Buscar por nombre, Discord, email, teléfono..."
+              aria-label="Buscar alumnos"
+            />
+          </label>
+          <div className="cp-filters">
+            <select value={activeCourse?.id || ''} onChange={(e) => set({ courseId: e.target.value || null })} aria-label="Filtrar por curso" disabled={courses.length === 0}>
+              <option value="">Todos los cursos</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({studentsInCourse(c.id, students).length})
+                </option>
+              ))}
+            </select>
+            <select value={activeCountry} onChange={(e) => set({ country: e.target.value })} disabled={countries.length === 0} aria-label="Filtrar por país">
+              <option value="">Todos los países</option>
+              {countries.map((code) => (
+                <option key={code} value={code}>
+                  {countryLabel(code)}
+                </option>
+              ))}
+            </select>
+            <select value={state} onChange={(e) => setState(e.target.value)} aria-label="Filtrar por estado">
+              <option value="">Todos los estados</option>
+              <option value="active">Activos este mes</option>
+              {withAccounts && (
+                <>
+                  <option value="linked">Con cuenta</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="none">Sin cuenta</option>
+                </>
+              )}
+            </select>
           </div>
         </div>
 
@@ -327,157 +330,242 @@ export default function StudentsView({
               </>
             )}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="contacts-empty">
             <p>No hay alumnos que coincidan con la búsqueda y los filtros.</p>
-            {filtering && (
-              <button type="button" className="contacts-groups-btn" onClick={() => setFilter(DEFAULT_STUDENT_FILTER)}>
+            {(filtering || state) && (
+              <button
+                type="button"
+                className="contacts-groups-btn"
+                onClick={() => {
+                  setFilter(DEFAULT_STUDENT_FILTER)
+                  setState('')
+                }}
+              >
                 Quitar filtros
               </button>
             )}
           </div>
         ) : (
-          <ul className="contacts-list">
-            {filtered.map((s) => (
-              <li key={s.id} className={`contact-row${s.id === selectedStudentId ? ' active' : ''}`}>
-                <button type="button" className="contact-row-main" onClick={() => onSelectStudent(s.id)}>
-                  <ContactAvatar name={s.name} />
-                  <span className="contact-row-text">
-                    <span className="contact-row-name">
-                      {s.name}
-                      {portalDiffers(portals?.get(s.id), s) && (
-                        <span className="student-changed-badge" title="El alumno ha cambiado sus datos">
-                          Cambios
+          <div className="cp-table-wrap">
+            <table className="cp-table">
+              <thead>
+                <tr>
+                  <th>Alumno</th>
+                  <th>Cursos</th>
+                  <th>País · zona</th>
+                  <th>Asistencia</th>
+                  <th className="num">Media</th>
+                  {withAccounts && <th>Cuenta</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => {
+                  const account = accountState(portals?.get(s.id))
+                  return (
+                    <tr
+                      key={s.id}
+                      className={`clickable${s.id === selectedStudentId ? ' on' : ''}`}
+                      onClick={() => onSelectStudent(s.id)}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onSelectStudent(s.id))}
+                      tabIndex={0}
+                      aria-label={`Abrir la ficha de ${s.name}`}
+                    >
+                      <td>
+                        <span className="cp-person">
+                          <ContactAvatar name={s.name} size="sm" />
+                          <span className="cp-person-text">
+                            <strong>
+                              {s.name}
+                              {portalDiffers(portals?.get(s.id), s) && (
+                                <span className="student-changed-badge" title="El alumno ha cambiado sus datos">
+                                  Cambios
+                                </span>
+                              )}
+                            </strong>
+                            {s.discord && <span className="cp-muted">@{s.discord}</span>}
+                          </span>
                         </span>
+                      </td>
+                      <td>
+                        <span className="cp-chips">
+                          {coursesOfStudent(s, courses).map((c) => (
+                            <span key={c.id} className="cp-chip">
+                              {c.name}
+                            </span>
+                          ))}
+                        </span>
+                      </td>
+                      <td className="cp-muted">{[countryLabel(s.country), s.timeZone ? zonePlace(s.timeZone) : ''].filter(Boolean).join(' · ')}</td>
+                      <td>
+                        <AttendanceBar percent={studentAttendance(attendance, s.id).percent} />
+                      </td>
+                      <td className="num cp-muted">—</td>
+                      {withAccounts && (
+                        <td>
+                          <span className={`cp-account ${account}`}>{ACCOUNT_LABEL[account]}</span>
+                        </td>
                       )}
-                    </span>
-                    <CourseChips student={s} courses={courses} />
-                    <span className="contact-row-country">{countryLabel(s.country)}</span>
-                  </span>
-                </button>
-                {(s.email || s.phone) && (
-                  <div className="contact-row-links">
-                    {s.email && (
-                      <a href={`mailto:${s.email}`} title={s.email}>
-                        <Mail size={13} strokeWidth={1.75} />
-                        <span>{s.email}</span>
-                      </a>
-                    )}
-                    {s.phone && (
-                      <a href={`tel:${s.phone.replace(/\s+/g, '')}`} title={s.phone}>
-                        <Phone size={13} strokeWidth={1.75} />
-                        <span>{s.phone}</span>
-                      </a>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      <div className="contacts-detail-pane">
+      <div className="contacts-detail-pane cp-detail-pane">
         {!selected ? (
           <div className="contacts-empty">
             <p>Selecciona un alumno para ver su ficha.</p>
           </div>
         ) : (
-          <div className="contact-detail">
+          <div className="cp-detail">
             <button type="button" className="contact-back-btn" onClick={() => onSelectStudent(null)}>
               <ArrowLeft size={16} strokeWidth={1.75} />
               Alumnos
             </button>
 
-            <div className="contact-detail-head">
-              <ContactAvatar name={selected.name} size="lg" />
-              <div>
-                <h2>{selected.name}</h2>
-                <CourseChips student={selected} courses={courses} />
+            <div className="cp-profile">
+              <ContactAvatar name={selected.name} size="xl" />
+              <h2>{selected.name}</h2>
+              <p className="cp-muted">
+                {[countryLabel(selected.country), selected.discord ? `@${selected.discord}` : ''].filter(Boolean).join(' · ')}
+              </p>
+              {!readOnly && (
+                <div className="cp-detail-actions">
+                  <button type="button" className="cp-btn" onClick={() => setFormModal({ student: selected })}>
+                    <Pencil size={14} strokeWidth={1.75} />
+                    Editar
+                  </button>
+                  <button type="button" className="cp-btn" onClick={handleDelete}>
+                    <Trash2 size={14} strokeWidth={1.75} />
+                    Eliminar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="cp-stats">
+              <div className={`cp-stat ${attendanceTone(selectedAtt)}`}>
+                <span className="cp-stat-label">Asistencia</span>
+                <strong>{selectedAtt === null ? '—' : `${selectedAtt} %`}</strong>
+              </div>
+              <div className="cp-stat">
+                <span className="cp-stat-label">Media</span>
+                <strong>—</strong>
+              </div>
+              <div className="cp-stat">
+                <span className="cp-stat-label">Cursos</span>
+                <strong>{selectedCourses.length}</strong>
               </div>
             </div>
 
-            {!readOnly && (
-            <div className="contact-detail-actions">
-              <button type="button" className="contact-action-btn" onClick={() => setFormModal({ student: selected })}>
-                <Pencil size={14} strokeWidth={1.75} />
-                Editar
-              </button>
-              <button type="button" className="contact-action-btn danger" onClick={handleDelete}>
-                <Trash2 size={14} strokeWidth={1.75} />
-                Eliminar
-              </button>
-            </div>
-            )}
+            <section className="cp-section">
+              <h3>Cursos</h3>
+              {selectedCourses.length === 0 ? (
+                <p className="student-muted">No está en ningún curso.</p>
+              ) : (
+                <span className="cp-chips">
+                  {selectedCourses.map((c) => (
+                    <span key={c.id} className="cp-chip">
+                      {c.name}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </section>
 
-            <dl className="contact-fields">
-              {selected.discord && (
-                <div>
-                  <dt><AtSign size={15} strokeWidth={1.75} /><span className="sr-only">Usuario de Discord</span></dt>
-                  <dd>{selected.discord} <span className="student-muted">(Discord)</span></dd>
-                </div>
+            <section className="cp-section">
+              <h3>Datos</h3>
+              <dl className="contact-fields">
+                {selected.discord && (
+                  <div>
+                    <dt><AtSign size={15} strokeWidth={1.75} /><span className="sr-only">Usuario de Discord</span></dt>
+                    <dd>{selected.discord} <span className="student-muted">(Discord)</span></dd>
+                  </div>
+                )}
+                {birthdayLabel(selected.birthday) && (
+                  <div>
+                    <dt><Cake size={15} strokeWidth={1.75} /><span className="sr-only">Cumpleaños</span></dt>
+                    <dd>
+                      {ageOn(selected.birthday, now) !== null && `${ageLabel(ageOn(selected.birthday, now))} · `}
+                      Cumpleaños: {birthdayLabel(selected.birthday)}
+                    </dd>
+                  </div>
+                )}
+                {selected.email && (
+                  <div>
+                    <dt><Mail size={15} strokeWidth={1.75} /><span className="sr-only">Email</span></dt>
+                    <dd><a href={`mailto:${selected.email}`}>{selected.email}</a></dd>
+                  </div>
+                )}
+                {selected.phone && (
+                  <div>
+                    <dt><Phone size={15} strokeWidth={1.75} /><span className="sr-only">Teléfono / WhatsApp</span></dt>
+                    <dd>
+                      <a href={`tel:${selected.phone.replace(/\s+/g, '')}`}>{selected.phone}</a>
+                      {wa && (
+                        <a className="student-whatsapp" href={wa} target="_blank" rel="noreferrer">
+                          <MessageCircle size={13} strokeWidth={1.75} />
+                          WhatsApp
+                        </a>
+                      )}
+                    </dd>
+                  </div>
+                )}
+                {selected.timeZone && (
+                  <div>
+                    <dt><Globe size={15} strokeWidth={1.75} /><span className="sr-only">País y zona horaria</span></dt>
+                    <dd>
+                      {selected.country && selected.country !== 'ES' && `${countryFlag(selected.country)} `}
+                      <LiveZone timeZone={selected.timeZone} />
+                    </dd>
+                  </div>
+                )}
+                {selected.enrolledAt && (
+                  <div>
+                    <dt><CalendarDays size={15} strokeWidth={1.75} /><span className="sr-only">Fecha de alta</span></dt>
+                    <dd>Alta el {enrolledLabel(selected.enrolledAt)}</dd>
+                  </div>
+                )}
+                {selected.notes && (
+                  <div className="align-top">
+                    <dt><StickyNote size={15} strokeWidth={1.75} /><span className="sr-only">Notas</span></dt>
+                    <dd className="contact-notes">{selected.notes}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+
+            <section className="cp-section">
+              <h3>
+                <CalendarClock size={14} strokeWidth={1.75} /> Disponibilidad
+              </h3>
+              {hasStudentAvailability(selected) ? <StudentAvailability student={selected} now={now} /> : <span className="student-muted">Sin disponibilidad indicada.</span>}
+            </section>
+
+            <section className="cp-section">
+              <h3>Últimas clases</h3>
+              {lastClasses(attendance, selected.id).length === 0 ? (
+                <p className="student-muted">Todavía no hay pase de lista.</p>
+              ) : (
+                <table className="cp-slots">
+                  <tbody>
+                    {lastClasses(attendance, selected.id).map((r) => (
+                      <tr key={`${r.courseId}|${r.classKey}`}>
+                        <td>{courseName(r.courseId)}</td>
+                        <td className="cp-muted">{r.classStart ? format(new Date(r.classStart), "d MMM yyyy", { locale: es }) : ''}</td>
+                        <td>
+                          <span className={`cp-class-status ${r.status === 'absent' ? 'unlisted' : 'listed'}`}>{STATUS_LABEL[r.status] || r.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
-              {birthdayLabel(selected.birthday) && (
-                <div>
-                  <dt><Cake size={15} strokeWidth={1.75} /><span className="sr-only">Cumpleaños</span></dt>
-                  <dd>
-                    {ageOn(selected.birthday, now) !== null && `${ageLabel(ageOn(selected.birthday, now))} · `}
-                    Cumpleaños: {birthdayLabel(selected.birthday)}
-                  </dd>
-                </div>
-              )}
-              {selected.email && (
-                <div>
-                  <dt><Mail size={15} strokeWidth={1.75} /><span className="sr-only">Email</span></dt>
-                  <dd><a href={`mailto:${selected.email}`}>{selected.email}</a></dd>
-                </div>
-              )}
-              {selected.phone && (
-                <div>
-                  <dt><Phone size={15} strokeWidth={1.75} /><span className="sr-only">Teléfono / WhatsApp</span></dt>
-                  <dd>
-                    <a href={`tel:${selected.phone.replace(/\s+/g, '')}`}>{selected.phone}</a>
-                    {wa && (
-                      <a className="student-whatsapp" href={wa} target="_blank" rel="noreferrer">
-                        <MessageCircle size={13} strokeWidth={1.75} />
-                        WhatsApp
-                      </a>
-                    )}
-                  </dd>
-                </div>
-              )}
-              {selected.timeZone && (
-                <div>
-                  <dt><Globe size={15} strokeWidth={1.75} /><span className="sr-only">País y zona horaria</span></dt>
-                  <dd>
-                    {selected.country && selected.country !== 'ES' && `${countryFlag(selected.country)} `}
-                    <LiveZone timeZone={selected.timeZone} />
-                  </dd>
-                </div>
-              )}
-              {selected.enrolledAt && (
-                <div>
-                  <dt><CalendarDays size={15} strokeWidth={1.75} /><span className="sr-only">Fecha de alta</span></dt>
-                  <dd>Alta el {enrolledLabel(selected.enrolledAt)}</dd>
-                </div>
-              )}
-              {selected.notes && (
-                <div className="align-top">
-                  <dt><StickyNote size={15} strokeWidth={1.75} /><span className="sr-only">Notas</span></dt>
-                  <dd className="contact-notes">{selected.notes}</dd>
-                </div>
-              )}
-              <div className="align-top">
-                <dt><CalendarClock size={15} strokeWidth={1.75} /><span className="sr-only">Disponibilidad</span></dt>
-                <dd>
-                  {hasStudentAvailability(selected) ? (
-                    <StudentAvailability student={selected} now={now} />
-                  ) : (
-                    <span className="student-muted">Sin disponibilidad indicada.</span>
-                  )}
-                </dd>
-              </div>
-            </dl>
+            </section>
 
             {!readOnly && portals?.get(selected.id) && (
               <StudentAccountSection

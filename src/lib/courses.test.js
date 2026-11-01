@@ -6,7 +6,9 @@ import {
   deleteCourse,
   getAllCourses,
   normalizeCourse,
+  openForStudents,
   scheduleRows,
+  seatsOf,
   studentsInCourse,
   studentsWithoutCourse,
   teacherOptions,
@@ -195,5 +197,36 @@ describe('próximas clases y horario en mi hora (no se crean en el calendario)',
   it('un curso sin horario no tiene clases', () => {
     expect(upcomingClasses({ name: 'X' })).toEqual([])
     expect(scheduleRows({ name: 'X' })).toEqual([])
+  })
+})
+
+describe('estado y plazas (fase de alumnos)', () => {
+  const students = [
+    { id: 'a', courseIds: ['c1'] },
+    { id: 'b', courseIds: ['c1', 'c2'] },
+    { id: 'c', courseIds: [] },
+  ]
+
+  it('los cursos de antes, sin estado, son «Borrador» y sin límite de plazas', () => {
+    expect(normalizeCourse({ id: 'c1', name: 'A' })).toMatchObject({ status: 'borrador', maxSeats: null, startDate: '', endDate: '' })
+    expect(normalizeCourse({ id: 'c1', name: 'A', status: 'raro', maxSeats: '0' })).toMatchObject({ status: 'borrador', maxSeats: null })
+    expect(normalizeCourse({ id: 'c1', name: 'A', status: 'en_curso', maxSeats: 20, startDate: '2030-11-01' })).toMatchObject({ status: 'en_curso', maxSeats: 20, startDate: '2030-11-01' })
+  })
+
+  it('plazas y si sale en el portal', () => {
+    expect(seatsOf({ id: 'c1', maxSeats: 3 }, students)).toEqual({ enrolled: 2, max: 3, free: 1 })
+    expect(seatsOf({ id: 'c1' }, students)).toEqual({ enrolled: 2, max: null, free: null })
+    expect(openForStudents({ id: 'c1', status: 'inscripcion', maxSeats: 3 }, students)).toBe(true)
+    expect(openForStudents({ id: 'c1', status: 'en_curso', maxSeats: 2 }, students)).toBe(false)
+    expect(openForStudents({ id: 'c1', status: 'borrador' }, students)).toBe(false)
+    expect(openForStudents({ id: 'c3', status: 'terminado' }, students)).toBe(false)
+  })
+
+  it('valida estado, plazas y fechas', () => {
+    const base = { name: 'Nuevo', classMinutes: 60, classesPerWeek: 1, schedule: null }
+    expect(validateCourse({ ...base, status: 'inscripcion', maxSeats: 20 }, [])).toBe(null)
+    expect(validateCourse({ ...base, status: 'otro' }, [])).toMatch(/estado/)
+    expect(validateCourse({ ...base, maxSeats: 0 }, [])).toMatch(/plazas/)
+    expect(validateCourse({ ...base, startDate: '2030-12-01', endDate: '2030-11-01' }, [])).toMatch(/fin/)
   })
 })

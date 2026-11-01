@@ -34,6 +34,25 @@ export const DEFAULT_CLASS_MINUTES = 60
 export const MAX_CLASSES_PER_WEEK = 7
 export const TEACHERS_DEPARTMENT = 'Profesores'
 
+// Estado de un curso (fase de alumnos): solo «Inscripción abierta» y «En curso» (si quedan plazas)
+// salen en el portal para apuntarse. Los cursos de antes, sin estado, son «Borrador».
+export const COURSE_STATUSES = [
+  { id: 'borrador', label: 'Borrador' },
+  { id: 'inscripcion', label: 'Inscripción abierta' },
+  { id: 'en_curso', label: 'En curso' },
+  { id: 'terminado', label: 'Terminado' },
+]
+export const COURSE_STATUS_LABEL = Object.fromEntries(COURSE_STATUSES.map((s) => [s.id, s.label]))
+export const MAX_SEATS = 1000
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+// Plazas máximas guardadas: un entero de 1 a MAX_SEATS, o null (sin límite).
+function seatsValue(value) {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  return Number.isInteger(n) && n >= 1 && n <= MAX_SEATS ? n : null
+}
+
 const MAX_NAME_LENGTH = 60
 
 function nameKey(name) {
@@ -83,7 +102,26 @@ export function normalizeCourse(course) {
     classMinutes: Number.isInteger(minutes) && minutes > 0 ? minutes : DEFAULT_CLASS_MINUTES,
     classesPerWeek: Number.isInteger(perWeek) && perWeek >= 1 && perWeek <= MAX_CLASSES_PER_WEEK ? perWeek : 1,
     schedule: normalizeSchedule(course.schedule),
+    status: COURSE_STATUS_LABEL[course.status] ? course.status : 'borrador',
+    maxSeats: seatsValue(course.maxSeats),
+    startDate: DAY_KEY.test(course.startDate || '') ? course.startDate : '',
+    endDate: DAY_KEY.test(course.endDate || '') ? course.endDate : '',
   }
+}
+
+// Plazas: { enrolled, max (null: sin límite), free (null: sin límite) }.
+export function seatsOf(course, students) {
+  const enrolled = studentsInCourse(course.id, students).length
+  const max = normalizeCourse(course).maxSeats
+  return { enrolled, max, free: max === null ? null : Math.max(0, max - enrolled) }
+}
+
+// ¿Sale en el portal para apuntarse? Inscripción abierta o en curso, y con plazas.
+export function openForStudents(course, students) {
+  const c = normalizeCourse(course)
+  if (c.status !== 'inscripcion' && c.status !== 'en_curso') return false
+  const { free } = seatsOf(c, students)
+  return free === null || free > 0
 }
 
 export function getAllCourses() {
@@ -113,6 +151,12 @@ export function validateCourse(data, courses, exceptId = null) {
   if (!Number.isInteger(minutes) || minutes < 15 || minutes > 600) return 'La duración de cada clase tiene que estar entre 15 minutos y 10 horas.'
   const perWeek = Number(data.classesPerWeek)
   if (!Number.isInteger(perWeek) || perWeek < 1 || perWeek > MAX_CLASSES_PER_WEEK) return 'Las clases por semana tienen que ser entre 1 y 7.'
+  if (data.status !== undefined && !COURSE_STATUS_LABEL[data.status]) return 'Elige el estado del curso.'
+  if (data.maxSeats !== undefined && data.maxSeats !== null) {
+    const seats = Number(data.maxSeats)
+    if (!Number.isInteger(seats) || seats < 1 || seats > MAX_SEATS) return `Las plazas tienen que ser un número del 1 al ${MAX_SEATS} (o vacío, sin límite).`
+  }
+  if (data.startDate && data.endDate && data.endDate < data.startDate) return 'La fecha de fin tiene que ser después de la de inicio.'
   return validateSchedule(data.schedule, minutes, perWeek)
 }
 

@@ -5,6 +5,7 @@ import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
 import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
+import StudentCourses from './StudentCourses.jsx'
 import { viewZone } from '../lib/zoneView'
 import './StudentPortal.css'
 
@@ -30,7 +31,7 @@ const CARDS = [
 ]
 
 // Secciones que ya funcionan (las demás dicen «Próximamente»).
-const READY = new Set(['calendar'])
+const READY = new Set(['calendar', 'courses'])
 
 // Con `preview` ({ account, profile }, vista previa de «Ver como») no se pide ni se guarda nada en
 // Supabase; readOnly desactiva guardar y cerrar sesión. El calendario de la vista previa se lee con
@@ -142,6 +143,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
 
             <div className="sp-mobile-signout">{signOutButton}</div>
           </>
+        ) : section === 'courses' ? (
+          <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
         ) : section === 'calendar' ? (
           <SharedCalendar
             client={preview ? calendarClient : client}

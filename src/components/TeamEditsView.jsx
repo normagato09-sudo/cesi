@@ -5,7 +5,7 @@ import './ContactsView.css'
 import './SectionPage.css'
 import './TeamEditsView.css'
 
-const AREA_LABEL = { personas: 'RRHH', direccion: 'Directivo' }
+const AREA_LABEL = { personas: 'RRHH', direccion: 'Directivo', alumno: 'Alumno' }
 
 function when(iso) {
   const d = new Date(iso)
@@ -21,7 +21,8 @@ function short(value) {
   return text.length > 60 ? `${text.slice(0, 60)}…` : text
 }
 
-// «Cambios del equipo» (solo la ceo): lo que RRHH y Directivo han cambiado en mis datos (parte 20),
+// «Cambios del equipo» (solo la ceo): lo que RRHH, Directivo y los alumnos (al apuntarse a un
+// curso, parte 25) han cambiado en mis datos (parte 20),
 // con quién, cuándo y qué campos (antes → después).
 export default function TeamEditsView({ client }) {
   const [rows, setRows] = useState(null)

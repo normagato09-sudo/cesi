@@ -1,0 +1,116 @@
+/* «Cursos» del portal del alumno (StudentCourses). Usa los colores del portal (--sp-*). */
+
+.stc-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.stc-title {
+  margin: 0;
+  font-size: 22px;
+}
+.stc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.stc-section h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.stc-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stc-card {
+  gap: 8px;
+}
+.stc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sp-blue);
+}
+.stc-card-head h3 {
+  margin: 0;
+  color: var(--sp-text);
+  font-size: 16px;
+}
+.stc-desc {
+  margin: 0;
+  color: var(--sp-muted);
+  font-size: 14px;
+}
+.stc-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+}
+.stc-line svg {
+  flex-shrink: 0;
+  color: var(--sp-muted);
+}
+.stc-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.stc-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--sp-blue-soft);
+}
+.stc-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sp-blue);
+}
+.stc-muted {
+  margin: 0;
+  color: var(--sp-muted);
+  font-size: 14px;
+}
+.stc-error {
+  margin: 0;
+  color: var(--sp-error);
+  font-size: 14px;
+}
+.stc-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.stc-btn {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--sp-border);
+  border-radius: 10px;
+  background: var(--sp-surface);
+  color: var(--sp-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.stc-btn.primary {
+  border-color: var(--sp-blue);
+  background: var(--sp-blue);
+  color: #fff;
+}
+.stc-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.stc-empty p {
+  margin: 0;
+  color: var(--sp-muted);
+}

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { BookOpen, X } from 'lucide-react'
 import {
   CLASS_DURATIONS,
+  COURSE_STATUSES,
   MAX_CLASSES_PER_WEEK,
+  MAX_SEATS,
   durationLabel,
   normalizeCourse,
   normalizeCourseName,
@@ -31,11 +33,16 @@ const TEACHER_PROBLEMS = {
   inactive: 'El profesor de este curso ya no está en el Equipo.',
 }
 
-// Datos de un curso: nombre, descripción, profesor (del Equipo), duración, clases por semana y
-// horario fijo puesto a mano. Las clases no se crean en mi calendario.
-export default function CourseFormModal({ course, courses, contacts, onClose, onSubmit }) {
-  const seed = normalizeCourse(course)
+// Datos de un curso: nombre, descripción, estado, plazas, fechas, profesor (del Equipo), duración,
+// clases por semana y horario fijo puesto a mano. Las clases no se crean en mi calendario.
+// Sin `course`: curso nuevo (onSubmit(null, datos)). onDelete: «Borrar curso» (solo la ceo).
+export default function CourseFormModal({ course = null, courses, contacts, onClose, onSubmit, onDelete = null }) {
+  const seed = normalizeCourse(course || { id: null, name: '' })
   const [name, setName] = useState(seed.name)
+  const [status, setStatus] = useState(seed.status)
+  const [maxSeats, setMaxSeats] = useState(seed.maxSeats === null ? '' : String(seed.maxSeats))
+  const [startDate, setStartDate] = useState(seed.startDate)
+  const [endDate, setEndDate] = useState(seed.endDate)
   const [description, setDescription] = useState(seed.description)
   const [teacherId, setTeacherId] = useState(seed.teacherId || '')
   const [classMinutes, setClassMinutes] = useState(seed.classMinutes)
@@ -71,14 +78,18 @@ export default function CourseFormModal({ course, courses, contacts, onClose, on
       classMinutes,
       classesPerWeek,
       schedule: scheduleWithSince(filled.length ? { timeZone: zone, slots: sortScheduleSlots(filled) } : null, seed.schedule),
+      status,
+      maxSeats: maxSeats.trim() === '' ? null : Number(maxSeats),
+      startDate,
+      endDate,
     }
-    const invalid = validateCourse(data, courses, course.id)
+    const invalid = validateCourse(data, courses, course?.id || null)
     if (invalid) {
       setFormError(invalid)
       return
     }
     try {
-      onSubmit(course.id, data)
+      onSubmit(course?.id || null, data)
       onClose()
     } catch (err) {
       setFormError(err.message || 'No se pudo guardar. Inténtalo de nuevo.')
@@ -91,7 +102,7 @@ export default function CourseFormModal({ course, courses, contacts, onClose, on
         <div className="event-form-header">
           <h2>
             <BookOpen size={17} strokeWidth={1.75} />
-            Editar curso
+            {course ? 'Editar curso' : 'Nuevo curso'}
           </h2>
           <button type="button" className="event-form-close" onClick={onClose} aria-label="Cerrar">
             <X size={18} strokeWidth={1.75} />
@@ -108,6 +119,35 @@ export default function CourseFormModal({ course, courses, contacts, onClose, on
             <span>Descripción (opcional)</span>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="De qué trata el curso..." />
           </label>
+
+          <div className="event-form-row">
+            <label className="event-form-field">
+              <span>Estado</span>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                {COURSE_STATUSES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="event-form-field">
+              <span>Plazas máximas</span>
+              <input type="number" min={1} max={MAX_SEATS} value={maxSeats} onChange={(e) => setMaxSeats(e.target.value)} placeholder="Sin límite" />
+            </label>
+          </div>
+          <p className="contact-form-hint">Los alumnos ven en su portal los cursos con «Inscripción abierta» o «En curso» mientras queden plazas.</p>
+
+          <div className="event-form-row">
+            <label className="event-form-field">
+              <span>Empieza (opcional)</span>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </label>
+            <label className="event-form-field">
+              <span>Termina (opcional)</span>
+              <input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
+            </label>
+          </div>
 
           <label className="event-form-field">
             <span>Profesor (opcional)</span>
@@ -196,11 +236,16 @@ export default function CourseFormModal({ course, courses, contacts, onClose, on
         </div>
 
         <div className="event-form-footer">
+          {course && onDelete && (
+            <button type="button" className="event-form-delete" onClick={() => onDelete(course)}>
+              Borrar curso
+            </button>
+          )}
           <button type="button" className="event-form-cancel" onClick={onClose}>
             Cancelar
           </button>
           <button type="submit" className="event-form-submit">
-            Guardar curso
+            {course ? 'Guardar curso' : 'Crear curso'}
           </button>
         </div>
       </form>
