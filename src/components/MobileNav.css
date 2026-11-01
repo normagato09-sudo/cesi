@@ -96,3 +96,22 @@
     font-weight: 600;
   }
 }
+
+/* Contador del grupo (p. ej. mensajes sin leer). */
+.mobile-nav-item {
+  position: relative;
+}
+.mobile-nav-badge {
+  position: absolute;
+  top: 2px;
+  left: calc(50% + 6px);
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}

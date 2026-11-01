@@ -53,6 +53,8 @@ import { AREAS_KEY, getStoredTeamAreas, isActiveMember, removeFromTeamPatch, sav
 import { orderPatches } from './lib/teamOrder.js'
 import { markFormerProfile, returnToTeamProfile } from './lib/formerMembers.js'
 import { withStatusChange } from './lib/teamEdits.js'
+import { useChatUnread } from './components/chat/useChatUnread.js'
+import { unreadText } from './lib/chat.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
 import { DEFAULT_DEPARTMENTS, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -126,6 +128,7 @@ const BoardsView = lazy(() => import('./components/boards/BoardsView.jsx'))
 const NoticesView = lazy(() => import('./components/notices/NoticesView.jsx'))
 const FinanceView = lazy(() => import('./components/finance/FinanceView.jsx'))
 const TeamEditsView = lazy(() => import('./components/TeamEditsView.jsx'))
+const MessagesView = lazy(() => import('./components/chat/MessagesView.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -627,6 +630,8 @@ export default function App() {
     removeNote: (id, noteId) => editContact(id, { alliance: removeAllianceNote(allianceOfId(id), noteId) }),
   }
   const todayInMyZone = keyOf(now, myZone)
+  // Mensajes sin leer (menú e Inicio).
+  const chatUnread = useChatUnread(syncClient)
 
   // Pase de lista y clases sueltas (attendance.js): cada cambio se guarda al momento. Los que no
   // son válidos lanzan un Error con el mensaje para el usuario.
@@ -1017,6 +1022,7 @@ export default function App() {
           onKeepUnavailable={handleKeepUnavailable}
           onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
           showAccess={!!sync}
+          badges={{ messages: chatUnread }}
         />
 
         {section === 'contacts' && (
@@ -1071,6 +1077,14 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <TeamTasksView client={sync.client} me={CEO_ME(sync.userId)} zone={myZone} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'messages' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <MessagesView client={sync.client} meId={sync.userId} zone={myZone} />
             </Suspense>
           </div>
         )}
@@ -1259,6 +1273,11 @@ export default function App() {
               teamPanel={
                 sync ? (
                   <Suspense fallback={null}>
+                    {chatUnread > 0 && (
+                      <button type="button" className="member-unread-messages" onClick={() => goToSection('messages')}>
+                        {unreadText(chatUnread)}
+                      </button>
+                    )}
                     <CeoTeamPanel client={sync.client} meId={sync.userId} zone={myZone} />
                   </Suspense>
                 ) : null
@@ -1339,6 +1358,7 @@ export default function App() {
           section={section}
           onSectionChange={goToSection}
           showAccess={!!sync}
+          badges={{ messages: chatUnread }}
           actions={[
             ...(viewAs ? [{ id: 'view-as', label: 'Ver como…', Icon: Eye, onClick: viewAs.open }] : []),
           ]}

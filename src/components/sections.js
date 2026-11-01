@@ -14,6 +14,7 @@ import {
   ListChecks,
   ListTodo,
   Megaphone,
+  MessageCircle,
   SquareKanban,
   Target,
   UserRound,
@@ -37,6 +38,7 @@ export const NAV_GROUPS = [
     Icon: LayoutDashboard,
     items: [
       { id: 'home', label: 'Inicio', Icon: House },
+      { id: 'messages', label: 'Mensajes', Icon: MessageCircle, ceoOnly: true, needsSync: true },
       { id: 'profile', label: 'Mi perfil', Icon: UserRound, ceoOnly: true, needsSync: true },
     ],
   },
@@ -84,7 +86,7 @@ export function ceoGroups(withSync) {
   return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
 }
 
-// Menú de una persona de equipo: «Mi panel», «Avisos», su «Calendario» (el compartido), «Tareas»
+// Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el compartido), «Tareas»
 // (las del equipo), «Objetivos» (los del mes de su área), el tablero de su área (si tiene;
 // Directivo, «Tableros») y «Fichaje», siempre; y las pantallas a las que tiene permiso. Mi
 // calendario (permiso 'calendario') y mis Fichajes (permiso 'fichajes') no salen: el calendario
@@ -97,6 +99,7 @@ export function memberGroups(levels = {}, area = null) {
           ...g,
           items: [
             { id: 'home', label: 'Mi panel', Icon: LayoutDashboard },
+            { id: 'messages', label: 'Mensajes', Icon: MessageCircle },
             { id: 'notices', label: 'Avisos', Icon: Megaphone },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },

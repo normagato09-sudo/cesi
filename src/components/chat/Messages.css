@@ -1,0 +1,361 @@
+/* Mensajes del equipo (MessagesView). Usa los colores de la app (--text, --border…). En el móvil
+   se ve la lista o la conversación (has-open). */
+
+.ms-root {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  min-height: 0;
+  height: 100%;
+  background: var(--bg);
+}
+.ms-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.ms-list-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ms-list-head h1 {
+  margin: 0;
+  font-size: 20px;
+}
+.ms-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+}
+.ms-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.ms-people {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.ms-people button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ms-people button:hover {
+  background: var(--surface-hover);
+}
+.ms-people span,
+.ms-muted {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.ms-muted {
+  margin: 0;
+  padding: 10px 14px;
+}
+.ms-error {
+  padding: 10px 14px;
+  color: #dc2626;
+}
+.ms-convs {
+  flex: 1;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+.ms-conv {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ms-conv:hover {
+  background: var(--surface-hover);
+}
+.ms-conv.on {
+  background: var(--accent-soft);
+}
+.ms-conv-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+.ms-conv-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ms-conv-top,
+.ms-conv-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ms-conv-top strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ms-conv-time {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.ms-conv-preview {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ms-conv.unread .ms-conv-preview {
+  color: var(--text);
+  font-weight: 600;
+}
+.ms-badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ms-thread {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.ms-empty,
+.ms-private {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.ms-root.ms-private {
+  display: flex;
+}
+.ms-private-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+.ms-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.ms-thread-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.ms-back {
+  display: none;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.ms-messages {
+  flex: 1;
+  padding: 12px 16px;
+  overflow-y: auto;
+}
+.ms-messages ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-day {
+  margin: 12px 0 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.ms-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: flex-start;
+  max-width: min(560px, 80%);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 12px 4px;
+  background: var(--surface);
+}
+.ms-msg.mine {
+  align-self: flex-end;
+  border-color: var(--accent-soft-strong);
+  border-radius: 12px 12px 4px 12px;
+  background: var(--accent-soft);
+}
+.ms-msg.deleted .ms-body {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.ms-author {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ms-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ms-body a {
+  color: var(--accent);
+}
+.ms-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.ms-icon {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.ms-edit textarea,
+.ms-compose textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.ms-edit div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ms-small {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ms-small.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.ms-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.ms-send {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.ms-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 860px) {
+  .ms-root {
+    grid-template-columns: 1fr;
+  }
+  .ms-root.has-open .ms-list {
+    display: none;
+  }
+  .ms-root:not(.has-open) .ms-thread {
+    display: none;
+  }
+  .ms-back {
+    display: inline-flex;
+  }
+  .ms-messages {
+    padding-bottom: 20px;
+  }
+  .ms-compose {
+    padding-bottom: 80px;
+  }
+}

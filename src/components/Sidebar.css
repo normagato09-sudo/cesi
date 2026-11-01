@@ -197,3 +197,35 @@
     margin-top: 0;
   }
 }
+
+/* Contador del menú (p. ej. mensajes sin leer). */
+.sidebar-nav-badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* «Tienes 3 mensajes sin leer» en el Inicio (la ceo y el equipo). */
+.member-unread-messages {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import { LogOut, Pencil } from 'lucide-react'
+import { LogOut, MessageCircle, Pencil } from 'lucide-react'
 import MobileNav from './MobileNav.jsx'
 import ComingSoonView from './ComingSoonView.jsx'
 import { ProfileFormPage, ProfileLoadError, ProfileLoading } from './ProfileScreens.jsx'
@@ -19,6 +19,9 @@ import BoardsView from './boards/BoardsView.jsx'
 import { BoardCountsCard, MyBoardCard } from './boards/BoardHome.jsx'
 import { boardOf } from '../lib/boards'
 import NoticesView from './notices/NoticesView.jsx'
+import MessagesView, { MessagesPrivate } from './chat/MessagesView.jsx'
+import { useChatUnread } from './chat/useChatUnread'
+import { unreadText } from '../lib/chat'
 import FinanceView from './finance/FinanceView.jsx'
 import FinanceHomeCard from './finance/FinanceHome.jsx'
 import { PendingNoticesCard, UnreadNotices } from './notices/NoticesHome.jsx'
@@ -65,6 +68,8 @@ export default function MemberApp({
   const [editing, setEditing] = useState(false)
   const levels = previewLevels || fetchedLevels
   const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
+  // Mensajes sin leer (nunca en «Ver como»: los mensajes son privados).
+  const unread = useChatUnread(preview ? null : client)
 
   useEffect(() => {
     if (previewLevels || !client) return
@@ -143,6 +148,11 @@ export default function MemberApp({
                 >
                   <Icon size={17} strokeWidth={1.75} />
                   <span className="sidebar-nav-label">{label}</span>
+                  {id === 'messages' && unread > 0 && (
+                    <span className="sidebar-nav-badge" aria-label={`${unread} sin leer`}>
+                      {unread}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -165,6 +175,8 @@ export default function MemberApp({
           <GoalsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'finance' && (area === 'finanzas' || me.boss) ? (
           <FinanceView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'messages' ? (
+          preview ? <MessagesPrivate /> : <MessagesView client={client} meId={userId} zone={zone} />
         ) : section === 'notices' ? (
           <NoticesView client={workClient} me={me} asId={workAs} readOnly={readOnly} />
         ) : section === 'board' && boardOf(area) ? (
@@ -192,6 +204,12 @@ export default function MemberApp({
               </button>
             </header>
 
+            {!preview && unread > 0 && (
+              <button type="button" className="member-unread-messages" onClick={() => setSection('messages')}>
+                <MessageCircle size={16} strokeWidth={1.75} />
+                {unreadText(unread)}
+              </button>
+            )}
             <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />
             <MyClasses
               client={workClient}
@@ -245,7 +263,7 @@ export default function MemberApp({
         )}
       </main>
 
-      <MobileNav section={section} onSectionChange={setSection} groups={groups} />
+      <MobileNav section={section} onSectionChange={setSection} groups={groups} badges={{ messages: unread }} />
     </div>
   )
 }

@@ -7,7 +7,8 @@ import './MobileNav.css'
 // Si el grupo tiene varias pantallas, al pulsarlo se elige una encima de la barra. «Más» solo
 // sale si hay `actions`: [{ id, label, Icon, onClick }], p. ej. "Enlace de reservas".
 // En el ordenador no se ve: están todas en la barra lateral.
-export default function MobileNav({ section, onSectionChange, actions = [], showAccess = false, groups = null }) {
+// badges: { id de la sección: número } (p. ej. mensajes sin leer); el grupo muestra la suma.
+export default function MobileNav({ section, onSectionChange, actions = [], showAccess = false, groups = null, badges = {} }) {
   const [openMenu, setOpenMenu] = useState(null) // id del grupo, 'more' o null
   const ref = useRef(null)
   const navGroups = groups || ceoGroups(showAccess)
@@ -44,6 +45,7 @@ export default function MobileNav({ section, onSectionChange, actions = [], show
         const { id, label, Icon } = group
         const active = activeGroup?.id === id
         const single = group.items.length === 1
+        const badge = group.items.reduce((n, item) => n + (badges[item.id] || 0), 0)
         return (
           <button
             key={id}
@@ -56,6 +58,11 @@ export default function MobileNav({ section, onSectionChange, actions = [], show
           >
             <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
             <span>{label}</span>
+            {badge > 0 && (
+              <span className="mobile-nav-badge" aria-label={`${badge} sin leer`}>
+                {badge}
+              </span>
+            )}
           </button>
         )
       })}
@@ -86,6 +93,7 @@ export default function MobileNav({ section, onSectionChange, actions = [], show
             >
               <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
               {label}
+              {badges[id] > 0 && <span className="sidebar-nav-badge">{badges[id]}</span>}
             </button>
           ))}
         </div>

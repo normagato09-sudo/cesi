@@ -23,6 +23,8 @@ export default function Sidebar({
   missingNotes = [],
   onOpenMissingNotes,
   showAccess = false,
+  // { id de la sección: número } (p. ej. mensajes sin leer).
+  badges = {},
 }) {
   // En Inicio, las propuestas, las reuniones sin acta y el resumen (próxima reunión, hoy y la semana)
   // ya están en el panel.
@@ -51,6 +53,7 @@ export default function Sidebar({
               >
                 <Icon size={17} strokeWidth={1.75} />
                 <span className="sidebar-nav-label">{label}</span>
+                {badges[id] > 0 && <span className="sidebar-nav-badge">{badges[id]}</span>}
               </button>
             ))}
           </div>
