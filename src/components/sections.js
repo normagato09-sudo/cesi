@@ -49,7 +49,7 @@ export const NAV_GROUPS = [
     items: [
       { id: 'calendar', label: 'Calendario', Icon: CalendarDays, screen: 'calendario' },
       { id: 'contacts', label: 'Contactos externos', Icon: Users, screen: 'contactos' },
-      { id: 'alliances', label: 'Alianzas', Icon: Handshake, screen: 'contactos', areas: ['alianzas', 'direccion'] },
+      { id: 'alliances', label: 'Alianzas', Icon: Handshake, screen: 'contactos', areas: ['alianzas'] },
     ],
   },
   {
@@ -98,11 +98,14 @@ export function ceoGroups(withSync) {
 
 // Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el
 // compartido), «Tareas» (las del equipo), «Objetivos» (los del mes de su área), el tablero de su
-// área (si tiene; Directivo, «Tableros»), «Contactos» (los suyos) y «Fichaje», siempre; y las
-// pantallas a las que tiene permiso. Mi calendario (permiso 'calendario') y mis Fichajes (permiso
+// área (si tiene), «Contactos» (los suyos) y «Fichaje», siempre; y las pantallas a las que tiene
+// permiso (Directivo nunca Vacantes ni Asistencia: la asistencia la ve en cada curso). Mi calendario (permiso 'calendario') y mis Fichajes (permiso
 // 'fichajes') no salen: el calendario aún no lo ve nadie del equipo, y los fichajes de todos los
 // ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.
+// Pantallas que Directivo no ve aunque tuviera permiso (parte 27).
+const DIRECTIVO_HIDDEN = new Set(['vacancies', 'attendance'])
+
 export function memberGroups(levels = {}, area = null) {
   return NAV_GROUPS.map((g) =>
     g.id === 'panel'
@@ -115,11 +118,10 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
             { id: 'goals', label: 'Objetivos', Icon: Target },
-            // El tablero de su área (con su nombre) o, en Directivo, «Tableros» (todos).
+            // El tablero de su área (con su nombre).
             ...(boardOf(area) ? [{ id: 'board', label: boardOf(area).title, Icon: SquareKanban }] : []),
-            ...(area === 'direccion' ? [{ id: 'boards', label: 'Tableros', Icon: SquareKanban }] : []),
-            // Finanzas: el área Finanzas y Directivo (solo ver).
-            ...(area === 'finanzas' || area === 'direccion' ? [{ id: 'finance', label: 'Finanzas', Icon: Wallet }] : []),
+            // Finanzas: solo el área Finanzas.
+            ...(area === 'finanzas' ? [{ id: 'finance', label: 'Finanzas', Icon: Wallet }] : []),
             { id: 'clock', label: 'Fichaje', Icon: Clock },
           ],
         }
@@ -132,6 +134,7 @@ export function memberGroups(levels = {}, area = null) {
                 (!item.areas || item.areas.includes(area)) &&
                 item.id !== 'calendar' &&
                 item.id !== 'clockins' &&
+                !(area === 'direccion' && DIRECTIVO_HIDDEN.has(item.id)) &&
                 // «Contactos» (los suyos) lo tiene todo el equipo; lo demás, con permiso.
                 (item.id === 'contacts' || (item.screen && levels[item.screen] && levels[item.screen] !== 'none')),
             )

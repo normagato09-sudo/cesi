@@ -14,12 +14,13 @@ import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
 import MyClasses from './team/MyClasses.jsx'
 import AreaSummary from './team/AreaSummary.jsx'
+import DirectivoSummary from './team/DirectivoSummary.jsx'
 import MemberContacts from './team/MemberContacts.jsx'
 import { useExternalContacts } from './team/useExternalContacts'
-import { AllianceStatsCard, NextStepsCard } from './alliances/AllianceHome.jsx'
+import { NextStepsCard } from './alliances/AllianceHome.jsx'
 import BoardView from './boards/BoardView.jsx'
 import BoardsView from './boards/BoardsView.jsx'
-import { BoardCountsCard, MyBoardCard } from './boards/BoardHome.jsx'
+import { MyBoardCard } from './boards/BoardHome.jsx'
 import { boardOf } from '../lib/boards'
 import NoticesView from './notices/NoticesView.jsx'
 import MessagesView, { MessagesPrivate } from './chat/MessagesView.jsx'
@@ -224,30 +225,34 @@ export default function MemberApp({
                 {unreadText(unread)}
               </button>
             )}
-            <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />
-            <MyClasses
-              client={workClient}
-              zone={zone}
-              asId={workAs}
-              onOpen={allItems(groups).some((item) => item.id === 'attendance') ? () => setSection('attendance') : null}
-            />
-            <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
-            <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
-            <AreaSummary
-              client={workClient}
-              area={area}
-              zone={zone}
-              asId={workAs}
-              onOpen={() => setSection(area === 'formacion' ? 'attendance' : area === 'personas' ? 'vacancies' : 'alliances')}
-            />
-            {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
-            {me.boss && <AllianceStatsCard client={workClient} asId={workAs} />}
-            {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
-            {me.boss && <PendingNoticesCard client={workClient} asId={workAs} onOpen={() => setSection('notices')} />}
-            {(area === 'finanzas' || me.boss) && (
-              <FinanceHomeCard client={workClient} asId={workAs} withMovements={area === 'finanzas'} onOpen={() => setSection('finance')} />
+            {/* «Ver como» Directivo sin persona: su Inicio depende de quién es (sus tareas, sus cifras). */}
+            {preview && !workAs && me.boss ? (
+              <p className="member-panel-note">Elige una persona para ver su Inicio.</p>
+            ) : (
+              <>
+                <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />
+                <MyClasses
+                  client={workClient}
+                  zone={zone}
+                  asId={workAs}
+                  onOpen={allItems(groups).some((item) => item.id === 'attendance') ? () => setSection('attendance') : null}
+                />
+                <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
+                <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
+                <AreaSummary
+                  client={workClient}
+                  area={area}
+                  zone={zone}
+                  asId={workAs}
+                  onOpen={() => setSection(area === 'formacion' ? 'attendance' : area === 'personas' ? 'vacancies' : 'alliances')}
+                />
+                {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
+                {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
+                {me.boss && <DirectivoSummary client={workClient} asId={workAs} />}
+                {me.boss && <PendingNoticesCard client={workClient} asId={workAs} onOpen={() => setSection('notices')} />}
+                {area === 'finanzas' && <FinanceHomeCard client={workClient} asId={workAs} onOpen={() => setSection('finance')} />}
+              </>
             )}
-            {me.boss && <BoardCountsCard client={workClient} asId={workAs} onOpen={() => setSection('boards')} />}
 
             {/* Los permisos no se enseñan nunca (solo deciden el menú). */}
             {error && <p className="member-panel-note">No se pudo cargar todo tu menú. Comprueba la conexión y vuelve a entrar.</p>}

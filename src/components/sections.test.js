@@ -39,23 +39,30 @@ describe('memberGroups', () => {
     expect(allItems(memberGroups({})).find((i) => i.id === 'contacts').label).toBe('Contactos')
   })
 
-  it('Alianzas solo para las áreas Alianzas y Directivo (con permiso de contactos)', () => {
+  it('Alianzas solo para el área Alianzas (con permiso de contactos)', () => {
     const ids = (area) => allItems(memberGroups({ contactos: 'write' }, area)).map((i) => i.id)
     expect(ids('alianzas')).toContain('alliances')
-    expect(ids('direccion')).toContain('alliances')
+    expect(ids('direccion')).not.toContain('alliances')
     expect(ids('media')).not.toContain('alliances')
     expect(ids('media')).toContain('contacts')
   })
 
-  it('el tablero de su área con su nombre; Directivo, «Tableros»', () => {
+  it('el tablero de su área con su nombre; Directivo, ni tableros ni Finanzas', () => {
     const items = (area) => allItems(memberGroups({}, area))
     expect(items('media').find((i) => i.id === 'board').label).toBe('Publicaciones')
     expect(items('moderacion').find((i) => i.id === 'board').label).toBe('Registro de moderación')
-    expect(items('direccion').map((i) => i.id)).toContain('boards')
+    expect(items('direccion').some((i) => i.id === 'board' || i.id === 'boards')).toBe(false)
     expect(items('alianzas').some((i) => i.id === 'board' || i.id === 'boards')).toBe(false)
     expect(items('finanzas').map((i) => i.id)).toContain('finance')
-    expect(items('direccion').map((i) => i.id)).toContain('finance')
+    expect(items('direccion').map((i) => i.id)).not.toContain('finance')
     expect(items('media').map((i) => i.id)).not.toContain('finance')
+  })
+
+  it('Directivo: Mi panel, su Contactos, Equipo, Cursos y Alumnos; nunca Vacantes ni Asistencia', () => {
+    const levels = { contactos: 'read', equipo: 'read', vacantes: 'read', cursos: 'write', alumnos: 'read', asistencia: 'read' }
+    expect(allItems(memberGroups(levels, 'direccion')).map((i) => i.id)).toEqual([
+      'home', 'messages', 'notices', 'shared-calendar', 'team-tasks', 'goals', 'clock', 'contacts', 'team', 'courses', 'students',
+    ])
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {
