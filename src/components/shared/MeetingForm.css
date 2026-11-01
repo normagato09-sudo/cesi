@@ -748,3 +748,76 @@
   font-size: 12px;
   color: var(--mf-muted);
 }
+
+/* Lista de participantes (parte 22): iniciales, nombre en negrita, su área en gris debajo y, a la
+   derecha, si puede a la hora elegida. Los elegidos, con fondo azul suave y check. */
+.mf-person {
+  position: relative;
+  padding: 7px 10px;
+}
+.mf-person.chosen {
+  background: var(--mf-blue-soft);
+}
+.mf-person.chosen:hover {
+  background: var(--mf-blue-soft);
+}
+.mf-person.chosen .mf-avatar {
+  background: var(--mf-blue);
+  color: #fff;
+}
+/* La casilla sigue ahí (para el teclado y los lectores de pantalla), pero se ve el check. */
+.mf-person-check {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.mf-person:focus-within {
+  outline: 2px solid var(--mf-blue);
+  outline-offset: -2px;
+}
+.mf-person-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.mf-person-text .mf-person-name {
+  font-weight: 700;
+}
+.mf-person-sub {
+  overflow: hidden;
+  color: var(--mf-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mf-avail {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--mf-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mf-avail i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+.mf-avail.free {
+  color: var(--mf-green);
+}
+.mf-avail.free i {
+  background: var(--mf-green);
+}
+.mf-avail.busy {
+  color: #dc2626;
+}
+.mf-avail.busy i {
+  background: #dc2626;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { externalLocalTime, busyDuring, chosenTimes, firstUsefulHour, hourCells, initialForm, initials, localPayload, sharedDescription, withoutInterval } from './meetingForm'
+import { AVAILABILITY_LABELS, availabilityAt, externalLocalTime, busyDuring, chosenTimes, firstUsefulHour, hourCells, initialForm, initials, localPayload, sharedDescription, withoutInterval } from './meetingForm'
 
 const zone = 'Europe/Madrid'
 const now = new Date('2026-11-01T08:00:00Z')
@@ -119,5 +119,20 @@ describe('contactos externos', () => {
     expect(externalLocalTime(ana, late, new Date(late.getTime() + 3600000))).toEqual({ time: '19:00', outside: true })
     expect(externalLocalTime({ name: 'Sin zona' }, start, end)).toBeNull()
     expect(externalLocalTime({ timeZone: 'Asia/Tokyo' }, start, end)).toEqual({ time: '02:00', outside: false })
+  })
+})
+
+describe('disponibilidad en la lista de participantes', () => {
+  it('Disponible, Ocupado (algo que se solapa) o Sin perfil', () => {
+    const start = new Date('2030-11-04T17:00:00Z')
+    const end = new Date('2030-11-04T18:00:00Z')
+    const busy = [
+      { profile_id: 'ana', starts_at: '2030-11-04T17:30:00Z', ends_at: '2030-11-04T19:00:00Z' },
+      { profile_id: 'luis', starts_at: '2030-11-04T18:00:00Z', ends_at: '2030-11-04T19:00:00Z' },
+      { profile_id: 'eva', starts_at: '2030-11-04T00:00:00Z', ends_at: '2030-11-05T00:00:00Z' },
+    ]
+    const map = availabilityAt(busy, ['ana', 'luis', 'eva', 'iker'], start, end, new Set(['eva']))
+    expect(Object.fromEntries(map)).toEqual({ ana: 'busy', luis: 'free', eva: 'noprofile', iker: 'free' })
+    expect(AVAILABILITY_LABELS.busy).toBe('Ocupado')
   })
 })

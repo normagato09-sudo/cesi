@@ -282,3 +282,15 @@ export function initials(name) {
   if (words.length === 0) return '?'
   return (words.length > 1 ? words[0][0] + words.at(-1)[0] : words[0][0]).toLocaleUpperCase('es')
 }
+
+/**
+ * Disponibilidad de cada persona a la hora elegida, para la lista de participantes: Map id →
+ * 'free' (Disponible) | 'busy' (Ocupado) | 'noprofile' (Sin perfil: aún no lo ha completado, así
+ * que no se sabe). busyRows: los ocupados de cesi_free_busy en ese rato. noProfile: Set de ids.
+ */
+export function availabilityAt(busyRows, ids, start, end, noProfile = new Set()) {
+  const busy = new Set(busyDuring(busyRows, ids, start, end))
+  return new Map(ids.map((id) => [id, noProfile.has(id) ? 'noprofile' : busy.has(id) ? 'busy' : 'free']))
+}
+
+export const AVAILABILITY_LABELS = { free: 'Disponible', busy: 'Ocupado', noprofile: 'Sin perfil' }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Ban, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Search, Wand2, X } from 'lucide-react'
+import { Ban, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Search, Wand2, X } from 'lucide-react'
 import PlaceIcon from '../PlaceIcon.jsx'
 import { getVideoRooms, linkChoices, meetingLinkFor } from '../../lib/videoCall'
 import { MeetingWarningError } from '../../lib/meetingWarnings'
@@ -13,7 +13,9 @@ import { zoneShort } from '../../lib/studentPortal'
 import { pad2 } from '../../lib/timezones'
 import { addDaysKey, daysRange, errorText, fetchFreeBusy, hhmmOf, keyOf, listInvitablePeopleWithArea, mondayOf, saveMeeting, weekKeys, weekLabel } from '../../lib/sharedCalendar'
 import {
+  AVAILABILITY_LABELS,
   DURATION_OPTIONS,
+  availabilityAt,
   MAX_MINUTES,
   busyDuring,
   chosenTimes,
@@ -39,6 +41,8 @@ const REPEAT_OPTIONS = [
 const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const FREE_BUSY_DELAY_MS = 300
 const MAX_LIST = 60
+// Disponibilidad en la lista: como mucho para tantas personas a la vez (lo que admite cesi_free_busy).
+const MAX_AVAILABILITY = 50
 
 const plain = (text) =>
   (text || '')
@@ -185,7 +189,15 @@ export default function MeetingFormModal({
 
   // Filas de la lista: primero con cuenta; luego, sin cuenta (equipo y alumnos de la ceo).
   const baseRows = useMemo(() => {
-    const accounts = (people || []).map((p) => ({ key: `a:${p.id}`, type: 'account', id: p.id, name: p.name || 'Sin nombre', tag: p.area_name || ROLE_LABELS[p.role] || '' }))
+    // noProfile: aún no ha completado su perfil (parte 22; sin ese dato, no se sabe y no se marca).
+    const accounts = (people || []).map((p) => ({
+      key: `a:${p.id}`,
+      type: 'account',
+      id: p.id,
+      name: p.name || 'Sin nombre',
+      tag: p.area_name || ROLE_LABELS[p.role] || '',
+      noProfile: p.profile_done === false,
+    }))
     if (!isCeo || meeting) return accounts
     const team = contacts
       .filter((c) => isActiveMember(c) && !linkedTeam.has(c.id))
@@ -299,6 +311,37 @@ export default function MeetingFormModal({
     }
   }
   const chosenBusy = busyRows && times?.exists ? busyDuring(busyRows, gridPeople, times.start, times.end) : null
+
+  // Disponibilidad de las personas de la lista a la hora elegida (se actualiza al cambiar la hora).
+  const startMs = times?.exists && !fullDay ? times.start.getTime() : null
+  const endMs = startMs !== null ? times.end.getTime() : null
+  const listIds = rows
+    .slice(0, MAX_LIST)
+    .filter((r) => r.type === 'account')
+    .map((r) => r.id)
+  const availKey = [...new Set([...form.accounts, ...listIds])].slice(0, MAX_AVAILABILITY).join(',')
+  const noProfileKey = baseRows
+    .filter((r) => r.noProfile)
+    .map((r) => r.id)
+    .join(',')
+  const [avail, setAvail] = useState(() => new Map())
+  useEffect(() => {
+    if (!client || !availKey || startMs === null || isUnavailable) return
+    let active = true
+    const timer = setTimeout(() => {
+      const ids = availKey.split(',')
+      const noProfile = new Set(noProfileKey ? noProfileKey.split(',') : [])
+      fetchFreeBusy(client, ids, new Date(startMs), new Date(endMs), meeting?.id || null).then(
+        (data) => active && setAvail(availabilityAt(data || [], ids, new Date(startMs), new Date(endMs), noProfile)),
+        () => active && setAvail(new Map()),
+      )
+    }, FREE_BUSY_DELAY_MS)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [client, availKey, noProfileKey, startMs, endMs, isUnavailable, meeting])
+  const availOf = (id) => (startMs === null || isUnavailable ? null : avail.get(id) || null)
   const hoverCell = hover ? cells?.get(hover.split('_')[0])?.[Number(hover.split('_')[1])] : null
 
   const repeatOptions = monthlyOptions(form.date)
@@ -505,14 +548,26 @@ export default function MeetingFormModal({
                   <ul className="mf-list">
                     {rows.slice(0, MAX_LIST).map((r) => {
                       const locked = r.type === 'account' && editingLocal
+                      const chosen = isChosen(r)
+                      const state = r.type === 'account' ? availOf(r.id) : null
                       return (
                         <li key={r.key}>
-                          <label className={`mf-person${locked ? ' locked' : ''}`}>
-                            <input type="checkbox" checked={isChosen(r)} disabled={locked} onChange={() => toggle(r)} />
-                            <span className={`mf-avatar${r.noAccount || r.external ? ' muted' : ''}`}>{r.type === 'group' ? '#' : initials(r.name)}</span>
-                            <span className="mf-person-name">{r.typed ? `Añadir «${r.name}» como invitado` : r.name}</span>
+                          <label className={`mf-person${locked ? ' locked' : ''}${chosen ? ' chosen' : ''}`}>
+                            <input className="mf-person-check" type="checkbox" checked={chosen} disabled={locked} onChange={() => toggle(r)} />
+                            <span className={`mf-avatar${r.noAccount || r.external ? ' muted' : ''}`} aria-hidden="true">
+                              {chosen ? <Check size={15} strokeWidth={2.5} /> : r.type === 'group' ? '#' : initials(r.name)}
+                            </span>
+                            <span className="mf-person-text">
+                              <span className="mf-person-name">{r.typed ? `Añadir «${r.name}» como invitado` : r.name}</span>
+                              {r.tag && !r.typed && <span className="mf-person-sub">{r.tag}</span>}
+                            </span>
                             {r.noAccount && !r.typed && <span className="mf-tag warn">Sin cuenta</span>}
-                            {r.tag && !r.typed && <span className="mf-tag">{r.tag}</span>}
+                            {state && (
+                              <span className={`mf-avail ${state}`}>
+                                <i aria-hidden="true" />
+                                {AVAILABILITY_LABELS[state]}
+                              </span>
+                            )}
                           </label>
                         </li>
                       )
