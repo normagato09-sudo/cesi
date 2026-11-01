@@ -12,6 +12,7 @@ import GoalItem from './team/GoalItem.jsx'
 import { goalErrorText, goalsByArea, listGoals, monthStart, splitUnclosed } from '../lib/goals'
 import { nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson } from '../lib/ceoPanel'
 import { allianceStats } from '../lib/alliances'
+import AreaOverview from './AreaOverview.jsx'
 import { BOARDS, boardCounts } from '../lib/boards'
 import { PendingNoticesList } from './notices/NoticesHome.jsx'
 import { euros, monthBalance } from '../lib/finance'
@@ -76,6 +77,7 @@ async function loadPanel(client, zone) {
     tasks,
     overdue: overdueTasks(tasks, r.today),
     goals,
+    goalRows: current,
     alliances,
     boards,
     finance,
@@ -95,7 +97,9 @@ function Card({ title, count = null, children, wide = false }) {
 }
 
 // «Mi equipo» (arriba de mi Inicio, con la sincronización activa).
-export default function CeoTeamPanel({ client, meId, zone }) {
+// local: mis datos { courses, students, attendance, vacancies, contacts } (para «Cómo va cada
+// área»); onGoTo(sección): abrir la pantalla de un área.
+export default function CeoTeamPanel({ client, meId, zone, local = null, onGoTo = null }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -153,6 +157,12 @@ export default function CeoTeamPanel({ client, meId, zone }) {
 
       {data && (
         <div className="ceo-grid">
+          {local && onGoTo && (
+            <Card title="Cómo va cada área" wide>
+              <AreaOverview local={local} panel={data} today={data.today} zone={zone} onGoTo={onGoTo} />
+            </Card>
+          )}
+
           <Card title="Trabajando ahora" count={data.working.length}>
             {data.working.length === 0 ? (
               <p className="ceo-muted">Nadie tiene la entrada fichada ahora.</p>

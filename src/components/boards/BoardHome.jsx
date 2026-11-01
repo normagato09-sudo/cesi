@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { keyOf } from '../../lib/sharedCalendar'
 import { BOARDS, boardCounts, boardOf, listBoardItems, myBoardItems, reviewState, statusLabel } from '../../lib/boards'
+import { boardSummary } from '../../lib/areaSummary'
+import { Stats } from '../team/AreaSummary.jsx'
 import '../team/TeamWork.css'
 import './Boards.css'
 
@@ -66,9 +68,13 @@ export function MyBoardCard({ client, area, meId, zone, asId = null, onOpen = nu
       ) : !items ? (
         <p className="sc-zone">Cargando…</p>
       ) : ordered.length === 0 && reviews.length === 0 ? (
-        <p className="sc-zone">No tienes nada pendiente.</p>
+        <>
+          <BoardStats cfg={cfg} items={items} today={today} />
+          <p className="sc-zone">No tienes nada pendiente.</p>
+        </>
       ) : (
         <>
+          <BoardStats cfg={cfg} items={items} today={today} />
           {ordered.length > 0 && <ul className="tw-list">{ordered.map(row)}</ul>}
           {reviews.length > 0 && (
             <>
@@ -79,6 +85,20 @@ export function MyBoardCard({ client, area, meId, zone, asId = null, onOpen = nu
         </>
       )}
     </section>
+  )
+}
+
+// Las cifras del tablero entero: abiertos, atrasados y de esta semana.
+function BoardStats({ cfg, items, today }) {
+  const s = boardSummary(cfg, items, today)
+  return (
+    <Stats
+      items={[
+        { label: 'abiertos', value: s.open },
+        { label: 'atrasados', value: s.late, tone: s.late ? 'bad' : '' },
+        { label: 'esta semana', value: s.week },
+      ]}
+    />
   )
 }
 

@@ -284,3 +284,54 @@
 .tw-progress {
   font-weight: 600;
 }
+
+/* Cifras del resumen de cada área (AreaSummary, «Cómo va cada área»). */
+ul.as-stats {
+  border: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+ul.as-stats > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 10px;
+  background: var(--sc-surface);
+}
+ul.as-stats > li + li {
+  border-top: 1px solid var(--sc-border);
+}
+.as-stats strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.as-stats span {
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+ul.as-stats > li.warn strong {
+  color: #b45309;
+}
+ul.as-stats > li.bad strong {
+  color: #dc2626;
+}
+ul.as-stats > li.good strong {
+  color: #1d7a45;
+}
+.as-title-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.as-title-link:hover {
+  text-decoration: underline;
+}

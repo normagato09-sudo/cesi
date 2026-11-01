@@ -5,7 +5,7 @@ import ComingSoonView from './ComingSoonView.jsx'
 import { ProfileFormPage, ProfileLoadError, ProfileLoading } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { allItems, memberGroups, sectionActive } from './sections.js'
-import { LEVEL_LABELS, SCREENS, areaName, fetchMyPermissions } from '../lib/permissions'
+import { areaName, fetchMyPermissions } from '../lib/permissions'
 import { zoneShort } from '../lib/studentPortal'
 import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
@@ -13,6 +13,7 @@ import TeamTasksView from './team/TeamTasksView.jsx'
 import ClockView from './team/ClockView.jsx'
 import MyTeamTasks from './team/MyTeamTasks.jsx'
 import MyClasses from './team/MyClasses.jsx'
+import AreaSummary from './team/AreaSummary.jsx'
 import { AllianceStatsCard, NextStepsCard } from './alliances/AllianceHome.jsx'
 import BoardView from './boards/BoardView.jsx'
 import BoardsView from './boards/BoardsView.jsx'
@@ -85,7 +86,6 @@ export default function MemberApp({
 
   const groups = useMemo(() => memberGroups(levels || {}, area), [levels, area])
   const current = allItems(groups).find((item) => item.id === section)
-  const allowed = SCREENS.filter((s) => levels && levels[s.id] !== 'none')
 
   const handleSignOut = () => {
     if (window.confirm('¿Cerrar sesión?')) onSignOut()
@@ -219,6 +219,13 @@ export default function MemberApp({
             />
             <MyTeamTasks client={workClient} zone={zone} asId={workAs} onOpenAll={() => setSection('team-tasks')} />
             <AreaGoals client={workClient} area={area} zone={zone} asId={workAs} onOpenAll={() => setSection('goals')} />
+            <AreaSummary
+              client={workClient}
+              area={area}
+              zone={zone}
+              asId={workAs}
+              onOpen={() => setSection(area === 'formacion' ? 'attendance' : area === 'personas' ? 'vacancies' : 'alliances')}
+            />
             {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
             {me.boss && <AllianceStatsCard client={workClient} asId={workAs} />}
             {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
@@ -228,25 +235,8 @@ export default function MemberApp({
             )}
             {me.boss && <BoardCountsCard client={workClient} asId={workAs} onOpen={() => setSection('boards')} />}
 
-            {error ? (
-              <p className="member-panel-note">No se pudieron cargar tus permisos. Comprueba la conexión y vuelve a entrar.</p>
-            ) : levels === null ? (
-              <p className="member-panel-note">Cargando tus permisos…</p>
-            ) : allowed.length === 0 ? (
-              <p className="member-panel-note">Todavía no tienes acceso a ninguna pantalla. La dirección te lo dará en Accesos.</p>
-            ) : (
-              <section className="member-panel-access">
-                <h2>Tus accesos</h2>
-                <ul>
-                  {allowed.map((s) => (
-                    <li key={s.id}>
-                      <span>{s.label}</span>
-                      <span className={`member-level ${levels[s.id]}`}>{LEVEL_LABELS[levels[s.id]]}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            {/* Los permisos no se enseñan nunca (solo deciden el menú). */}
+            {error && <p className="member-panel-note">No se pudo cargar todo tu menú. Comprueba la conexión y vuelve a entrar.</p>}
 
             <p className="member-panel-email">Has entrado como {email}.</p>
             <button type="button" className="contacts-groups-btn member-signout" onClick={handleSignOut} disabled={readOnly}>
@@ -258,7 +248,7 @@ export default function MemberApp({
           <ComingSoonView
             title={current.label}
             Icon={current.Icon}
-            note={levels?.[current.screen] === 'write' ? 'Podrás verla y editarla.' : 'Podrás verla.'}
+            note="Muy pronto."
           />
         )}
       </main>

@@ -68,15 +68,6 @@
   border-top: 1px solid var(--border);
 }
 
-.member-level {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-.member-level.write {
-  color: var(--accent);
-}
-
 .member-signout {
   margin-top: 4px;
 }

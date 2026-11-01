@@ -630,6 +630,8 @@ export default function App() {
     removeNote: (id, noteId) => editContact(id, { alliance: removeAllianceNote(allianceOfId(id), noteId) }),
   }
   const todayInMyZone = keyOf(now, myZone)
+  // Mis datos para «Cómo va cada área» (Mi equipo).
+  const areaLocal = useMemo(() => ({ courses, students, attendance, vacancies, contacts }), [courses, students, attendance, vacancies, contacts])
   // Mensajes sin leer (menú e Inicio).
   const chatUnread = useChatUnread(syncClient)
 
@@ -1278,7 +1280,13 @@ export default function App() {
                         {unreadText(chatUnread)}
                       </button>
                     )}
-                    <CeoTeamPanel client={sync.client} meId={sync.userId} zone={myZone} />
+                    <CeoTeamPanel
+                      client={sync.client}
+                      meId={sync.userId}
+                      zone={myZone}
+                      local={areaLocal}
+                      onGoTo={goToSection}
+                    />
                   </Suspense>
                 ) : null
               }
