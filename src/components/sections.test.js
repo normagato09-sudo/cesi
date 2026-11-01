@@ -17,6 +17,7 @@ describe('ceoGroups', () => {
       'goals',
       'boards',
       'notices',
+      'finance',
       'clockins',
       'access',
       'courses',
@@ -53,6 +54,9 @@ describe('memberGroups', () => {
     expect(items('moderacion').find((i) => i.id === 'board').label).toBe('Registro de moderación')
     expect(items('direccion').map((i) => i.id)).toContain('boards')
     expect(items('alianzas').some((i) => i.id === 'board' || i.id === 'boards')).toBe(false)
+    expect(items('finanzas').map((i) => i.id)).toContain('finance')
+    expect(items('direccion').map((i) => i.id)).toContain('finance')
+    expect(items('media').map((i) => i.id)).not.toContain('finance')
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {

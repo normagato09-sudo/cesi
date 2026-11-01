@@ -14,6 +14,7 @@ import { nameOf, overdueTasks, panelRanges, splitOpenEntries, weekHoursByPerson 
 import { allianceStats } from '../lib/alliances'
 import { BOARDS, boardCounts } from '../lib/boards'
 import { PendingNoticesList } from './notices/NoticesHome.jsx'
+import { euros, monthBalance } from '../lib/finance'
 import './CeoTeamPanel.css'
 
 const ME = (id) => ({ id, role: 'ceo', area: null, boss: true })
@@ -43,7 +44,12 @@ async function loadPanel(client, zone) {
     (rows) => ({ rows: (rows || []).filter((r) => BOARDS[r.area]), error: null }),
     (err) => ({ rows: [], error: err.message }),
   )
-  const [profiles, portals, areas, week, open, tasks, goalResult, alliances, boards] = await Promise.all([
+  // Finanzas también aparte (sin la parte 19, sin saldo).
+  const financeRow = monthBalance(client).then(
+    (row) => ({ ...row, error: null }),
+    (err) => ({ income: 0, expense: 0, balance: 0, error: err.message }),
+  )
+  const [profiles, portals, areas, week, open, tasks, goalResult, alliances, boards, finance] = await Promise.all([
     listProfiles(client),
     listPortalsByAccount(client),
     listAreasForTasks(client),
@@ -53,6 +59,7 @@ async function loadPanel(client, zone) {
     goalRows,
     allianceRow,
     boardRows,
+    financeRow,
   ])
   const { unclosed, current } = splitUnclosed(goalResult.rows, month)
   const goals = { error: goalResult.error, unclosed, byArea: goalsByArea(current, areas, { allAreas: true }) }
@@ -71,6 +78,7 @@ async function loadPanel(client, zone) {
     goals,
     alliances,
     boards,
+    finance,
   }
 }
 
@@ -239,6 +247,27 @@ export default function CeoTeamPanel({ client, meId, zone }) {
             <div className="tw-home-tasks">
               <MyTasksList tasks={data.tasks} today={data.today} onOpen={setOpenTask} />
             </div>
+          </Card>
+
+          <Card title="Finanzas: saldo del mes">
+            {data.finance.error ? (
+              <p className="ceo-muted">{data.finance.error}</p>
+            ) : (
+              <ul className="ceo-list">
+                <li>
+                  <span>Ingresos</span>
+                  <strong>{euros(data.finance.income)}</strong>
+                </li>
+                <li>
+                  <span>Gastos</span>
+                  <strong>{euros(data.finance.expense)}</strong>
+                </li>
+                <li>
+                  <span>Saldo</span>
+                  <strong className={data.finance.balance < 0 ? 'ceo-late' : undefined}>{euros(data.finance.balance)}</strong>
+                </li>
+              </ul>
+            )}
           </Card>
 
           <Card title="Avisos sin leer por el equipo">

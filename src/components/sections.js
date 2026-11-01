@@ -17,6 +17,7 @@ import {
   Target,
   UserRound,
   Users,
+  Wallet,
 } from 'lucide-react'
 import { boardOf } from '../lib/boards'
 
@@ -59,6 +60,7 @@ export const NAV_GROUPS = [
       { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
       { id: 'boards', label: 'Tableros', Icon: SquareKanban, ceoOnly: true, needsSync: true },
       { id: 'notices', label: 'Avisos', Icon: Megaphone, ceoOnly: true, needsSync: true },
+      { id: 'finance', label: 'Finanzas', Icon: Wallet, ceoOnly: true, needsSync: true },
       { id: 'clockins', label: 'Fichajes', Icon: Clock, screen: 'fichajes' },
       { id: 'access', label: 'Accesos', Icon: KeyRound, ceoOnly: true, needsSync: true },
     ],
@@ -100,6 +102,8 @@ export function memberGroups(levels = {}, area = null) {
             // El tablero de su área (con su nombre) o, en Directivo, «Tableros» (todos).
             ...(boardOf(area) ? [{ id: 'board', label: boardOf(area).title, Icon: SquareKanban }] : []),
             ...(area === 'direccion' ? [{ id: 'boards', label: 'Tableros', Icon: SquareKanban }] : []),
+            // Finanzas: el área Finanzas y Directivo (solo ver).
+            ...(area === 'finanzas' || area === 'direccion' ? [{ id: 'finance', label: 'Finanzas', Icon: Wallet }] : []),
             { id: 'clock', label: 'Fichaje', Icon: Clock },
           ],
         }

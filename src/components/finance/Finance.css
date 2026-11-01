@@ -1,0 +1,322 @@
+/* Finanzas (FinanceView, FinanceChart y el Inicio). Usa los colores del calendario compartido
+   (--sc-*). Series del gráfico (paleta validada): ingresos azul y gastos naranja; los textos van
+   siempre en los colores de texto, no en el de la serie. Estado del presupuesto: naranja (aviso,
+   desde el 80 %) y rojo (se pasa), siempre con icono y cifra. */
+
+.fn-s1 {
+  fill: #2a78d6;
+  background: #2a78d6;
+}
+.fn-s2 {
+  fill: #eb6834;
+  background: #eb6834;
+}
+
+.fn-pickers,
+.fn-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.fn-pickers label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.fn-pickers input,
+.fn-filters select,
+.fn-budgets input {
+  padding: 6px 9px;
+  border: 1px solid var(--sc-border);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 13px;
+}
+.fn-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  background: var(--sc-surface);
+  color: var(--sc-muted);
+}
+.fn-search input {
+  width: 150px;
+  border: none;
+  background: none;
+  color: var(--sc-text);
+  font: inherit;
+  outline: none;
+}
+
+.fn-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.fn-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--sc-border);
+  border-radius: 12px;
+  background: var(--sc-surface);
+}
+.fn-stat span {
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+.fn-stat strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.fn-stat.negative strong {
+  color: #dc2626;
+}
+
+.fn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
+}
+.fn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--sc-border);
+  border-radius: 12px;
+  background: var(--sc-surface);
+}
+.fn-card.wide {
+  grid-column: 1 / -1;
+}
+.fn-card h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+
+/* Gráfico */
+.fn-chart {
+  margin: 0;
+}
+.fn-chart figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.fn-legend {
+  display: flex;
+  gap: 12px;
+  color: var(--sc-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.fn-legend span,
+.fn-tooltip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.fn-legend i,
+.fn-tooltip i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.fn-link {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-blue);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fn-plot {
+  position: relative;
+}
+.fn-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.fn-axis {
+  stroke: var(--sc-border);
+  stroke-width: 1;
+}
+.fn-tick {
+  fill: var(--sc-muted);
+  font-size: 11px;
+}
+.fn-hover-band {
+  fill: rgba(15, 23, 42, 0.04);
+}
+.fn-tooltip {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.fn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.fn-table th,
+.fn-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--sc-border);
+  text-align: left;
+}
+.fn-table .num,
+.fn-num,
+.fn-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Barras de categorías y presupuestos */
+.fn-categories,
+.fn-budgets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fn-categories li,
+.fn-budgets li {
+  display: grid;
+  grid-template-columns: minmax(90px, 150px) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.fn-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eceff4;
+}
+.fn-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--sc-blue);
+}
+.fn-bar > span.warn {
+  background: #d97706;
+}
+.fn-bar > span.over {
+  background: #dc2626;
+}
+.fn-budget-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fn-budget-num.warn {
+  color: #b45309;
+  font-weight: 600;
+}
+.fn-budget-num.over {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* Movimientos */
+.fn-movements,
+.fn-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fn-movements button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 10px;
+  background: var(--sc-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fn-mov-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fn-mov-main strong {
+  overflow-wrap: anywhere;
+}
+.fn-mov-meta {
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+.fn-amount {
+  font-weight: 700;
+}
+.fn-amount.gasto {
+  color: var(--sc-text);
+}
+.fn-amount.ingreso {
+  color: #1d7a45;
+}
+.fn-log li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sc-border);
+  font-size: 13px;
+}
+
+/* Inicio */
+.fn-home-balance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 6px;
+  font-variant-numeric: tabular-nums;
+}

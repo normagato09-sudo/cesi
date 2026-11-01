@@ -19,6 +19,8 @@ import BoardsView from './boards/BoardsView.jsx'
 import { BoardCountsCard, MyBoardCard } from './boards/BoardHome.jsx'
 import { boardOf } from '../lib/boards'
 import NoticesView from './notices/NoticesView.jsx'
+import FinanceView from './finance/FinanceView.jsx'
+import FinanceHomeCard from './finance/FinanceHome.jsx'
 import { PendingNoticesCard, UnreadNotices } from './notices/NoticesHome.jsx'
 import AreaGoals from './team/AreaGoals.jsx'
 import GoalsView from './team/GoalsView.jsx'
@@ -161,6 +163,8 @@ export default function MemberApp({
           <TeamTasksView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'goals' ? (
           <GoalsView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
+        ) : section === 'finance' && (area === 'finanzas' || me.boss) ? (
+          <FinanceView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : section === 'notices' ? (
           <NoticesView client={workClient} me={me} asId={workAs} readOnly={readOnly} />
         ) : section === 'board' && boardOf(area) ? (
@@ -201,6 +205,9 @@ export default function MemberApp({
             {me.boss && <AllianceStatsCard client={workClient} asId={workAs} />}
             {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
             {me.boss && <PendingNoticesCard client={workClient} asId={workAs} onOpen={() => setSection('notices')} />}
+            {(area === 'finanzas' || me.boss) && (
+              <FinanceHomeCard client={workClient} asId={workAs} withMovements={area === 'finanzas'} onOpen={() => setSection('finance')} />
+            )}
             {me.boss && <BoardCountsCard client={workClient} asId={workAs} onOpen={() => setSection('boards')} />}
 
             {error ? (
