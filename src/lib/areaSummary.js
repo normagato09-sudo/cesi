@@ -47,13 +47,16 @@ export function topAbsentees(records, students, month, limit = 3, courseIds = nu
     .slice(0, limit)
 }
 
-// Cursos activos (con horario o con alumnos) y alumnos inscritos en alguno.
+// Estados de un curso activo: «Inscripción abierta» y «En curso» (sin estado: borrador).
+const ACTIVE_STATUSES = new Set(['inscripcion', 'en_curso'])
+export const isActiveCourse = (course) => ACTIVE_STATUSES.has(course?.status)
+
+// Cursos activos y alumnos inscritos en alguno de ellos (cada alumno, una vez).
 export function coursesSummary(courses, students) {
-  const enrolled = students.filter((s) => (s.courseIds || []).length > 0)
-  const withStudents = new Set(enrolled.flatMap((s) => s.courseIds))
+  const active = new Set(courses.filter(isActiveCourse).map((c) => c.id))
   return {
-    active: courses.filter((c) => c.schedule || withStudents.has(c.id)).length,
-    enrolled: enrolled.length,
+    active: active.size,
+    enrolled: students.filter((s) => (s.courseIds || []).some((id) => active.has(id))).length,
   }
 }
 

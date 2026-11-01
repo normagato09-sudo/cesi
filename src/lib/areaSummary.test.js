@@ -30,9 +30,22 @@ describe('asistencia', () => {
   })
 
   it('cursos activos y alumnos inscritos', () => {
-    const courses = [{ id: 'c1', schedule: { slots: [] } }, { id: 'c2' }, { id: 'c3' }]
-    const students = [{ id: 'a', courseIds: ['c2'] }, { id: 'b', courseIds: [] }, { id: 'c' }]
-    expect(coursesSummary(courses, students)).toEqual({ active: 2, enrolled: 1 })
+    const courses = [
+      { id: 'c1', status: 'inscripcion' },
+      { id: 'c2', status: 'en_curso', schedule: { slots: [] } },
+      { id: 'c3', status: 'terminado' },
+      { id: 'c4', schedule: { slots: [] } },
+    ]
+    const students = [
+      { id: 'a', courseIds: ['c1', 'c2'] },
+      { id: 'b', courseIds: ['c3'] },
+      { id: 'c', courseIds: [] },
+      { id: 'd' },
+      { id: 'e', courseIds: ['c1'] },
+    ]
+    // Office abierto y sin horario ni alumnos: cuenta como activo.
+    expect(coursesSummary(courses, students)).toEqual({ active: 2, enrolled: 2 })
+    expect(coursesSummary([{ id: 'o', status: 'inscripcion' }], [])).toEqual({ active: 1, enrolled: 0 })
   })
 })
 

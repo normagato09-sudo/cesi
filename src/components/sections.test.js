@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { allItems, ceoGroups, groupOfSection, memberGroups, sectionActive } from './sections.js'
 
 describe('ceoGroups', () => {
-  it('cuatro grupos con todas las pantallas; Mi perfil y Accesos solo con sincronización', () => {
+  it('cuatro grupos, sin las pantallas de las áreas; Mi perfil y Accesos solo con sincronización', () => {
     const groups = ceoGroups(true)
     expect(groups.map((g) => g.label)).toEqual(['Mi panel', 'Agenda', 'Equipo', 'Formación'])
     expect(allItems(groups).map((i) => i.id)).toEqual([
@@ -11,21 +11,17 @@ describe('ceoGroups', () => {
       'profile',
       'calendar',
       'contacts',
-      'alliances',
       'team',
-      'vacancies',
       'team-tasks',
       'goals',
-      'boards',
       'notices',
-      'finance',
       'clockins',
       'access',
       'team-edits',
       'courses',
       'students',
-      'attendance',
     ])
+    expect(allItems(groups).find((i) => i.id === 'contacts').label).toBe('Mis contactos')
     expect(allItems(ceoGroups(false)).some((i) => ['access', 'profile', 'team-tasks', 'goals', 'messages'].includes(i.id))).toBe(false)
   })
 })
@@ -72,6 +68,6 @@ describe('groupOfSection', () => {
   it('el informe cuenta como Inicio', () => {
     expect(sectionActive('home', 'report')).toBe(true)
     expect(groupOfSection(ceoGroups(true), 'report').id).toBe('panel')
-    expect(groupOfSection(ceoGroups(true), 'attendance').id).toBe('training')
+    expect(groupOfSection(ceoGroups(true), 'students').id).toBe('training')
   })
 })

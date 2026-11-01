@@ -81,9 +81,19 @@ export const NAV_GROUPS = [
   },
 ]
 
+// Pantallas que no salen en el menú de la ceo (las siguen usando sus áreas; la asistencia la ve en
+// cada curso) y los nombres que cambian para ella.
+const CEO_HIDDEN = new Set(['alliances', 'vacancies', 'boards', 'finance', 'attendance'])
+const CEO_LABELS = { contacts: 'Mis contactos' }
+
 // Menú de la ceo. Mi perfil y Accesos solo con la sincronización activa.
 export function ceoGroups(withSync) {
-  return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((item) => withSync || !item.needsSync) }))
+  return NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items
+      .filter((item) => !CEO_HIDDEN.has(item.id) && (withSync || !item.needsSync))
+      .map((item) => (CEO_LABELS[item.id] ? { ...item, label: CEO_LABELS[item.id] } : item)),
+  }))
 }
 
 // Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el

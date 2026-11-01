@@ -3,7 +3,6 @@ import { addDays, format, subDays } from 'date-fns'
 import { Clock, Eye } from 'lucide-react'
 import Sidebar from './components/Sidebar.jsx'
 import MobileNav from './components/MobileNav.jsx'
-import HomeView from './components/HomeView.jsx'
 import ProfileReminder from './components/ProfileReminder.jsx'
 import { useMyProfile } from './components/useMyProfile'
 import { usePublishCeoBusy, useSharedMeetings } from './hooks/useSharedMeetings'
@@ -55,7 +54,6 @@ import { orderPatches } from './lib/teamOrder.js'
 import { markFormerProfile, returnToTeamProfile } from './lib/formerMembers.js'
 import { withStatusChange } from './lib/teamEdits.js'
 import { useChatUnread } from './components/chat/useChatUnread.js'
-import { unreadText } from './lib/chat.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
 import { DEFAULT_DEPARTMENTS, resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -134,7 +132,7 @@ const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.js
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
-const CeoTeamPanel = lazy(() => import('./components/CeoTeamPanel.jsx'))
+const CeoHome = lazy(() => import('./components/CeoHome.jsx'))
 const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
 const ComingSoonView = lazy(() => import('./components/ComingSoonView.jsx'))
@@ -1032,6 +1030,7 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <ContactsView
+                title="Mis contactos"
                 contacts={contacts}
                 groups={groups}
                 rawEvents={rawEvents}
@@ -1273,30 +1272,19 @@ export default function App() {
         {section === 'home' && (
           <div className="app-main">
             {sync && myProfileMissing && <ProfileReminder onOpen={() => goToSection('profile')} />}
-            <HomeView
-              now={now}
-              proposals={proposalItems}
-              onGoTo={goToSection}
-              onOpenProposal={setProposalModalId}
-              teamPanel={
-                sync ? (
-                  <Suspense fallback={null}>
-                    {chatUnread > 0 && (
-                      <button type="button" className="member-unread-messages" onClick={() => goToSection('messages')}>
-                        {unreadText(chatUnread)}
-                      </button>
-                    )}
-                    <CeoTeamPanel
-                      client={sync.client}
-                      meId={sync.userId}
-                      zone={myZone}
-                      local={areaLocal}
-                      onGoTo={goToSection}
-                    />
-                  </Suspense>
-                ) : null
-              }
-            />
+            <Suspense fallback={null}>
+              <CeoHome
+                client={sync ? sync.client : null}
+                zone={myZone}
+                now={now}
+                local={areaLocal}
+                rawEvents={rawEvents}
+                sharedRows={sharedMeetings.rows}
+                proposalsCount={proposalItems.length}
+                unreadMessages={chatUnread}
+                onGoTo={goToSection}
+              />
+            </Suspense>
           </div>
         )}
 

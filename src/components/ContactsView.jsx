@@ -192,7 +192,7 @@ export default function ContactsView({
         <div className="contacts-header">
           <button type="button" className="contact-back-btn contacts-archive-back" onClick={closeArchive}>
             <ArrowLeft size={16} strokeWidth={1.75} />
-            Contactos externos
+            {title || 'Contactos externos'}
           </button>
           <h1 className="contacts-title">
             <Archive size={20} strokeWidth={1.75} aria-hidden="true" />

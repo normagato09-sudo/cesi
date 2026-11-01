@@ -1,0 +1,319 @@
+/* Inicio de la ceo (CeoHome.jsx): Plus Jakarta Sans, tarjetas blancas y mucho aire. Solo dentro
+   de .ch-root. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.ch-root {
+  --ch-bg: #f3f5f9;
+  --ch-card: #ffffff;
+  --ch-border: #e8ebf1;
+  --ch-blue: #1f5fd6;
+  --ch-blue-soft: #e8effc;
+  --ch-text: #111827;
+  --ch-muted: #6b7280;
+  --ch-good: #15803d;
+  --ch-good-bg: #dcfce7;
+  --ch-bad: #dc2626;
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 40px 40px 56px;
+  background: var(--ch-bg);
+  color: var(--ch-text);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+.ch-root *,
+.ch-root button {
+  font-family: inherit;
+}
+
+.ch-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1080px;
+  margin: 0 auto 28px;
+}
+.ch-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ch-header p {
+  margin: 4px 0 0;
+  color: var(--ch-muted);
+  font-size: 15px;
+}
+
+.ch-btn,
+.ch-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ch-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--ch-border);
+  background: var(--ch-card);
+  color: var(--ch-text);
+}
+.ch-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.ch-link {
+  padding: 4px 6px;
+  border: none;
+  background: none;
+  color: var(--ch-blue);
+}
+.ch-link:hover {
+  text-decoration: underline;
+}
+
+.ch-error {
+  max-width: 1080px;
+  margin: 0 auto 16px;
+  color: var(--ch-bad);
+  font-size: 14px;
+}
+
+.ch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.ch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 28px;
+  border: 1px solid var(--ch-border);
+  border-radius: 16px;
+  background: var(--ch-card);
+}
+.ch-card.wide {
+  grid-column: 1 / -1;
+}
+.ch-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ch-card-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ch-muted {
+  margin: 0;
+  color: var(--ch-muted);
+  font-size: 14px;
+}
+.ch-label {
+  margin: 4px 0 -6px;
+  color: var(--ch-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Necesita tu atención */
+.ch-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--ch-good-bg);
+  color: var(--ch-good);
+  font-weight: 700;
+}
+.ch-attention {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ch-attention button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--ch-border);
+  border-radius: 12px;
+  background: none;
+  color: var(--ch-text);
+  font-size: 14.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ch-attention button:hover {
+  border-color: var(--ch-blue);
+}
+.ch-attention strong {
+  min-width: 34px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ch-blue-soft);
+  color: var(--ch-blue);
+  font-size: 15px;
+  text-align: center;
+}
+.ch-attention span {
+  flex: 1;
+}
+.ch-attention svg {
+  color: var(--ch-muted);
+}
+
+/* Tu equipo hoy */
+.ch-people,
+.ch-hours,
+.ch-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.ch-people li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+}
+.ch-hours {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 20px;
+}
+.ch-hours li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.ch-hours li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ch-hours li.zero {
+  color: var(--ch-muted);
+}
+
+/* De un vistazo */
+.ch-glance {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ch-glance button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 18px;
+  border: none;
+  border-radius: 12px;
+  background: var(--ch-bg);
+  color: var(--ch-text);
+  text-align: left;
+  cursor: pointer;
+}
+.ch-glance button:hover {
+  background: var(--ch-blue-soft);
+}
+.ch-glance strong {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.ch-glance button.bad strong {
+  color: var(--ch-bad);
+}
+.ch-glance span {
+  color: var(--ch-muted);
+  font-size: 13px;
+}
+
+/* Tu agenda de hoy */
+.ch-agenda li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ch-border);
+}
+.ch-agenda li:last-child {
+  border-bottom: none;
+}
+.ch-time {
+  min-width: 112px;
+  color: var(--ch-blue);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ch-agenda-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.ch-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3e8ff;
+  color: #7e22ce;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .ch-root {
+    padding: 24px 16px 40px;
+  }
+  .ch-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .ch-card {
+    padding: 20px;
+  }
+  .ch-glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .ch-glance strong {
+    font-size: 24px;
+  }
+}

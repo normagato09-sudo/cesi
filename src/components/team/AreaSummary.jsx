@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { keyOf } from '../../lib/sharedCalendar'
 import { fetchScreenData, screenErrorText } from '../../lib/screenData'
-import { allianceSummary, attendanceOfMonth, recruitmentSummary, topAbsentees } from '../../lib/areaSummary'
+import { allianceSummary, attendanceOfMonth, coursesSummary, recruitmentSummary, topAbsentees } from '../../lib/areaSummary'
 import './TeamWork.css'
 
 // Cifras en una fila: [{ label, value, tone }].
@@ -55,11 +55,13 @@ export default function AreaSummary({ client, area, zone, asId = null, onOpen = 
     if (area === 'formacion') {
       const stats = attendanceOfMonth(attendance, month)
       const top = topAbsentees(attendance, students, month)
+      const summary = coursesSummary(courses, students)
       body = (
         <>
           <Stats
             items={[
-              { label: courses.length === 1 ? 'curso' : 'cursos', value: courses.length },
+              { label: summary.active === 1 ? 'curso activo' : 'cursos activos', value: summary.active },
+              { label: summary.enrolled === 1 ? 'alumno inscrito' : 'alumnos inscritos', value: summary.enrolled },
               { label: 'asistencia media', value: stats.percent === null ? '—' : `${stats.percent} %` },
               { label: 'faltas', value: stats.absent, tone: stats.absent ? 'warn' : '' },
             ]}
