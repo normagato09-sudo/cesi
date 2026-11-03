@@ -101,7 +101,8 @@ function Message({ m, zone, seen, onEdit, onDelete }) {
  * personas; a la derecha, la conversación. En el móvil, una cosa cada vez. En tiempo real.
  * meId: mi cuenta. zone: mi zona (las horas).
  */
-export default function MessagesView({ client, meId, zone }) {
+// withPerson: id de una cuenta con la que abrir el chat privado al entrar (desde el Organigrama).
+export default function MessagesView({ client, meId, zone, withPerson = null }) {
   const [conversations, setConversations] = useState(null)
   const [openId, setOpenId] = useState(null)
   const [messages, setMessages] = useState(null)
@@ -175,6 +176,23 @@ export default function MessagesView({ client, meId, zone }) {
     setDraft('')
     setOpenId(id)
   }, [])
+
+  // Al entrar con una persona elegida (Organigrama): su chat privado, abierto.
+  useEffect(() => {
+    if (!client || !withPerson) return
+    let active = true
+    openPrivate(client, withPerson).then(
+      (id) => {
+        if (!active) return
+        setListTick((n) => n + 1)
+        choose(id)
+      },
+      (err) => active && setError(err.message),
+    )
+    return () => {
+      active = false
+    }
+  }, [client, withPerson, choose])
 
   const startWith = async (person) => {
     try {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { keyOf } from '../../lib/sharedCalendar'
 import { fetchScreenData, screenErrorText } from '../../lib/screenData'
-import { allianceSummary, attendanceOfMonth, coursesSummary, recruitmentSummary, topAbsentees } from '../../lib/areaSummary'
+import { allianceSummary, attendanceOfMonth, coursesSummary, topAbsentees } from '../../lib/areaSummary'
 import './TeamWork.css'
 
 // Cifras en una fila: [{ label, value, tone }].
@@ -19,12 +19,12 @@ export function Stats({ items }) {
 }
 
 // Lo que necesita el resumen (los datos de esa pantalla, como los ve esa persona).
-const SCREEN_OF = { formacion: 'asistencia', personas: 'vacantes', alianzas: 'contactos' }
+const SCREEN_OF = { formacion: 'asistencia', alianzas: 'contactos' }
 
 /**
  * El resumen propio del área en «Mi panel»: Profesor (asistencia media de sus cursos este mes y
- * alumnos con más faltas), RRHH (vacantes abiertas, candidatos por estado y en entrevista) y
- * Alianzas (en negociación, cerradas este mes y pasos atrasados). Nada en las demás áreas.
+ * alumnos con más faltas) y Alianzas (en negociación, cerradas este mes y pasos atrasados). Nada en
+ * las demás áreas (RRHH ya no: Vacantes no se ve).
  * asId: «Ver como». onOpen: ir a su pantalla.
  */
 export default function AreaSummary({ client, area, zone, asId = null, onOpen = null }) {
@@ -46,12 +46,12 @@ export default function AreaSummary({ client, area, zone, asId = null, onOpen = 
   if (!client || !screen) return null
   const today = keyOf(new Date(), zone)
   const month = today.slice(0, 7)
-  const title = { formacion: 'Mis cursos este mes', personas: 'Selección', alianzas: 'Alianzas' }[area]
+  const title = { formacion: 'Mis cursos este mes', alianzas: 'Alianzas' }[area]
   let body = <p className="sc-zone">Cargando…</p>
 
   if (state?.error) body = <p className="sc-message error">{state.error}</p>
   else if (state?.data) {
-    const { courses, students, attendance, vacancies, contacts } = state.data
+    const { courses, students, attendance, contacts } = state.data
     if (area === 'formacion') {
       const stats = attendanceOfMonth(attendance, month)
       const top = topAbsentees(attendance, students, month)
@@ -71,21 +71,6 @@ export default function AreaSummary({ client, area, zone, asId = null, onOpen = 
               Más faltas: {top.map((r) => `${r.student.name} (${r.absences})`).join(', ')}
             </p>
           )}
-        </>
-      )
-    } else if (area === 'personas') {
-      const s = recruitmentSummary(vacancies, contacts)
-      body = (
-        <>
-          <Stats
-            items={[
-              { label: s.openVacancies === 1 ? 'vacante abierta' : 'vacantes abiertas', value: s.openVacancies },
-              { label: 'nuevos', value: s.byStatus.new },
-              { label: 'en entrevista', value: s.byStatus.interview },
-              { label: 'aceptados', value: s.byStatus.accepted },
-            ]}
-          />
-          {s.interviews.length > 0 && <p className="sc-zone">En entrevista: {s.interviews.map((i) => `${i.contact.name}${i.vacancy ? ` (${i.vacancy.title})` : ''}`).join(', ')}</p>}
         </>
       )
     } else {

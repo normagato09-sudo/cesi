@@ -28,11 +28,12 @@ const NO_RECORDS = []
 // RRHH edita Equipo y Vacantes, y Directivo gestiona Cursos (parte 20): con la misma lógica que
 // la app de la ceo y cesi_ceo_doc_patch; tras cada cambio se vuelven a leer los datos.
 // zone: la de la persona (para «hoy»).
-export default function MemberScreen({ client, section, zone, asId = null, asArea = null }) {
+// initialSelectedId: la ficha que se abre al entrar (desde el Organigrama, «Ver ficha»).
+export default function MemberScreen({ client, section, zone, asId = null, asArea = null, initialSelectedId = null }) {
   const screen = SECTION_SCREENS[section]
   const now = useMinuteClock()
   const [state, setState] = useState({ key: null, data: null, error: null })
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState(initialSelectedId)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
   const key = `${screen}:${asId || ''}:${asArea || ''}`
   const [reload, setReload] = useState(0)

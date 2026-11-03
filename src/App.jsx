@@ -128,6 +128,7 @@ const NoticesView = lazy(() => import('./components/notices/NoticesView.jsx'))
 const FinanceView = lazy(() => import('./components/finance/FinanceView.jsx'))
 const TeamEditsView = lazy(() => import('./components/TeamEditsView.jsx'))
 const MessagesView = lazy(() => import('./components/chat/MessagesView.jsx'))
+const OrgChartView = lazy(() => import('./components/OrgChartView.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -158,6 +159,8 @@ export default function App() {
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [selectedMemberId, setSelectedMemberId] = useState(null)
+  // «Enviar mensaje» desde el Organigrama: Mensajes se abre con el chat de esa cuenta.
+  const [messagesWith, setMessagesWith] = useState(null)
   const [selectedVacancyId, setSelectedVacancyId] = useState(null)
   const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
   // Vista del calendario: la última que elegí en este dispositivo.
@@ -793,6 +796,7 @@ export default function App() {
       setSelectedVacancyId(null)
       setSelectedCandidacyId(null)
     }
+    if (id === 'messages') setMessagesWith(null)
     setSection(id)
   }
 
@@ -1091,7 +1095,26 @@ export default function App() {
         {section === 'messages' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <MessagesView client={sync.client} meId={sync.userId} zone={myZone} />
+              <MessagesView key={messagesWith || ''} client={sync.client} meId={sync.userId} zone={myZone} withPerson={messagesWith} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'org' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <OrgChartView
+                client={sync.client}
+                meId={sync.userId}
+                onMessage={(id) => {
+                  setMessagesWith(id)
+                  setSection('messages')
+                }}
+                onOpenFicha={(teamId) => {
+                  setSelectedMemberId(teamId)
+                  setSection('team')
+                }}
+              />
             </Suspense>
           </div>
         )}

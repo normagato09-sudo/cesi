@@ -1,7 +1,6 @@
 import {
   BadgeCheck,
   BookOpen,
-  Briefcase,
   CalendarDays,
   ClipboardCheck,
   Clock,
@@ -15,6 +14,7 @@ import {
   ListTodo,
   Megaphone,
   MessageCircle,
+  Network,
   SquareKanban,
   Target,
   UserRound,
@@ -58,7 +58,8 @@ export const NAV_GROUPS = [
     Icon: BadgeCheck,
     items: [
       { id: 'team', label: 'Equipo', Icon: BadgeCheck, screen: 'equipo' },
-      { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, screen: 'vacantes' },
+      // Organigrama: en mi menú aquí; en el del equipo, en «Mi panel» (todas las áreas lo leen).
+      { id: 'org', label: 'Organigrama', Icon: Network, ceoOnly: true, needsSync: true },
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
       { id: 'boards', label: 'Tableros', Icon: SquareKanban, ceoOnly: true, needsSync: true },
@@ -83,7 +84,7 @@ export const NAV_GROUPS = [
 
 // Pantallas que no salen en el menú de la ceo (las siguen usando sus áreas; la asistencia la ve en
 // cada curso) y los nombres que cambian para ella.
-const CEO_HIDDEN = new Set(['alliances', 'vacancies', 'boards', 'finance', 'attendance'])
+const CEO_HIDDEN = new Set(['alliances', 'boards', 'finance', 'attendance'])
 const CEO_LABELS = { contacts: 'Mis contactos' }
 
 // Menú de la ceo. Mi perfil y Accesos solo con la sincronización activa.
@@ -99,12 +100,12 @@ export function ceoGroups(withSync) {
 // Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el
 // compartido), «Tareas» (las del equipo), «Objetivos» (los del mes de su área), el tablero de su
 // área (si tiene), «Contactos» (los suyos) y «Fichaje», siempre; y las pantallas a las que tiene
-// permiso (Directivo nunca Vacantes ni Asistencia: la asistencia la ve en cada curso). Mi calendario (permiso 'calendario') y mis Fichajes (permiso
+// permiso (Directivo nunca Asistencia: la ve en cada curso). Vacantes ya no sale para nadie. Mi calendario (permiso 'calendario') y mis Fichajes (permiso
 // 'fichajes') no salen: el calendario aún no lo ve nadie del equipo, y los fichajes de todos los
 // ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.
 // Pantallas que Directivo no ve aunque tuviera permiso (parte 27).
-const DIRECTIVO_HIDDEN = new Set(['vacancies', 'attendance'])
+const DIRECTIVO_HIDDEN = new Set(['attendance'])
 
 export function memberGroups(levels = {}, area = null) {
   return NAV_GROUPS.map((g) =>
@@ -117,6 +118,7 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'notices', label: 'Avisos', Icon: Megaphone },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
+            { id: 'org', label: 'Organigrama', Icon: Network },
             { id: 'goals', label: 'Objetivos', Icon: Target },
             // El tablero de su área (con su nombre).
             ...(boardOf(area) ? [{ id: 'board', label: boardOf(area).title, Icon: SquareKanban }] : []),

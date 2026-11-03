@@ -6,6 +6,9 @@ import Modal from './shared/Modal.jsx'
 import { useSync } from '../lib/sync/syncContext.js'
 import {
   DELETE_WORD,
+  DIRECTION_ROLES,
+  DIRECTION_ROLE_LABEL,
+  areaPatch,
   DISPLAY_NAME_MAX,
   ROLES,
   ROLE_LABELS,
@@ -388,7 +391,12 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                   </span>
                   <span className="access-tags">
                     <span className={`access-tag role-${p.role}`}>{ROLE_LABELS[p.role] || p.role}</span>
-                    {p.role === 'equipo' && <span className={`access-tag area${p.area ? '' : ' none'}`}>{areaLabel(p.area) || 'Sin área'}</span>}
+                    {p.role === 'equipo' && (
+                      <span className={`access-tag area${p.area ? '' : ' none'}`}>
+                        {areaLabel(p.area) || 'Sin área'}
+                        {p.area === 'direccion' && p.direction_role ? ` · ${DIRECTION_ROLE_LABEL[p.direction_role]}` : ''}
+                      </span>
+                    )}
                     {p.role !== 'pendiente' &&
                       (complete ? (
                         <span className="access-profile done">
@@ -475,7 +483,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                           <div className="access-team-row">
                             <label className="access-field access-area">
                               <span className="access-field-label">Área</span>
-                              <select value={p.area || ''} disabled={busy} onChange={(e) => save(p, { area: e.target.value || null })}>
+                              <select value={p.area || ''} disabled={busy} onChange={(e) => save(p, areaPatch(p, e.target.value))}>
                                 <option value="">Sin área</option>
                                 {areas.map((ar) => (
                                   <option key={ar.id} value={ar.id}>
@@ -484,6 +492,19 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                                 ))}
                               </select>
                             </label>
+                            {p.area === 'direccion' && (
+                              <label className="access-field access-area">
+                                <span className="access-field-label">Puesto</span>
+                                <select value={p.direction_role || ''} disabled={busy} onChange={(e) => save(p, { direction_role: e.target.value || null })}>
+                                  <option value="">Sin puesto</option>
+                                  {DIRECTION_ROLES.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                      {r.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
                             <span className="access-muted">Lo que puede ver depende de su área.</span>
                           </div>
                         )}

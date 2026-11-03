@@ -119,6 +119,23 @@ export function initialsOf(name) {
   return (words.length > 1 ? words[0][0] + words.at(-1)[0] : (words[0] || '?')[0]).toLocaleUpperCase('es')
 }
 
+// Puesto de las personas de Directivo (profiles.direction_role, parte 28), en el orden del
+// organigrama.
+export const DIRECTION_ROLES = [
+  { id: 'director', label: 'Director/a' },
+  { id: 'subdirector', label: 'Subdirector/a' },
+  { id: 'secretario', label: 'Secretario/a' },
+  { id: 'coordinador', label: 'Coordinador/a' },
+]
+export const DIRECTION_ROLE_LABEL = Object.fromEntries(DIRECTION_ROLES.map((r) => [r.id, r.label]))
+
+// Cambio de área en Accesos: fuera de Directivo, el puesto se quita (si la columna ya existe).
+export function areaPatch(profile, area) {
+  const patch = { area: area || null }
+  if (area !== 'direccion' && profile?.direction_role) patch.direction_role = null
+  return patch
+}
+
 // Días que una cuenta lleva la etiqueta «Nuevo» en Accesos.
 export const NEW_ACCOUNT_DAYS = 7
 

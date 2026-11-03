@@ -41,6 +41,7 @@ import './MemberApp.css'
 
 // Las pantallas de la ceo (solo se cargan al abrir una).
 const MemberScreen = lazy(() => import('./team/MemberScreen.jsx'))
+const OrgChartView = lazy(() => import('./OrgChartView.jsx'))
 
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
 // permiso (my_permissions(), ver supabase/schema.sql). Las pantallas de la ceo (Contactos
@@ -69,6 +70,14 @@ export default function MemberApp({
   const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
   const [section, setSection] = useState('home')
+  // Desde el Organigrama: Mensajes con el chat de esa cuenta y Equipo con su ficha abierta.
+  const [messagesWith, setMessagesWith] = useState(null)
+  const [fichaId, setFichaId] = useState(null)
+  const go = (id) => {
+    setMessagesWith(null)
+    setFichaId(null)
+    setSection(id)
+  }
   const [editing, setEditing] = useState(false)
   const levels = previewLevels || fetchedLevels
   const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
@@ -149,7 +158,7 @@ export default function MemberApp({
                   type="button"
                   className={`sidebar-nav-item${sectionActive(id, section) ? ' active' : ''}`}
                   aria-current={sectionActive(id, section) ? 'page' : undefined}
-                  onClick={() => setSection(id)}
+                  onClick={() => go(id)}
                 >
                   <Icon size={17} strokeWidth={1.75} />
                   <span className="sidebar-nav-label">{label}</span>
@@ -190,8 +199,31 @@ export default function MemberApp({
             asId={workAs}
             asArea={preview && !workAs ? screensArea : null}
           />
+        ) : section === 'org' ? (
+          <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
+            <OrgChartView
+              client={workClient}
+              meId={me.id}
+              onMessage={
+                preview
+                  ? null
+                  : (id) => {
+                      setMessagesWith(id)
+                      setSection('messages')
+                    }
+              }
+              onOpenFicha={
+                allItems(groups).some((item) => item.id === 'team')
+                  ? (id) => {
+                      setFichaId(id)
+                      setSection('team')
+                    }
+                  : null
+              }
+            />
+          </Suspense>
         ) : section === 'messages' ? (
-          preview ? <MessagesPrivate /> : <MessagesView client={client} meId={userId} zone={zone} />
+          preview ? <MessagesPrivate /> : <MessagesView key={messagesWith || ''} client={client} meId={userId} zone={zone} withPerson={messagesWith} />
         ) : section === 'notices' ? (
           <NoticesView client={workClient} me={me} asId={workAs} readOnly={readOnly} />
         ) : section === 'board' && boardOf(area) ? (
@@ -202,7 +234,7 @@ export default function MemberApp({
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : current && SECTION_SCREENS[section] ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
-            <MemberScreen client={preview ? screensClient : client} section={section} zone={zone} asId={workAs} asArea={preview && !workAs ? screensArea : null} />
+            <MemberScreen client={preview ? screensClient : client} section={section} zone={zone} asId={workAs} asArea={preview && !workAs ? screensArea : null} initialSelectedId={section === 'team' ? fichaId : null} />
           </Suspense>
         ) : section === 'home' || !current ? (
           <div className="member-panel">
@@ -220,7 +252,7 @@ export default function MemberApp({
             </header>
 
             {!preview && unread > 0 && (
-              <button type="button" className="member-unread-messages" onClick={() => setSection('messages')}>
+              <button type="button" className="member-unread-messages" onClick={() => go('messages')}>
                 <MessageCircle size={16} strokeWidth={1.75} />
                 {unreadText(unread)}
               </button>
@@ -244,7 +276,7 @@ export default function MemberApp({
                   area={area}
                   zone={zone}
                   asId={workAs}
-                  onOpen={() => setSection(area === 'formacion' ? 'attendance' : area === 'personas' ? 'vacancies' : 'alliances')}
+                  onOpen={() => setSection(area === 'formacion' ? 'attendance' : 'alliances')}
                 />
                 {area === 'alianzas' && <NextStepsCard client={workClient} zone={zone} asId={workAs} onOpen={() => setSection('alliances')} />}
                 {boardOf(area) && <MyBoardCard client={workClient} area={area} meId={me.id} zone={zone} asId={workAs} onOpen={() => setSection('board')} />}
@@ -272,7 +304,7 @@ export default function MemberApp({
         )}
       </main>
 
-      <MobileNav section={section} onSectionChange={setSection} groups={groups} badges={{ messages: unread }} />
+      <MobileNav section={section} onSectionChange={go} groups={groups} badges={{ messages: unread }} />
     </div>
   )
 }
