@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CalendarHeader from '../CalendarHeader.jsx'
 import MonthView from '../CalendarView/MonthView.jsx'
+import { PreviewMeContext } from '../CalendarView/previewContext'
 import WeekView from '../CalendarView/WeekView.jsx'
 import DayView from '../CalendarView/DayView.jsx'
 import MeetingFormModal from './MeetingFormModal.jsx'
@@ -101,43 +102,45 @@ export default function SharedCalendar({ client, meId, zone, asId = null, readOn
         {error && <p className="sc-message error">{error}</p>}
         {!error && !shown && <p className="sc-message">Cargando…</p>}
 
-        <div className="app-calendar-body">
-          {view === 'month' && (
-            <MonthView
-              currentDate={currentDate}
-              events={events}
-              onSelectEvent={openEvent}
-              onMoveEvent={() => {}}
-              onSelectDay={(day) => {
-                setCurrentDate(day)
-                setView('day')
-              }}
-            />
-          )}
-          {view === 'week' && (
-            <WeekView
-              currentDate={currentDate}
-              compact={compactWeek}
-              events={events}
-              workingHours={NO_HOURS}
-              onSelectEvent={openEvent}
-              onSlotClick={onSlotClick}
-              onMoveEvent={() => {}}
-              onResizeEvent={() => {}}
-            />
-          )}
-          {view === 'day' && (
-            <DayView
-              currentDate={currentDate}
-              events={events}
-              workingHours={NO_HOURS}
-              onSelectEvent={openEvent}
-              onSlotClick={onSlotClick}
-              onMoveEvent={() => {}}
-              onResizeEvent={() => {}}
-            />
-          )}
-        </div>
+        <PreviewMeContext.Provider value={meId}>
+          <div className="app-calendar-body">
+            {view === 'month' && (
+              <MonthView
+                currentDate={currentDate}
+                events={events}
+                onSelectEvent={openEvent}
+                onMoveEvent={() => {}}
+                onSelectDay={(day) => {
+                  setCurrentDate(day)
+                  setView('day')
+                }}
+              />
+            )}
+            {view === 'week' && (
+              <WeekView
+                currentDate={currentDate}
+                compact={compactWeek}
+                events={events}
+                workingHours={NO_HOURS}
+                onSelectEvent={openEvent}
+                onSlotClick={onSlotClick}
+                onMoveEvent={() => {}}
+                onResizeEvent={() => {}}
+              />
+            )}
+            {view === 'day' && (
+              <DayView
+                currentDate={currentDate}
+                events={events}
+                workingHours={NO_HOURS}
+                onSelectEvent={openEvent}
+                onSlotClick={onSlotClick}
+                onMoveEvent={() => {}}
+                onResizeEvent={() => {}}
+              />
+            )}
+          </div>
+        </PreviewMeContext.Provider>
 
         {open?.kind === 'meeting' && (
           <MeetingDetailModal

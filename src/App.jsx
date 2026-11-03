@@ -11,6 +11,7 @@ import { eventsInZone, fromWall, realEvent, toWall, viewZone } from './lib/zoneV
 import { profileWorkingHours } from './lib/availability'
 import CalendarHeader from './components/CalendarHeader.jsx'
 import MonthView from './components/CalendarView/MonthView.jsx'
+import { PreviewMeContext } from './components/CalendarView/previewContext'
 import WeekView from './components/CalendarView/WeekView.jsx'
 import DayView from './components/CalendarView/DayView.jsx'
 import EventModal from './components/EventModal.jsx'
@@ -1094,43 +1095,45 @@ export default function App() {
               onNewMeeting={handleNewMeeting}
             />
 
-            <div className="app-calendar-body">
-              {view === 'month' && (
-                <MonthView
-                  currentDate={currentDate}
-                  events={zonedEvents}
-                  onSelectEvent={(ev) => openEvent(realEvent(ev))}
-                  onMoveEvent={handleZonedMove}
-                  onSelectDay={(day) => {
-                    setCurrentDate(day)
-                    setView('day')
-                  }}
-                />
-              )}
-              {view === 'week' && (
-                <WeekView
-                  currentDate={currentDate}
-                  compact={compactWeek}
-                  events={zonedEvents}
-                  workingHours={workingHours}
-                  onSelectEvent={(ev) => openEvent(realEvent(ev))}
-                  onSlotClick={handleSlotClick}
-                  onMoveEvent={handleZonedMove}
-                  onResizeEvent={handleZonedMove}
-                />
-              )}
-              {view === 'day' && (
-                <DayView
-                  currentDate={currentDate}
-                  events={zonedEvents}
-                  workingHours={workingHours}
-                  onSelectEvent={(ev) => openEvent(realEvent(ev))}
-                  onSlotClick={handleSlotClick}
-                  onMoveEvent={handleZonedMove}
-                  onResizeEvent={handleZonedMove}
-                />
-              )}
-            </div>
+            <PreviewMeContext.Provider value={sync?.userId || null}>
+              <div className="app-calendar-body">
+                {view === 'month' && (
+                  <MonthView
+                    currentDate={currentDate}
+                    events={zonedEvents}
+                    onSelectEvent={(ev) => openEvent(realEvent(ev))}
+                    onMoveEvent={handleZonedMove}
+                    onSelectDay={(day) => {
+                      setCurrentDate(day)
+                      setView('day')
+                    }}
+                  />
+                )}
+                {view === 'week' && (
+                  <WeekView
+                    currentDate={currentDate}
+                    compact={compactWeek}
+                    events={zonedEvents}
+                    workingHours={workingHours}
+                    onSelectEvent={(ev) => openEvent(realEvent(ev))}
+                    onSlotClick={handleSlotClick}
+                    onMoveEvent={handleZonedMove}
+                    onResizeEvent={handleZonedMove}
+                  />
+                )}
+                {view === 'day' && (
+                  <DayView
+                    currentDate={currentDate}
+                    events={zonedEvents}
+                    workingHours={workingHours}
+                    onSelectEvent={(ev) => openEvent(realEvent(ev))}
+                    onSlotClick={handleSlotClick}
+                    onMoveEvent={handleZonedMove}
+                    onResizeEvent={handleZonedMove}
+                  />
+                )}
+              </div>
+            </PreviewMeContext.Provider>
           </div>
         )}
 
