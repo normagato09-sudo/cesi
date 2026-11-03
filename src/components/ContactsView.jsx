@@ -5,8 +5,6 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
-  BadgeCheck,
-  Briefcase,
   CalendarPlus,
   Link2,
   Mail,
@@ -21,7 +19,6 @@ import {
 } from 'lucide-react'
 import ContactFormModal from './ContactFormModal.jsx'
 import GroupsModal from './GroupsModal.jsx'
-import TeamProfileModal from './TeamProfileModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
 import ContactLinkModal from './ContactLinkModal.jsx'
 import { ContactFields, ContactMeetings, GroupChips } from './ContactInfo.jsx'
@@ -30,12 +27,12 @@ import TeamTrajectory from './TeamTrajectory.jsx'
 import { contactMatches, contactSeries } from '../lib/contacts'
 import { contactsInGroup } from '../lib/groups'
 import { countryLabel } from '../lib/timezones'
-import { contactsSection, isActiveMember, isTeamMember } from '../lib/team'
+import { contactsSection, isTeamMember } from '../lib/team'
 import { isFormerMember } from '../lib/formerMembers'
 import { ARCHIVE_FILTERS, archivedList, isArchived } from '../lib/archive'
 import { migrateProfileLinks } from '../lib/links'
 import { dayLong } from '../lib/trajectory'
-import { contactsForList, isCandidate } from '../lib/vacancies'
+import { contactsForList } from '../lib/vacancies'
 import { useSync } from '../lib/sync/syncContext'
 import { isExternalContact } from '../lib/alliances'
 import './ContactsView.css'
@@ -82,14 +79,8 @@ export default function ContactsView({
   onRenameGroup,
   onGroupColor,
   onDeleteGroup,
-  areas = [],
-  onAddArea,
-  onSaveTeamProfile,
   onArchiveContact,
   onUnarchiveContact,
-  onReturnToTeam,
-  onOpenTeamMember,
-  onOpenCandidate,
   // Solo lectura (pantalla del equipo con permiso «Ver»): sin crear, editar, archivar ni borrar, y
   // sin mis reuniones con cada contacto.
   readOnly = false,
@@ -108,7 +99,6 @@ export default function ContactsView({
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [groupFilter, setGroupFilter] = useState(null)
-  const [teamProfileFor, setTeamProfileFor] = useState(null)
   const [linkFor, setLinkFor] = useState(null)
   // Contactos › Archivados (con buscador y filtro). Se abre también al abrir un contacto archivado.
   const [archiveOpen, setArchiveOpen] = useState(false)
@@ -119,10 +109,8 @@ export default function ContactsView({
   const syncActive = !!useSync()
   // Los miembros activos del equipo solo salen en Equipo (ver contactsSection).
   const people = useMemo(() => contactsSection(contacts), [contacts])
-  // Los candidatos (Vacantes) solo se ven con el filtro "Candidatos".
-  const [showCandidates, setShowCandidates] = useState(false)
-  const candidateCount = people.filter(isCandidate).length
-  const listed = useMemo(() => contactsForList(people, showCandidates && candidateCount > 0), [people, showCandidates, candidateCount])
+  // Los candidatos (de la antigua pantalla Vacantes) ya no salen.
+  const listed = useMemo(() => contactsForList(people, false), [people])
 
   const unreviewedCount = people.filter((c) => c.countryUnreviewed).length
   const showOnlyUnreviewed = onlyUnreviewed && unreviewedCount > 0
@@ -302,18 +290,6 @@ export default function ContactsView({
                 {g.name} ({contactsInGroup(g.id, people).length})
               </button>
             ))}
-            {candidateCount > 0 && (
-              <button
-                type="button"
-                className={`contacts-groups-btn contacts-candidates-btn${showCandidates ? ' on' : ''}`}
-                onClick={() => setShowCandidates((v) => !v)}
-                aria-pressed={showCandidates}
-                title="Ver solo los candidatos de Vacantes"
-              >
-                <Briefcase size={13} strokeWidth={1.75} />
-                Candidatos ({candidateCount})
-              </button>
-            )}
             {(!readOnly || personal) && (
               <button
                 type="button"
@@ -385,7 +361,6 @@ export default function ContactsView({
                   <span className="contact-row-text">
                     <span className="contact-row-name">{c.name}</span>
                     {subtitleOf(c) && <span className="contact-row-sub">{subtitleOf(c)}</span>}
-                    {isCandidate(c) && <span className="contact-row-team candidate">Candidato</span>}
                     {isTeamMember(c) && (
                       <span className="contact-row-team">
                         {c.teamProfile.status === 'former' ? 'Antiguo miembro del equipo' : 'Miembro del equipo'}
@@ -490,36 +465,6 @@ export default function ContactsView({
                 <Link2 size={14} strokeWidth={1.75} />
                 Enviar link para que lo rellene
               </button>
-              {/* Un miembro del equipo o un contacto normal también puede tener candidaturas. */}
-              {isCandidate(selected) && (
-                <button type="button" className="contact-action-btn team" onClick={() => onOpenCandidate(selected.id)}>
-                  <Briefcase size={14} strokeWidth={1.75} />
-                  Ver candidatura
-                </button>
-              )}
-              {isFormerMember(selected) ? (
-                <>
-                  <button
-                    type="button"
-                    className="contact-action-btn team"
-                    onClick={() => {
-                      if (window.confirm(`¿Volver a poner a ${selected.name} en el equipo? Recupera su trayectoria anterior.`)) onReturnToTeam(selected)
-                    }}
-                  >
-                    <BadgeCheck size={14} strokeWidth={1.75} />
-                    Marcar como miembro del equipo
-                  </button>
-                  <button type="button" className="contact-action-btn" onClick={() => setTeamProfileFor(selected)}>
-                    <Pencil size={14} strokeWidth={1.75} />
-                    Editar perfil de equipo
-                  </button>
-                </>
-              ) : isCandidate(selected) && !isTeamMember(selected) ? null : (
-                <button type="button" className="contact-action-btn" onClick={() => setTeamProfileFor(selected)}>
-                  <BadgeCheck size={14} strokeWidth={1.75} />
-                  Marcar como miembro del equipo
-                </button>
-              )}
               <button type="button" className="contact-action-btn" onClick={handleArchive}>
                 <Archive size={14} strokeWidth={1.75} />
                 Archivar
@@ -550,24 +495,6 @@ export default function ContactsView({
           withPhoto={!readOnly}
           onClose={() => setFormModal(null)}
           onSubmit={handleFormSubmit}
-        />
-      )}
-
-      {teamProfileFor && (
-        <TeamProfileModal
-          contact={teamProfileFor}
-          areas={areas}
-          groups={groups}
-          title={isTeamMember(teamProfileFor) ? `Perfil de equipo de ${teamProfileFor.name}` : `${teamProfileFor.name}: miembro del equipo`}
-          saveLabel={isTeamMember(teamProfileFor) ? 'Guardar perfil' : 'Guardar en el equipo'}
-          onAddArea={onAddArea}
-          onSave={(data) => {
-            onSaveTeamProfile(teamProfileFor.id, data)
-            setTeamProfileFor(null)
-            // Si queda como miembro activo, ya no está en Contactos: se abre su ficha en Equipo.
-            if (isActiveMember({ teamProfile: data.teamProfile })) onOpenTeamMember(teamProfileFor.id)
-          }}
-          onClose={() => setTeamProfileFor(null)}
         />
       )}
 

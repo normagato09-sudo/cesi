@@ -10,8 +10,6 @@ export const SECTION_SCREENS = {
   contacts: 'contactos',
   // Alianzas (parte 16): los contactos externos con su seguimiento.
   alliances: 'contactos',
-  team: 'equipo',
-  vacancies: 'vacantes',
   courses: 'cursos',
   students: 'alumnos',
   attendance: 'asistencia',

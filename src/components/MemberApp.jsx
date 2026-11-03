@@ -15,6 +15,7 @@ import MyTeamTasks from './team/MyTeamTasks.jsx'
 import MyClasses from './team/MyClasses.jsx'
 import AreaSummary from './team/AreaSummary.jsx'
 import DirectivoSummary from './team/DirectivoSummary.jsx'
+import { ClockHomeCard, TodayCard } from './team/TodayHome.jsx'
 import MemberContacts from './team/MemberContacts.jsx'
 import { useExternalContacts } from './team/useExternalContacts'
 import { NextStepsCard } from './alliances/AllianceHome.jsx'
@@ -70,12 +71,10 @@ export default function MemberApp({
   const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
   const [section, setSection] = useState('home')
-  // Desde el Organigrama: Mensajes con el chat de esa cuenta y Equipo con su ficha abierta.
+  // Desde el Organigrama: Mensajes con el chat de esa cuenta.
   const [messagesWith, setMessagesWith] = useState(null)
-  const [fichaId, setFichaId] = useState(null)
   const go = (id) => {
     setMessagesWith(null)
-    setFichaId(null)
     setSection(id)
   }
   const [editing, setEditing] = useState(false)
@@ -212,14 +211,6 @@ export default function MemberApp({
                       setSection('messages')
                     }
               }
-              onOpenFicha={
-                allItems(groups).some((item) => item.id === 'team')
-                  ? (id) => {
-                      setFichaId(id)
-                      setSection('team')
-                    }
-                  : null
-              }
             />
           </Suspense>
         ) : section === 'messages' ? (
@@ -234,7 +225,7 @@ export default function MemberApp({
           <ClockView client={workClient} me={me} zone={zone} asId={workAs} readOnly={readOnly} />
         ) : current && SECTION_SCREENS[section] ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
-            <MemberScreen client={preview ? screensClient : client} section={section} zone={zone} asId={workAs} asArea={preview && !workAs ? screensArea : null} initialSelectedId={section === 'team' ? fichaId : null} />
+            <MemberScreen client={preview ? screensClient : client} section={section} zone={zone} asId={workAs} asArea={preview && !workAs ? screensArea : null} />
           </Suspense>
         ) : section === 'home' || !current ? (
           <div className="member-panel">
@@ -262,6 +253,8 @@ export default function MemberApp({
               <p className="member-panel-note">Elige una persona para ver su Inicio.</p>
             ) : (
               <>
+                <ClockHomeCard client={workClient} zone={zone} asId={workAs} readOnly={readOnly} onOpen={() => go('clock')} />
+                <TodayCard client={workClient} zone={zone} asId={workAs} onOpen={() => go('shared-calendar')} />
                 <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />
                 <MyClasses
                   client={workClient}

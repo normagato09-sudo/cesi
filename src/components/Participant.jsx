@@ -11,6 +11,8 @@ import {
 } from '../lib/participants'
 import ContactAvatar from './ContactAvatar.jsx'
 import './Participant.css'
+import { isCandidateOnly } from '../lib/vacancies'
+import { isActiveMember } from '../lib/team'
 
 const LONG_PRESS_MS = 450
 const TIP_VISIBLE_MS = 3000
@@ -169,6 +171,10 @@ export default function Participant({ contact = null, guest = null, start = null
   )
 }
 
+// ¿Se puede abrir su ficha en Contactos? Los candidatos (de la antigua Vacantes) y las personas del
+// equipo no están en Contactos (y Equipo y Vacantes ya no existen).
+const opensInContacts = (contact) => !!contact && !isCandidateOnly(contact) && !isActiveMember(contact)
+
 /**
  * Lista de participantes de una reunión, propuesta u opción (`item`, con participantIds/guests),
  * con el recuento encima si hay más de uno ("8 pueden · 1 no puede · 2 sin disponibilidad").
@@ -184,7 +190,14 @@ export function ParticipantList({ item, contacts, start = null, end = null, size
       <span className={`participant-list ${size}`} role="list">
         {entries.map((entry) => (
           <span key={entry.key} role="listitem" className="participant-list-item">
-            <Participant contact={entry.contact} guest={entry.guest} start={start} end={end} size={size} onOpenContact={onOpenContact}>
+            <Participant
+              contact={entry.contact}
+              guest={entry.guest}
+              start={start}
+              end={end}
+              size={size}
+              onOpenContact={opensInContacts(entry.contact) ? onOpenContact : null}
+            >
               {size === 'full' && extra ? extra(entry) : null}
             </Participant>
           </span>

@@ -47,15 +47,10 @@ import { meetingsMissingNotes } from './lib/notes.js'
 import { sessionPatch, toSeriesSessionPatch } from './lib/meetingSession.js'
 import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
-import { deleteFile } from './lib/files/files.js'
-import { planCandidacy } from './lib/applications.js'
-import { AREAS_KEY, getStoredTeamAreas, isActiveMember, removeFromTeamPatch, saveTeamAreas } from './lib/team.js'
-import { orderPatches } from './lib/teamOrder.js'
-import { markFormerProfile, returnToTeamProfile } from './lib/formerMembers.js'
-import { withStatusChange } from './lib/teamEdits.js'
+import { AREAS_KEY, getStoredTeamAreas, isActiveMember, saveTeamAreas } from './lib/team.js'
 import { useChatUnread } from './components/chat/useChatUnread.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
-import { DEFAULT_DEPARTMENTS, resolveDepartments } from './lib/departments.js'
+import { resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
 import { useViewAs } from './components/viewAs/viewAsContext.js'
 import { runPendingMigrations } from './lib/dataMigrations.js'
@@ -79,25 +74,7 @@ import {
   setLateMinutes,
   unmarkAttendance,
 } from './lib/attendance.js'
-import {
-  STORAGE_KEY as VACANCIES_KEY,
-  candidacyPatch,
-  candidatesOf,
-  acceptedTeamProfile,
-  candidaciesOf,
-  findCandidacy,
-  getAllVacancies,
-  incorporate,
-  interviewUpdates,
-  isCandidateOnly,
-  latestCandidacy,
-  newCandidacy,
-  newVacancy,
-  planErasure,
-  removeCandidacyPlan,
-  vacanciesStore,
-  withStatus,
-} from './lib/vacancies.js'
+import { STORAGE_KEY as VACANCIES_KEY, getAllVacancies, interviewUpdates, isCandidateOnly } from './lib/vacancies.js'
 // Mis tareas personales antiguas (tasks): ya no salen en ningún sitio (las tareas son las del
 // equipo, team_tasks); se siguen guardando y sincronizando tal cual, sin borrar nada.
 import { STORAGE_KEY as TASKS_KEY, getAllTasks, taskSourcePatches, tasksStore } from './lib/tasks.js'
@@ -134,11 +111,8 @@ const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.js
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
 const ClockView = lazy(() => import('./components/team/ClockView.jsx'))
 const CeoHome = lazy(() => import('./components/CeoHome.jsx'))
-const VacancyListView = lazy(() => import('./components/VacancyListView.jsx'))
 const AttendanceView = lazy(() => import('./components/AttendanceView.jsx'))
 const ComingSoonView = lazy(() => import('./components/ComingSoonView.jsx'))
-const VacanciesView = lazy(() => import('./components/VacanciesView.jsx'))
-const TeamView = lazy(() => import('./components/TeamView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
@@ -152,17 +126,17 @@ function SectionLoading() {
   )
 }
 
+// Pantallas quitadas (Equipo y Vacantes): si se intenta abrir una, se va a Inicio.
+const REMOVED_SECTIONS = new Set(['team', 'vacancies'])
+
 // Rango compacto, p. ej. "23–25 sept 2026", "30 sept – 2 oct 2026" o "30 dic 2026 – 1 ene 2027".
 export default function App() {
   // Se abre en Inicio.
   const [section, setSection] = useState('home')
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedStudentId, setSelectedStudentId] = useState(null)
-  const [selectedMemberId, setSelectedMemberId] = useState(null)
   // «Enviar mensaje» desde el Organigrama: Mensajes se abre con el chat de esa cuenta.
   const [messagesWith, setMessagesWith] = useState(null)
-  const [selectedVacancyId, setSelectedVacancyId] = useState(null)
-  const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
   // Vista del calendario: la última que elegí en este dispositivo.
   const [view, setViewState] = useState(() => readView())
   const setView = (next) => {
@@ -255,9 +229,7 @@ export default function App() {
     reloadExtraClasses()
   }
 
-  // Áreas del equipo: lista fija (las 10 áreas de las cuentas; ver departments.js).
-  const teamAreas = DEFAULT_DEPARTMENTS
-  // Esa lista se guarda (y se sincroniza) solo cuando ya se ha descargado la nube, para no pisar
+  // Áreas del equipo: lista fija (las 10 áreas de las cuentas; ver departments.js). Esa lista se guarda (y se sincroniza) solo cuando ya se ha descargado la nube, para no pisar
   // con la lista de ejemplo de este dispositivo una lista ya cambiada en otro.
   const sync = useSync()
 
@@ -685,119 +657,10 @@ export default function App() {
     for (const { id, patch } of interviewUpdates(meeting, contacts)) editContact(id, patch)
   }
 
-  const handleCreateVacancy = (data) => {
-    const vacancy = vacanciesStore.create(newVacancy(data))
-    reloadVacancies()
-    return vacancy
-  }
-
-  const handleUpdateVacancy = (id, patch) => {
-    vacanciesStore.update(id, patch)
-    reloadVacancies()
-  }
-
-  // Quitar una candidatura: se borran su CV y sus notas, y el contacto solo si existía únicamente por ella.
-  const handleRemoveCandidacy = (contact, candidacyId) => {
-    const plan = removeCandidacyPlan(contact, candidacyId)
-    if (plan.deleteContact) {
-      removeContact(contact.id)
-      return
-    }
-    editContact(contact.id, plan.patch)
-    for (const ref of plan.files) deleteFile(ref)
-  }
-
-  // Al borrar una vacante se borran también sus candidaturas.
-  const handleDeleteVacancy = (id) => {
-    for (const { contact, candidacy } of candidatesOf(id, contacts)) handleRemoveCandidacy(contact, candidacy.id)
-    vacanciesStore.remove(id)
-    reloadVacancies()
-  }
-
-  // Nueva candidatura: al contacto elegido, al que ya tiene ese email o a un contacto nuevo.
-  const handleAddCandidacy = (vacancyId, { contactId, contactData, candidacy }) => {
-    const entry = newCandidacy(vacancyId, candidacy)
-    const plan = planCandidacy(contacts, contactData || {}, entry, contactId)
-    if (plan.action === 'create') addContact(plan.contact)
-    else editContact(plan.id, plan.patch)
-  }
-
-  const handleEditCandidacy = (contact, candidacyId, { contactData, candidacy }) =>
-    editContact(contact.id, { ...(contactData || {}), ...candidacyPatch(contact, candidacyId, candidacy) })
-
-  const handleCandidateStatus = (contact, candidacyId, status) =>
-    editContact(contact.id, candidacyPatch(contact, candidacyId, (c) => withStatus(c, status)))
-
-  // Aceptar a un candidato lo incorpora solo al equipo, en el área de la vacante (sin duplicarlo si
-  // ya estaba en esa área); el resto de estados solo cambian la candidatura.
-  const handleCandidateStatusChange = (contact, candidacyId, status) => {
-    const candidacy = candidaciesOf(contact).find((c) => c.id === candidacyId)
-    const vacancy = candidacy && vacancies.find((v) => v.id === candidacy.vacancyId)
-    if (status !== 'accepted' || !vacancy) return handleCandidateStatus(contact, candidacyId, status)
-    handleIncorporate(contact, candidacyId, vacancy, { contactPatch: {}, teamProfile: acceptedTeamProfile(contact, vacancy) })
-  }
-
-  const handleFindInterviewSlot = (contact) => openNewMeeting({ externalIds: [contact.id], interview: true })
-
-  // Candidato → miembro del equipo: perfil con el nuevo rol en su trayectoria (si ya era del equipo,
-  // se ha preguntado si se suma o sustituye), vacante cubierta y, si quedan otros candidatos, se
-  // ofrece descartarlos.
-  const handleIncorporate = (contact, candidacyId, vacancy, { contactPatch, teamProfile }) => {
-    const result = incorporate({ contact, candidacyId, vacancy, teamProfile, contacts })
-    editContact(contact.id, withStatusChange(contact, { ...contactPatch, ...result.contactPatch }))
-    vacanciesStore.update(vacancy.id, result.vacancyPatch)
-    reloadVacancies()
-    const n = result.remaining.length
-    if (n > 0) {
-      const who = result.remaining.map((e) => `• ${e.contact.name}`).join('\n')
-      const question = n === 1 ? 'Queda 1 candidato en esta vacante' : `Quedan ${n} candidatos en esta vacante`
-      if (window.confirm(`${question}:\n${who}\n\n¿Marcarlos como descartados?`)) {
-        for (const e of result.remaining) handleCandidateStatus(e.contact, e.candidacy.id, 'discarded')
-      }
-    }
-  }
-
-  // Protección de datos: borra los datos personales de las candidaturas descartadas hace más de
-  // 6 meses y deja un registro anónimo en su vacante. Siempre tras la confirmación del usuario.
-  const handleEraseExpired = (entries) => {
-    const plan = planErasure(entries, getAllEvents(), vacancies, new Date(), proposals)
-    for (const { id, patch } of plan.eventPatches) editEvent(id, patch)
-    for (const { id, patch } of plan.proposalPatches) proposalsStore.update(id, patch)
-    for (const [id, erasedCandidates] of Object.entries(plan.vacancyPatches)) vacanciesStore.update(id, { erasedCandidates })
-    for (const { id, patch } of plan.contactPatches) editContact(id, patch)
-    for (const ref of plan.files) deleteFile(ref)
-    for (const id of plan.contactIds) removeContact(id)
-    reloadProposals()
-    reloadVacancies()
-  }
-
-  // Abre la candidatura más reciente de ese contacto.
-  const handleOpenCandidate = (contactId) => {
-    const candidacy = latestCandidacy(contacts.find((c) => c.id === contactId))
-    setSelectedEvent(null)
-    setSelectedVacancyId(candidacy?.vacancyId || null)
-    setSelectedCandidacyId(candidacy?.id || null)
-    setSelectedMemberId(null)
-    setSection('team')
-  }
-
-  // Las vacantes están en Equipo, en su departamento (o en Equipo → Vacantes, si se abren desde ahí).
-  const handleOpenVacancy = (vacancyId) => {
-    setSelectedVacancyId(vacancyId)
-    setSelectedCandidacyId(null)
-    setSelectedMemberId(null)
-    setSection((current) => (current === 'vacancies' ? 'vacancies' : 'team'))
-  }
-
-  // Ir a una sección; Equipo y Vacantes se abren en la lista (sin persona, vacante ni candidato abiertos).
+  // Equipo y Vacantes ya no existen: quien intente abrirlas va a Inicio (los datos se quedan).
   const goToSection = (id) => {
-    if (id === 'team' || id === 'vacancies') {
-      setSelectedMemberId(null)
-      setSelectedVacancyId(null)
-      setSelectedCandidacyId(null)
-    }
     if (id === 'messages') setMessagesWith(null)
-    setSection(id)
+    setSection(REMOVED_SECTIONS.has(id) ? 'home' : id)
   }
 
   // «Nueva reunión»: reunión compartida si hay alguien con cuenta; si no, evento mío.
@@ -805,49 +668,9 @@ export default function App() {
   const openNewMeeting = (prefill = {}) => setFormModal({ prefill })
   const handleNewMeeting = () => openNewMeeting()
 
-  // Pasar a antiguo miembro lo archiva y volver al equipo (o entrar en él) lo desarchiva: ver
-  // withStatusChange (teamEdits.js, la misma que usa RRHH).
-
-  // Archivo de contactos (Contactos › Archivados). Un miembro activo pasa antes a antiguo miembro.
+  // Archivo de contactos (Contactos › Archivados).
   const handleArchiveContact = (id) => editContact(id, archivePatch())
   const handleUnarchiveContact = (id) => editContact(id, unarchivePatch())
-
-  // Antiguo miembro → miembro del equipo, con su trayectoria anterior; se abre su ficha en Equipo.
-  const handleReturnToTeam = (contact) => {
-    editContact(contact.id, { teamProfile: returnToTeamProfile(contact.teamProfile), ...unarchivePatch() })
-    handleOpenTeamMember(contact.id)
-  }
-
-  // Perfil de equipo: los datos de contacto (foto, email, teléfono) se guardan en el propio contacto.
-  const handleSaveTeamProfile = (contactId, { contactPatch, teamProfile }) => {
-    const contact = contacts.find((c) => c.id === contactId)
-    editContact(contactId, contact ? withStatusChange(contact, { ...contactPatch, teamProfile }) : { ...contactPatch, teamProfile })
-  }
-
-  // Pasa a antiguo miembro con esa fecha de salida (y se archiva): desde el aviso de Equipo
-  // (activos con todos sus roles terminados) o con «Archivar» en su ficha.
-  const handleMarkFormer = (contact, leftAt) =>
-    editContact(contact.id, withStatusChange(contact, { teamProfile: markFormerProfile(contact.teamProfile, leftAt) }))
-
-  const handleKeepActive = (contact) => editContact(contact.id, { teamProfile: { ...contact.teamProfile, keepActive: true } })
-
-  // Orden de las personas de un departamento (ver teamOrder.js): solo cambian las que se mueven.
-  // En Equipo, con una vacante o un candidato abiertos se ve su detalle (VacanciesView).
-  const vacancyOpen =
-    (!!selectedCandidacyId && !!findCandidacy(contacts, selectedCandidacyId)) ||
-    (!!selectedVacancyId && vacancies.some((v) => v.id === selectedVacancyId))
-
-  const handleReorderDepartment = (area, ordered) => {
-    for (const { id, patch } of orderPatches(ordered, area)) editContact(id, patch)
-  }
-
-  const handleOpenTeamMember = (contactId) => {
-    setSelectedEvent(null)
-    setSelectedVacancyId(null)
-    setSelectedCandidacyId(null)
-    setSelectedMemberId(contactId)
-    setSection('team')
-  }
 
   // «Nueva reunión con esta persona»: el formulario con el contacto ya añadido (como externo y, si
   // tiene cuenta, también como participante).
@@ -855,15 +678,8 @@ export default function App() {
 
   const handleOpenContact = (contactId) => {
     const contact = contacts.find((c) => c.id === contactId)
-    if (isCandidateOnly(contact)) {
-      handleOpenCandidate(contactId)
-      return
-    }
-    // Los miembros activos del equipo no están en Contactos: su ficha es la de Equipo.
-    if (isActiveMember(contact)) {
-      handleOpenTeamMember(contactId)
-      return
-    }
+    // Los candidatos y las personas del equipo no están en Contactos (ni ya en Equipo ni Vacantes).
+    if (!contact || isCandidateOnly(contact) || isActiveMember(contact)) return
     setSelectedEvent(null)
     setSelectedContactId(contactId)
     setSection('contacts')
@@ -1050,13 +866,8 @@ export default function App() {
                 onRenameGroup={(id, name) => handleUpdateGroup(id, { name })}
                 onGroupColor={(id, color) => handleUpdateGroup(id, { color })}
                 onDeleteGroup={handleDeleteGroup}
-                areas={teamAreas}
-                onSaveTeamProfile={handleSaveTeamProfile}
                 onArchiveContact={handleArchiveContact}
                 onUnarchiveContact={handleUnarchiveContact}
-                onReturnToTeam={handleReturnToTeam}
-                onOpenTeamMember={handleOpenTeamMember}
-                onOpenCandidate={handleOpenCandidate}
                 renderAlliance={(c) => (
                   <>
                     <AllianceShare contact={c} onChange={(shared) => editContact(c.id, { allianceShared: shared })} />
@@ -1110,10 +921,6 @@ export default function App() {
                   setMessagesWith(id)
                   setSection('messages')
                 }}
-                onOpenFicha={(teamId) => {
-                  setSelectedMemberId(teamId)
-                  setSection('team')
-                }}
               />
             </Suspense>
           </div>
@@ -1162,23 +969,7 @@ export default function App() {
         {section === 'access' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <AccessView contacts={contacts} students={students} onCreateStudent={handleAddStudent} />
-            </Suspense>
-          </div>
-        )}
-
-        {section === 'vacancies' && !vacancyOpen && (
-          <div className="app-main">
-            <Suspense fallback={<SectionLoading />}>
-              <VacancyListView
-                vacancies={vacancies}
-                contacts={contacts}
-                now={now}
-                areas={teamAreas}
-                onOpenVacancy={handleOpenVacancy}
-                onCreateVacancy={handleCreateVacancy}
-                onEraseExpired={handleEraseExpired}
-              />
+              <AccessView contacts={contacts} students={students} onCreateStudent={handleAddStudent} onCreateTeamMember={addContact} />
             </Suspense>
           </div>
         )}
@@ -1233,60 +1024,6 @@ export default function App() {
                 onRenameCourse={handleRenameCourse}
                 onUpdateCourse={handleUpdateCourse}
                 onDeleteCourse={handleDeleteCourse}
-              />
-            </Suspense>
-          </div>
-        )}
-
-        {(section === 'team' || section === 'vacancies') && vacancyOpen && (
-          <div className="app-main">
-            <Suspense fallback={<SectionLoading />}>
-              <VacanciesView
-                vacancies={vacancies}
-                contacts={contacts}
-                rawEvents={rawEvents}
-                now={now}
-                areas={teamAreas}
-                groups={groups}
-                selectedVacancyId={selectedVacancyId}
-                onSelectVacancy={setSelectedVacancyId}
-                selectedCandidacyId={selectedCandidacyId}
-                onSelectCandidacy={setSelectedCandidacyId}
-                onCreateVacancy={handleCreateVacancy}
-                onUpdateVacancy={handleUpdateVacancy}
-                onDeleteVacancy={handleDeleteVacancy}
-                onAddCandidacy={handleAddCandidacy}
-                onEditCandidacy={handleEditCandidacy}
-                onRemoveCandidacy={handleRemoveCandidacy}
-                onCandidateStatus={handleCandidateStatusChange}
-                onFindInterviewSlot={handleFindInterviewSlot}
-                onIncorporate={handleIncorporate}
-                onOpenEvent={openEvent}
-                onOpenTeamMember={handleOpenTeamMember}
-              />
-            </Suspense>
-          </div>
-        )}
-
-        {section === 'team' && !vacancyOpen && (
-          <div className="app-main">
-            <Suspense fallback={<SectionLoading />}>
-              <TeamView
-                contacts={contacts}
-                groups={groups}
-                rawEvents={rawEvents}
-                now={now}
-                areas={teamAreas}
-                selectedMemberId={selectedMemberId}
-                onSelectMember={setSelectedMemberId}
-                onSaveProfile={handleSaveTeamProfile}
-                onMarkFormer={handleMarkFormer}
-                onKeepActive={handleKeepActive}
-                onRemoveFromTeam={(id) => editContact(id, removeFromTeamPatch(contacts.find((c) => c.id === id)))}
-                onOpenEvent={openEvent}
-                onNewMeeting={handleNewMeetingWithContact}
-                onOpenCandidate={handleOpenCandidate}
-                onReorder={handleReorderDepartment}
               />
             </Suspense>
           </div>

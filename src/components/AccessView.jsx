@@ -23,6 +23,7 @@ import {
   filterLinkOptions,
   linkOptions,
   linkPatch,
+  newTeamContactFromAccount,
   linkedOption,
   listProfiles,
   normalizeDisplayName,
@@ -208,7 +209,8 @@ function DeleteAccountDialog({ name, busy, error, onCancel, onConfirm }) {
 
 // Accesos: las cuentas que han entrado en la app, su papel, a quién están unidas y, si son de
 // equipo, su área (lo que puede ver va por área: ver la parte 11). Solo la ceo.
-export default function AccessView({ contacts = [], students = [], onCreateStudent = null }) {
+// onCreateTeamMember(datos): crea una ficha de equipo (contacto) y la devuelve.
+export default function AccessView({ contacts = [], students = [], onCreateStudent = null, onCreateTeamMember = null }) {
   const sync = useSync()
   const client = sync?.client
   const userId = sync?.userId
@@ -284,6 +286,30 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
       return
     }
     save(profile, linkPatch({ kind: 'student', id: student.id, label: student.name }, profile))
+  }
+
+  // Ficha de equipo nueva con los datos de la cuenta y de su perfil: el cambio que la une a ella
+  // (o null si no se puede crear). La usan los cursos para elegir profesor.
+  const teamFichaPatch = (profile) => {
+    if (!onCreateTeamMember) return null
+    try {
+      const contact = onCreateTeamMember(newTeamContactFromAccount(profile, portals.get(profile.id), areaLabel(profile.area), todayKey()))
+      return linkPatch({ kind: 'team', id: contact.id, label: contact.name }, profile)
+    } catch (err) {
+      setError(`No se pudo crear su ficha de equipo: ${err.message}`)
+      return null
+    }
+  }
+
+  // Al aceptar una cuenta como equipo, su ficha se crea sola (si no está unida ya a una).
+  const changeRole = (profile, role) => {
+    const ficha = role === 'equipo' && !profile.linked_team_id ? teamFichaPatch(profile) : null
+    save(profile, { role, ...(ficha || {}) })
+  }
+
+  const createTeamFichaFor = (profile) => {
+    const ficha = teamFichaPatch(profile)
+    if (ficha) save(profile, ficha)
   }
 
   const removeAccount = (profile) =>
@@ -432,7 +458,7 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                           disabled={busy || locked}
                           aria-describedby={locked ? `access-locked-${p.id}` : undefined}
                           title={locked ? 'No puedes cambiar tu propio papel' : undefined}
-                          onChange={(e) => save(p, { role: e.target.value })}
+                          onChange={(e) => changeRole(p, e.target.value)}
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -452,6 +478,17 @@ export default function AccessView({ contacts = [], students = [], onCreateStude
                       </div>
                     </div>
 
+                    {p.role === 'equipo' && !p.linked_team_id && onCreateTeamMember && (
+                      <div className="access-team">
+                        <div className="access-team-row">
+                          <button type="button" className="contacts-groups-btn" disabled={busy} onClick={() => createTeamFichaFor(p)}>
+                            <UserPlus size={14} strokeWidth={1.75} />
+                            Crear ficha con sus datos
+                          </button>
+                          <span className="access-muted">Su ficha de equipo, para poder elegirla como profesor en los cursos.</span>
+                        </div>
+                      </div>
+                    )}
                     {p.role === 'alumno' && !p.linked_student_id && onCreateStudent && (
                       <div className="access-team">
                         <div className="access-team-row">

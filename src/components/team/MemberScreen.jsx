@@ -1,40 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
 import { teacherAttendanceActions } from '../../lib/teacherAttendance'
 import ContactsView from '../ContactsView.jsx'
-import TeamView from '../TeamView.jsx'
-import VacancyListView from '../VacancyListView.jsx'
-import VacanciesView from '../VacanciesView.jsx'
 import StudentsView from '../StudentsView.jsx'
 import AttendanceView from '../AttendanceView.jsx'
-import { DEFAULT_DEPARTMENTS } from '../../lib/departments'
 import { NO_ATTENDANCE_ACTIONS, SECTION_SCREENS, fetchScreenData, screenErrorText } from '../../lib/screenData'
 import { useMinuteClock } from '../../hooks/useMinuteClock'
-import { findCandidacy } from '../../lib/vacancies'
 import { keyOf } from '../../lib/sharedCalendar'
 import { addNoteRemote, listAlliancePeople, removeNoteRemote, saveAlliance, saveExternalContact } from '../../lib/alliances'
 import AlliancePanel from '../alliances/AlliancePanel.jsx'
 import AlliancesView from '../alliances/AlliancesView.jsx'
-import { directivoActions, docWriter, rrhhActions } from '../../lib/teamEdits'
+import { directivoActions, docWriter } from '../../lib/teamEdits'
 
 const noop = () => {}
 const NO_RECORDS = []
 
-// Una pantalla de la ceo (Contactos externos, Equipo, Vacantes, Cursos, Alumnos o Asistencia) para
+// Una pantalla de la ceo (Contactos externos, Cursos, Alumnos o Asistencia) para
 // una persona de equipo con permiso: sus datos de cesi_screen_data (parte 11) en la misma pantalla
 // de la ceo, en solo lectura (en este paso, también con «Editar»). asId / asArea: «Ver como» de la
 // ceo (una persona o un área). El área Profesor solo ve sus cursos y, con su cuenta, pasa lista en
 // sus clases (parte 15); en «Ver como», también en solo lectura. Alianzas crea y edita los
-// contactos externos y su seguimiento (parte 16; Directivo, solo ver), y tiene la pantalla Alianzas.
-// RRHH edita Equipo y Vacantes, y Directivo gestiona Cursos (parte 20): con la misma lógica que
+// contactos externos y su seguimiento (parte 16), y tiene la pantalla Alianzas. Directivo gestiona
+// Cursos (parte 20; Equipo y Vacantes ya no existen): con la misma lógica que
 // la app de la ceo y cesi_ceo_doc_patch; tras cada cambio se vuelven a leer los datos.
 // zone: la de la persona (para «hoy»).
-// initialSelectedId: la ficha que se abre al entrar (desde el Organigrama, «Ver ficha»).
-export default function MemberScreen({ client, section, zone, asId = null, asArea = null, initialSelectedId = null }) {
+export default function MemberScreen({ client, section, zone, asId = null, asArea = null }) {
   const screen = SECTION_SCREENS[section]
   const now = useMinuteClock()
   const [state, setState] = useState({ key: null, data: null, error: null })
-  const [selectedId, setSelectedId] = useState(initialSelectedId)
-  const [selectedCandidacyId, setSelectedCandidacyId] = useState(null)
+  const [selectedId, setSelectedId] = useState(null)
   const key = `${screen}:${asId || ''}:${asArea || ''}`
   const [reload, setReload] = useState(0)
 
@@ -55,7 +48,6 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
   if (shownKey !== key) {
     setShownKey(key)
     setSelectedId(null)
-    setSelectedCandidacyId(null)
   }
 
   // Pase de lista del profesor (parte 15): lo que guarda se ve al momento aquí y le llega a la ceo.
@@ -112,7 +104,6 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
   // RRHH y Directivo (parte 20), solo con su propia cuenta (en «Ver como», solo lectura).
   const own = !asId && !asArea
   const level = state.key === key ? state.data?.level : null
-  const rrhhEdit = own && level === 'write' && (section === 'team' || section === 'vacancies')
   const coursesEdit = own && level === 'write' && section === 'courses'
   const writer = docWriter(client, (table, id) => state.data?.raw?.[table]?.get(id) || null)
   const current = () => state.data || { contacts: [], vacancies: [], courses: [], students: [] }
@@ -134,7 +125,6 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
     )
   }
   const guardAll = (actions) => Object.fromEntries(Object.entries(actions).map(([k, fn]) => [k, guard(fn)]))
-  const rrhh = rrhhEdit ? guardAll(rrhhActions(writer, current)) : null
   const dir = coursesEdit ? guardAll(directivoActions(writer, current)) : null
   const renderAlliance = allianceOn ? (c) => <AlliancePanel contact={c} canEdit={allianceEdit} people={people} api={allianceApi} today={today} /> : null
 
@@ -142,7 +132,7 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
   if (state.key !== key || (!state.data && !state.error)) return <p className="member-screen-note">Cargando…</p>
   if (state.error) return <p className="member-screen-note error">{state.error}</p>
 
-  const { contacts, groups, vacancies, courses, extraClasses } = state.data
+  const { contacts, groups, courses, extraClasses } = state.data
 
   if (section === 'alliances') {
     if (!allianceOn) return <p className="member-screen-note">No tienes acceso a esta pantalla.</p>
@@ -170,70 +160,8 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
         onRenameGroup={noop}
         onGroupColor={noop}
         onDeleteGroup={noop}
-        areas={DEFAULT_DEPARTMENTS}
-        onSaveTeamProfile={noop}
         onArchiveContact={noop}
         onUnarchiveContact={noop}
-        onReturnToTeam={noop}
-        onOpenTeamMember={noop}
-        onOpenCandidate={noop}
-      />
-    )
-  }
-
-  if (section === 'team') {
-    return (
-      <TeamView
-        readOnly={!rrhh}
-        limited={!!rrhh}
-        contacts={contacts}
-        groups={groups}
-        rawEvents={[]}
-        now={now}
-        areas={DEFAULT_DEPARTMENTS}
-        selectedMemberId={selectedId}
-        onSelectMember={setSelectedId}
-        onSaveProfile={rrhh ? rrhh.saveTeamProfile : noop}
-        onMarkFormer={rrhh ? rrhh.markFormer : noop}
-        onKeepActive={rrhh ? rrhh.keepActive : noop}
-        onRemoveFromTeam={noop}
-        onOpenEvent={noop}
-        onNewMeeting={noop}
-        onOpenCandidate={noop}
-        onReorder={noop}
-      />
-    )
-  }
-
-  if (section === 'vacancies') {
-    const open = selectedId || (selectedCandidacyId && findCandidacy(contacts, selectedCandidacyId))
-    if (!open)
-      return <VacancyListView vacancies={vacancies} contacts={contacts} now={now} areas={DEFAULT_DEPARTMENTS} onOpenVacancy={setSelectedId} onCreateVacancy={rrhh ? rrhh.createVacancy : null} />
-    return (
-      <VacanciesView
-        readOnly={!rrhh}
-        limited={!!rrhh}
-        vacancies={vacancies}
-        contacts={contacts}
-        rawEvents={[]}
-        now={now}
-        areas={DEFAULT_DEPARTMENTS}
-        groups={groups}
-        selectedVacancyId={selectedId}
-        onSelectVacancy={setSelectedId}
-        selectedCandidacyId={selectedCandidacyId}
-        onSelectCandidacy={setSelectedCandidacyId}
-        onCreateVacancy={rrhh ? rrhh.createVacancy : noop}
-        onUpdateVacancy={rrhh ? rrhh.updateVacancy : noop}
-        onDeleteVacancy={noop}
-        onAddCandidacy={rrhh ? rrhh.addCandidacy : noop}
-        onEditCandidacy={rrhh ? rrhh.editCandidacy : noop}
-        onRemoveCandidacy={noop}
-        onCandidateStatus={rrhh ? rrhh.candidateStatusChange : noop}
-        onFindInterviewSlot={noop}
-        onIncorporate={rrhh ? rrhh.incorporate : noop}
-        onOpenEvent={noop}
-        onOpenTeamMember={noop}
       />
     )
   }

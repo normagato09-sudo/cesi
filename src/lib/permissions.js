@@ -1,12 +1,12 @@
 // Áreas y permisos del equipo (tablas areas, area_permissions y profile_permissions, ver
 // supabase/schema.sql). Cada persona de equipo tiene un área con permisos por defecto por
 // pantalla; los suyos propios sustituyen a los del área en las pantallas que la ceo cambie.
-// Vacantes ya no sale (parte 28): ni en el menú ni en los permisos; sus datos se guardan igual.
+// Vacantes y Equipo ya no salen (partes 28 y 29): ni en el menú ni en los permisos; sus datos se
+// guardan igual.
 
 export const SCREENS = [
   { id: 'calendario', label: 'Calendario' },
   { id: 'contactos', label: 'Contactos externos' },
-  { id: 'equipo', label: 'Equipo' },
   { id: 'fichajes', label: 'Fichajes' },
   { id: 'cursos', label: 'Cursos' },
   { id: 'alumnos', label: 'Alumnos' },

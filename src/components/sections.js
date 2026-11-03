@@ -57,7 +57,6 @@ export const NAV_GROUPS = [
     label: 'Equipo',
     Icon: BadgeCheck,
     items: [
-      { id: 'team', label: 'Equipo', Icon: BadgeCheck, screen: 'equipo' },
       // Organigrama: en mi menú aquí; en el del equipo, en «Mi panel» (todas las áreas lo leen).
       { id: 'org', label: 'Organigrama', Icon: Network, ceoOnly: true, needsSync: true },
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, EyeOff, MessageCircle, Search, UserRound, X } from 'lucide-react'
+import { Eye, EyeOff, MessageCircle, Search, X } from 'lucide-react'
 import { bossText, buildOrgChart, listOrgChart, orgChartErrorText, positionOf, sinceText } from '../lib/orgChart'
 import { initialsOf } from '../lib/profiles'
 import { formatMinutes } from '../lib/teamWork'
@@ -55,10 +55,9 @@ function Arrow({ tone, label = null, className = '' }) {
 
 /**
  * Organigrama del equipo (lo ven la ceo y todo el equipo, en solo lectura). Los datos salen de
- * Accesos (cesi_org_chart, parte 28). onMessage(id de cuenta): abrir su chat; onOpenFicha(id de la
- * ficha de Equipo): abrir su ficha (null si quien mira no tiene la pantalla Equipo).
+ * Accesos (cesi_org_chart, parte 28). onMessage(id de cuenta): abrir su chat.
  */
-export default function OrgChartView({ client, meId = null, onMessage = null, onOpenFicha = null }) {
+export default function OrgChartView({ client, meId = null, onMessage = null }) {
   const [rows, setRows] = useState(null)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')
@@ -258,12 +257,6 @@ export default function OrgChartView({ client, meId = null, onMessage = null, on
               <button type="button" className="oc-btn primary" onClick={() => onMessage(selected.id)}>
                 <MessageCircle size={15} strokeWidth={1.75} />
                 Enviar mensaje
-              </button>
-            )}
-            {onOpenFicha && selected.linkedTeamId && (
-              <button type="button" className="oc-btn" onClick={() => onOpenFicha(selected.linkedTeamId)}>
-                <UserRound size={15} strokeWidth={1.75} />
-                Ver ficha
               </button>
             )}
             <button type="button" className="oc-icon-btn" onClick={() => setSelectedId(null)} aria-label="Cerrar">

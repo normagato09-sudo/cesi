@@ -91,13 +91,8 @@ function MyContacts({ client }) {
       onRenameGroup={run((id, name) => updatePersonalGroup(client, id, { name: name.trim() }))}
       onGroupColor={run((id, color) => updatePersonalGroup(client, id, { color }))}
       onDeleteGroup={run((id) => deletePersonalGroup(client, id))}
-      areas={[]}
-      onSaveTeamProfile={noop}
       onArchiveContact={noop}
       onUnarchiveContact={noop}
-      onReturnToTeam={noop}
-      onOpenTeamMember={noop}
-      onOpenCandidate={noop}
     />
   )
 }

@@ -2,7 +2,6 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import ContactsView from '../ContactsView.jsx'
-import TeamView from '../TeamView.jsx'
 import StudentsView from '../StudentsView.jsx'
 import { memberGroups } from '../sections.js'
 import { NO_ATTENDANCE_ACTIONS, normalizeScreenData } from '../../lib/screenData'
@@ -39,18 +38,6 @@ describe('pantallas de la ceo para el equipo (solo lectura)', () => {
     expect(t).not.toContain('Editar')
     expect(t).not.toContain('Eliminar')
     expect(t).not.toContain('Archivar')
-  })
-
-  it('Equipo: la ficha sin acciones y sin ordenar', () => {
-    const ana = { id: 'ana', name: 'Ana', teamProfile: { status: 'active', area: 'Media', roles: [{ id: 'r', role: 'Diseñadora', area: 'Media', start: '2025-01-01', end: null }] } }
-    const html = renderToStaticMarkup(
-      createElement(TeamView, { readOnly: true, contacts: [ana], groups: [], rawEvents: [], now, areas: ['Media'], selectedMemberId: 'ana', onSelectMember: noop }),
-    )
-    const t = text(html)
-    expect(t).toContain('Ana')
-    expect(t).not.toContain('Quitar del equipo')
-    expect(t).not.toContain('Nueva reunión')
-    expect(t).not.toContain('Añadir rol')
   })
 
   it('Alumnos: sin crear ni editar', () => {

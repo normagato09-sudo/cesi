@@ -1,4 +1,4 @@
-import { isTeamMember } from './team'
+import { emptyTeamProfile, isTeamMember } from './team'
 import { normalizeName } from './applications'
 
 // Cuentas y papeles (tabla profiles, ver supabase/schema.sql). Solo la ceo entra en la app; el
@@ -117,6 +117,21 @@ export function initialsOf(name) {
     .split(/[\s._-]+/)
     .filter(Boolean)
   return (words.length > 1 ? words[0][0] + words.at(-1)[0] : (words[0] || '?')[0]).toLocaleUpperCase('es')
+}
+
+/**
+ * Ficha de equipo nueva (un contacto de la ceo con perfil de equipo) con los datos de la cuenta y
+ * de su perfil (account_profiles), para unirla a una cuenta de equipo. Sin perfil completo, con
+ * España y «País sin revisar». areaName: el nombre de su área (o ''). todayKey: 'AAAA-MM-DD'.
+ */
+export function newTeamContactFromAccount(profile, portal = null, areaName = '', todayKey) {
+  const zone = portal?.country && portal?.time_zone ? { country: portal.country, timeZone: portal.time_zone } : null
+  return {
+    name: normalizeDisplayName(portal?.full_name) || normalizeDisplayName(profile?.display_name) || profile?.email || 'Sin nombre',
+    email: profile?.email || '',
+    ...(zone || { country: 'ES', timeZone: 'Europe/Madrid', countryUnreviewed: true }),
+    teamProfile: emptyTeamProfile({ area: areaName || '', joinedAt: todayKey }),
+  }
 }
 
 // Puesto de las personas de Directivo (profiles.direction_role, parte 28), en el orden del

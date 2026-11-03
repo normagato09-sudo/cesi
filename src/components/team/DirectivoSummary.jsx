@@ -3,19 +3,25 @@ import { Stats } from './AreaSummary.jsx'
 import { fetchScreenData, screenErrorText } from '../../lib/screenData'
 import { coursesSummary } from '../../lib/areaSummary'
 import { formatMinutes } from '../../lib/teamWork'
+import { listOrgChart } from '../../lib/orgChart'
 import './TeamWork.css'
 
-// Las cifras del equipo (cesi_home_stats, parte 12) y las de cursos (los datos de Cursos, como los
-// ve Directivo). Cada parte por separado: si una falla, la otra se sigue viendo.
+// Las cifras del equipo (cesi_home_stats, parte 12; las personas, las cuentas de equipo de Accesos,
+// cesi_org_chart, parte 28) y las de cursos (los datos de Cursos, como los ve Directivo). Cada parte
+// por separado: si una falla, las otras se siguen viendo.
 async function loadSummary(client, asId) {
-  const [stats, courses] = await Promise.all([
+  const [stats, courses, members] = await Promise.all([
     client.rpc('cesi_home_stats', { p_as: asId }).then(({ data, error }) => (error ? null : (data || [])[0] || null)),
     fetchScreenData(client, 'cursos', asId).then(
       (data) => coursesSummary(data.courses, data.students),
       (err) => ({ error: screenErrorText(err) }),
     ),
+    listOrgChart(client).then(
+      (rows) => rows.filter((r) => r.role === 'equipo').length,
+      () => null,
+    ),
   ])
-  return { stats, courses }
+  return { stats, courses, members }
 }
 
 /**
@@ -48,7 +54,7 @@ export default function DirectivoSummary({ client, asId = null }) {
         <>
           <Stats
             items={[
-              { label: 'personas del equipo', value: value(s?.team_members) },
+              { label: 'personas del equipo', value: value(state.members) },
               { label: 'horas fichadas esta semana', value: s ? formatMinutes(s.week_minutes) : '—' },
               { label: 'tareas hechas este mes', value: value(s?.tasks_done_month) },
               { label: 'cursos activos', value: value(c?.active) },

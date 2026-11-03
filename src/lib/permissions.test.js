@@ -32,7 +32,9 @@ describe('effectivePermissions', () => {
     const perms = effectivePermissions('formacion', areaRows, [{ screen: 'calendario', level: 'none' }])
     expect(perms.cursos).toEqual({ level: 'write', areaLevel: 'write', overridden: false })
     expect(perms.calendario).toEqual({ level: 'none', areaLevel: 'read', overridden: true })
-    expect(perms.equipo.level).toBe('none')
+    // Equipo y Vacantes ya no son pantallas con permiso.
+    expect(perms.equipo).toBe(undefined)
+    expect(perms.vacantes).toBe(undefined)
   })
 
   it('sin área, solo los suyos', () => {

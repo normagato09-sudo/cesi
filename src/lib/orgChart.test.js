@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bossText, buildOrgChart, positionOf, sinceText } from './orgChart'
-import { areaPatch } from './profiles'
+import { areaPatch, newTeamContactFromAccount } from './profiles'
 
 const row = (id, name, area, extra = {}) => ({ id, name, role: 'equipo', area, direction_role: null, time_zone: 'Europe/Madrid', ...extra })
 const rows = [
@@ -63,5 +63,19 @@ describe('organigrama', () => {
     expect(areaPatch({ direction_role: 'director' }, 'media')).toEqual({ area: 'media', direction_role: null })
     expect(areaPatch({ direction_role: 'director' }, 'direccion')).toEqual({ area: 'direccion' })
     expect(areaPatch({}, '')).toEqual({ area: null })
+  })
+
+  it('la ficha de equipo nueva sale de la cuenta y de su perfil', () => {
+    const account = { email: 'ana@cifa.com', display_name: 'ana' }
+    const portal = { full_name: 'Ana López', country: 'MX', time_zone: 'America/Mexico_City' }
+    expect(newTeamContactFromAccount(account, portal, 'Profesor', '2030-11-10')).toMatchObject({
+      name: 'Ana López',
+      email: 'ana@cifa.com',
+      country: 'MX',
+      timeZone: 'America/Mexico_City',
+      teamProfile: { status: 'active', area: 'Profesor', joinedAt: '2030-11-10' },
+    })
+    // Sin perfil completo: España, con el país por revisar.
+    expect(newTeamContactFromAccount(account, null, '', '2030-11-10')).toMatchObject({ name: 'ana', country: 'ES', countryUnreviewed: true })
   })
 })

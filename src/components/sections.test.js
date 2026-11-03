@@ -11,7 +11,6 @@ describe('ceoGroups', () => {
       'profile',
       'calendar',
       'contacts',
-      'team',
       'org',
       'team-tasks',
       'goals',
@@ -59,10 +58,10 @@ describe('memberGroups', () => {
     expect(items('media').map((i) => i.id)).not.toContain('finance')
   })
 
-  it('Directivo: Mi panel, su Contactos, Equipo, Cursos y Alumnos; nunca Vacantes ni Asistencia', () => {
+  it('Directivo: Mi panel, su Contactos, Cursos y Alumnos; nunca Equipo, Vacantes ni Asistencia', () => {
     const levels = { contactos: 'read', equipo: 'read', vacantes: 'read', cursos: 'write', alumnos: 'read', asistencia: 'read' }
     expect(allItems(memberGroups(levels, 'direccion')).map((i) => i.id)).toEqual([
-      'home', 'messages', 'notices', 'shared-calendar', 'team-tasks', 'org', 'goals', 'clock', 'contacts', 'team', 'courses', 'students',
+      'home', 'messages', 'notices', 'shared-calendar', 'team-tasks', 'org', 'goals', 'clock', 'contacts', 'courses', 'students',
     ])
   })
 
