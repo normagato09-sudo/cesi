@@ -1,0 +1,51 @@
+/* «Asistencia» del portal del alumno (StudentAttendance). Usa los colores del portal (--sp-*). */
+.sa-course {
+  gap: 10px;
+}
+.sa-summary {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.sa-bar {
+  display: block;
+}
+.sa-list {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.sa-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--sp-border);
+}
+.sa-status {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.sa-status.present {
+  background: #dcfce7;
+  color: #15803d;
+}
+.sa-status.late {
+  background: var(--sp-warn-bg);
+  color: var(--sp-warn);
+}
+.sa-status.absent {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.sa-status.justified {
+  background: var(--sp-blue-soft);
+  color: var(--sp-blue);
+}

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarDays, CircleCheck, House, Pencil, Sparkles } from 'lucide-react'
+import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Pencil, Sparkles } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
 import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
 import StudentCourses from './StudentCourses.jsx'
+import StudentAttendance from './StudentAttendance.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
@@ -21,11 +22,13 @@ const NAV = [
   { id: 'home', label: 'Inicio', Icon: House },
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
+  { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck },
 ]
 
 const CARDS = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays, text: 'Tus clases y eventos de la semana, en tu hora.' },
   { id: 'courses', label: 'Cursos', Icon: BookOpen, text: 'Tus cursos e inscripciones.' },
+  { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck, text: 'Las clases a las que has venido en cada curso.' },
 ]
 
 // Tarjeta destacada de Inicio si el alumno aún no está en ningún curso (no sale mientras carga, si
@@ -188,6 +191,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             )}
             <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
           </>
+        ) : section === 'attendance' ? (
+          <StudentAttendance client={client} zone={viewZone(profile)} preview={!!preview} />
         ) : section === 'calendar' ? (
           <SharedCalendar
             client={preview ? calendarClient : client}
