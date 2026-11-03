@@ -4,6 +4,7 @@ import AttendanceModal from './AttendanceModal.jsx'
 import CourseFormModal from './CourseFormModal.jsx'
 import ExtraClassModal from './ExtraClassModal.jsx'
 import EnrollModal from './EnrollModal.jsx'
+import OrganizeScheduleModal, { PendingScheduleBanner } from './OrganizeScheduleModal.jsx'
 import ContactAvatar from './ContactAvatar.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { attendanceCountOfCourse, classSummary, classWhen, courseClasses, groupClasses } from '../lib/attendance'
@@ -118,9 +119,12 @@ export default function CoursesView({
   client = null,
   manage = false,
   onEnroll = null,
+  // «Organizar horario» (la ceo y Directivo): { client, zone, save(curso, cambio) }; null, sin él.
+  scheduler = null,
 }) {
   const canManage = !readOnly || manage
   const [enrolling, setEnrolling] = useState(false)
+  const [organizing, setOrganizing] = useState(false)
   const now = useMinuteClock()
   const [selectedId, setSelectedId] = useState(null)
   const [courseForm, setCourseForm] = useState(null) // { course } (null: nuevo)
@@ -277,11 +281,12 @@ export default function CoursesView({
                 {selected.description && <p className="cp-detail-desc">{selected.description}</p>}
               </div>
               <div className="cp-detail-actions">
-                <button type="button" className="cp-btn" disabled title="Próximamente: cruzar la disponibilidad del profesor y de los alumnos">
-                  <Sparkles size={14} strokeWidth={1.75} />
-                  Organizar horario
-                  <em>Próximamente</em>
-                </button>
+                {scheduler && (
+                  <button type="button" className="cp-btn" onClick={() => setOrganizing(true)} title="Cruzar la disponibilidad del profesor y de los alumnos">
+                    <Sparkles size={14} strokeWidth={1.75} />
+                    Organizar horario
+                  </button>
+                )}
                 {canManage && (
                   <button type="button" className="cp-btn primary" onClick={() => setCourseForm({ course: selected })}>
                     <Pencil size={14} strokeWidth={1.75} />
@@ -290,6 +295,8 @@ export default function CoursesView({
                 )}
               </div>
             </header>
+
+            {scheduler && <PendingScheduleBanner course={selected} students={students} scheduler={scheduler} />}
 
             <div className="cp-stats">
               <Stat
@@ -459,6 +466,7 @@ export default function CoursesView({
         />
       )}
 
+      {organizing && selected && scheduler && <OrganizeScheduleModal course={selected} scheduler={scheduler} onClose={() => setOrganizing(false)} />}
       {enrolling && selected && onEnroll && (
         <EnrollModal course={selected} students={students} onSave={(ids) => onEnroll(selected.id, ids)} onClose={() => setEnrolling(false)} />
       )}

@@ -49,6 +49,7 @@ import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { AREAS_KEY, getStoredTeamAreas, isActiveMember, saveTeamAreas } from './lib/team.js'
 import { useChatUnread } from './components/chat/useChatUnread.js'
+import { useScheduleAutopilot } from './components/useScheduleAutopilot.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
 import { resolveDepartments } from './lib/departments.js'
 import { useSync, useSyncStatus } from './lib/sync/syncContext.js'
@@ -254,6 +255,22 @@ export default function App() {
   const myProfileMissing = !!myProfile.data && !myProfile.data.profile?.completed_at
   // Todo se ve en la zona de mi perfil (si no está completo, en la del dispositivo).
   const myZone = viewZone(myProfile.data?.profile)
+  // «Organizar horario» de los cursos y su recálculo al abrir la app (con la sincronización).
+  const scheduler = useMemo(
+    () =>
+      syncClient
+        ? {
+            client: syncClient,
+            zone: myZone,
+            save: (course, patch) => {
+              coursesStore.update(course.id, patch)
+              reloadCourses()
+            },
+          }
+        : null,
+    [syncClient, myZone, reloadCourses],
+  )
+  useScheduleAutopilot(scheduler, courses, students)
   // Mi disponibilidad: la de mi perfil; sin perfil completo, el horario guardado de antes.
   const workingHours = useMemo(
     () => profileWorkingHours(myProfile.data?.profile) || storedWorkingHours,
@@ -1024,6 +1041,7 @@ export default function App() {
                 onRenameCourse={handleRenameCourse}
                 onUpdateCourse={handleUpdateCourse}
                 onDeleteCourse={handleDeleteCourse}
+                scheduler={scheduler}
               />
             </Suspense>
           </div>

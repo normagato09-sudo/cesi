@@ -9,6 +9,7 @@ import { keyOf } from '../../lib/sharedCalendar'
 import { addNoteRemote, listAlliancePeople, removeNoteRemote, saveAlliance, saveExternalContact } from '../../lib/alliances'
 import AlliancePanel from '../alliances/AlliancePanel.jsx'
 import AlliancesView from '../alliances/AlliancesView.jsx'
+import { useScheduleAutopilot } from '../useScheduleAutopilot'
 import { directivoActions, docWriter } from '../../lib/teamEdits'
 
 const noop = () => {}
@@ -126,6 +127,9 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
   }
   const guardAll = (actions) => Object.fromEntries(Object.entries(actions).map(([k, fn]) => [k, guard(fn)]))
   const dir = coursesEdit ? guardAll(directivoActions(writer, current)) : null
+  // «Organizar horario» y su recálculo (Directivo, con su cuenta, en Cursos).
+  const scheduler = dir ? { client, zone, save: (course, patch) => dir.setSchedule(course.id, patch) } : null
+  useScheduleAutopilot(scheduler, state.data?.courses, state.data?.students)
   const renderAlliance = allianceOn ? (c) => <AlliancePanel contact={c} canEdit={allianceEdit} people={people} api={allianceApi} today={today} /> : null
 
   if (!screen) return null
@@ -207,6 +211,7 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
       canMark={canMark}
       client={client}
       manageCourses={!!dir}
+      scheduler={scheduler}
       onEnroll={dir ? dir.setEnrolled : null}
       now={now}
       selectedStudentId={selectedId}

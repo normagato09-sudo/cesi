@@ -139,6 +139,8 @@ export function directivoActions(writer, data) {
       if (problem) throw new Error(problem)
       return writer.patch('courses', courseById(id), values)
     },
+    // Horario del curso de «Organizar horario» (horario, alumnos que había y propuesta de cambio).
+    setSchedule: (id, patch) => writer.patch('courses', courseById(id), patch),
     // Deja inscritos en el curso exactamente a esos alumnos (solo cambia sus cursos).
     setEnrolled: async (courseId, studentIds) => {
       const wanted = new Set(studentIds)

@@ -141,6 +141,8 @@ export default function StudentsView({
   // Con readOnly, Directivo gestiona cursos (sin borrarlos), crea clases sueltas e inscribe alumnos.
   manageCourses = false,
   onEnroll = null,
+  // «Organizar horario» en Cursos (ver CoursesView).
+  scheduler = null,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
   // Estado: '' | 'active' (con clases este mes) | 'linked' | 'pending' | 'none' (cuenta).
@@ -242,6 +244,7 @@ export default function StudentsView({
           client={client}
           manage={manageCourses}
           onEnroll={onEnroll}
+          scheduler={scheduler}
         />
         {coursesModal}
       </>

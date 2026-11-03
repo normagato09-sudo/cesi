@@ -16,6 +16,7 @@ import MyClasses from './team/MyClasses.jsx'
 import AreaSummary from './team/AreaSummary.jsx'
 import DirectivoSummary from './team/DirectivoSummary.jsx'
 import { ClockHomeCard, TodayCard } from './team/TodayHome.jsx'
+import ScheduleChanges from './ScheduleChanges.jsx'
 import MemberContacts from './team/MemberContacts.jsx'
 import { useExternalContacts } from './team/useExternalContacts'
 import { NextStepsCard } from './alliances/AllianceHome.jsx'
@@ -253,6 +254,7 @@ export default function MemberApp({
               <p className="member-panel-note">Elige una persona para ver su Inicio.</p>
             ) : (
               <>
+                <ScheduleChanges client={client} zone={zone} preview={!!preview} />
                 <ClockHomeCard client={workClient} zone={zone} asId={workAs} readOnly={readOnly} onOpen={() => go('clock')} />
                 <TodayCard client={workClient} zone={zone} asId={workAs} onOpen={() => go('shared-calendar')} />
                 <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />

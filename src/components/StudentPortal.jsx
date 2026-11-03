@@ -6,6 +6,7 @@ import { initials, zoneShort } from '../lib/studentPortal'
 import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
 import StudentCourses from './StudentCourses.jsx'
+import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
 import './StudentPortal.css'
@@ -151,6 +152,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
                 <Pencil size={18} strokeWidth={1.75} />
               </button>
             </header>
+
+            <ScheduleChanges client={client} zone={viewZone(profile)} preview={!!preview} />
 
             <FirstCourseCard client={client} preview={!!preview} onOpen={() => go('courses')} />
 

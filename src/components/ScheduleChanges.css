@@ -1,0 +1,44 @@
+/* Aviso de cambio de horario (ScheduleChanges.jsx), en el Inicio del alumno y del profesor. */
+.sch-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sch-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #1f5fd6;
+  border-radius: 14px;
+  background: #e8effc;
+  color: #111827;
+}
+.sch-change > svg {
+  flex-shrink: 0;
+  color: #1f5fd6;
+}
+.sch-change-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  font-size: 14px;
+}
+.sch-muted {
+  color: #5b6474;
+  font-size: 13px;
+}
+.sch-ok {
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: #1f5fd6;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
