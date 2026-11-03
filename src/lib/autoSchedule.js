@@ -1,6 +1,6 @@
 import { combinedAttendance, proposeSlots, scheduleFromSelection } from './courseScheduling'
 import { hasAvailability } from './contactAvailability'
-import { normalizeCourse, studentsInCourse } from './courses'
+import { normalizeCourse, scheduleChange, studentsInCourse } from './courses'
 import { normalizeWeek, WEEKDAY_DISPLAY_ORDER } from './weeklySchedule'
 
 // Horario automático de un curso (sobre «Organizar horario», courseScheduling.js): las personas del
@@ -138,9 +138,10 @@ export function scheduleAction(course, students, todayKey) {
   return { action: courseStarted(course, todayKey) ? 'propose' : 'recalc', joined, left }
 }
 
-// Lo que se guarda en el curso al elegir un horario: el horario y los alumnos que había.
-export function schedulePatch(option, students, extra = {}) {
-  return { schedule: option.schedule, scheduleAuto: { students: sortedIds(students.map((s) => s.id)), at: new Date().toISOString() }, schedulePending: null, ...extra }
+// Lo que se guarda en el curso al elegir un horario: el horario (con el de antes guardado si el
+// curso ya ha empezado, ver scheduleChange) y los alumnos que había.
+export function schedulePatch(course, schedule, students, now = new Date()) {
+  return { ...scheduleChange(course, schedule, now), scheduleAuto: { students: sortedIds(students.map((s) => s.id)), at: now.toISOString() }, schedulePending: null }
 }
 
 const DAY_NAME = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']

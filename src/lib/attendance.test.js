@@ -44,6 +44,7 @@ const course = {
   classMinutes: 60,
   classesPerWeek: 2,
   createdAt: '2026-10-01T10:00:00.000Z',
+  startDate: '2026-10-01',
   schedule: { timeZone: MX, since: '2026-10-19', slots: [{ day: 1, start: '18:00' }, { day: 3, start: '18:00' }] },
 }
 const ana = { id: 'ana', name: 'Ana', courseIds: ['guion'] }

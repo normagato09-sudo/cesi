@@ -9,7 +9,7 @@ import {
   normalizeCourse,
   normalizeCourseName,
   scheduleRows,
-  scheduleWithSince,
+  scheduleChange,
   sortScheduleSlots,
   teacherOptions,
   teacherStatus,
@@ -77,7 +77,8 @@ export default function CourseFormModal({ course = null, courses, contacts, onCl
       teacherId: teacherId || null,
       classMinutes,
       classesPerWeek,
-      schedule: scheduleWithSince(filled.length ? { timeZone: zone, slots: sortScheduleSlots(filled) } : null, seed.schedule),
+      // Con el curso ya empezado, el horario de antes se guarda para sus clases pasadas.
+      ...scheduleChange({ ...(course || {}), startDate }, filled.length ? { timeZone: zone, slots: sortScheduleSlots(filled) } : null),
       status,
       maxSeats: maxSeats.trim() === '' ? null : Number(maxSeats),
       startDate,
@@ -140,14 +141,15 @@ export default function CourseFormModal({ course = null, courses, contacts, onCl
 
           <div className="event-form-row">
             <label className="event-form-field">
-              <span>Empieza (opcional)</span>
+              <span>Fecha de inicio</span>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </label>
             <label className="event-form-field">
-              <span>Termina (opcional)</span>
+              <span>Fecha de fin (opcional)</span>
               <input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
             </label>
           </div>
+          <p className="contact-form-hint">Las clases solo salen desde la fecha de inicio hasta la de fin. Sin fecha de inicio, solo las próximas.</p>
 
           <label className="event-form-field">
             <span>Profesor (opcional)</span>

@@ -43,7 +43,7 @@ export default function OrganizeScheduleModal({ course, scheduler, onClose }) {
     setError(null)
     try {
       const started = courseStarted(course, keyOf(new Date(), scheduler.zone))
-      await scheduler.save(course, schedulePatch(option, state.students))
+      await scheduler.save(course, schedulePatch(course, option.schedule, state.students))
       if (started && c.schedule && !sameSchedule(c.schedule, option.schedule)) {
         await notifyScheduleChange(scheduler.client, course.id, c.schedule, option.schedule, c.classMinutes)
       }
@@ -144,7 +144,7 @@ export function PendingScheduleBanner({ course, students, scheduler }) {
   }
   const confirm = () =>
     run(async () => {
-      await scheduler.save(course, schedulePatch({ schedule: pending.schedule }, enrolled))
+      await scheduler.save(course, schedulePatch(course, pending.schedule, enrolled))
       if (c.schedule && !sameSchedule(c.schedule, pending.schedule)) {
         await notifyScheduleChange(scheduler.client, course.id, c.schedule, pending.schedule, c.classMinutes)
       }

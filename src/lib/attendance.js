@@ -109,23 +109,51 @@ export function scheduleSince(course) {
   return c.createdAt ? dayKeyIn(new Date(c.createdAt), c.schedule.timeZone) : null
 }
 
-// Clases del horario de los días fromKey a toKey (en la zona del horario), sin las de antes de since.
-export function scheduledClasses(course, fromKey, toKey) {
+// Primer día con clases del curso (en la zona tz): su fecha de inicio. Sin ella, hoy: solo salen
+// las próximas, hasta que se ponga.
+export function courseFirstDay(course, tz, now = new Date()) {
+  return normalizeCourse(course).startDate || dayKeyIn(now, tz)
+}
+
+const laterKey = (a, b) => (a && b ? (a > b ? a : b) : a || b)
+const earlierKey = (a, b) => (a && b ? (a < b ? a : b) : a || b)
+
+function dayBefore(key) {
+  return dateKeyOf(utcToDate(keyToUtc(key) - DAY_MS))
+}
+
+// Los horarios del curso con los días en que valen: el de ahora (desde su since) y los anteriores
+// (pastSchedules: desde su since hasta el día antes de until). Así, al cambiar el horario de un
+// curso empezado, sus clases pasadas no se mueven.
+function schedulePeriods(c) {
+  const periods = c.pastSchedules.map((p) => ({ schedule: p, since: p.since || null, last: dayBefore(p.until) }))
+  if (c.schedule) periods.push({ schedule: c.schedule, since: scheduleSince(c), last: null })
+  return periods
+}
+
+/**
+ * Clases del horario de los días fromKey a toKey (en la zona de cada horario): nunca antes de la
+ * fecha de inicio del curso (sin ella, desde hoy) ni después de la de fin, y cada horario solo en
+ * los días en que valía.
+ */
+export function scheduledClasses(course, fromKey, toKey, now = new Date()) {
   const c = normalizeCourse(course)
-  if (!c.schedule) return []
-  const since = scheduleSince(c)
-  const first = since && since > fromKey ? since : fromKey
-  const { timeZone, slots } = c.schedule
   const out = []
-  for (let t = keyToUtc(first); t <= keyToUtc(toKey); t += DAY_MS) {
-    const date = utcToDate(t)
-    for (const slot of slots) {
-      if (slot.day !== date.weekday) continue
-      const { date: start, exists } = instantAt(date, slot.start, timeZone)
-      if (!exists) continue
-      const day = dateKeyOf(date)
-      const end = new Date(start.getTime() + c.classMinutes * MINUTE)
-      out.push({ key: `${day}_${slot.start}`, courseId: c.id, date: day, start, end, timeZone, extraId: null, note: '' })
+  for (const { schedule, since, last } of schedulePeriods(c)) {
+    const { timeZone, slots } = schedule
+    const first = laterKey(laterKey(fromKey, since), courseFirstDay(c, timeZone, now))
+    const end = earlierKey(earlierKey(toKey, last), c.endDate || null)
+    if (!first || !end || first > end) continue
+    for (let t = keyToUtc(first); t <= keyToUtc(end); t += DAY_MS) {
+      const date = utcToDate(t)
+      for (const slot of slots) {
+        if (slot.day !== date.weekday) continue
+        const { date: start, exists } = instantAt(date, slot.start, timeZone)
+        if (!exists) continue
+        const day = dateKeyOf(date)
+        const finish = new Date(start.getTime() + c.classMinutes * MINUTE)
+        out.push({ key: `${day}_${slot.start}`, courseId: c.id, date: day, start, end: finish, timeZone, extraId: null, note: '' })
+      }
     }
   }
   return out
@@ -146,18 +174,18 @@ function fromRecord(r) {
 }
 
 /**
- * Clases del curso para el pase de lista, ordenadas por hora: las del horario (desde since hasta
- * dentro de WEEKS_AHEAD semanas), las sueltas y las que ya tienen pase de lista aunque el horario
- * haya cambiado. Cada clase: { key, courseId, date (en su zona), start, end, timeZone, extraId, note }.
+ * Clases del curso para el pase de lista, ordenadas por hora: las del horario (desde la fecha de
+ * inicio, o desde hoy si no tiene, hasta la de fin o dentro de WEEKS_AHEAD semanas), las sueltas y
+ * las que ya tienen pase de lista aunque el horario haya cambiado. Cada clase: { key, courseId,
+ * date (en su zona), start, end, timeZone, extraId, note }.
  */
 export function courseClasses(course, { extraClasses = [], records = [], now = new Date(), weeksAhead = WEEKS_AHEAD } = {}) {
   const c = normalizeCourse(course)
   const byKey = new Map()
-  if (c.schedule) {
-    const tz = c.schedule.timeZone
-    const from = scheduleSince(c) || dayKeyIn(now, tz)
+  if (c.schedule || c.pastSchedules.length) {
+    const tz = (c.schedule || c.pastSchedules[0]).timeZone
     const to = dayKeyIn(new Date(now.getTime() + weeksAhead * 7 * DAY_MS), tz)
-    for (const cls of scheduledClasses(c, from, to)) byKey.set(cls.key, cls)
+    for (const cls of scheduledClasses(c, courseFirstDay(c, tz, now), to, now)) byKey.set(cls.key, cls)
   }
   for (const x of extraClasses) if (x.courseId === c.id) byKey.set(extraClassKey(x.id), fromExtra(x))
   for (const r of records) if (r.courseId === c.id && !byKey.has(r.classKey)) byKey.set(r.classKey, fromRecord(r))

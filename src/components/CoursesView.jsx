@@ -8,7 +8,7 @@ import OrganizeScheduleModal, { PendingScheduleBanner } from './OrganizeSchedule
 import ContactAvatar from './ContactAvatar.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { attendanceCountOfCourse, classSummary, classWhen, courseClasses, groupClasses } from '../lib/attendance'
-import { COURSE_STATUS_LABEL, durationLabel, normalizeCourse, seatsOf, studentsInCourse, teacherStatus } from '../lib/courses'
+import { COURSE_STATUS_LABEL, courseStartText, durationLabel, normalizeCourse, seatsOf, studentsInCourse, teacherStatus } from '../lib/courses'
 import { CLASS_STATUS_LABEL, attendanceTone, classStatus, courseMonthAttendance, shortSchedule, studentAttendance } from '../lib/courseOverview'
 import { SPAIN_ZONE, countryLabel, zonePlace } from '../lib/timezones'
 import { keyOf } from '../lib/sharedCalendar'
@@ -273,7 +273,7 @@ export default function CoursesView({
                     shortSchedule(selected),
                     durationLabel(detail.classMinutes),
                     detail.schedule ? `hora de ${zonePlace(detail.schedule.timeZone)}` : '',
-                    detail.startDate || detail.endDate ? `${detail.startDate ? `del ${dayText(detail.startDate)}` : ''}${detail.endDate ? ` al ${dayText(detail.endDate)}` : ''}`.trim() : '',
+                    courseStartText(detail) || '',
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -296,6 +296,11 @@ export default function CoursesView({
               </div>
             </header>
 
+            {!detail.startDate && (
+              <p className="cp-start-warn" role="status">
+                Pon la fecha de inicio{canManage ? " en «Editar curso»" : ""}: hasta entonces solo salen las clases próximas.
+              </p>
+            )}
             {scheduler && <PendingScheduleBanner course={selected} students={students} scheduler={scheduler} />}
 
             <div className="cp-stats">

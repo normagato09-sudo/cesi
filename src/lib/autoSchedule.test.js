@@ -70,8 +70,8 @@ describe('horario automático', () => {
 
   it('guarda el horario con los alumnos que había y explica la propuesta', () => {
     const schedule = { timeZone: 'Europe/Madrid', slots: [{ day: 2, start: '18:00' }] }
-    const patch = schedulePatch({ schedule }, [{ id: 'b' }, { id: 'a' }])
-    expect(patch.schedule).toBe(schedule)
+    const patch = schedulePatch({ id: 'office' }, schedule, [{ id: 'b' }, { id: 'a' }])
+    expect(patch.schedule).toMatchObject(schedule)
     expect(patch.scheduleAuto.students).toEqual(['a', 'b'])
     expect(patch.schedulePending).toBe(null)
     expect(proposalText({ joined: ['c'] }, schedule)).toBe('Con el nuevo alumno, el martes a las 18:00 iría mejor')

@@ -85,6 +85,56 @@ export function scheduleWithSince(next, prev, now = new Date()) {
   return { ...next, since: dateKeyOf(wallTime(now, next.timeZone)) }
 }
 
+// Horarios anteriores de un curso empezado: [{ timeZone, slots, since?, until }] (until: el día
+// desde el que ya no vale, en su zona).
+function normalizePastSchedules(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((p) => {
+      const s = normalizeSchedule(p)
+      return s && DAY_KEY.test(p?.until || '') ? { ...s, until: p.until } : null
+    })
+    .filter(Boolean)
+}
+
+/**
+ * Lo que se guarda al cambiar el horario de un curso: { schedule (con su since), pastSchedules }.
+ * Si el curso ya ha empezado y el horario cambia, el de antes se guarda hasta hoy: sus clases
+ * pasadas (y su asistencia) no se mueven y las nuevas salen con el horario nuevo. Si aún no ha
+ * empezado, se cambia sin más.
+ */
+export function scheduleChange(course, next, now = new Date()) {
+  const c = normalizeCourse(course)
+  const schedule = scheduleWithSince(next, c.schedule, now)
+  const prev = c.schedule
+  const slotsKey = (s) => JSON.stringify(sortScheduleSlots(s.slots).map(({ day, start }) => [day, start]))
+  const unchanged = prev && next && prev.timeZone === next.timeZone && slotsKey(prev) === slotsKey(next)
+  if (!prev || unchanged) return { schedule, pastSchedules: c.pastSchedules }
+  const today = dateKeyOf(wallTime(now, prev.timeZone))
+  const prevSince = prev.since || c.startDate || null
+  const started = !!c.startDate && c.startDate <= today
+  if (!started || (prevSince && prevSince >= today)) return { schedule, pastSchedules: c.pastSchedules }
+  return { schedule, pastSchedules: [...c.pastSchedules, { ...prev, ...(prevSince ? { since: prevSince } : {}), until: today }] }
+}
+
+const START_DAY = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+const START_MONTH = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
+
+// Las fechas del curso arriba en su ficha: «Empieza el lun 9 nov» o «Del 9 nov al 30 ene»; null
+// sin fecha de inicio.
+export function courseStartText(course) {
+  const c = normalizeCourse(course)
+  if (!c.startDate) return null
+  const parts = (key) => {
+    const [y, m, d] = key.split('-').map(Number)
+    return { weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay(), day: d, month: START_MONTH[m - 1] }
+  }
+  const s = parts(c.startDate)
+  if (!c.endDate) return `Empieza el ${START_DAY[s.weekday]} ${s.day} ${s.month}`
+  const e = parts(c.endDate)
+  return `Del ${s.day} ${s.month} al ${e.day} ${e.month}`
+}
+
 export function sortScheduleSlots(slots) {
   const order = (day) => WEEKDAY_DISPLAY_ORDER.indexOf(day)
   return [...slots].sort((a, b) => order(a.day) - order(b.day) || timeToMinutes(a.start) - timeToMinutes(b.start))
@@ -102,6 +152,7 @@ export function normalizeCourse(course) {
     classMinutes: Number.isInteger(minutes) && minutes > 0 ? minutes : DEFAULT_CLASS_MINUTES,
     classesPerWeek: Number.isInteger(perWeek) && perWeek >= 1 && perWeek <= MAX_CLASSES_PER_WEEK ? perWeek : 1,
     schedule: normalizeSchedule(course.schedule),
+    pastSchedules: normalizePastSchedules(course.pastSchedules),
     status: COURSE_STATUS_LABEL[course.status] ? course.status : 'borrador',
     maxSeats: seatsValue(course.maxSeats),
     startDate: DAY_KEY.test(course.startDate || '') ? course.startDate : '',

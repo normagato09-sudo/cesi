@@ -46,7 +46,7 @@ export function useScheduleAutopilot(scheduler, courses, students) {
             // Nada mejor: el horario se queda y se apunta quién hay ahora.
             await scheduler.save(course, { ...snapshot, schedulePending: null })
           } else if (act.action === 'recalc') {
-            await scheduler.save(course, schedulePatch(best, people))
+            await scheduler.save(course, schedulePatch(course, best.schedule, people))
           } else {
             await scheduler.save(course, {
               schedulePending: { schedule: best.schedule, text: proposalText(act, best.schedule), canText: canText(best), students: sortedIds(people) },
