@@ -108,6 +108,7 @@ const FinanceView = lazy(() => import('./components/finance/FinanceView.jsx'))
 const TeamEditsView = lazy(() => import('./components/TeamEditsView.jsx'))
 const MessagesView = lazy(() => import('./components/chat/MessagesView.jsx'))
 const OrgChartView = lazy(() => import('./components/OrgChartView.jsx'))
+const TestimonialsView = lazy(() => import('./components/TestimonialsView.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -940,6 +941,14 @@ export default function App() {
                   setSection('messages')
                 }}
               />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'testimonials' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <TestimonialsView client={sync.client} />
             </Suspense>
           </div>
         )}

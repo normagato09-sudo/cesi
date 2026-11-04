@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Pencil, Sparkles } from 'lucide-react'
+import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Pencil, Sparkles, Star } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
@@ -7,6 +7,7 @@ import { countryName } from '../lib/timezones'
 import SharedCalendar from './shared/SharedCalendar.jsx'
 import StudentCourses from './StudentCourses.jsx'
 import StudentAttendance from './StudentAttendance.jsx'
+import TestimonialsView from './TestimonialsView.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
@@ -23,6 +24,7 @@ const NAV = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
   { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck },
+  { id: 'testimonials', label: 'Testimonios', Icon: Star },
 ]
 
 const CARDS = [
@@ -191,6 +193,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             )}
             <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
           </>
+        ) : section === 'testimonials' ? (
+          <TestimonialsView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'attendance' ? (
           <StudentAttendance client={client} zone={viewZone(profile)} preview={!!preview} />
         ) : section === 'calendar' ? (

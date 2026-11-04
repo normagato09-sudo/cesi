@@ -15,6 +15,7 @@ import {
   Megaphone,
   MessageCircle,
   Network,
+  Star,
   SquareKanban,
   Target,
   UserRound,
@@ -76,6 +77,8 @@ export const NAV_GROUPS = [
     items: [
       { id: 'courses', label: 'Cursos', Icon: BookOpen, screen: 'cursos' },
       { id: 'students', label: 'Alumnos', Icon: GraduationCap, screen: 'alumnos' },
+      // Testimonios: en mi menú aquí; en el del equipo, en «Mi panel» (todos).
+      { id: 'testimonials', label: 'Testimonios', Icon: Star, ceoOnly: true, needsSync: true },
       { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck, screen: 'asistencia' },
     ],
   },
@@ -118,6 +121,7 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
             { id: 'org', label: 'Organigrama', Icon: Network },
+            { id: 'testimonials', label: 'Testimonios', Icon: Star },
             { id: 'goals', label: 'Objetivos', Icon: Target },
             // El tablero de su área (con su nombre).
             ...(boardOf(area) ? [{ id: 'board', label: boardOf(area).title, Icon: SquareKanban }] : []),
