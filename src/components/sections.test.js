@@ -13,7 +13,6 @@ describe('ceoGroups', () => {
       'profile',
       'calendar',
       'contacts',
-      'org',
       'team-tasks',
       'goals',
       'notices',
@@ -25,7 +24,7 @@ describe('ceoGroups', () => {
       'testimonials',
     ])
     expect(allItems(groups).find((i) => i.id === 'contacts').label).toBe('Mis contactos')
-    expect(allItems(ceoGroups(false)).some((i) => ['access', 'profile', 'team-tasks', 'org', 'testimonials', 'goals', 'messages'].includes(i.id))).toBe(false)
+    expect(allItems(ceoGroups(false)).some((i) => ['access', 'profile', 'team-tasks', 'testimonials', 'goals', 'messages'].includes(i.id))).toBe(false)
   })
 })
 
@@ -33,12 +32,12 @@ describe('memberGroups', () => {
   it('Mi panel y solo las pantallas con permiso (nunca Accesos)', () => {
     const groups = memberGroups({ calendario: 'read', cursos: 'write', alumnos: 'none', fichajes: 'write' })
     expect(groups.map((g) => g.id)).toEqual(['panel', 'agenda', 'training'])
-    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'org', 'testimonials', 'goals', 'clock', 'contacts', 'courses'])
+    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts', 'courses'])
     expect(groups[0].items[0].label).toBe('Mi panel')
   })
 
   it('sin permisos, Mi panel, Calendario, Tareas, Objetivos, Fichaje y sus Contactos', () => {
-    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'org', 'testimonials', 'goals', 'clock', 'contacts'])
+    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts'])
     expect(allItems(memberGroups({})).find((i) => i.id === 'contacts').label).toBe('Contactos')
   })
 
@@ -64,13 +63,13 @@ describe('memberGroups', () => {
   it('Directivo: Mi panel, su Contactos, Cursos y Alumnos; nunca Equipo, Vacantes ni Asistencia', () => {
     const levels = { contactos: 'read', equipo: 'read', vacantes: 'read', cursos: 'write', alumnos: 'read', asistencia: 'read' }
     expect(allItems(memberGroups(levels, 'direccion')).map((i) => i.id)).toEqual([
-      'home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'org', 'testimonials', 'goals', 'clock', 'contacts', 'courses', 'students',
+      'home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts', 'courses', 'students',
     ])
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {
     const items = allItems(memberGroups({ calendario: 'write', contactos: 'read' })).map((i) => i.id)
-    expect(items).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'org', 'testimonials', 'goals', 'clock', 'contacts'])
+    expect(items).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts'])
   })
 })
 

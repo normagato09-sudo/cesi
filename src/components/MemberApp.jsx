@@ -44,7 +44,6 @@ import './MemberApp.css'
 
 // Las pantallas de la ceo (solo se cargan al abrir una).
 const MemberScreen = lazy(() => import('./team/MemberScreen.jsx'))
-const OrgChartView = lazy(() => import('./OrgChartView.jsx'))
 const TestimonialsView = lazy(() => import('./TestimonialsView.jsx'))
 const NewsletterView = lazy(() => import('./NewsletterView.jsx'))
 const MailboxView = lazy(() => import('./MailboxView.jsx'))
@@ -76,12 +75,7 @@ export default function MemberApp({
   const [fetchedLevels, setLevels] = useState(null)
   const [error, setError] = useState(false)
   const [section, setSection] = useState('home')
-  // Desde el Organigrama: Mensajes con el chat de esa cuenta.
-  const [messagesWith, setMessagesWith] = useState(null)
-  const go = (id) => {
-    setMessagesWith(null)
-    setSection(id)
-  }
+  const go = setSection
   const [editing, setEditing] = useState(false)
   const levels = previewLevels || fetchedLevels
   const { data, loadError, retry, save } = useMyProfile(client, userId, preview)
@@ -215,23 +209,8 @@ export default function MemberApp({
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
             <TestimonialsView client={workClient} readOnly={readOnly || !!preview} />
           </Suspense>
-        ) : section === 'org' ? (
-          <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
-            <OrgChartView
-              client={workClient}
-              meId={me.id}
-              onMessage={
-                preview
-                  ? null
-                  : (id) => {
-                      setMessagesWith(id)
-                      setSection('messages')
-                    }
-              }
-            />
-          </Suspense>
         ) : section === 'messages' ? (
-          preview ? <MessagesPrivate /> : <MessagesView key={messagesWith || ''} client={client} meId={userId} zone={zone} withPerson={messagesWith} />
+          preview ? <MessagesPrivate /> : <MessagesView client={client} meId={userId} zone={zone} />
         ) : section === 'notices' ? (
           <NoticesView client={workClient} me={me} asId={workAs} readOnly={readOnly} />
         ) : section === 'board' && boardOf(area) ? (

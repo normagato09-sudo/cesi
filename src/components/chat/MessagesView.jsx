@@ -109,10 +109,9 @@ function Message({ m, zone, seen, onEdit, onDelete, onReport = null }) {
  * personas; a la derecha, la conversación. En el móvil, una cosa cada vez. En tiempo real.
  * meId: mi cuenta. zone: mi zona (las horas).
  */
-// withPerson: id de una cuenta con la que abrir el chat privado al entrar (desde el Organigrama).
 // safety (portal del alumno, parte 37): «Reportar» en los mensajes de los demás y «Bloquear» a la
 // persona de una conversación privada.
-export default function MessagesView({ client, meId, zone, withPerson = null, safety = false }) {
+export default function MessagesView({ client, meId, zone, safety = false }) {
   const [blocked, setBlocked] = useState(() => new Set())
   const [blockTick, setBlockTick] = useState(0)
   useEffect(() => {
@@ -220,23 +219,6 @@ export default function MessagesView({ client, meId, zone, withPerson = null, sa
     setDraft('')
     setOpenId(id)
   }, [])
-
-  // Al entrar con una persona elegida (Organigrama): su chat privado, abierto.
-  useEffect(() => {
-    if (!client || !withPerson) return
-    let active = true
-    openPrivate(client, withPerson).then(
-      (id) => {
-        if (!active) return
-        setListTick((n) => n + 1)
-        choose(id)
-      },
-      (err) => active && setError(err.message),
-    )
-    return () => {
-      active = false
-    }
-  }, [client, withPerson, choose])
 
   const startWith = async (person) => {
     try {

@@ -15,7 +15,6 @@ import {
   ListTodo,
   Megaphone,
   MessageCircle,
-  Network,
   Newspaper,
   Star,
   SquareKanban,
@@ -62,8 +61,6 @@ export const NAV_GROUPS = [
     label: 'Equipo',
     Icon: BadgeCheck,
     items: [
-      // Organigrama: en mi menú aquí; en el del equipo, en «Mi panel» (todas las áreas lo leen).
-      { id: 'org', label: 'Organigrama', Icon: Network, ceoOnly: true, needsSync: true },
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
       { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
       { id: 'boards', label: 'Tableros', Icon: SquareKanban, ceoOnly: true, needsSync: true },
@@ -126,7 +123,6 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'mailbox', label: 'Buzón', Icon: Inbox },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
-            { id: 'org', label: 'Organigrama', Icon: Network },
             { id: 'testimonials', label: 'Testimonios', Icon: Star },
             { id: 'goals', label: 'Objetivos', Icon: Target },
             // El tablero de su área (con su nombre).

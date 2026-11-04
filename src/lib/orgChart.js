@@ -1,7 +1,8 @@
 import { DIRECTION_ROLES, DIRECTION_ROLE_LABEL } from './profiles'
 import { normalizeName } from './applications'
 
-// Organigrama (OrgChartView.jsx): las cuentas de la ceo y del equipo (cesi_org_chart, parte 28)
+// Las cuentas de la ceo y del equipo (cesi_org_chart, parte 28). La pantalla Organigrama ya no
+// existe; listOrgChart lo usa el Resumen de Directivo. El resto, por si vuelve: las cuentas
 // agrupadas por puesto y área. Jefes: el equipo directivo responde a la ceo; el Director, a las
 // áreas (menos Profesor); el Coordinador, a los profesores.
 

@@ -107,7 +107,6 @@ const NoticesView = lazy(() => import('./components/notices/NoticesView.jsx'))
 const FinanceView = lazy(() => import('./components/finance/FinanceView.jsx'))
 const TeamEditsView = lazy(() => import('./components/TeamEditsView.jsx'))
 const MessagesView = lazy(() => import('./components/chat/MessagesView.jsx'))
-const OrgChartView = lazy(() => import('./components/OrgChartView.jsx'))
 const TestimonialsView = lazy(() => import('./components/TestimonialsView.jsx'))
 const NewsletterView = lazy(() => import('./components/NewsletterView.jsx'))
 const MailboxView = lazy(() => import('./components/MailboxView.jsx'))
@@ -131,8 +130,8 @@ function SectionLoading() {
   )
 }
 
-// Pantallas quitadas (Equipo y Vacantes): si se intenta abrir una, se va a Inicio.
-const REMOVED_SECTIONS = new Set(['team', 'vacancies'])
+// Pantallas quitadas (Equipo, Vacantes y Organigrama): si se intenta abrir una, se va a Inicio.
+const REMOVED_SECTIONS = new Set(['team', 'vacancies', 'org'])
 
 // Rango compacto, p. ej. "23–25 sept 2026", "30 sept – 2 oct 2026" o "30 dic 2026 – 1 ene 2027".
 export default function App() {
@@ -140,8 +139,6 @@ export default function App() {
   const [section, setSection] = useState('home')
   const [selectedContactId, setSelectedContactId] = useState(null)
   const [selectedStudentId, setSelectedStudentId] = useState(null)
-  // «Enviar mensaje» desde el Organigrama: Mensajes se abre con el chat de esa cuenta.
-  const [messagesWith, setMessagesWith] = useState(null)
   // Vista del calendario: la última que elegí en este dispositivo.
   const [view, setViewState] = useState(() => readView())
   const setView = (next) => {
@@ -678,9 +675,8 @@ export default function App() {
     for (const { id, patch } of interviewUpdates(meeting, contacts)) editContact(id, patch)
   }
 
-  // Equipo y Vacantes ya no existen: quien intente abrirlas va a Inicio (los datos se quedan).
+  // Equipo, Vacantes y Organigrama ya no existen: quien intente abrirlas va a Inicio (los datos se quedan).
   const goToSection = (id) => {
-    if (id === 'messages') setMessagesWith(null)
     setSection(REMOVED_SECTIONS.has(id) ? 'home' : id)
   }
 
@@ -927,22 +923,7 @@ export default function App() {
         {section === 'messages' && sync && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <MessagesView key={messagesWith || ''} client={sync.client} meId={sync.userId} zone={myZone} withPerson={messagesWith} />
-            </Suspense>
-          </div>
-        )}
-
-        {section === 'org' && sync && (
-          <div className="app-main">
-            <Suspense fallback={<SectionLoading />}>
-              <OrgChartView
-                client={sync.client}
-                meId={sync.userId}
-                onMessage={(id) => {
-                  setMessagesWith(id)
-                  setSection('messages')
-                }}
-              />
+              <MessagesView client={sync.client} meId={sync.userId} zone={myZone} />
             </Suspense>
           </div>
         )}
