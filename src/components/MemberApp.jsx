@@ -17,6 +17,7 @@ import AreaSummary from './team/AreaSummary.jsx'
 import DirectivoSummary from './team/DirectivoSummary.jsx'
 import { ClockHomeCard, TodayCard } from './team/TodayHome.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
+import NewsletterNotice from './NewsletterNotice.jsx'
 import MemberContacts from './team/MemberContacts.jsx'
 import { useExternalContacts } from './team/useExternalContacts'
 import { NextStepsCard } from './alliances/AllianceHome.jsx'
@@ -45,6 +46,7 @@ import './MemberApp.css'
 const MemberScreen = lazy(() => import('./team/MemberScreen.jsx'))
 const OrgChartView = lazy(() => import('./OrgChartView.jsx'))
 const TestimonialsView = lazy(() => import('./TestimonialsView.jsx'))
+const NewsletterView = lazy(() => import('./NewsletterView.jsx'))
 
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
 // permiso (my_permissions(), ver supabase/schema.sql). Las pantallas de la ceo (Contactos
@@ -200,6 +202,10 @@ export default function MemberApp({
             asId={workAs}
             asArea={preview && !workAs ? screensArea : null}
           />
+        ) : section === 'newsletter' ? (
+          <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
+            <NewsletterView client={workClient} readOnly={readOnly || !!preview} />
+          </Suspense>
         ) : section === 'testimonials' ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
             <TestimonialsView client={workClient} readOnly={readOnly || !!preview} />
@@ -260,6 +266,7 @@ export default function MemberApp({
             ) : (
               <>
                 <ScheduleChanges client={client} zone={zone} preview={!!preview} />
+                <NewsletterNotice client={client} preview={!!preview} onOpen={() => go('newsletter')} />
                 <ClockHomeCard client={workClient} zone={zone} asId={workAs} readOnly={readOnly} onOpen={() => go('clock')} />
                 <TodayCard client={workClient} zone={zone} asId={workAs} onOpen={() => go('shared-calendar')} />
                 <UnreadNotices client={workClient} asId={workAs} readOnly={readOnly} />

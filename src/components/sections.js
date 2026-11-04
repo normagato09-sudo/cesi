@@ -15,6 +15,7 @@ import {
   Megaphone,
   MessageCircle,
   Network,
+  Newspaper,
   Star,
   SquareKanban,
   Target,
@@ -40,6 +41,7 @@ export const NAV_GROUPS = [
     items: [
       { id: 'home', label: 'Inicio', Icon: House },
       { id: 'messages', label: 'Mensajes', Icon: MessageCircle, ceoOnly: true, needsSync: true },
+      { id: 'newsletter', label: 'Newsletter', Icon: Newspaper, ceoOnly: true, needsSync: true },
       { id: 'profile', label: 'Mi perfil', Icon: UserRound, ceoOnly: true, needsSync: true },
     ],
   },
@@ -118,6 +120,7 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'home', label: 'Mi panel', Icon: LayoutDashboard },
             { id: 'messages', label: 'Mensajes', Icon: MessageCircle },
             { id: 'notices', label: 'Avisos', Icon: Megaphone },
+            { id: 'newsletter', label: 'Newsletter', Icon: Newspaper },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
             { id: 'org', label: 'Organigrama', Icon: Network },

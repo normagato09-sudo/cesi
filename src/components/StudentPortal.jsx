@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Pencil, Sparkles, Star } from 'lucide-react'
+import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Newspaper, Pencil, Sparkles, Star } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
@@ -8,6 +8,8 @@ import SharedCalendar from './shared/SharedCalendar.jsx'
 import StudentCourses from './StudentCourses.jsx'
 import StudentAttendance from './StudentAttendance.jsx'
 import TestimonialsView from './TestimonialsView.jsx'
+import NewsletterView from './NewsletterView.jsx'
+import NewsletterNotice from './NewsletterNotice.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
@@ -25,6 +27,7 @@ const NAV = [
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
   { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck },
   { id: 'testimonials', label: 'Testimonios', Icon: Star },
+  { id: 'newsletter', label: 'Newsletter', Icon: Newspaper },
 ]
 
 const CARDS = [
@@ -159,6 +162,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             </header>
 
             <ScheduleChanges client={client} zone={viewZone(profile)} preview={!!preview} />
+            <NewsletterNotice client={client} preview={!!preview} onOpen={() => go('newsletter')} />
 
             <FirstCourseCard client={client} preview={!!preview} onOpen={() => go('courses')} />
 
@@ -178,7 +182,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
 
             <p className="sp-coming">
               <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />
-              Próximamente: calificaciones, mensajes y newsletter
+              Próximamente: calificaciones y mensajes
             </p>
 
             <div className="sp-mobile-signout">{signOutButton}</div>
@@ -193,6 +197,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             )}
             <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
           </>
+        ) : section === 'newsletter' ? (
+          <NewsletterView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'testimonials' ? (
           <TestimonialsView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'attendance' ? (
