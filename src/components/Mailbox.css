@@ -1,0 +1,260 @@
+/* Buzón (MailboxView.jsx): Plus Jakarta Sans, tarjetas blancas y el azul de la app. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.mb-root {
+  --mb-border: #e2e6ee;
+  --mb-input: #cbd2de;
+  --mb-muted: #5b6474;
+  --mb-blue: #1f5fd6;
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 40px 56px 48px;
+  background: #f3f5f9;
+  color: #111827;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+.mb-root *,
+.mb-root button,
+.mb-root select,
+.mb-root textarea {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.mb-head,
+.mb-form,
+.mb-filters,
+.mb-list,
+.mb-subtitle,
+.mb-root > .mb-error,
+.mb-root > .mb-muted,
+.mb-root > .mb-card {
+  max-width: 860px;
+  margin-right: auto;
+  margin-left: auto;
+}
+.mb-head {
+  margin-bottom: 20px;
+}
+.mb-head h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.mb-head p {
+  margin: 4px 0 0;
+  color: var(--mb-muted);
+  font-size: 14px;
+}
+.mb-subtitle {
+  margin-top: 24px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.mb-muted {
+  margin: 0;
+  color: var(--mb-muted);
+  font-size: 12.5px;
+}
+.mb-error {
+  margin: 0 0 12px;
+  color: #b42318;
+  font-size: 13.5px;
+}
+.mb-ok {
+  margin: 0;
+  color: #15803d;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.mb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.mb-card {
+  padding: 18px 20px;
+  border: 1px solid var(--mb-border);
+  border-radius: 18px;
+  background: #fff;
+}
+.mb-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mb-chips button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--mb-input);
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mb-chips button.on {
+  border-color: var(--mb-blue);
+  background: var(--mb-blue);
+  color: #fff;
+  font-weight: 700;
+}
+.mb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.mb-root select,
+.mb-root textarea {
+  border: 1px solid var(--mb-input);
+  border-radius: 12px;
+  background: #fff;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 400;
+}
+.mb-root select {
+  min-height: 40px;
+  padding: 0 10px;
+}
+.mb-root textarea {
+  width: 100%;
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.mb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mb-primary {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--mb-blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mb-primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.mb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.mb-status-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mb-muted);
+  font-size: 13px;
+}
+.mb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mb-item.nueva {
+  border-color: #f5c98a;
+}
+.mb-item-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mb-kind,
+.mb-status {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.mb-kind {
+  background: #e8effc;
+  color: var(--mb-blue);
+}
+.mb-kind.queja,
+.mb-kind.reporte {
+  background: #fee2e2;
+  color: #b42318;
+}
+.mb-status.nueva {
+  background: #fff4e5;
+  color: #b45309;
+}
+.mb-status.vista {
+  background: #f3f5f9;
+  color: var(--mb-muted);
+}
+.mb-status.resuelta {
+  background: #e7f6ec;
+  color: #166534;
+}
+.mb-who {
+  margin: 0;
+  color: #374151;
+  font-size: 13px;
+}
+.mb-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.mb-reply,
+.mb-reported {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f5f8fe;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.mb-reported {
+  background: #fff5f5;
+}
+
+@media (max-width: 860px) {
+  .mb-root {
+    padding: 20px 20px 32px;
+  }
+  .mb-head h1 {
+    font-size: 24px;
+  }
+  .mb-card {
+    padding: 14px 16px;
+  }
+}

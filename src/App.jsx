@@ -110,6 +110,7 @@ const MessagesView = lazy(() => import('./components/chat/MessagesView.jsx'))
 const OrgChartView = lazy(() => import('./components/OrgChartView.jsx'))
 const TestimonialsView = lazy(() => import('./components/TestimonialsView.jsx'))
 const NewsletterView = lazy(() => import('./components/NewsletterView.jsx'))
+const MailboxView = lazy(() => import('./components/MailboxView.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -942,6 +943,14 @@ export default function App() {
                   setSection('messages')
                 }}
               />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'mailbox' && sync && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <MailboxView client={sync.client} isCeo />
             </Suspense>
           </div>
         )}

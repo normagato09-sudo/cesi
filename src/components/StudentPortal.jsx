@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Newspaper, Pencil, Sparkles, Star } from 'lucide-react'
+import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Inbox, Newspaper, Pencil, Sparkles, Star } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
@@ -10,6 +10,7 @@ import StudentAttendance from './StudentAttendance.jsx'
 import TestimonialsView from './TestimonialsView.jsx'
 import NewsletterView from './NewsletterView.jsx'
 import NewsletterNotice from './NewsletterNotice.jsx'
+import MailboxView from './MailboxView.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
@@ -28,6 +29,7 @@ const NAV = [
   { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck },
   { id: 'testimonials', label: 'Testimonios', Icon: Star },
   { id: 'newsletter', label: 'Newsletter', Icon: Newspaper },
+  { id: 'mailbox', label: 'Buzón', Icon: Inbox },
 ]
 
 const CARDS = [
@@ -197,6 +199,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             )}
             <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
           </>
+        ) : section === 'mailbox' ? (
+          <MailboxView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'newsletter' ? (
           <NewsletterView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'testimonials' ? (
