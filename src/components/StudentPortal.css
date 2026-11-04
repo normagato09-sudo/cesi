@@ -481,6 +481,8 @@
 
 /* Barra inferior (móvil). */
 .sp-bottom-nav {
+  overflow-x: auto;
+  scrollbar-width: none;
   position: fixed;
   left: 0;
   right: 0;
@@ -492,8 +494,8 @@
   background: var(--sp-surface);
 }
 .sp-bottom-item {
-  /* Tres secciones, del mismo ancho. */
-  flex: 1 1 0;
+  /* Del mismo ancho; si no caben todas, la barra se desplaza de lado. */
+  flex: 1 0 68px;
   min-width: 0;
   min-height: 58px;
   display: flex;

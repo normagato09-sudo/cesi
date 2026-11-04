@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Award, BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Inbox, Newspaper, Pencil, Sparkles, Star } from 'lucide-react'
+import { Award, BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Inbox, Newspaper, MessageCircle, Pencil, Star } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
@@ -12,6 +12,7 @@ import NewsletterView from './NewsletterView.jsx'
 import NewsletterNotice from './NewsletterNotice.jsx'
 import MailboxView from './MailboxView.jsx'
 import StudentGrades from './StudentGrades.jsx'
+import MessagesView, { MessagesPrivate } from './chat/MessagesView.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
@@ -21,14 +22,14 @@ import './StudentPortal.css'
 // sincronización ni datos en el navegador): su cuenta (profiles) y su perfil (account_profiles).
 // Hasta que completa el perfil no puede hacer nada más.
 
-// Solo las secciones que ya funcionan. Calificaciones, Mensajes y Newsletter llegarán más adelante
-// (en Inicio, una línea lo avisa).
+// Las secciones del portal (en el móvil, la barra de abajo se desplaza de lado si no caben).
 const NAV = [
   { id: 'home', label: 'Inicio', Icon: House },
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
   { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck },
   { id: 'grades', label: 'Calificaciones', Icon: Award },
+  { id: 'messages', label: 'Mensajes', Icon: MessageCircle },
   { id: 'testimonials', label: 'Testimonios', Icon: Star },
   { id: 'newsletter', label: 'Newsletter', Icon: Newspaper },
   { id: 'mailbox', label: 'Buzón', Icon: Inbox },
@@ -184,11 +185,6 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
               ))}
             </div>
 
-            <p className="sp-coming">
-              <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />
-              Próximamente: mensajes
-            </p>
-
             <div className="sp-mobile-signout">{signOutButton}</div>
           </>
         ) : section === 'courses' ? (
@@ -201,6 +197,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             )}
             <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
           </>
+        ) : section === 'messages' ? (
+          preview ? <MessagesPrivate /> : <MessagesView client={client} meId={userId} zone={viewZone(profile)} safety />
         ) : section === 'grades' ? (
           <StudentGrades client={client} preview={!!preview} />
         ) : section === 'mailbox' ? (

@@ -359,3 +359,14 @@
     padding-bottom: 80px;
   }
 }
+
+/* Alumnos (parte 37): «Bloquear» en la cabecera y «Reportar» en los mensajes de los demás. */
+.ms-thread-head .ms-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+.ms-msg .ms-report:hover {
+  color: #b42318;
+}

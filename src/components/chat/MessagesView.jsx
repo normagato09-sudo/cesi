@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Lock, MessageCircle, Pencil, Search, Send, Trash2, Users } from 'lucide-react'
+import { ArrowLeft, Ban, Flag, Lock, MessageCircle, Pencil, Search, Send, Trash2, Users } from 'lucide-react'
 import { hhmmOf } from '../../lib/sharedCalendar'
 import {
   MAX_MESSAGE,
@@ -14,6 +14,9 @@ import {
   listTime,
   markRead,
   openPrivate,
+  blockPerson,
+  listBlocked,
+  reportMessage,
   previewText,
   searchPeople,
   seenMessageId,
@@ -45,7 +48,7 @@ export function MessagesPrivate() {
   )
 }
 
-function Message({ m, zone, seen, onEdit, onDelete }) {
+function Message({ m, zone, seen, onEdit, onDelete, onReport = null }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(m.body)
   const [busy, setBusy] = useState(false)
@@ -81,6 +84,11 @@ function Message({ m, zone, seen, onEdit, onDelete }) {
         {hhmmOf(new Date(m.created_at), zone)}
         {m.edited_at && !m.deleted && ' · Editado'}
         {seen && ' · Visto'}
+        {onReport && !m.mine && !m.deleted && (
+          <button type="button" className="ms-icon ms-report" aria-label="Reportar el mensaje" title="Reportar" onClick={() => onReport(m)}>
+            <Flag size={12} strokeWidth={1.75} />
+          </button>
+        )}
         {m.mine && !m.deleted && !editing && (
           <>
             <button type="button" className="ms-icon" aria-label="Editar el mensaje" title="Editar" onClick={() => setEditing(true)}>
@@ -102,7 +110,43 @@ function Message({ m, zone, seen, onEdit, onDelete }) {
  * meId: mi cuenta. zone: mi zona (las horas).
  */
 // withPerson: id de una cuenta con la que abrir el chat privado al entrar (desde el Organigrama).
-export default function MessagesView({ client, meId, zone, withPerson = null }) {
+// safety (portal del alumno, parte 37): «Reportar» en los mensajes de los demás y «Bloquear» a la
+// persona de una conversación privada.
+export default function MessagesView({ client, meId, zone, withPerson = null, safety = false }) {
+  const [blocked, setBlocked] = useState(() => new Set())
+  const [blockTick, setBlockTick] = useState(0)
+  useEffect(() => {
+    if (!client || !safety) return
+    let active = true
+    listBlocked(client).then(
+      (ids) => active && setBlocked(ids),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [client, safety, blockTick])
+  const toggleBlock = async (otherId, name) => {
+    const isBlocked = blocked.has(otherId)
+    const question = isBlocked ? `¿Desbloquear a ${name}? Podrá volver a escribirte.` : `¿Bloquear a ${name}? Ya no te podrá escribir.`
+    if (!window.confirm(question)) return
+    try {
+      await blockPerson(client, otherId, !isBlocked)
+      setBlockTick((n) => n + 1)
+    } catch (err) {
+      window.alert(err.message)
+    }
+  }
+  const report = async (m) => {
+    const reason = window.prompt(`¿Por qué reportas este mensaje de ${m.author_name}? (opcional) Le llegará a la dirección con el mensaje.`, '')
+    if (reason === null) return
+    try {
+      await reportMessage(client, m.id, reason)
+      window.alert('Reportado. La dirección lo revisará.')
+    } catch (err) {
+      window.alert(err.message)
+    }
+  }
   const [conversations, setConversations] = useState(null)
   const [openId, setOpenId] = useState(null)
   const [messages, setMessages] = useState(null)
@@ -311,6 +355,12 @@ export default function MessagesView({ client, meId, zone, withPerson = null }) 
               </button>
               <h2>{open.title}</h2>
               <span className="ms-muted">{open.kind === 'private' ? 'Privada' : open.kind === 'area' ? 'Área' : 'Todo el equipo'}</span>
+              {safety && open.kind === 'private' && open.other_id && (
+                <button type="button" className="ms-small ms-block" onClick={() => toggleBlock(open.other_id, open.title)}>
+                  <Ban size={13} strokeWidth={1.75} />
+                  {blocked.has(open.other_id) ? 'Desbloquear' : 'Bloquear'}
+                </button>
+              )}
             </header>
             <div className="ms-messages">
               {!messages ? (
@@ -323,7 +373,7 @@ export default function MessagesView({ client, meId, zone, withPerson = null }) 
                     <p className="ms-day">{dayHeading(g.day, zone)}</p>
                     <ul>
                       {g.messages.map((m) => (
-                        <Message key={`${m.id}:${m.edited_at || ''}:${m.deleted}`} m={m} zone={zone} seen={m.id === seenId} onEdit={onEdit} onDelete={onDelete} />
+                        <Message key={`${m.id}:${m.edited_at || ''}:${m.deleted}`} m={m} zone={zone} seen={m.id === seenId} onEdit={onEdit} onDelete={onDelete} onReport={safety ? report : null} />
                       ))}
                     </ul>
                   </div>

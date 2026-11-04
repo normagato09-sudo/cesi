@@ -117,6 +117,10 @@ export const listMessages = (client, conversationId, before = null) => rpc(clien
 export const listChatPeople = (client) => rpc(client, 'cesi_chat_people', {})
 export const unreadCount = (client) => rpc(client, 'cesi_chat_unread', {})
 export const openPrivate = (client, otherId) => rpc(client, 'cesi_chat_open_private', { p_other: otherId })
+// Alumnos (parte 37): bloquear a una persona, a quién he bloqueado y reportar un mensaje al Buzón.
+export const blockPerson = (client, otherId, block) => rpc(client, 'cesi_chat_block', { p_other: otherId, p_block: !!block })
+export const listBlocked = (client) => rpc(client, 'cesi_chat_blocked', {}).then((ids) => new Set(ids || []))
+export const reportMessage = (client, messageId, reason) => rpc(client, 'cesi_chat_report', { p_message: messageId, p_reason: reason || '' })
 export const sendMessage = (client, conversationId, body) => rpc(client, 'cesi_chat_send', { p_conversation: conversationId, p_body: body })
 export const editMessage = (client, id, body) => rpc(client, 'cesi_chat_edit', { p_id: id, p_body: body })
 export const deleteMessage = (client, id) => rpc(client, 'cesi_chat_delete', { p_id: id })
