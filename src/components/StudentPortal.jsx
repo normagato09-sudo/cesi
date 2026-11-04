@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Inbox, Newspaper, Pencil, Sparkles, Star } from 'lucide-react'
+import { Award, BookOpen, CalendarDays, CircleCheck, ClipboardCheck, House, Inbox, Newspaper, Pencil, Sparkles, Star } from 'lucide-react'
 import { Brand, ProfileFormPage, ProfileLoadError, ProfileLoading, SignOutButton } from './ProfileScreens.jsx'
 import { useMyProfile } from './useMyProfile'
 import { initials, zoneShort } from '../lib/studentPortal'
@@ -11,6 +11,7 @@ import TestimonialsView from './TestimonialsView.jsx'
 import NewsletterView from './NewsletterView.jsx'
 import NewsletterNotice from './NewsletterNotice.jsx'
 import MailboxView from './MailboxView.jsx'
+import StudentGrades from './StudentGrades.jsx'
 import ScheduleChanges from './ScheduleChanges.jsx'
 import { listStudentCourses } from '../lib/studentCourses'
 import { viewZone } from '../lib/zoneView'
@@ -27,6 +28,7 @@ const NAV = [
   { id: 'calendar', label: 'Calendario', Icon: CalendarDays },
   { id: 'courses', label: 'Cursos', Icon: BookOpen },
   { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck },
+  { id: 'grades', label: 'Calificaciones', Icon: Award },
   { id: 'testimonials', label: 'Testimonios', Icon: Star },
   { id: 'newsletter', label: 'Newsletter', Icon: Newspaper },
   { id: 'mailbox', label: 'Buzón', Icon: Inbox },
@@ -184,7 +186,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
 
             <p className="sp-coming">
               <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />
-              Próximamente: calificaciones y mensajes
+              Próximamente: mensajes
             </p>
 
             <div className="sp-mobile-signout">{signOutButton}</div>
@@ -199,6 +201,8 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
             )}
             <StudentCourses client={client} zone={viewZone(profile)} preview={!!preview} />
           </>
+        ) : section === 'grades' ? (
+          <StudentGrades client={client} preview={!!preview} />
         ) : section === 'mailbox' ? (
           <MailboxView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'newsletter' ? (

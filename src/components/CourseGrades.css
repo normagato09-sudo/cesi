@@ -1,0 +1,99 @@
+/* Pestaña «Calificaciones» del curso (CourseGrades.jsx), dentro del diseño de Cursos (.cp-root). */
+.cg-root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cg-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 13.5px;
+}
+.cg-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e8ebf1;
+  border-radius: 14px;
+  background: #f8fafd;
+}
+.cg-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.cg-form input,
+.cg-form select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #cbd2de;
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+.cg-wide {
+  grid-column: 1 / -1;
+}
+.cg-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.cg-form-actions .cg-error {
+  flex: 1;
+}
+.cg-score {
+  display: inline-block;
+  min-width: 36px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 800;
+  text-align: center;
+}
+.cg-score.good {
+  background: #e7f6ec;
+  color: #166534;
+}
+.cg-score.warn {
+  background: #fff4e5;
+  color: #b45309;
+}
+.cg-score.bad {
+  background: #fee2e2;
+  color: #b42318;
+}
+.cg-row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.cg-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #5b6474;
+  cursor: pointer;
+}
+.cg-icon:hover {
+  background: #f3f5f9;
+}
+.cg-icon.danger:hover {
+  color: #b42318;
+}
+
+@media (max-width: 760px) {
+  .cg-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

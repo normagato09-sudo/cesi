@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { gradeSummary, scoreText, studentAverage } from '../lib/grades'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -143,8 +144,24 @@ export default function StudentsView({
   onEnroll = null,
   // «Organizar horario» en Cursos (ver CoursesView).
   scheduler = null,
+  // Calificaciones (parte 36): el cliente con el que se leen las medias (null: sin ellas).
+  gradesClient = null,
 }) {
   const [filter, setFilter] = useState(DEFAULT_STUDENT_FILTER)
+  // Medias de notas de cada alumno (cesi_grade_summary), para la columna y la ficha.
+  const [grades, setGrades] = useState(null)
+  useEffect(() => {
+    if (!gradesClient) return
+    let active = true
+    gradeSummary(gradesClient).then(
+      (maps) => active && setGrades(maps),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [gradesClient])
+  const gradeOf = (id) => (grades ? studentAverage(grades, id) : null)
   // Estado: '' | 'active' (con clases este mes) | 'linked' | 'pending' | 'none' (cuenta).
   const [state, setState] = useState('')
   const [formModal, setFormModal] = useState(null)
@@ -245,6 +262,7 @@ export default function StudentsView({
           manage={manageCourses}
           onEnroll={onEnroll}
           scheduler={scheduler}
+          gradesClient={gradesClient}
         />
         {coursesModal}
       </>
@@ -403,7 +421,7 @@ export default function StudentsView({
                       <td>
                         <AttendanceBar percent={studentAttendance(attendance, s.id).percent} />
                       </td>
-                      <td className="num cp-muted">—</td>
+                      <td className="num cp-muted">{scoreText(gradeOf(s.id))}</td>
                       {withAccounts && (
                         <td>
                           <span className={`cp-account ${account}`}>{ACCOUNT_LABEL[account]}</span>
@@ -457,7 +475,7 @@ export default function StudentsView({
               </div>
               <div className="cp-stat">
                 <span className="cp-stat-label">Media</span>
-                <strong>—</strong>
+                <strong>{scoreText(gradeOf(selected.id))}</strong>
               </div>
               <div className="cp-stat">
                 <span className="cp-stat-label">Cursos</span>

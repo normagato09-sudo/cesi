@@ -49,3 +49,7 @@
   background: var(--sp-blue-soft);
   color: var(--sp-blue);
 }
+.sg-comment {
+  display: block;
+  margin-top: 2px;
+}

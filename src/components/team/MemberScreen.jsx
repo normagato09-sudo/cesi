@@ -212,6 +212,7 @@ export default function MemberScreen({ client, section, zone, asId = null, asAre
       client={client}
       manageCourses={!!dir}
       scheduler={scheduler}
+      gradesClient={client}
       onEnroll={dir ? dir.setEnrolled : null}
       now={now}
       selectedStudentId={selectedId}

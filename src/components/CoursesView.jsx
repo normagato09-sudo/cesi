@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, BookOpen, CalendarPlus, ClipboardCheck, Pencil, Plus, Search, Sparkles, Users } from 'lucide-react'
 import AttendanceModal from './AttendanceModal.jsx'
 import CourseFormModal from './CourseFormModal.jsx'
 import ExtraClassModal from './ExtraClassModal.jsx'
 import EnrollModal from './EnrollModal.jsx'
 import OrganizeScheduleModal, { PendingScheduleBanner } from './OrganizeScheduleModal.jsx'
+import CourseGrades from './CourseGrades.jsx'
+import { gradeSummary, scoreText, scoreTone } from '../lib/grades'
 import ContactAvatar from './ContactAvatar.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
 import { attendanceCountOfCourse, classSummary, classWhen, courseClasses, groupClasses } from '../lib/attendance'
@@ -121,10 +123,26 @@ export default function CoursesView({
   onEnroll = null,
   // «Organizar horario» (la ceo y Directivo): { client, zone, save(curso, cambio) }; null, sin él.
   scheduler = null,
+  // Calificaciones (parte 36): el cliente de Supabase con el que se leen (null: sin ellas).
+  gradesClient = null,
 }) {
   const canManage = !readOnly || manage
   const [enrolling, setEnrolling] = useState(false)
   const [organizing, setOrganizing] = useState(false)
+  // Medias de notas de los cursos y alumnos (cesi_grade_summary); se vuelven a leer al cambiar una.
+  const [grades, setGrades] = useState(null)
+  const [gradesTick, setGradesTick] = useState(0)
+  useEffect(() => {
+    if (!gradesClient) return
+    let active = true
+    gradeSummary(gradesClient).then(
+      (maps) => active && setGrades(maps),
+      () => {},
+    )
+    return () => {
+      active = false
+    }
+  }, [gradesClient, gradesTick])
   const now = useMinuteClock()
   const [selectedId, setSelectedId] = useState(null)
   const [courseForm, setCourseForm] = useState(null) // { course } (null: nuevo)
@@ -176,6 +194,7 @@ export default function CoursesView({
   }
 
   const seats = selected ? seatsOf(selected, students) : null
+  const courseGrade = selected ? grades?.course.get(selected.id) || null : null
   const monthAtt = selected ? courseMonthAttendance(attendance, selected.id, month) : null
   const detail = selected ? normalizeCourse(selected) : null
   const teacher = selected ? teacherStatus(selected, contacts).teacher : null
@@ -316,7 +335,12 @@ export default function CoursesView({
                 tone={attendanceTone(monthAtt.percent)}
               />
               <Stat label="Faltas sin justificar del mes" value={monthAtt.unjustified} tone={monthAtt.unjustified ? 'bad' : ''} />
-              <Stat label="Media de notas" value="—" sub="Cuando haya calificaciones" />
+              <Stat
+                label="Media de notas"
+                value={courseGrade ? scoreText(courseGrade.average) : '—'}
+                sub={courseGrade ? `${courseGrade.count} ${courseGrade.count === 1 ? 'nota' : 'notas'}` : 'Cuando haya calificaciones'}
+                tone={courseGrade ? scoreTone(courseGrade.average) : ''}
+              />
             </div>
 
             <div className="cp-tabs" role="tablist" aria-label="Ficha del curso">
@@ -368,7 +392,7 @@ export default function CoursesView({
                           <td>
                             <AttendanceBar percent={studentAttendance(attendance, s.id, selected.id).percent} />
                           </td>
-                          <td className="num cp-muted">—</td>
+                          <td className="num cp-muted">{scoreText(grades?.student.get(`${selected.id}|${s.id}`)?.average ?? null)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -421,8 +445,7 @@ export default function CoursesView({
 
             {tab === 'grades' && (
               <section className="cp-panel cp-grades">
-                <p>Solo el profesor de este curso puede poner y cambiar calificaciones.</p>
-                <p className="student-muted">Llegarán en la fase de calificaciones.</p>
+                <CourseGrades client={gradesClient} course={selected} students={enrolled} canEdit={canMark} onChanged={() => setGradesTick((n) => n + 1)} />
               </section>
             )}
           </div>

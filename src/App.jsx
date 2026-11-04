@@ -1070,6 +1070,7 @@ export default function App() {
                 onUpdateCourse={handleUpdateCourse}
                 onDeleteCourse={handleDeleteCourse}
                 scheduler={scheduler}
+                gradesClient={syncClient}
               />
             </Suspense>
           </div>
