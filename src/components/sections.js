@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  Briefcase,
   BookOpen,
   CalendarDays,
   ClipboardCheck,
@@ -24,6 +25,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { boardOf } from '../lib/boards'
+import { canUseVacancies } from '../lib/vacancyBoard'
 
 // Menú de la app por grupos. En el ordenador, la barra lateral con los grupos como títulos; en el
 // móvil, la barra inferior con un botón por grupo (si tiene varias pantallas, al pulsarlo se
@@ -62,6 +64,8 @@ export const NAV_GROUPS = [
     Icon: BadgeCheck,
     items: [
       { id: 'team-tasks', label: 'Tareas', Icon: ListChecks, ceoOnly: true, needsSync: true },
+      // Vacantes (parte 38): la ceo aquí; Directivo y RRHH, en «Mi panel».
+      { id: 'vacancies', label: 'Vacantes', Icon: Briefcase, ceoOnly: true },
       { id: 'goals', label: 'Objetivos', Icon: Target, ceoOnly: true, needsSync: true },
       { id: 'boards', label: 'Tableros', Icon: SquareKanban, ceoOnly: true, needsSync: true },
       { id: 'notices', label: 'Avisos', Icon: Megaphone, ceoOnly: true, needsSync: true },
@@ -123,6 +127,7 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'mailbox', label: 'Buzón', Icon: Inbox },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
+            ...(canUseVacancies(area) ? [{ id: 'vacancies', label: 'Vacantes', Icon: Briefcase }] : []),
             { id: 'testimonials', label: 'Testimonios', Icon: Star },
             { id: 'goals', label: 'Objetivos', Icon: Target },
             // El tablero de su área (con su nombre).

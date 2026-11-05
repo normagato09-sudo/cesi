@@ -14,6 +14,7 @@ describe('ceoGroups', () => {
       'calendar',
       'contacts',
       'team-tasks',
+      'vacancies',
       'goals',
       'notices',
       'clockins',
@@ -60,11 +61,16 @@ describe('memberGroups', () => {
     expect(items('media').map((i) => i.id)).not.toContain('finance')
   })
 
-  it('Directivo: Mi panel, su Contactos, Cursos y Alumnos; nunca Equipo, Vacantes ni Asistencia', () => {
+  it('Directivo: Mi panel (con Vacantes), su Contactos, Cursos y Alumnos; nunca Equipo ni Asistencia', () => {
     const levels = { contactos: 'read', equipo: 'read', vacantes: 'read', cursos: 'write', alumnos: 'read', asistencia: 'read' }
     expect(allItems(memberGroups(levels, 'direccion')).map((i) => i.id)).toEqual([
-      'home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts', 'courses', 'students',
+      'home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'vacancies', 'testimonials', 'goals', 'clock', 'contacts', 'courses', 'students',
     ])
+  })
+
+  it('Vacantes solo para Directivo y RRHH', () => {
+    const has = (area) => allItems(memberGroups({}, area)).some((i) => i.id === 'vacancies')
+    expect(['direccion', 'personas', 'media', 'formacion', 'alianzas', null].map(has)).toEqual([true, true, false, false, false, false])
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {

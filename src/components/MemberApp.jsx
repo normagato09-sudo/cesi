@@ -47,6 +47,7 @@ const MemberScreen = lazy(() => import('./team/MemberScreen.jsx'))
 const TestimonialsView = lazy(() => import('./TestimonialsView.jsx'))
 const NewsletterView = lazy(() => import('./NewsletterView.jsx'))
 const MailboxView = lazy(() => import('./MailboxView.jsx'))
+const TeamVacancies = lazy(() => import('./team/TeamVacancies.jsx'))
 
 // App de una persona de equipo: «Mi panel» y, en el menú, solo las pantallas a las que tiene
 // permiso (my_permissions(), ver supabase/schema.sql). Las pantallas de la ceo (Contactos
@@ -197,6 +198,10 @@ export default function MemberApp({
             asId={workAs}
             asArea={preview && !workAs ? screensArea : null}
           />
+        ) : section === 'vacancies' ? (
+          <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
+            <TeamVacancies client={workClient} area={area} readOnly={readOnly || !!preview} />
+          </Suspense>
         ) : section === 'mailbox' ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
             <MailboxView client={workClient} readOnly={readOnly || !!preview} />

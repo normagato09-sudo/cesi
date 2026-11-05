@@ -1,0 +1,33 @@
+/* «Vacantes» (VacanciesBoard.jsx): el diseño de Cursos (CoursesPage.css) con los colores de sus
+   estados. Solo dentro de .cp-root. */
+.cp-root .cp-status.vac-abierta {
+  background: var(--cp-green-soft);
+  color: #15803d;
+}
+.cp-root .cp-status.vac-en_pausa {
+  background: #fef3c7;
+  color: #92400e;
+}
+.cp-root .cp-status.vac-cerrada {
+  background: var(--cp-gray-soft);
+  color: var(--cp-muted);
+}
+.cp-root .vac-status-pick select {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--cp-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--cp-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.cp-root .vac-text {
+  margin: 0;
+  color: var(--cp-text);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}

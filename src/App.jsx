@@ -76,7 +76,7 @@ import {
   setLateMinutes,
   unmarkAttendance,
 } from './lib/attendance.js'
-import { STORAGE_KEY as VACANCIES_KEY, getAllVacancies, interviewUpdates, isCandidateOnly } from './lib/vacancies.js'
+import { STORAGE_KEY as VACANCIES_KEY, getAllVacancies, interviewUpdates, isCandidateOnly, vacanciesStore } from './lib/vacancies.js'
 // Mis tareas personales antiguas (tasks): ya no salen en ningún sitio (las tareas son las del
 // equipo, team_tasks); se siguen guardando y sincronizando tal cual, sin borrar nada.
 import { STORAGE_KEY as TASKS_KEY, getAllTasks, taskSourcePatches, tasksStore } from './lib/tasks.js'
@@ -110,6 +110,7 @@ const MessagesView = lazy(() => import('./components/chat/MessagesView.jsx'))
 const TestimonialsView = lazy(() => import('./components/TestimonialsView.jsx'))
 const NewsletterView = lazy(() => import('./components/NewsletterView.jsx'))
 const MailboxView = lazy(() => import('./components/MailboxView.jsx'))
+const VacanciesBoard = lazy(() => import('./components/VacanciesBoard.jsx'))
 const AlliancesView = lazy(() => import('./components/alliances/AlliancesView.jsx'))
 const AlliancePanel = lazy(() => import('./components/alliances/AlliancePanel.jsx'))
 const NewTeamTaskModal = lazy(() => import('./components/team/NewTeamTaskModal.jsx'))
@@ -130,8 +131,8 @@ function SectionLoading() {
   )
 }
 
-// Pantallas quitadas (Equipo, Vacantes y Organigrama): si se intenta abrir una, se va a Inicio.
-const REMOVED_SECTIONS = new Set(['team', 'vacancies', 'org'])
+// Pantallas quitadas (Equipo y Organigrama): si se intenta abrir una, se va a Inicio.
+const REMOVED_SECTIONS = new Set(['team', 'org'])
 
 // Rango compacto, p. ej. "23–25 sept 2026", "30 sept – 2 oct 2026" o "30 dic 2026 – 1 ene 2027".
 export default function App() {
@@ -675,7 +676,7 @@ export default function App() {
     for (const { id, patch } of interviewUpdates(meeting, contacts)) editContact(id, patch)
   }
 
-  // Equipo, Vacantes y Organigrama ya no existen: quien intente abrirlas va a Inicio (los datos se quedan).
+  // Equipo y Organigrama ya no existen: quien intente abrirlas va a Inicio (los datos se quedan).
   const goToSection = (id) => {
     setSection(REMOVED_SECTIONS.has(id) ? 'home' : id)
   }
@@ -924,6 +925,25 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <MessagesView client={sync.client} meId={sync.userId} zone={myZone} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'vacancies' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <VacanciesBoard
+                vacancies={vacancies}
+                onSave={(id, data) => {
+                  if (id) vacanciesStore.update(id, data)
+                  else vacanciesStore.create({ ...data, createdBy: myProfile.data?.profile?.full_name || 'Dirección' })
+                  reloadVacancies()
+                }}
+                onDelete={(id) => {
+                  vacanciesStore.remove(id)
+                  reloadVacancies()
+                }}
+              />
             </Suspense>
           </div>
         )}
