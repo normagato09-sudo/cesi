@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarClock, UserRound, Users } from 'lucide-react'
+import { BookOpen, CalendarClock, UserRound, Users, Video } from 'lucide-react'
 import { hhmmOf, keyOf } from '../lib/sharedCalendar'
-import { dayText, enrollInCourse, freeSeats, leaveCourse, listStudentCourses, progressPercent, progressText, scheduleInZone, splitCourses } from '../lib/studentCourses'
+import { dayText, enrollInCourse, freeSeats, leaveCourse, listCallLinks, listMyTeacherCourses, listStudentCourses, progressPercent, progressText, scheduleInZone, splitCourses } from '../lib/studentCourses'
 import './StudentCourses.css'
 
 function Schedule({ course, zone }) {
@@ -21,6 +21,18 @@ export default function StudentCourses({ client, zone, preview = false }) {
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
   const [reload, setReload] = useState(0)
+  // Parte 39: los cursos que doy (no me puedo apuntar) y el link de la llamada de los míos.
+  const [teaching, setTeaching] = useState(() => new Set())
+  const [links, setLinks] = useState(() => new Map())
+  useEffect(() => {
+    if (!client || preview) return
+    let active = true
+    listMyTeacherCourses(client).then((ids) => active && setTeaching(ids), () => {})
+    listCallLinks(client).then((m) => active && setLinks(m), () => {})
+    return () => {
+      active = false
+    }
+  }, [client, preview, reload])
 
   useEffect(() => {
     if (!client || preview) return
@@ -105,6 +117,14 @@ export default function StudentCourses({ client, zone, preview = false }) {
                           Próxima clase: {dayText(keyOf(new Date(c.next_class), zone))}, {hhmmOf(new Date(c.next_class), zone)}
                         </p>
                       )}
+                      {links.get(c.id)?.link && (
+                        <p className="stc-line">
+                          <Video size={14} strokeWidth={1.75} aria-hidden="true" />
+                          <a className="stc-btn primary stc-join" href={links.get(c.id).link} target="_blank" rel="noreferrer noopener">
+                            Entrar a la clase
+                          </a>
+                        </p>
+                      )}
                       {notice?.id === c.id && <p className="stc-error">{notice.text}</p>}
                       <div className="stc-actions">
                         <button
@@ -154,9 +174,13 @@ export default function StudentCourses({ client, zone, preview = false }) {
                       </p>
                       {notice?.id === c.id && <p className="stc-error">{notice.text}</p>}
                       <div className="stc-actions">
-                        <button type="button" className="stc-btn primary" disabled={busy === c.id || full} onClick={() => run(c, () => enrollInCourse(client, c.id))}>
-                          {full ? 'Curso completo' : busy === c.id ? 'Apuntando…' : 'Apuntarme'}
-                        </button>
+                        {teaching.has(c.id) ? (
+                          <span className="stc-muted">Eres el profesor</span>
+                        ) : (
+                          <button type="button" className="stc-btn primary" disabled={busy === c.id || full} onClick={() => run(c, () => enrollInCourse(client, c.id))}>
+                            {full ? 'Curso completo' : busy === c.id ? 'Apuntando…' : 'Apuntarme'}
+                          </button>
+                        )}
                       </div>
                     </li>
                   )

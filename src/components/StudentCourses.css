@@ -114,3 +114,9 @@
   margin: 0;
   color: var(--sp-muted);
 }
+/* «Entrar a la clase» (link de la llamada, parte 39). */
+.stc-join {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

@@ -107,11 +107,6 @@ export default function VacancyForm({ vacancy = null, onClose, onSubmit, onDelet
             <textarea value={form.requirements} maxLength={4000} onChange={(e) => set({ requirements: e.target.value })} rows={2} placeholder="Qué necesita saber o tener…" />
           </label>
 
-          <label className="event-form-field">
-            <span>Notas internas (opcional)</span>
-            <textarea value={form.internalNotes} maxLength={4000} onChange={(e) => set({ internalNotes: e.target.value })} rows={2} placeholder="Solo las ven la dirección, Directivo y RRHH" />
-          </label>
-
           {formError && <div className="event-form-error">{formError}</div>}
         </div>
 

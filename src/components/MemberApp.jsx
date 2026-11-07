@@ -200,7 +200,7 @@ export default function MemberApp({
           />
         ) : section === 'vacancies' ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>
-            <TeamVacancies client={workClient} area={area} readOnly={readOnly || !!preview} />
+            <TeamVacancies client={workClient} area={area} meId={me.id} readOnly={readOnly || !!preview} />
           </Suspense>
         ) : section === 'mailbox' ? (
           <Suspense fallback={<p className="member-screen-note">Cargando…</p>}>

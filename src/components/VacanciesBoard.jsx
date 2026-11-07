@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { ArrowLeft, Briefcase, Clock, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Briefcase, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
 import VacancyForm from './VacancyForm.jsx'
-import { VACANCY_AREAS, VACANCY_FILTERS, VACANCY_STATUSES, VACANCY_STATUS_LABEL, dayLabel, filterVacancies, normalizeVacancy, seatsText } from '../lib/vacancyBoard'
+import { APPLICATION_STATUSES, VACANCY_AREAS, VACANCY_FILTERS, VACANCY_STATUSES, VACANCY_STATUS_LABEL, dayLabel, filterVacancies, listApplicants, normalizeVacancy, seatsText, setApplicationStatus, vacancyErrorText } from '../lib/vacancyBoard'
 import './ContactsView.css'
 import './StudentsView.css'
 import './CoursesPage.css'
@@ -21,14 +21,80 @@ function Stat({ label, value, sub = '' }) {
   )
 }
 
+// Postulantes de una vacante (la ceo, Directivo y RRHH): nombre, mensaje, fecha y estado.
+function Applicants({ client, vacancyId }) {
+  const [rows, setRows] = useState(null)
+  const [error, setError] = useState(null)
+  const [reload, setReload] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    listApplicants(client, vacancyId).then(
+      (list) => {
+        if (!active) return
+        setRows(list)
+        setError(null)
+      },
+      (err) => active && setError(vacancyErrorText(err)),
+    )
+    return () => {
+      active = false
+    }
+  }, [client, vacancyId, reload])
+
+  const change = async (a, status) => {
+    try {
+      await setApplicationStatus(client, a.id, status)
+    } catch (err) {
+      setError(vacancyErrorText(err))
+    }
+    setReload((n) => n + 1)
+  }
+
+  return (
+    <section className="cp-section">
+      <h3>
+        <Users size={14} strokeWidth={1.75} /> Postulantes{rows ? ` (${rows.length})` : ''}
+      </h3>
+      {error ? (
+        <p className="vac-text">{error}</p>
+      ) : !rows ? (
+        <p className="vac-text">Cargando…</p>
+      ) : rows.length === 0 ? (
+        <p className="vac-text">Todavía no se ha postulado nadie.</p>
+      ) : (
+        <ul className="vac-applicants">
+          {rows.map((a) => (
+            <li key={a.id}>
+              <div>
+                <strong>{a.name}</strong>
+                <span className="cp-muted"> · {a.role} · {new Date(a.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                {a.message && <p className="vac-text">{a.message}</p>}
+              </div>
+              <select value={a.status} onChange={(e) => change(a, e.target.value)} aria-label={`Estado de la postulación de ${a.name}`}>
+                {APPLICATION_STATUSES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 /**
  * «Vacantes» con el diseño de «Cursos» (mismas tarjetas, filtros, ficha y formulario): título,
  * área, plazas, horas por semana y estado. Filtros por estado (Todas / Abiertas / En pausa /
  * Cerradas) y por área; «Nueva vacante» y, en cada una, Editar, cambiar el estado y Borrar.
  * vacancies: la lista. onSave(id | null, datos) y onDelete(id) pueden devolver promesas.
- * error: si no se pudo cargar (se enseña en vez de la lista).
+ * error: si no se pudo cargar (se enseña en vez de la lista). applicantsClient: el cliente de
+ * Supabase para ver los postulantes de cada vacante (null: sin ellos).
  */
-export default function VacanciesBoard({ vacancies, onSave, onDelete, error = null }) {
+export default function VacanciesBoard({ vacancies, onSave, onDelete, error = null, applicantsClient = null }) {
   const [selectedId, setSelectedId] = useState(null)
   const [form, setForm] = useState(null) // { vacancy } (null: nueva)
   const [query, setQuery] = useState('')
@@ -196,12 +262,7 @@ export default function VacanciesBoard({ vacancies, onSave, onDelete, error = nu
               </h3>
               <p className="vac-text">{selected.requirements || 'Sin requisitos.'}</p>
             </section>
-            <section className="cp-section">
-              <h3>
-                <Clock size={14} strokeWidth={1.75} /> Notas internas
-              </h3>
-              <p className="vac-text">{selected.internalNotes || 'Sin notas.'}</p>
-            </section>
+            {applicantsClient && <Applicants key={selected.id} client={applicantsClient} vacancyId={selected.id} />}
           </div>
         )}
       </div>
@@ -223,6 +284,5 @@ function dataOf(v) {
     status: v.status,
     openedAt: v.openedAt,
     closesAt: v.closesAt,
-    internalNotes: v.internalNotes,
   }
 }

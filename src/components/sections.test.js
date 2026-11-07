@@ -33,12 +33,12 @@ describe('memberGroups', () => {
   it('Mi panel y solo las pantallas con permiso (nunca Accesos)', () => {
     const groups = memberGroups({ calendario: 'read', cursos: 'write', alumnos: 'none', fichajes: 'write' })
     expect(groups.map((g) => g.id)).toEqual(['panel', 'agenda', 'training'])
-    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts', 'courses'])
+    expect(allItems(groups).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'vacancies', 'testimonials', 'goals', 'clock', 'contacts', 'courses'])
     expect(groups[0].items[0].label).toBe('Mi panel')
   })
 
   it('sin permisos, Mi panel, Calendario, Tareas, Objetivos, Fichaje y sus Contactos', () => {
-    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts'])
+    expect(allItems(memberGroups({})).map((i) => i.id)).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'vacancies', 'testimonials', 'goals', 'clock', 'contacts'])
     expect(allItems(memberGroups({})).find((i) => i.id === 'contacts').label).toBe('Contactos')
   })
 
@@ -68,14 +68,14 @@ describe('memberGroups', () => {
     ])
   })
 
-  it('Vacantes solo para Directivo y RRHH', () => {
+  it('Vacantes para todo el equipo (Directivo y RRHH las gestionan; el resto se postula)', () => {
     const has = (area) => allItems(memberGroups({}, area)).some((i) => i.id === 'vacancies')
-    expect(['direccion', 'personas', 'media', 'formacion', 'alianzas', null].map(has)).toEqual([true, true, false, false, false, false])
+    expect(['direccion', 'personas', 'media', 'formacion', null].map(has)).toEqual([true, true, true, true, true])
   })
 
   it('con permiso de calendario sigue sin ver el mío (solo el compartido)', () => {
     const items = allItems(memberGroups({ calendario: 'write', contactos: 'read' })).map((i) => i.id)
-    expect(items).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'testimonials', 'goals', 'clock', 'contacts'])
+    expect(items).toEqual(['home', 'messages', 'notices', 'newsletter', 'mailbox', 'shared-calendar', 'team-tasks', 'vacancies', 'testimonials', 'goals', 'clock', 'contacts'])
   })
 })
 

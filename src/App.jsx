@@ -934,6 +934,7 @@ export default function App() {
             <Suspense fallback={<SectionLoading />}>
               <VacanciesBoard
                 vacancies={vacancies}
+                applicantsClient={syncClient}
                 onSave={(id, data) => {
                   if (id) vacanciesStore.update(id, data)
                   else vacanciesStore.create({ ...data, createdBy: myProfile.data?.profile?.full_name || 'Dirección' })

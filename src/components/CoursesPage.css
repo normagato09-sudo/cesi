@@ -573,3 +573,27 @@
   font-size: 13.5px;
   font-weight: 600;
 }
+
+/* Link de la llamada del curso (CallLinkBox.jsx, parte 39). */
+.cp-root .cp-call-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cp-root .cp-call-edit a.cp-btn {
+  text-decoration: none;
+}
+.cp-root .cp-call-edit input {
+  flex: 1;
+  min-width: 220px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--cp-border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+}
+.cp-root .cp-call-url {
+  overflow-wrap: anywhere;
+}

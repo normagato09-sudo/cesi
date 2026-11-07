@@ -6,6 +6,7 @@ import ExtraClassModal from './ExtraClassModal.jsx'
 import EnrollModal from './EnrollModal.jsx'
 import OrganizeScheduleModal, { PendingScheduleBanner } from './OrganizeScheduleModal.jsx'
 import CourseGrades from './CourseGrades.jsx'
+import CallLinkBox from './CallLinkBox.jsx'
 import { gradeSummary, scoreText, scoreTone } from '../lib/grades'
 import ContactAvatar from './ContactAvatar.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
@@ -125,6 +126,8 @@ export default function CoursesView({
   scheduler = null,
   // Calificaciones (parte 36): el cliente de Supabase con el que se leen (null: sin ellas).
   gradesClient = null,
+  // Link de la llamada (parte 39): onSaveCallLink(curso, link); null, solo verlo.
+  onSaveCallLink = null,
 }) {
   const canManage = !readOnly || manage
   const [enrolling, setEnrolling] = useState(false)
@@ -321,6 +324,10 @@ export default function CoursesView({
               </p>
             )}
             {scheduler && <PendingScheduleBanner course={selected} students={students} scheduler={scheduler} />}
+            {/* «Mi clase»: el link de la llamada con «Entrar» (lo cambian el profesor, la ceo y Directivo). */}
+            {(selected.callLink || onSaveCallLink) && (
+              <CallLinkBox key={`${selected.id}|${selected.callLink || ''}`} link={selected.callLink || ''} onSave={onSaveCallLink ? (link) => onSaveCallLink(selected, link) : null} />
+            )}
 
             <div className="cp-stats">
               <Stat

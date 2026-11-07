@@ -1,33 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Lock } from 'lucide-react'
 import VacanciesBoard from '../VacanciesBoard.jsx'
+import OpenVacancies from '../OpenVacancies.jsx'
 import { canUseVacancies, deleteTeamVacancy, listTeamVacancies, saveTeamVacancy, vacancyErrorText } from '../../lib/vacancyBoard'
-import '../chat/Messages.css'
 
-// «No tienes acceso»: sin cargar ningún dato.
-export function NoVacancyAccess() {
-  return (
-    <div className="ms-root ms-private">
-      <Lock size={28} strokeWidth={1.5} />
-      <p className="ms-private-title">No tienes acceso</p>
-      <p>Vacantes es solo para la dirección, Directivo y RRHH.</p>
-    </div>
-  )
-}
-
-/**
- * «Vacantes» para Directivo y RRHH (parte 38): la misma pantalla que la ceo, con los datos de sus
- * funciones (que comprueban el área). Otra área: «No tienes acceso», sin pedir nada. readOnly
- * («Ver como»): se ve, pero no se guarda.
- */
-export default function TeamVacancies({ client, area, readOnly = false }) {
-  const allowed = canUseVacancies(area)
+// Directivo y RRHH: la misma pantalla que la ceo (parte 38), con los postulantes de cada vacante.
+function ManageVacancies({ client, readOnly }) {
   const [list, setList] = useState(null)
   const [error, setError] = useState(null)
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
-    if (!client || !allowed) return
+    if (!client) return
     let active = true
     listTeamVacancies(client).then(
       (rows) => {
@@ -40,9 +23,7 @@ export default function TeamVacancies({ client, area, readOnly = false }) {
     return () => {
       active = false
     }
-  }, [client, allowed, reload])
-
-  if (!allowed) return <NoVacancyAccess />
+  }, [client, reload])
 
   const guard = (fn) => async (...args) => {
     if (readOnly) throw new Error('En «Ver como» no se puede cambiar nada.')
@@ -58,8 +39,17 @@ export default function TeamVacancies({ client, area, readOnly = false }) {
     <VacanciesBoard
       vacancies={list}
       error={error}
+      applicantsClient={readOnly ? null : client}
       onSave={guard((id, data) => saveTeamVacancy(client, id, data))}
       onDelete={guard((id) => deleteTeamVacancy(client, id))}
     />
   )
+}
+
+/**
+ * «Vacantes» en la app del equipo: Directivo y RRHH las gestionan (con sus postulantes); el resto
+ * del equipo ve las abiertas y se postula (parte 39). meId: su cuenta. readOnly («Ver como»).
+ */
+export default function TeamVacancies({ client, area, meId, readOnly = false }) {
+  return canUseVacancies(area) ? <ManageVacancies client={client} readOnly={readOnly} /> : <OpenVacancies client={client} meId={meId} readOnly={readOnly} />
 }
