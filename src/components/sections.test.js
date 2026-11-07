@@ -23,9 +23,10 @@ describe('ceoGroups', () => {
       'courses',
       'students',
       'testimonials',
+      'certificates',
     ])
     expect(allItems(groups).find((i) => i.id === 'contacts').label).toBe('Mis contactos')
-    expect(allItems(ceoGroups(false)).some((i) => ['access', 'profile', 'team-tasks', 'testimonials', 'goals', 'messages'].includes(i.id))).toBe(false)
+    expect(allItems(ceoGroups(false)).some((i) => ['access', 'profile', 'team-tasks', 'testimonials', 'goals', 'messages', 'certificates'].includes(i.id))).toBe(false)
   })
 })
 
@@ -84,5 +85,15 @@ describe('groupOfSection', () => {
     expect(sectionActive('home', 'report')).toBe(true)
     expect(groupOfSection(ceoGroups(true), 'report').id).toBe('panel')
     expect(groupOfSection(ceoGroups(true), 'students').id).toBe('training')
+  })
+})
+
+describe('Certificados (parte 43)', () => {
+  it('solo en el menú de la ceo: nadie del equipo lo ve, ni Directivo con todos los permisos', () => {
+    const all = { calendario: 'write', contactos: 'write', cursos: 'write', alumnos: 'write', asistencia: 'write', fichajes: 'write' }
+    for (const area of ['direccion', 'personas', 'formacion', null]) {
+      expect(allItems(memberGroups(all, area)).some((i) => i.id === 'certificates')).toBe(false)
+    }
+    expect(allItems(ceoGroups(true)).some((i) => i.id === 'certificates')).toBe(true)
   })
 })

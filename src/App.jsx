@@ -122,6 +122,7 @@ const ComingSoonView = lazy(() => import('./components/ComingSoonView.jsx'))
 const ReportView = lazy(() => import('./components/ReportView.jsx'))
 const ProposalModal = lazy(() => import('./components/ProposalModal.jsx'))
 const BackupModal = lazy(() => import('./components/BackupModal.jsx'))
+const CertificatesView = lazy(() => import('./components/CertificatesView.jsx'))
 
 // Mientras llega el código de una sección: un aviso discreto que solo se ve si tarda.
 function SectionLoading() {
@@ -928,6 +929,14 @@ export default function App() {
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
               <MessagesView client={sync.client} meId={sync.userId} zone={myZone} />
+            </Suspense>
+          </div>
+        )}
+
+        {section === 'certificates' && (
+          <div className="app-main">
+            <Suspense fallback={<SectionLoading />}>
+              <CertificatesView client={syncClient} courses={courses} students={students} attendance={attendance} />
             </Suspense>
           </div>
         )}

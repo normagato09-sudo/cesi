@@ -1,4 +1,5 @@
 import {
+  Award,
   BadgeCheck,
   Briefcase,
   BookOpen,
@@ -83,6 +84,8 @@ export const NAV_GROUPS = [
       { id: 'students', label: 'Alumnos', Icon: GraduationCap, screen: 'alumnos' },
       // Testimonios: en mi menú aquí; en el del equipo, en «Mi panel» (todos).
       { id: 'testimonials', label: 'Testimonios', Icon: Star, ceoOnly: true, needsSync: true },
+      // Certificados (parte 43): solo la ceo (nadie del equipo, ni Directivo).
+      { id: 'certificates', label: 'Certificados', Icon: Award, ceoOnly: true, needsSync: true },
       { id: 'attendance', label: 'Asistencia', Icon: ClipboardCheck, screen: 'asistencia' },
     ],
   },
