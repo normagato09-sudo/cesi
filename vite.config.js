@@ -11,6 +11,8 @@ const PUBLIC_PAGES = [
   { route: /^\/ficha\/[^/?#]+\/?(\?.*)?$/, file: 'ficha.html' },
   { route: /^\/confirmar\/[^/?#]+\/?(\?.*)?$/, file: 'confirmar.html' },
   { route: /^\/reservar\/[^/?#]+\/?(\?.*)?$/, file: 'reservar.html' },
+  // /vacantes (vacantes.html, parte 40): las vacantes abiertas y postularse sin cuenta.
+  { route: /^\/vacantes\/?(\?.*)?$/, file: 'vacantes.html' },
 ]
 function publicPages() {
   const rewrite = (req, _res, next) => {
@@ -58,7 +60,7 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', ficha: 'ficha.html', confirmar: 'confirmar.html', reservar: 'reservar.html' },
+      input: { main: 'index.html', ficha: 'ficha.html', confirmar: 'confirmar.html', reservar: 'reservar.html', vacantes: 'vacantes.html' },
     },
   },
   plugins: [
@@ -75,7 +77,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,woff2}'],
-        navigateFallbackDenylist: [/^\/ficha\//, /^\/confirmar\//, /^\/reservar\//],
+        navigateFallbackDenylist: [/^\/ficha\//, /^\/confirmar\//, /^\/reservar\//, /^\/vacantes\/?(\?.*)?$/],
       },
       manifest: {
         name: 'CIFA',

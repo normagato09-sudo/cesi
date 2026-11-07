@@ -204,7 +204,7 @@ export default function StudentPortal({ client, userId, onSignOut, preview = nul
         ) : section === 'grades' ? (
           <StudentGrades client={client} preview={!!preview} />
         ) : section === 'vacancies' ? (
-          <OpenVacancies client={client} meId={userId} readOnly={readOnly || !!preview} />
+          <OpenVacancies client={client} me={{ name, country: profile.country, email: account?.email || '', discord: profile.discord || '' }} readOnly={readOnly || !!preview} />
         ) : section === 'mailbox' ? (
           <MailboxView client={client} readOnly={readOnly || !!preview} />
         ) : section === 'newsletter' ? (

@@ -72,7 +72,7 @@ function Card({ title, action = null, className = '', children }) {
  * { courses, students, attendance, contacts }. sharedRows: las reuniones compartidas que ya se
  * leen para el calendario. onGoTo(sección): abrir una pantalla.
  */
-export default function CeoHome({ client = null, zone, now, local, rawEvents, sharedRows = [], proposalsCount = 0, unreadMessages = 0, onGoTo }) {
+export default function CeoHome({ client = null, zone, now, local, rawEvents, sharedRows = [], proposalsCount = 0, unreadMessages = 0, newApplications = 0, onGoTo }) {
   const [team, setTeam] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(!!client)
@@ -113,6 +113,7 @@ export default function CeoHome({ client = null, zone, now, local, rawEvents, sh
     overdue: team?.overdue.length || 0,
     proposals: proposalsCount,
     unread: unreadMessages,
+    applications: newApplications,
   })
   const enrolled = coursesSummary(local.courses, local.students).enrolled
   const attendance = attendanceOfMonth(local.attendance, month).percent

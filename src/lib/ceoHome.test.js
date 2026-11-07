@@ -29,6 +29,7 @@ describe('Inicio de la ceo', () => {
       [1, 'fichaje sin salida', 'clockins'],
       [1, 'propuesta de reunión pendiente', 'calendar'],
     ])
+    expect(attentionItems({ applications: 3 }).map((i) => [i.count, i.label, i.section])).toEqual([[3, 'candidaturas nuevas a vacantes', 'vacancies']])
   })
 
   it('% de objetivos conseguidos', () => {

@@ -123,39 +123,15 @@ export const listTeamVacancies = (client) => rpc(client, 'cesi_vacancies_list').
 export const saveTeamVacancy = (client, id, data) => rpc(client, 'cesi_vacancy_save', { p_id: id, p_data: data })
 export const deleteTeamVacancy = (client, id) => rpc(client, 'cesi_vacancy_delete', { p_id: id })
 
-// Postulaciones (parte 39): alumnos y equipo se postulan a las abiertas; la ceo, Directivo y RRHH
-// ven los postulantes y cambian su estado.
-export const APPLICATION_STATUSES = [
-  { id: 'pendiente', label: 'Pendiente' },
-  { id: 'aceptada', label: 'Aceptada' },
-  { id: 'rechazada', label: 'Rechazada' },
-]
-export const APPLICATION_STATUS_LABEL = Object.fromEntries(APPLICATION_STATUSES.map((s) => [s.id, s.label]))
-export const MESSAGE_MAX = 2000
-
-// Las abiertas (cesi_open_vacancies) en la forma de la pantalla.
-export const listOpenVacancies = (client) =>
-  rpc(client, 'cesi_open_vacancies').then((rows) =>
-    (rows || []).map((r) => normalizeVacancy({ id: r.id, title: r.title, area: r.area, description: r.description, requirements: r.requirements, hoursPerWeek: r.hours_per_week, seats: r.seats, status: 'abierta', openedAt: r.opened_at, closesAt: r.closes_at })),
+// Las abiertas (cesi_open_vacancies, parte 40) en la forma de la pantalla.
+export const listOpenVacancies = (client) => rpc(client, 'cesi_open_vacancies').then(openVacanciesFromRows)
+export function openVacanciesFromRows(rows) {
+  return (rows || []).map((r) =>
+    normalizeVacancy({ id: r.id, title: r.title, area: r.area, description: r.description, requirements: r.requirements, hoursPerWeek: r.hours_per_week, seats: r.seats, status: 'abierta', openedAt: r.opened_at, closesAt: r.closes_at }),
   )
-// Las mías (la regla de la tabla solo deja ver las propias): Map(vacante → postulación).
-export async function myApplications(client, userId) {
-  const { data, error } = await client.from('vacancy_applications').select('id, vacancy_id, status, created_at').eq('user_id', userId)
-  if (error) throw error
-  return new Map((data || []).map((a) => [a.vacancy_id, a]))
-}
-export async function applyToVacancy(client, vacancyId, message) {
-  const { error } = await client.from('vacancy_applications').insert({ vacancy_id: vacancyId, message: (message || '').trim() })
-  if (error) throw error
-}
-export const listApplicants = (client, vacancyId) => rpc(client, 'cesi_vacancy_applicants', { p_vacancy: vacancyId }).then((rows) => rows || [])
-export async function setApplicationStatus(client, id, status) {
-  const { error } = await client.from('vacancy_applications').update({ status }).eq('id', id)
-  if (error) throw error
 }
 
 export function vacancyErrorText(err) {
-  if (err?.code === '23505') return 'Ya te has postulado a esta vacante.'
   if (err?.code === 'PGRST202' || err?.code === '42883') return 'Falta ejecutar en Supabase el SQL de la parte 38 (supabase/parte38_vacantes.sql).'
   if (err?.code === '42501') return 'No tienes acceso a Vacantes.'
   return err?.message || 'No se pudo guardar.'

@@ -106,7 +106,7 @@ export function ceoGroups(withSync) {
 // Menú de una persona de equipo: «Mi panel», «Mensajes», «Avisos», su «Calendario» (el
 // compartido), «Tareas» (las del equipo), «Objetivos» (los del mes de su área), el tablero de su
 // área (si tiene), «Contactos» (los suyos) y «Fichaje», siempre; y las pantallas a las que tiene
-// permiso (Directivo nunca Asistencia: la ve en cada curso). Vacantes ya no sale para nadie. Mi calendario (permiso 'calendario') y mis Fichajes (permiso
+// permiso (Directivo nunca Asistencia: la ve en cada curso). «Mis cursos» (apuntarse como alumno) y Vacantes (Directivo y RRHH las gestionan; el resto se postula) salen siempre. Mi calendario (permiso 'calendario') y mis Fichajes (permiso
 // 'fichajes') no salen: el calendario aún no lo ve nadie del equipo, y los fichajes de todos los
 // ve Directivo desde su «Fichaje».
 // levels: { pantalla: 'none' | 'read' | 'write' }; area: la de la persona.

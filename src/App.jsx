@@ -50,6 +50,7 @@ import { getAllEvents } from './lib/localEvents.js'
 import { deleteContactFiles } from './lib/files/contactFiles.js'
 import { AREAS_KEY, getStoredTeamAreas, isActiveMember, saveTeamAreas } from './lib/team.js'
 import { useChatUnread } from './components/chat/useChatUnread.js'
+import { useApplicationsUnseen } from './components/useApplicationsUnseen.js'
 import { useScheduleAutopilot } from './components/useScheduleAutopilot.js'
 import { archivePatch, unarchivePatch } from './lib/archive.js'
 import { resolveDepartments } from './lib/departments.js'
@@ -627,6 +628,8 @@ export default function App() {
   const areaLocal = useMemo(() => ({ courses, students, attendance, vacancies, contacts }), [courses, students, attendance, vacancies, contacts])
   // Mensajes sin leer (menú e Inicio).
   const chatUnread = useChatUnread(syncClient)
+  // Candidaturas a vacantes que aún no he visto (parte 40): Inicio y número en el menú.
+  const [applicationsUnseen, refreshApplicationsUnseen] = useApplicationsUnseen(syncClient, section)
 
   // Pase de lista y clases sueltas (attendance.js): cada cambio se guarda al momento. Los que no
   // son válidos lanzan un Error con el mensaje para el usuario.
@@ -861,7 +864,7 @@ export default function App() {
           onKeepUnavailable={handleKeepUnavailable}
           onOpenMissingNotes={(ev) => openEvent(ev, { focusNotes: true })}
           showAccess={!!sync}
-          badges={{ messages: chatUnread }}
+          badges={{ messages: chatUnread, vacancies: applicationsUnseen }}
         />
 
         {section === 'contacts' && (
@@ -935,6 +938,8 @@ export default function App() {
               <VacanciesBoard
                 vacancies={vacancies}
                 applicantsClient={syncClient}
+                ceo
+                onApplicationsSeen={refreshApplicationsUnseen}
                 onSave={(id, data) => {
                   if (id) vacanciesStore.update(id, data)
                   else vacanciesStore.create({ ...data, createdBy: myProfile.data?.profile?.full_name || 'Dirección' })
@@ -1091,6 +1096,7 @@ export default function App() {
                 sharedRows={sharedMeetings.rows}
                 proposalsCount={proposalItems.length}
                 unreadMessages={chatUnread}
+                newApplications={applicationsUnseen}
                 onGoTo={goToSection}
               />
             </Suspense>
@@ -1171,7 +1177,7 @@ export default function App() {
           section={section}
           onSectionChange={goToSection}
           showAccess={!!sync}
-          badges={{ messages: chatUnread }}
+          badges={{ messages: chatUnread, vacancies: applicationsUnseen }}
           actions={[
             ...(viewAs ? [{ id: 'view-as', label: 'Ver como…', Icon: Eye, onClick: viewAs.open }] : []),
           ]}

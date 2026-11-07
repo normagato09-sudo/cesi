@@ -27,10 +27,12 @@ export function accountsToPromote(profiles, contacts) {
  * Filas de «Necesita tu atención» (solo las que tienen algo): [{ id, count, label, section }].
  * section: la pantalla a la que lleva.
  */
-export function attentionItems({ newStudents = 0, toPromote = 0, stale = 0, overdue = 0, proposals = 0, unread = 0 }) {
+export function attentionItems({ newStudents = 0, toPromote = 0, stale = 0, overdue = 0, proposals = 0, unread = 0, applications = 0 }) {
   const plural = (n, one, many) => (n === 1 ? one : many)
   return [
     { id: 'unread', count: unread, label: plural(unread, 'mensaje sin leer', 'mensajes sin leer'), section: 'messages' },
+    // Candidaturas a vacantes que aún no he visto (parte 40).
+    { id: 'applications', count: applications, label: plural(applications, 'candidatura nueva a una vacante', 'candidaturas nuevas a vacantes'), section: 'vacancies' },
     { id: 'new-students', count: newStudents, label: plural(newStudents, 'alumno nuevo para revisar', 'alumnos nuevos para revisar'), section: 'access' },
     { id: 'promote', count: toPromote, label: plural(toPromote, 'cuenta para cambiar a equipo', 'cuentas para cambiar a equipo'), section: 'access' },
     { id: 'stale', count: stale, label: plural(stale, 'fichaje sin salida', 'fichajes sin salida'), section: 'clockins' },

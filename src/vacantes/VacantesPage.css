@@ -1,0 +1,125 @@
+/* Página pública /vacantes: la base es la de /ficha (FichaPage.css), pensada primero para el móvil. */
+.vacantes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vacantes-list button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vacantes-list button:hover {
+  border-color: var(--accent);
+}
+
+.vacantes-list strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.vacantes-list span {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.vacantes-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin-bottom: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vacantes-block {
+  margin: 0 0 16px;
+}
+
+.vacantes-block h2,
+.vacantes-form-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.vacantes-form-title {
+  margin-top: 8px;
+}
+
+.vacantes-block p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.ficha-field textarea {
+  font-family: inherit;
+  /* 16 px: con menos, Safari en iPhone amplía la página al escribir. */
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text);
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  resize: vertical;
+}
+
+.ficha-field textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.vacantes-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.vacantes-consent input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+}
+
+/* Campo oculto contra robots: fuera de la vista (no display:none, que algunos robots saltan). */
+.vacantes-hp {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

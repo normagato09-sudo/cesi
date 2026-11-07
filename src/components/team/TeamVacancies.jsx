@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import VacanciesBoard from '../VacanciesBoard.jsx'
 import OpenVacancies from '../OpenVacancies.jsx'
 import { canUseVacancies, deleteTeamVacancy, listTeamVacancies, saveTeamVacancy, vacancyErrorText } from '../../lib/vacancyBoard'
+import { canSeeApplications } from '../../lib/vacancyApplications'
 
-// Directivo y RRHH: la misma pantalla que la ceo (parte 38), con los postulantes de cada vacante.
-function ManageVacancies({ client, readOnly }) {
+// Directivo y RRHH: la misma pantalla que la ceo (parte 38). Las candidaturas, solo RRHH (parte 40).
+function ManageVacancies({ client, readOnly, withApplications }) {
   const [list, setList] = useState(null)
   const [error, setError] = useState(null)
   const [reload, setReload] = useState(0)
@@ -39,7 +40,7 @@ function ManageVacancies({ client, readOnly }) {
     <VacanciesBoard
       vacancies={list}
       error={error}
-      applicantsClient={readOnly ? null : client}
+      applicantsClient={readOnly || !withApplications ? null : client}
       onSave={guard((id, data) => saveTeamVacancy(client, id, data))}
       onDelete={guard((id) => deleteTeamVacancy(client, id))}
     />
@@ -47,9 +48,14 @@ function ManageVacancies({ client, readOnly }) {
 }
 
 /**
- * «Vacantes» en la app del equipo: Directivo y RRHH las gestionan (con sus postulantes); el resto
- * del equipo ve las abiertas y se postula (parte 39). meId: su cuenta. readOnly («Ver como»).
+ * «Vacantes» en la app del equipo: Directivo y RRHH las gestionan (RRHH, además, con sus
+ * candidaturas); el resto del equipo ve las abiertas y se postula (parte 40). me: { name, country,
+ * email, discord } de su perfil. readOnly («Ver como»).
  */
-export default function TeamVacancies({ client, area, meId, readOnly = false }) {
-  return canUseVacancies(area) ? <ManageVacancies client={client} readOnly={readOnly} /> : <OpenVacancies client={client} meId={meId} readOnly={readOnly} />
+export default function TeamVacancies({ client, area, me = null, readOnly = false }) {
+  return canUseVacancies(area) ? (
+    <ManageVacancies client={client} readOnly={readOnly} withApplications={canSeeApplications(area)} />
+  ) : (
+    <OpenVacancies client={client} me={me} readOnly={readOnly} />
+  )
 }
