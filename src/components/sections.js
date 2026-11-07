@@ -126,6 +126,8 @@ export function memberGroups(levels = {}, area = null) {
             { id: 'mailbox', label: 'Buzón', Icon: Inbox },
             { id: 'shared-calendar', label: 'Calendario', Icon: CalendarDays },
             { id: 'team-tasks', label: 'Tareas', Icon: ListTodo },
+            // Mis cursos (parte 39): se apuntan a los cursos abiertos como los alumnos.
+            { id: 'my-courses', label: 'Mis cursos', Icon: GraduationCap },
             // Vacantes: Directivo y RRHH las gestionan; el resto, se postula a las abiertas.
             { id: 'vacancies', label: 'Vacantes', Icon: Briefcase },
             { id: 'testimonials', label: 'Testimonios', Icon: Star },

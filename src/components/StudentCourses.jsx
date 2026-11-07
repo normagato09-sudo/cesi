@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookOpen, CalendarClock, UserRound, Users, Video } from 'lucide-react'
 import { hhmmOf, keyOf } from '../lib/sharedCalendar'
-import { dayText, enrollInCourse, freeSeats, leaveCourse, listCallLinks, listMyTeacherCourses, listStudentCourses, progressPercent, progressText, scheduleInZone, splitCourses } from '../lib/studentCourses'
+import { dayText, enrollInCourse, freeSeats, leaveCourse, listCallLinks, listMyTeacherCourses, listStudentCourses, progressPercent, progressText, scheduleInZone, splitCourses, studentCoursesErrorText } from '../lib/studentCourses'
 import './StudentCourses.css'
 
 function Schedule({ course, zone }) {
@@ -43,7 +43,7 @@ export default function StudentCourses({ client, zone, preview = false }) {
         setCourses(rows || [])
         setError(null)
       },
-      (err) => active && setError(err.message),
+      (err) => active && setError(studentCoursesErrorText(err)),
     )
     return () => {
       active = false
@@ -66,7 +66,7 @@ export default function StudentCourses({ client, zone, preview = false }) {
       if (result?.status === 'full') setNotice({ id: course.id, text: 'Curso completo: ya no quedan plazas.' })
       setReload((n) => n + 1)
     } catch (err) {
-      setNotice({ id: course.id, text: err.message })
+      setNotice({ id: course.id, text: studentCoursesErrorText(err) })
     }
     setBusy(null)
   }

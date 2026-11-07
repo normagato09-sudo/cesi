@@ -114,6 +114,12 @@ describe('enlaces', () => {
     expect(linkPatch(null)).toEqual({ linked_team_id: null, linked_student_id: null })
   })
 
+  it('una cuenta de equipo que se une a su ficha de Equipo conserva la de alumno (cursos)', () => {
+    expect(linkPatch(options[1], { role: 'equipo', display_name: 'Ana', linked_student_id: 's9' })).toEqual({ linked_team_id: 'c1' })
+    expect(linkPatch(options[1], { role: 'alumno', display_name: 'Ana' })).toEqual({ linked_team_id: 'c1', linked_student_id: null })
+    expect(linkPatch(null, { role: 'equipo', display_name: 'Ana' })).toEqual({ linked_team_id: null, linked_student_id: null })
+  })
+
   it('sin nombre, la cuenta toma el de la persona a la que se une', () => {
     expect(linkPatch(options[2], { display_name: '  ' })).toEqual({ linked_team_id: null, linked_student_id: 's1', display_name: 'Íñigo' })
     expect(linkPatch(options[2], { display_name: 'Ya tiene' })).toEqual({ linked_team_id: null, linked_student_id: 's1' })

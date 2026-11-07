@@ -391,7 +391,10 @@ export default function CoursesView({
                           <td>
                             <span className="cp-person">
                               <ContactAvatar name={s.name} size="sm" />
-                              <strong>{s.name}</strong>
+                              <strong>
+                                {s.name}
+                                {s.fromTeam && <span className="student-team-badge" title="Persona del equipo apuntada como alumno">Equipo</span>}
+                              </strong>
                             </span>
                           </td>
                           <td className="cp-muted">{[countryLabel(s.country), s.timeZone ? zonePlace(s.timeZone) : ''].filter(Boolean).join(' · ')}</td>

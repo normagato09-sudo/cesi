@@ -398,6 +398,7 @@ export default function StudentsView({
                           <span className="cp-person-text">
                             <strong>
                               {s.name}
+                              {s.fromTeam && <span className="student-team-badge" title="Persona del equipo apuntada como alumno">Equipo</span>}
                               {portalDiffers(portals?.get(s.id), s) && (
                                 <span className="student-changed-badge" title="El alumno ha cambiado sus datos">
                                   Cambios

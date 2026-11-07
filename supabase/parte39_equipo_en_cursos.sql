@@ -1,172 +1,37 @@
 -- =============================================================================
--- CIFA · Parte 39: postularse a vacantes y el equipo en los cursos
+-- CIFA · Parte 39: el equipo se apunta a los cursos (y el link de la llamada)
 -- =============================================================================
 -- Ejecutar en Supabase → SQL Editor (proyecto fvswxhfjclvadcoyuqyu), después de la parte 38
--- (supabase/parte38_vacantes.sql). Se puede ejecutar más de una vez. No borra datos.
+-- (supabase/parte38_vacantes.sql). Se puede ejecutar más de una vez. No borra datos ni tablas.
 --
--- PARTE A · Postulaciones a vacantes
---   · vacancy_applications: id, vacancy_id, user_id, message, status ('pendiente' | 'aceptada' |
---     'rechazada', por defecto 'pendiente'), created_at. Una por persona y vacante.
---   · RLS: la ceo, Directivo y RRHH ven y cambian todas. Alumnos y equipo ven solo las suyas y
---     crean la suya si la vacante está abierta (nunca cambian el estado).
---   · cesi_open_vacancies(): las vacantes abiertas, para alumnos y equipo (sin sus datos internos).
---   · cesi_vacancy_applicants(vacante): los postulantes con su nombre (la ceo, Directivo y RRHH).
+-- Las personas del equipo se apuntan y desapuntan a los cursos abiertos como los alumnos (mismas
+-- plazas, fechas y comprobaciones). Para inscribirse usan una FICHA DE ALUMNO (tabla students de
+-- la ceo) unida a su cuenta con profiles.linked_student_id, igual que un alumno: se crea sola con
+-- los datos de su perfil la primera vez que se apuntan y lleva data.fromTeam = true (en la app de
+-- la ceo sale «Equipo» junto a su nombre). Su ficha de Equipo (linked_team_id) no cambia. Así
+-- cuentan como alumnos del curso: salen en la lista, en el horario automático, en asistencia y en
+-- calificaciones sin cambiar nada de eso.
 --
--- PARTE B · El equipo se apunta a los cursos (la misma inscripción que los alumnos)
---   · Vuelve a escribir, ampliándolas, funciones de las partes 6, 25 y 30:
---       cesi_student_me        también las cuentas de equipo (para apuntarse y ver sus cursos);
---       cesi_student_courses   también los cursos de las cuentas de equipo (calendario y clases);
---       cesi_student_enroll    igual, y nadie se apunta a un curso del que es el profesor;
---       cesi_course_people     los inscritos del equipo cuentan con la disponibilidad de su perfil.
---   · Link de la llamada de cada curso (data.callLink): cesi_course_call_links() lo da a los
---     inscritos, al profesor, a la ceo y a Directivo (también el Coordinador); cesi_course_set_link
---     lo cambia (el profesor, la ceo y Directivo).
---   · cesi_my_teacher_courses(): los cursos que da quien llama («Eres el profesor»).
+-- Vuelve a escribir, ampliándolas, funciones de las partes 6, 25 y 30:
+--   cesi_student_me        también las cuentas de equipo;
+--   cesi_student_courses   también los cursos de las cuentas de equipo (calendario, clases y
+--                          «Mi asistencia» salen solos);
+--   cesi_student_ficha     la ficha nueva de una cuenta de equipo lleva fromTeam;
+--   cesi_student_enroll    igual que antes, y nadie se apunta a un curso del que es el profesor;
+--   cesi_course_people     los inscritos del equipo cuentan con la disponibilidad de su perfil.
+-- Además (del trabajo anterior): cesi_my_teacher_courses() («Eres el profesor») y el link de la
+-- llamada de cada curso (data.callLink): cesi_course_call_links() y cesi_course_set_link().
 
 do $$
 begin
   if to_regprocedure('public.cesi_vacancy_save(text, jsonb)') is null then
     raise exception 'Falta la parte 38 (supabase/parte38_vacantes.sql): ejecútala antes.';
   end if;
-end;
-$$;
-
--- =============================================================================
--- PARTE A · Postulaciones
--- =============================================================================
-
--- ¿Está abierta esa vacante? (las antiguas 'open' / 'in_progress' cuentan como abiertas)
-create or replace function public.cesi_vacancy_is_open(p_vacancy text)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1 from public.vacancies v
-    where v.id = p_vacancy and v.deleted_at is null
-      and v.user_id in (select id from public.profiles where role = 'ceo')
-      and coalesce(v.data ->> 'status', 'abierta') in ('abierta', 'open', 'in_progress')
-  );
-$$;
-
--- ¿Es una cuenta aceptada (alumno o equipo)?
-create or replace function public.cesi_is_member_or_student(p_profile uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (select 1 from public.profiles where id = p_profile and role in ('alumno', 'equipo'));
-$$;
-
--- Las usan las reglas de acceso de abajo (con la cuenta que lee): tienen que poder ejecutarse.
-revoke all on function public.cesi_vacancy_is_open(text) from public, anon;
-revoke all on function public.cesi_is_member_or_student(uuid) from public, anon;
-revoke all on function public.cesi_vacancy_access(uuid) from public, anon;
-grant execute on function public.cesi_vacancy_is_open(text) to authenticated;
-grant execute on function public.cesi_is_member_or_student(uuid) to authenticated;
-grant execute on function public.cesi_vacancy_access(uuid) to authenticated;
-
-create table if not exists public.vacancy_applications (
-  id uuid primary key default gen_random_uuid(),
-  vacancy_id text not null check (length(vacancy_id) between 1 and 200),
-  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
-  message text not null default '' check (length(message) <= 2000),
-  status text not null default 'pendiente' check (status in ('pendiente', 'aceptada', 'rechazada')),
-  created_at timestamptz not null default now(),
-  unique (vacancy_id, user_id)
-);
-create index if not exists vacancy_applications_vacancy_idx on public.vacancy_applications (vacancy_id, created_at);
-
-alter table public.vacancy_applications enable row level security;
-revoke all on public.vacancy_applications from anon, authenticated;
-grant select, insert, update, delete on public.vacancy_applications to authenticated;
-
-drop policy if exists "vacancy_applications: leer (las mías; la ceo, Directivo y RRHH, todas)" on public.vacancy_applications;
-create policy "vacancy_applications: leer (las mías; la ceo, Directivo y RRHH, todas)" on public.vacancy_applications
-  for select to authenticated
-  using (user_id = (select auth.uid()) or public.cesi_vacancy_access((select auth.uid())));
-
-drop policy if exists "vacancy_applications: postularse (alumnos y equipo, a una abierta)" on public.vacancy_applications;
-create policy "vacancy_applications: postularse (alumnos y equipo, a una abierta)" on public.vacancy_applications
-  for insert to authenticated
-  with check (
-    (user_id = (select auth.uid()) and status = 'pendiente'
-      and public.cesi_is_member_or_student((select auth.uid())) and public.cesi_vacancy_is_open(vacancy_id))
-    or public.cesi_vacancy_access((select auth.uid()))
-  );
-
-drop policy if exists "vacancy_applications: cambiar (la ceo, Directivo y RRHH)" on public.vacancy_applications;
-create policy "vacancy_applications: cambiar (la ceo, Directivo y RRHH)" on public.vacancy_applications
-  for update to authenticated
-  using (public.cesi_vacancy_access((select auth.uid())))
-  with check (public.cesi_vacancy_access((select auth.uid())));
-
-drop policy if exists "vacancy_applications: borrar (la ceo, Directivo y RRHH)" on public.vacancy_applications;
-create policy "vacancy_applications: borrar (la ceo, Directivo y RRHH)" on public.vacancy_applications
-  for delete to authenticated
-  using (public.cesi_vacancy_access((select auth.uid())));
-
--- Las vacantes abiertas, para alumnos y equipo (y la ceo, Directivo y RRHH): sin las notas internas.
-create or replace function public.cesi_open_vacancies()
-returns table (id text, title text, area text, description text, requirements text, hours_per_week text, seats integer, opened_at text, closes_at text)
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-#variable_conflict use_column
-declare
-  v_me uuid := (select auth.uid());
-begin
-  if not (public.cesi_is_member_or_student(v_me) or public.cesi_vacancy_access(v_me)) then
-    raise exception 'Sin permiso.' using errcode = '42501';
+  if to_regprocedure('public.cesi_student_ficha(uuid, uuid)') is null or to_regprocedure('public.cesi_course_people(text)') is null then
+    raise exception 'Faltan las partes 25 y 30: ejecútalas antes.';
   end if;
-  return query
-    select v.id, coalesce(v.data ->> 'title', ''), coalesce(v.data ->> 'area', ''), coalesce(v.data ->> 'description', ''),
-      coalesce(v.data ->> 'requirements', ''), coalesce(v.data ->> 'hoursPerWeek', ''),
-      case when (v.data ->> 'seats') ~ '^[0-9]{1,4}$' then (v.data ->> 'seats')::integer end,
-      coalesce(v.data ->> 'openedAt', ''), coalesce(v.data ->> 'closesAt', '')
-    from public.vacancies v
-    where v.deleted_at is null and v.user_id in (select p.id from public.profiles p where p.role = 'ceo')
-      and coalesce(v.data ->> 'status', 'abierta') in ('abierta', 'open', 'in_progress')
-    order by coalesce(v.data ->> 'openedAt', '') desc;
 end;
 $$;
-
--- Postulantes de una vacante, con su nombre (la ceo, Directivo y RRHH).
-create or replace function public.cesi_vacancy_applicants(p_vacancy text)
-returns table (id uuid, user_id uuid, name text, role text, message text, status text, created_at timestamptz)
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-#variable_conflict use_column
-begin
-  perform public.cesi_vacancy_me();
-  return query
-    select a.id, a.user_id, public.cesi_person_name(a.user_id),
-      case when p.role = 'alumno' then 'Alumno' else coalesce((select ar.name from public.areas ar where ar.id = p.area), 'Equipo') end,
-      a.message, a.status, a.created_at
-    from public.vacancy_applications a
-    join public.profiles p on p.id = a.user_id
-    where a.vacancy_id = p_vacancy
-    order by a.created_at;
-end;
-$$;
-
-revoke all on function public.cesi_open_vacancies() from public, anon;
-revoke all on function public.cesi_vacancy_applicants(text) from public, anon;
-grant execute on function public.cesi_open_vacancies() to authenticated;
-grant execute on function public.cesi_vacancy_applicants(text) to authenticated;
-
--- =============================================================================
--- PARTE B · El equipo en los cursos
--- =============================================================================
 
 -- La cuenta actual si puede apuntarse a cursos (alumno o, ahora, equipo); si no, error.
 create or replace function public.cesi_student_me()
@@ -222,6 +87,62 @@ $$;
 revoke all on function public.cesi_my_teacher_courses() from public, anon;
 grant execute on function public.cesi_my_teacher_courses() to authenticated;
 
+-- La ficha de alumno de la cuenta (como en la parte 25: la crea con su perfil si no tiene). Una
+-- cuenta de equipo usa también una ficha de alumno (la suya de Equipo no se toca): la nueva lleva
+-- fromTeam = true y el registro de cambios dice su área.
+create or replace function public.cesi_student_ficha(p_me uuid, p_ceo uuid, out o_id text, out o_data jsonb, out o_stamp timestamptz, out o_created boolean)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_link text := (select linked_student_id from public.profiles where id = p_me);
+  v_prof public.account_profiles;
+  v_acc public.profiles;
+  v_now text := public.cesi_iso(clock_timestamp());
+begin
+  o_created := false;
+  if v_link is not null then
+    select s.id, s.data, s.updated_at into o_id, o_data, o_stamp
+    from public.students s where s.user_id = p_ceo and s.id = v_link and s.deleted_at is null
+    for update;
+    if o_id is not null then
+      return;
+    end if;
+  end if;
+  -- Sin ficha: se crea con los datos de su perfil (como «Crear alumno nuevo con sus datos»).
+  select * into v_prof from public.account_profiles where id = p_me;
+  if not found or v_prof.completed_at is null then
+    raise exception 'Completa tu perfil antes de apuntarte a un curso.' using errcode = '22023';
+  end if;
+  select * into v_acc from public.profiles where id = p_me;
+  o_id := gen_random_uuid()::text;
+  o_created := true;
+  o_data := jsonb_build_object(
+    'name', coalesce(nullif(trim(v_prof.full_name), ''), nullif(trim(v_acc.display_name), ''), 'Alumno'),
+    'email', coalesce(v_acc.email, ''),
+    'phone', '',
+    'discord', coalesce(nullif(v_prof.discord, ''), to_jsonb(v_acc) ->> 'discord_username', ''),
+    'birthday', '',
+    'country', v_prof.country,
+    'timeZone', v_prof.time_zone,
+    'courseIds', '[]'::jsonb,
+    'notes', '',
+    'enrolledAt', to_char((now() at time zone 'Europe/Madrid')::date, 'YYYY-MM-DD'),
+    'availability', coalesce(v_prof.availability, 'null'::jsonb),
+    'createdAt', v_now
+  ) || case when v_acc.role = 'equipo' then jsonb_build_object('fromTeam', true) else '{}'::jsonb end;
+  o_data := public.cesi_student_write(p_ceo, o_id, o_data, null);
+  update public.profiles set linked_student_id = o_id where id = p_me;
+  insert into public.team_edit_log (who, who_name, who_area, doc_table, doc_id, doc_name, action, before, after)
+  values (p_me, public.cesi_person_name(p_me), case when v_acc.role = 'equipo' then v_acc.area else 'alumno' end,
+    'students', o_id, left(o_data ->> 'name', 200), 'alta', null, jsonb_build_object('name', o_data ->> 'name'));
+end;
+$$;
+
+revoke all on function public.cesi_student_ficha(uuid, uuid) from public, anon, authenticated;
+
 -- Apuntarse a un curso: igual que en la parte 25, ahora también el equipo y nunca a uno suyo.
 create or replace function public.cesi_student_enroll(p_course text)
 returns jsonb
@@ -273,7 +194,7 @@ begin
     -- Cuándo se apuntó a cada curso (para la ficha del curso).
     'courseJoinedAt', coalesce(case when jsonb_typeof(v_ficha.o_data -> 'courseJoinedAt') = 'object' then v_ficha.o_data -> 'courseJoinedAt' end, '{}'::jsonb)
       || jsonb_build_object(p_course, to_char((now() at time zone 'Europe/Madrid')::date, 'YYYY-MM-DD'))
-  );
+  ) || case when exists (select 1 from public.profiles where id = v_me and role = 'equipo') then jsonb_build_object('fromTeam', true) else '{}'::jsonb end;
   perform public.cesi_student_write(v_ceo, v_ficha.o_id, v_data, v_ficha.o_stamp);
   insert into public.team_edit_log (who, who_name, who_area, doc_table, doc_id, doc_name, action, before, after)
   values (v_me, public.cesi_person_name(v_me), coalesce((select case when role = 'equipo' then area end from public.profiles where id = v_me), 'alumno'), 'students', v_ficha.o_id, left(coalesce(v_data ->> 'name', ''), 200), 'edicion',
@@ -423,13 +344,15 @@ grant execute on function public.cesi_course_set_link(text, text) to authenticat
 
 notify pgrst, 'reload schema';
 
--- Comprobación: la tabla de postulaciones con sus 4 reglas (4), las funciones nuevas con permiso
--- (6), el equipo ya puede apuntarse (true) y nadie se apunta a su propio curso (true).
+-- Comprobación: el equipo ya puede apuntarse (true), nadie se apunta a su propio curso (true), la
+-- ficha nueva del equipo lleva fromTeam (true), las funciones con permiso (5) y cuántas personas
+-- del equipo están ya en algún curso.
 select
-  (select count(*) from pg_policies where schemaname = 'public' and tablename = 'vacancy_applications') as reglas_postulaciones,
-  (select count(*) from unnest(array[
-     'public.cesi_open_vacancies()', 'public.cesi_vacancy_applicants(text)', 'public.cesi_my_teacher_courses()',
-     'public.cesi_course_call_links()', 'public.cesi_course_set_link(text, text)', 'public.cesi_student_enroll(text)'
-   ]) as f (sig) where has_function_privilege('authenticated', f.sig, 'execute')) as funciones_con_permiso,
   position('''equipo''' in pg_get_functiondef('public.cesi_student_me()'::regprocedure)) > 0 as equipo_se_apunta,
-  position('cesi_teacher_courses(v_me)' in pg_get_functiondef('public.cesi_student_enroll(text)'::regprocedure)) > 0 as sin_su_propio_curso;
+  position('cesi_teacher_courses(v_me)' in pg_get_functiondef('public.cesi_student_enroll(text)'::regprocedure)) > 0 as sin_su_propio_curso,
+  position('fromTeam' in pg_get_functiondef('public.cesi_student_ficha(uuid, uuid)'::regprocedure)) > 0 as ficha_del_equipo,
+  (select count(*) from unnest(array[
+     'public.cesi_my_teacher_courses()', 'public.cesi_course_call_links()', 'public.cesi_course_set_link(text, text)',
+     'public.cesi_student_enroll(text)', 'public.cesi_student_course_list()'
+   ]) as f (sig) where has_function_privilege('authenticated', f.sig, 'execute')) as funciones_con_permiso,
+  (select count(*) from public.profiles p where p.role = 'equipo' and exists (select 1 from public.cesi_student_courses(p.id))) as equipo_en_cursos;

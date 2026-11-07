@@ -229,12 +229,14 @@ export function linkedOption(profile, options) {
 }
 
 // Cambios para unir la cuenta a `option` (o a nadie con null): a una sola persona a la vez. Si la
-// cuenta no tiene nombre, toma el de esa persona.
+// cuenta no tiene nombre, toma el de esa persona. Excepción (parte 39): una cuenta de equipo que
+// se une a su ficha de Equipo conserva su ficha de alumno (la de los cursos a los que se apunta).
 export function linkPatch(option, profile = null) {
   const patch = {
     linked_team_id: option?.kind === 'team' ? option.id : null,
     linked_student_id: option?.kind === 'student' ? option.id : null,
   }
+  if (option?.kind === 'team' && profile?.role === 'equipo') delete patch.linked_student_id
   if (option && !option.missing && profile && !normalizeDisplayName(profile.display_name)) {
     patch.display_name = normalizeDisplayName(option.label)
   }

@@ -66,5 +66,7 @@ export function validCallLink(link) {
 
 export function studentCoursesErrorText(err) {
   if (err?.code === 'PGRST202' || err?.code === '42883') return 'Falta ejecutar en Supabase el SQL de la parte 25 (cursos e inscripciones).'
+  // Una cuenta de equipo con el SQL de antes de la parte 39 (solo dejaba a los alumnos).
+  if (err?.code === '42501' && /Solo los alumnos/.test(err?.message || '')) return 'Falta ejecutar en Supabase el SQL de la parte 39 (el equipo en los cursos).'
   return err?.message || 'No se pudo completar. Comprueba la conexión.'
 }
