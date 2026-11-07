@@ -108,13 +108,13 @@ async function rpc(client, name, args = {}) {
 }
 
 export const listTasks = (client, courseId) => rpc(client, 'cesi_room_tasks', { p_course: courseId }).then((r) => r || [])
-export const listSubmissions = (client, taskId) => rpc(client, 'cesi_task_submissions', { p_task: taskId }).then((r) => r || [])
+export const listSubmissions = (client, taskId) => rpc(client, 'cesi_course_task_submissions', { p_task: taskId }).then((r) => r || [])
 
 export async function saveTask(client, courseId, form, previous = null) {
   let file = form.filePath ? { path: form.filePath, name: form.fileName, type: form.fileType, size: form.fileSize } : null
   if (form.file) file = await uploadRoomFile(client, courseId, 'tasks', form.file)
   try {
-    await rpc(client, 'cesi_task_save', {
+    await rpc(client, 'cesi_course_task_save', {
       p_id: previous?.id || null,
       p_course: courseId,
       p_kind: form.kind,
@@ -135,7 +135,7 @@ export async function saveTask(client, courseId, form, previous = null) {
 }
 
 export async function deleteTask(client, task) {
-  const paths = await rpc(client, 'cesi_task_delete', { p_id: task.id })
+  const paths = await rpc(client, 'cesi_course_task_delete', { p_id: task.id })
   for (const p of paths || []) await removeRoomFile(client, p).catch(() => {})
 }
 
@@ -146,7 +146,7 @@ export async function submitTask(client, courseId, userId, task, form) {
   if (form.file) file = await uploadRoomFile(client, courseId, 'subs', form.file, userId)
   let old
   try {
-    old = await rpc(client, 'cesi_task_submit', {
+    old = await rpc(client, 'cesi_course_task_submit', {
       p_task: task.id,
       p_text: (form.text || '').trim(),
       p_file_path: file?.path || null,
@@ -162,7 +162,7 @@ export async function submitTask(client, courseId, userId, task, form) {
 }
 
 export const gradeSubmission = (client, submissionId, form) =>
-  rpc(client, 'cesi_task_grade', { p_submission: submissionId, p_score: parseScoreText(form.score), p_feedback: (form.feedback || '').trim() })
+  rpc(client, 'cesi_course_task_grade', { p_submission: submissionId, p_score: parseScoreText(form.score), p_feedback: (form.feedback || '').trim() })
 
 export function tasksErrorText(err) {
   if (err?.code === 'PGRST202' || err?.code === '42883' || err?.code === '42P01') return 'Falta ejecutar en Supabase el SQL de la parte 42 (tareas y exámenes).'

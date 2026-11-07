@@ -63,13 +63,13 @@ describe('tareas: permisos en la base de datos (parte 42)', () => {
   })
 
   it('las entregas de todos: solo el profesor del curso, la ceo y Directivo; corregir, solo el profesor', () => {
-    expect(body('cesi_task_submissions')).toContain("if v_role is null or v_role not in ('teacher', 'manager') then")
-    expect(body('cesi_task_submissions')).toContain("v_role = 'teacher' and x.id is not null")
-    for (const fn of ['cesi_task_save', 'cesi_task_delete', 'cesi_task_grade']) expect(body(fn), fn).toContain("is distinct from 'teacher'")
+    expect(body('cesi_course_task_submissions')).toContain("if v_role is null or v_role not in ('teacher', 'manager') then")
+    expect(body('cesi_course_task_submissions')).toContain("v_role = 'teacher' and x.id is not null")
+    for (const fn of ['cesi_course_task_save', 'cesi_course_task_delete', 'cesi_course_task_grade']) expect(body(fn), fn).toContain("is distinct from 'teacher'")
   })
 
   it('entregar: solo un inscrito con el aula abierta, su archivo y hasta que esté corregida', () => {
-    const submit = body('cesi_task_submit')
+    const submit = body('cesi_course_task_submit')
     expect(submit).toContain("public.cesi_room_role(v_me, v_task.course_id) is distinct from 'student'")
     expect(submit).toContain('not public.cesi_room_can_enter(v_me, v_task.course_id)')
     expect(submit).toContain("v_path not like v_task.course_id || '/subs/' || v_me::text || '/%'")
@@ -77,10 +77,10 @@ describe('tareas: permisos en la base de datos (parte 42)', () => {
   })
 
   it('las notas quedan siempre: pasan a grades (sobre 10), no se borran ni se editan a mano', () => {
-    const grade = body('cesi_task_grade')
+    const grade = body('cesi_course_task_grade')
     expect(grade).toContain('round(p_score * 10 / v_task.max_score, 2)')
     expect(grade).toContain('on conflict (task_id, student_id) where task_id is not null do update')
-    expect(body('cesi_task_delete')).toContain('x.score is not null')
+    expect(body('cesi_course_task_delete')).toContain('x.score is not null')
     expect(body('cesi_grade_save')).toContain('task_id is not null')
     expect(body('cesi_grade_delete')).toContain('if v_task is not null then')
     expect(body('cesi_grades_course')).toContain('v_teacher and g.task_id is null')

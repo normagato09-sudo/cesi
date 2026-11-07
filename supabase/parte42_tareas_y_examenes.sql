@@ -158,7 +158,7 @@ $$;
 
 -- Las entregas de una tarea (el profesor del curso, la ceo y Directivo): cada inscrito del curso
 -- (aunque no haya entregado: Pendiente) y quien entregó aunque ya no esté inscrito.
-create or replace function public.cesi_task_submissions(p_task uuid)
+create or replace function public.cesi_course_task_submissions(p_task uuid)
 returns table (
   submission_id uuid, student_id text, student_name text, status text, text_answer text,
   file_path text, file_name text, file_size integer, submitted_at timestamptz, score numeric,
@@ -209,7 +209,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- El profesor: crear, cambiar y borrar tareas
 -- -----------------------------------------------------------------------------
-create or replace function public.cesi_task_save(
+create or replace function public.cesi_course_task_save(
   p_id uuid, p_course text, p_kind text, p_title text, p_instructions text,
   p_file_path text, p_file_name text, p_file_type text, p_file_size integer,
   p_due_at timestamptz, p_max_score numeric
@@ -284,7 +284,7 @@ $$;
 
 -- Borra una tarea (el profesor; nunca si ya tiene entregas corregidas: las notas se quedan).
 -- Devuelve las rutas de sus archivos (la tarea y las entregas) para borrarlos de Storage.
-create or replace function public.cesi_task_delete(p_id uuid)
+create or replace function public.cesi_course_task_delete(p_id uuid)
 returns text[]
 language plpgsql
 volatile
@@ -313,7 +313,7 @@ $$;
 -- El inscrito: entregar (o cambiar su entrega hasta que esté corregida)
 -- -----------------------------------------------------------------------------
 -- Devuelve la ruta del archivo anterior si se ha cambiado (para borrarlo de Storage) o null.
-create or replace function public.cesi_task_submit(
+create or replace function public.cesi_course_task_submit(
   p_task uuid, p_text text, p_file_path text, p_file_name text, p_file_type text, p_file_size integer
 )
 returns text
@@ -369,7 +369,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- El profesor: corregir (nota y comentario) → también en las calificaciones
 -- -----------------------------------------------------------------------------
-create or replace function public.cesi_task_grade(p_submission uuid, p_score numeric, p_feedback text)
+create or replace function public.cesi_course_task_grade(p_submission uuid, p_score numeric, p_feedback text)
 returns void
 language plpgsql
 volatile
@@ -556,21 +556,21 @@ $$;
 -- Permisos de las funciones
 -- -----------------------------------------------------------------------------
 revoke all on function public.cesi_room_tasks(text) from public, anon;
-revoke all on function public.cesi_task_submissions(uuid) from public, anon;
-revoke all on function public.cesi_task_save(uuid, text, text, text, text, text, text, text, integer, timestamptz, numeric) from public, anon;
-revoke all on function public.cesi_task_delete(uuid) from public, anon;
-revoke all on function public.cesi_task_submit(uuid, text, text, text, text, integer) from public, anon;
-revoke all on function public.cesi_task_grade(uuid, numeric, text) from public, anon;
+revoke all on function public.cesi_course_task_submissions(uuid) from public, anon;
+revoke all on function public.cesi_course_task_save(uuid, text, text, text, text, text, text, text, integer, timestamptz, numeric) from public, anon;
+revoke all on function public.cesi_course_task_delete(uuid) from public, anon;
+revoke all on function public.cesi_course_task_submit(uuid, text, text, text, text, integer) from public, anon;
+revoke all on function public.cesi_course_task_grade(uuid, numeric, text) from public, anon;
 revoke all on function public.cesi_grades_course(text) from public, anon;
 revoke all on function public.cesi_my_grades() from public, anon;
 revoke all on function public.cesi_grade_save(uuid, text, text, text, date, numeric, text) from public, anon;
 revoke all on function public.cesi_grade_delete(uuid) from public, anon;
 grant execute on function public.cesi_room_tasks(text) to authenticated;
-grant execute on function public.cesi_task_submissions(uuid) to authenticated;
-grant execute on function public.cesi_task_save(uuid, text, text, text, text, text, text, text, integer, timestamptz, numeric) to authenticated;
-grant execute on function public.cesi_task_delete(uuid) to authenticated;
-grant execute on function public.cesi_task_submit(uuid, text, text, text, text, integer) to authenticated;
-grant execute on function public.cesi_task_grade(uuid, numeric, text) to authenticated;
+grant execute on function public.cesi_course_task_submissions(uuid) to authenticated;
+grant execute on function public.cesi_course_task_save(uuid, text, text, text, text, text, text, text, integer, timestamptz, numeric) to authenticated;
+grant execute on function public.cesi_course_task_delete(uuid) to authenticated;
+grant execute on function public.cesi_course_task_submit(uuid, text, text, text, text, integer) to authenticated;
+grant execute on function public.cesi_course_task_grade(uuid, numeric, text) to authenticated;
 grant execute on function public.cesi_grades_course(text) to authenticated;
 grant execute on function public.cesi_my_grades() to authenticated;
 grant execute on function public.cesi_grade_save(uuid, text, text, text, date, numeric, text) to authenticated;
@@ -584,9 +584,9 @@ select
   has_table_privilege('authenticated', 'public.course_tasks', 'select') as cuentas_leen_tareas,
   has_table_privilege('authenticated', 'public.task_submissions', 'select') as cuentas_leen_entregas,
   (select count(*) from unnest(array[
-     'public.cesi_room_tasks(text)', 'public.cesi_task_submissions(uuid)',
-     'public.cesi_task_save(uuid, text, text, text, text, text, text, text, integer, timestamptz, numeric)',
-     'public.cesi_task_delete(uuid)', 'public.cesi_task_submit(uuid, text, text, text, text, integer)', 'public.cesi_task_grade(uuid, numeric, text)'
+     'public.cesi_room_tasks(text)', 'public.cesi_course_task_submissions(uuid)',
+     'public.cesi_course_task_save(uuid, text, text, text, text, text, text, text, integer, timestamptz, numeric)',
+     'public.cesi_course_task_delete(uuid)', 'public.cesi_course_task_submit(uuid, text, text, text, text, integer)', 'public.cesi_course_task_grade(uuid, numeric, text)'
    ]) f (sig) where has_function_privilege('authenticated', f.sig, 'execute')) as funciones,
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'grades' and column_name = 'task_id') as notas_de_tareas,
   (select count(*) from public.course_tasks) as tareas,
