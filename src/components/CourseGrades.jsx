@@ -150,7 +150,12 @@ export default function CourseGrades({ client, course, students, canEdit = false
                   <span className={`cg-score ${scoreTone(Number(g.score))}`}>{scoreText(g.score)}</span>
                 </td>
                 <td className="cp-muted">{g.comment || '—'}</td>
-                {canEdit && (
+                {canEdit && g.can_edit === false && (
+                  <td className="cp-muted" title="Nota de una tarea o examen: se cambia al corregir la entrega en el Aula">
+                    Del aula
+                  </td>
+                )}
+                {canEdit && g.can_edit !== false && (
                   <td className="cg-row-actions">
                     <button type="button" className="cg-icon" aria-label="Cambiar la nota" title="Cambiar" onClick={() => setForm({ id: g.id, student: g.student_id, activity: g.activity, day: g.day, score: scoreText(g.score), comment: g.comment || '' })}>
                       <Pencil size={14} strokeWidth={1.75} />

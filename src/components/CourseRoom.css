@@ -395,3 +395,99 @@
   background: var(--room-blue-soft);
   color: var(--room-blue);
 }
+
+/* Tareas y exámenes (CourseTasks.jsx, parte 42). */
+.task-new {
+  align-self: flex-start;
+}
+.task-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  color: var(--room-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.task-item:hover {
+  border-color: var(--room-blue);
+}
+.task-item strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.task-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef0f4;
+  color: var(--room-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.task-status.st-entregada {
+  background: var(--room-blue-soft);
+  color: var(--room-blue);
+}
+.task-status.st-tarde {
+  background: var(--room-warn-soft);
+  color: var(--room-warn);
+}
+.task-status.st-corregida {
+  background: var(--room-green-soft);
+  color: var(--room-green);
+}
+.task-mine,
+.task-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.task-answer {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.task-grade {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--room-green-soft);
+}
+.task-grade p {
+  margin: 0;
+  font-size: 14px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.task-score {
+  color: var(--room-green);
+  font-size: 18px;
+  font-weight: 800;
+}
+.task-grade-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.task-grade-form .room-field {
+  width: 140px;
+}
+.task-grade-form .task-feedback {
+  flex: 1;
+  min-width: 200px;
+}
+.task-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.task-subs h3 {
+  margin: 0;
+  font-size: 15px;
+}
