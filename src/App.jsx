@@ -936,7 +936,7 @@ export default function App() {
         {section === 'certificates' && (
           <div className="app-main">
             <Suspense fallback={<SectionLoading />}>
-              <CertificatesView client={syncClient} courses={courses} students={students} attendance={attendance} />
+              <CertificatesView client={syncClient} courses={courses} students={students} attendance={attendance} extraClasses={extraClasses} contacts={contacts} />
             </Suspense>
           </div>
         )}

@@ -21,14 +21,23 @@ export function courseFinished(course, today) {
 // Filas de la pantalla: por cada curso terminado, sus alumnos con media, asistencia y certificado.
 // grades: summaryMaps (lib/grades.js) o null; certs: Map(`curso|alumno` → certificado).
 // Filtros: course (id, '' todos) y query (nombre del alumno o del curso).
+// Parte 44: también salen quienes ya tienen certificado del curso aunque no estén inscritos, y los
+// cursos sin terminar con algún certificado emitido (solo esas personas; finished: false).
 export function certificateGroups({ courses, students, attendance, grades = null, certs = new Map(), today, course = '', query = '' }) {
   const q = plain(query.trim())
+  const certified = (courseId) => students.filter((s) => certs.has(`${courseId}|${s.id}`))
   return courses
-    .filter((c) => courseFinished(c, today) && (!course || c.id === course))
+    .filter((c) => (courseFinished(c, today) || certified(c.id).length > 0) && (!course || c.id === course))
     .map((c) => {
       const n = normalizeCourse(c)
+      const finished = courseFinished(c, today)
       const courseHit = q && plain(n.name).includes(q)
-      const rows = studentsInCourse(c.id, students)
+      const people = finished ? [...new Map([...studentsInCourse(c.id, students), ...certified(c.id)].map((s) => [s.id, s])).values()] : certified(c.id)
+      return { course: n, finished, people, courseHit }
+    })
+    .map(({ course: n, finished, people, courseHit }) => {
+      const c = n
+      const rows = people
         .filter((s) => !q || courseHit || plain(s.name).includes(q))
         .map((s) => ({
           student: s,
@@ -37,7 +46,7 @@ export function certificateGroups({ courses, students, attendance, grades = null
           cert: certs.get(`${c.id}|${s.id}`) || null,
         }))
         .sort((a, b) => (a.student.name || '').localeCompare(b.student.name || '', 'es', { sensitivity: 'base' }))
-      return { course: n, rows }
+      return { course: n, finished, rows }
     })
     .filter((g) => g.rows.length > 0)
     .sort((a, b) => (b.course.endDate || '').localeCompare(a.course.endDate || '') || a.course.name.localeCompare(b.course.name, 'es'))
