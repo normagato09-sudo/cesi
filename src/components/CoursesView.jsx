@@ -7,6 +7,7 @@ import EnrollModal from './EnrollModal.jsx'
 import OrganizeScheduleModal, { PendingScheduleBanner } from './OrganizeScheduleModal.jsx'
 import CourseGrades from './CourseGrades.jsx'
 import CallLinkBox from './CallLinkBox.jsx'
+import CourseRoom from './CourseRoom.jsx'
 import { gradeSummary, scoreText, scoreTone } from '../lib/grades'
 import ContactAvatar from './ContactAvatar.jsx'
 import { useMinuteClock } from '../hooks/useMinuteClock'
@@ -355,6 +356,8 @@ export default function CoursesView({
                 ['students', `Alumnos inscritos (${enrolled.length})`],
                 ['classes', 'Clases y asistencia'],
                 ['grades', 'Calificaciones'],
+                // Aula (parte 41): avisos, materiales y tareas; quién entra lo decide el servidor.
+                ...(gradesClient ? [['room', 'Aula']] : []),
               ].map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} className={`cp-tab${tab === id ? ' on' : ''}`} onClick={() => setTab(id)}>
                   {label}
@@ -450,6 +453,12 @@ export default function CoursesView({
                     )}
                   </>
                 )}
+              </section>
+            )}
+
+            {tab === 'room' && gradesClient && (
+              <section className="cp-panel">
+                <CourseRoom key={selected.id} client={gradesClient} courseId={selected.id} />
               </section>
             )}
 

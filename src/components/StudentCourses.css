@@ -120,3 +120,10 @@
   align-items: center;
   text-decoration: none;
 }
+
+/* «Aula» (parte 41): botón con icono. */
+.stc-actions .stc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

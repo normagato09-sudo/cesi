@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, CalendarClock, UserRound, Users, Video } from 'lucide-react'
+import { BookOpen, CalendarClock, School, UserRound, Users, Video } from 'lucide-react'
+import CourseRoom from './CourseRoom.jsx'
 import { hhmmOf, keyOf } from '../lib/sharedCalendar'
 import { dayText, enrollInCourse, freeSeats, leaveCourse, listCallLinks, listMyTeacherCourses, listStudentCourses, progressPercent, progressText, scheduleInZone, splitCourses, studentCoursesErrorText } from '../lib/studentCourses'
 import './StudentCourses.css'
@@ -21,6 +22,7 @@ export default function StudentCourses({ client, zone, preview = false }) {
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
   const [reload, setReload] = useState(0)
+  const [roomId, setRoomId] = useState(null)
   // Parte 39: los cursos que doy (no me puedo apuntar) y el link de la llamada de los míos.
   const [teaching, setTeaching] = useState(() => new Set())
   const [links, setLinks] = useState(() => new Map())
@@ -72,6 +74,9 @@ export default function StudentCourses({ client, zone, preview = false }) {
   }
 
   const { mine, open } = splitCourses(courses || [])
+
+  // El aula de uno de mis cursos (parte 41), en lugar de la lista.
+  if (roomId) return <CourseRoom client={client} courseId={roomId} onBack={() => setRoomId(null)} />
 
   return (
     <div className="stc-root">
@@ -127,6 +132,9 @@ export default function StudentCourses({ client, zone, preview = false }) {
                       )}
                       {notice?.id === c.id && <p className="stc-error">{notice.text}</p>}
                       <div className="stc-actions">
+                        <button type="button" className="stc-btn primary" onClick={() => setRoomId(c.id)}>
+                          <School size={14} strokeWidth={1.75} aria-hidden="true" /> Aula
+                        </button>
                         <button
                           type="button"
                           className="stc-btn"

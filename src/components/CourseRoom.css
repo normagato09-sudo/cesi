@@ -1,0 +1,397 @@
+/* Aula del curso (CourseRoom.jsx, parte 41) y tareas (parte 42). Se usa dentro de la ficha del
+   curso (app de la ceo y del equipo) y en «Mis cursos» (portal del alumno): colores propios. */
+.room-root {
+  --room-text: #111827;
+  --room-muted: #5b6474;
+  --room-border: #e2e6ee;
+  --room-surface: #ffffff;
+  --room-blue: #1f5fd6;
+  --room-blue-soft: #e8effc;
+  --room-green: #15803d;
+  --room-green-soft: #dcfce7;
+  --room-warn: #92400e;
+  --room-warn-soft: #fef3c7;
+  --room-red: #b91c1c;
+  --room-red-soft: #fef2f2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  color: var(--room-text);
+}
+
+.room-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.room-head h2 {
+  margin: 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.room-muted {
+  margin: 0;
+  color: var(--room-muted);
+  font-size: 13.5px;
+}
+.room-empty {
+  padding: 8px 0;
+}
+.room-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--room-red-soft);
+  color: var(--room-red);
+  font-size: 13.5px;
+}
+
+.room-card {
+  padding: 14px 16px;
+  border: 1px solid var(--room-border);
+  border-radius: 14px;
+  background: var(--room-surface);
+}
+.room-closed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  color: var(--room-muted);
+  text-align: center;
+}
+.room-closed p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--room-text);
+}
+
+.room-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.room-post {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.room-post.is-new {
+  border-color: var(--room-blue);
+}
+.room-post h3 {
+  margin: 0;
+  font-size: 15.5px;
+  overflow-wrap: anywhere;
+}
+.room-post-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.room-date {
+  font-size: 12.5px;
+}
+.room-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--room-blue-soft);
+  color: var(--room-blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+.room-kind.k-material,
+.room-kind.k-tarea {
+  background: var(--room-green-soft);
+  color: var(--room-green);
+}
+.room-kind.k-examen {
+  background: var(--room-warn-soft);
+  color: var(--room-warn);
+}
+.room-new {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--room-blue);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.room-body {
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.room-body p,
+.room-body ul,
+.room-body ol {
+  margin: 0 0 6px;
+}
+
+.room-file {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--room-border);
+  border-radius: 10px;
+  background: #f7f8fb;
+  color: var(--room-text);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.room-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.room-file em {
+  font-style: normal;
+  color: var(--room-muted);
+  font-size: 12px;
+}
+.room-file:hover {
+  border-color: var(--room-blue);
+}
+
+.room-post-actions,
+.room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.room-actions {
+  justify-content: flex-end;
+}
+
+.room-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--room-border);
+  border-radius: 10px;
+  background: var(--room-surface);
+  color: var(--room-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.room-btn.primary {
+  border-color: var(--room-blue);
+  background: var(--room-blue);
+  color: #fff;
+}
+.room-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.room-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--room-blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.room-link.danger {
+  color: var(--room-red);
+}
+.room-back {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--room-blue);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Formularios (publicar, tarea, entrega, corregir). */
+.room-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.room-form-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.room-kinds {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: #eef0f4;
+}
+.room-kinds button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--room-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.room-kinds button.on {
+  background: var(--room-surface);
+  color: var(--room-text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.room-field,
+.rtf {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--room-muted);
+}
+.room-field input[type='text'],
+.room-field input[type='number'],
+.room-field input[type='datetime-local'],
+.room-field textarea,
+.rtf textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid var(--room-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--room-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.rtf textarea,
+.room-field textarea {
+  resize: vertical;
+}
+.room-field input[type='file'] {
+  max-width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--room-text);
+}
+.room-hint {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+}
+.room-current-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--room-text);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.room-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.room-row > * {
+  flex: 1;
+  min-width: 180px;
+}
+.rtf-tools {
+  display: flex;
+  gap: 4px;
+}
+.rtf-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  border: 1px solid var(--room-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--room-text);
+  cursor: pointer;
+}
+.rtf-preview {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f7f8fb;
+  color: var(--room-text);
+  font-weight: 400;
+  font-size: 14px;
+}
+.rtf-preview > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--room-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.rtf-preview p,
+.rtf-preview ul,
+.rtf-preview ol {
+  margin: 0 0 4px;
+}
+
+/* Pestañas del aula (Avisos y materiales / Tareas y exámenes). */
+.room-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.room-tabs button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--room-border);
+  border-radius: 999px;
+  background: var(--room-surface);
+  color: var(--room-muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.room-tabs button.on {
+  border-color: var(--room-blue);
+  background: var(--room-blue-soft);
+  color: var(--room-blue);
+}
