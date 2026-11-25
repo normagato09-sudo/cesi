@@ -1,3 +1,4 @@
+/* global process */
 // Aviso diario de CIFA a Mi Oficina (lo llama Vercel Cron cada mañana, ver vercel.json).
 //   cifa-reuniones     reuniones de hoy (notificación) + un recordatorio 15 minutos antes de cada una
 //   cifa-inscripciones alumnos nuevos de las últimas 24 h y solicitudes para unirse a un curso
